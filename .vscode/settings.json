@@ -1,0 +1,28 @@
+{
+  // Pylance가 라이브러리를 찾을 추가 경로 지정
+  "python.analysis.extraPaths": ["./backend"],
+
+  // 기본 인터프리터 경로 고정
+  "python.defaultInterpreterPath": "backend/.venv/Scripts/python.exe",
+
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  }
+}
