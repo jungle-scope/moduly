@@ -1,5 +1,7 @@
-import EndNode from './EndNode';
+import { StartNode } from './StartNode';
+// import EndNode from './EndNode';
 
 export const nodeTypes = {
-  endNode: EndNode,
+  startNode: StartNode,
+  // endNode: EndNode,
 };
