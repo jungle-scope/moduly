@@ -1,9 +1,9 @@
 {
   // Pylance가 라이브러리를 찾을 추가 경로 지정
-  "python.analysis.extraPaths": ["./backend"],
+  "python.analysis.extraPaths": ["${workspaceFolder}/apps/server"],
 
   // 기본 인터프리터 경로 고정
-  "python.defaultInterpreterPath": "backend/.venv/Scripts/python.exe",
+  "python.defaultInterpreterPath": "${workspaceFolder}/apps/server/.venv/bin/python",
 
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",

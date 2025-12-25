@@ -1,12 +1,12 @@
 # Python
-apps/backend/.venv/
-apps/backend/venv
+apps/server/.venv/
+apps/server/venv
 __pycache__/
 *.py[cod]
 
 # Node
-apps/frontend/node_modules/
-apps/frontend/.next/
+apps/client/node_modules/
+apps/client/.next/
 
 # Environment
 .env
