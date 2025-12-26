@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Wrench, BookOpen, Pencil } from 'lucide-react';
+import { Search, Wrench, BookOpen, Pencil, BarChart3 } from 'lucide-react';
 
 const navigationItems = [
   {
@@ -14,6 +14,11 @@ const navigationItems = [
     name: '탐색',
     href: '/dashboard/explore',
     icon: Search,
+  },
+  {
+    name: '통계',
+    href: '/dashboard/statistics',
+    icon: BarChart3,
   },
   {
     name: '지식',
