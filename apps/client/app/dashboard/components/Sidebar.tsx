@@ -2,18 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, BookOpen, Sparkles } from 'lucide-react';
+import { Search, Wrench, BookOpen, Pencil, BarChart3 } from 'lucide-react';
 
 const navigationItems = [
   {
-    name: '탐색',
+    name: '스튜디오',
     href: '/dashboard',
-    icon: Home,
+    icon: Pencil,
   },
   {
-    name: '스튜디오',
-    href: '/dashboard/studio',
-    icon: Sparkles,
+    name: '탐색',
+    href: '/dashboard/explore',
+    icon: Search,
+  },
+  {
+    name: '통계',
+    href: '/dashboard/statistics',
+    icon: BarChart3,
   },
   {
     name: '지식',
