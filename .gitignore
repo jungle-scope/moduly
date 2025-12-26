@@ -18,3 +18,6 @@ apps/client/.next/
 # 2. 하지만 아래 파일들은 예외로 관리합니다. (느낌표 ! 사용)
 !.vscode/launch.json
 !.vscode/settings.json
+
+# 프롬프트 규칙 (anti-gravity)
+.cursorrules
