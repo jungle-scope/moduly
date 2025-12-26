@@ -11,4 +11,11 @@ export const workflowApi = {
     );
     return response.data;
   },
+
+  getDraftWorkflow: async (workflowId: string) => {
+    const response = await axios.get(
+      `${API_BASE_URL}/workflows/${workflowId}/draft`,
+    );
+    return response.data;
+  },
 };

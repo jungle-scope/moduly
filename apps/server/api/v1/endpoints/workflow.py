@@ -5,7 +5,7 @@ from db.session import get_db
 from schemas.workflow import WorkflowDraftRequest
 from services.workflow_service import WorkflowService
 
-workflow_router = APIRouter()
+router = APIRouter()
 
 
 @router.post("/{workflow_id}/draft")
@@ -21,3 +21,11 @@ def sync_draft_workflow(
         db: 데이터베이스 세션 (의존성 주입)
     """
     return WorkflowService.save_draft(db, workflow_id, request)
+
+
+@router.get("/{workflow_id}/draft")
+def get_draft_workflow(workflow_id: str, db: Session = Depends(get_db)):
+    """
+    PostgreSQL에서 워크플로우 초안 데이터를 조회합니다.
+    """
+    return WorkflowService.get_draft(db, workflow_id)

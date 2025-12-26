@@ -61,3 +61,16 @@ class WorkflowService:
             "message": "Draft saved to PostgreSQL",
             "workflow_id": workflow_id,
         }
+
+    @staticmethod
+    def get_draft(db: Session, workflow_id: str):
+        """
+        워크플로우 초안을 PostgreSQL에서 조회합니다.
+        """
+        workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+
+        if not workflow:
+            return None
+
+        # 저장된 graph 데이터 반환
+        return workflow.graph if workflow.graph else None
