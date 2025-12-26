@@ -1,8 +1,10 @@
 from fastapi import APIRouter
+
 from schemas.workflow import WorkflowDraftRequest
 from services.workflow_service import WorkflowService
 
 router = APIRouter()
+
 
 @router.post("/draft")
 def sync_draft_workflow(request: WorkflowDraftRequest):
