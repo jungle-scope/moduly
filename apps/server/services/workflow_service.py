@@ -1,5 +1,6 @@
 from schemas.workflow import WorkflowDraftRequest
 
+
 class WorkflowService:
     @staticmethod
     def save_draft(request: WorkflowDraftRequest):
@@ -11,7 +12,7 @@ class WorkflowService:
         print("=== [Backend] Saving Draft Workflow ===")
         print(f"Nodes count: {len(request.nodes)}")
         print(f"Edges count: {len(request.edges)}")
-        
+
         # 여기에 DB 저장 로직 구현 (예: Workflow 모델 생성 및 저장)
         # data = request.model_dump()
         # db.add(Workflow(**data))
