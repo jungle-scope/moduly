@@ -24,5 +24,8 @@
       "source.fixAll.ruff": "explicit",
       "source.organizeImports.ruff": "explicit"
     }
-  }
+  },
+
+  // CSS linting configuration
+  "css.lint.unknownAtRules": "ignore"
 }
