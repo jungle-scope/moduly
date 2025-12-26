@@ -20,4 +20,4 @@ apps/client/.next/
 !.vscode/settings.json
 
 # 프롬프트 규칙 (anti-gravity)
-.cursorrules
+.agent
