@@ -5,7 +5,7 @@ from db.session import get_db
 from schemas.workflow import WorkflowDraftRequest
 from services.workflow_service import WorkflowService
 
-router = APIRouter()
+workflow_router = APIRouter()
 
 
 @router.post("/{workflow_id}/draft")

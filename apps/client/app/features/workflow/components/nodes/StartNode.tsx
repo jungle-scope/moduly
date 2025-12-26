@@ -1,14 +1,14 @@
 import { memo } from 'react';
 import { NodeProps } from '@xyflow/react';
 
-import { StartNodeData } from '../../types/Nodes';
+import { StartNode as StartNodeType } from '../../types/Nodes';
 import { BaseNode } from './BaseNode';
 
 // [StartNode]
 // BaseNode를 사용하여 '시작 노드'만의 내용을 채워넣습니다.
 // memo를 사용하여 불필요한 리렌더링을 방지합니다.
 export const StartNode = memo(
-  ({ data, selected }: NodeProps<StartNodeData>) => {
+  ({ data, selected }: NodeProps<StartNodeType>) => {
     return (
       <BaseNode
         data={data}
