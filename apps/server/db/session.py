@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 # 환경변수에서 DATABASE_URL 가져오기
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://admin:admin@localhost:5432/moduly"
+    "DATABASE_URL", "postgresql://admin:admin123@localhost:5432/moduly"
 )
 
 # SQLAlchemy 엔진 생성

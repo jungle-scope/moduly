@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import { debounce } from 'lodash';
 import { useWorkflowStore } from '../store/useWorkflowStore';
 import { workflowApi } from '../api/workflowApi';
 
 export const useAutoSync = () => {
+  const params = useParams();
+  const workflowId = params.id as string;
   const nodes = useWorkflowStore((state) => state.nodes);
   const edges = useWorkflowStore((state) => state.edges);
   const features = useWorkflowStore((state) => state.features);
@@ -37,8 +40,7 @@ export const useAutoSync = () => {
         // console.log('Features:', currentFeatures);
 
         try {
-          await workflowApi.syncDraftWorkflow('default-app-id', {
-            // 실제 App ID 컨텍스트로 교체 필요
+          await workflowApi.syncDraftWorkflow(workflowId, {
             nodes: currentNodes,
             edges: currentEdges,
             viewport: { x: 0, y: 0, zoom: 1 }, // Todo: ReactFlow 인스턴스에서 실제 뷰포트 가져오기
