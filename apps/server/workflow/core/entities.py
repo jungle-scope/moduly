@@ -5,10 +5,21 @@ from pydantic import BaseModel, Field
 
 
 class NodeStatus(str, Enum):
+    """노드 실행 상태"""
+
     IDLE = "idle"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class EdgeStatus(str, Enum):
+    """엣지 실행 상태"""
+
+    IDLE = "idle"
+    SKIPPED = "skipped"
+    EXECUTED = "executed"
 
 
 class BaseNodeData(BaseModel):

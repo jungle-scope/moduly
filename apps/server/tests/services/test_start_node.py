@@ -1,5 +1,5 @@
-from apps.server.workflow.core.entities import NodeStatus
-from apps.server.workflow.nodes.start import StartNode, StartNodeData
+from workflow.core.entities import NodeStatus
+from workflow.nodes.start import StartNode, StartNodeData
 
 
 def test_start_node_initialization():
