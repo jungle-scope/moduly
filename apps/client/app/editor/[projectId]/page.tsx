@@ -1,9 +1,9 @@
 'use client';
 
 import { ReactFlowProvider } from 'reactflow';
-import EditorHeader from '@/components/editor/EditorHeader';
-import EditorSidebar from '@/components/editor/EditorSidebar';
-import NodeCanvas from '@/components/editor/NodeCanvas';
+import EditorHeader from '@/app/features/workflow/components/editor/EditorHeader';
+import EditorSidebar from '@/app/features/workflow/components/editor/EditorSidebar';
+import NodeCanvas from '@/app/features/workflow/components/editor/NodeCanvas';
 import { useEditorStore } from '@/store/editorStore';
 
 export default function EditorPage() {

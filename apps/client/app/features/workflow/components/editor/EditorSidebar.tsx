@@ -9,7 +9,7 @@ import {
   NetworkIcon,
   PluginIcon,
   DatabaseIcon,
-} from '../icons';
+} from '@/app/features/workflow/components/icons';
 
 interface SidebarSectionProps {
   title: string;

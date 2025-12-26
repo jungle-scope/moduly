@@ -2,7 +2,10 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeftIcon, ClockIcon } from '../icons';
+import {
+  ArrowLeftIcon,
+  ClockIcon,
+} from '@/app/features/workflow/components/icons';
 import { useEditorStore } from '@/store/editorStore';
 
 export default function EditorHeader() {
