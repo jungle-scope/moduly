@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
 from schemas.workflow import WorkflowDraftRequest
-from services.workflow_engine import WorkflowEngine
 from services.workflow_service import WorkflowService
+from workflow.core.workflow_engine import WorkflowEngine
 
 workflow_router = APIRouter()
 
