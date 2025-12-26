@@ -1,10 +1,10 @@
-'use client';
+﻿'use client';
 
-import { useEditorStore } from '@/store/editorStore';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { NetworkIcon } from '../icons';
 
 export default function WorkflowTabs() {
-  const { workflows, activeWorkflowId, setActiveWorkflow } = useEditorStore();
+  const { workflows, activeWorkflowId, setActiveWorkflow } = useWorkflowStore();
 
   return (
     <div className="flex items-center gap-1 px-4 py-2 bg-white border-b border-gray-200 overflow-x-auto">

@@ -12,12 +12,11 @@
     "@xyflow/react": "^12.10.0",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
+    "lodash": "^4.17.21",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-flow": "^1.0.3",
-    "reactflow": "^11.11.4",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.9"
   },

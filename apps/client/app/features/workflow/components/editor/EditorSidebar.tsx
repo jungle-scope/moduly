@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useState, useRef, useEffect } from 'react';
-import { useEditorStore } from '@/store/editorStore';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   PlusIcon,
   ChevronDownIcon,
@@ -74,7 +74,7 @@ export default function EditorSidebar() {
     toggleSidebarSection,
     activeConfigTab,
     setActiveConfigTab,
-  } = useEditorStore();
+  } = useWorkflowStore();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [workflowName, setWorkflowName] = useState('');

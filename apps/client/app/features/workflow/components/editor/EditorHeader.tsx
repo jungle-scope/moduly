@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,11 +6,11 @@ import {
   ArrowLeftIcon,
   ClockIcon,
 } from '@/app/features/workflow/components/icons';
-import { useEditorStore } from '@/store/editorStore';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 
 export default function EditorHeader() {
   const router = useRouter();
-  const { projectName, projectIcon } = useEditorStore();
+  const { projectName, projectIcon } = useWorkflowStore();
 
   const handleBack = useCallback(() => {
     router.push('/');
@@ -37,7 +37,7 @@ export default function EditorHeader() {
         </button>
 
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-500 rounded-lg flex items-center justify-center text-lg">
+          <div className="flex items-center justify-center w-8 h-8 text-lg rounded-lg bg-gradient-to-br from-orange-400 to-pink-500">
             {projectIcon}
           </div>
           <h1 className="text-lg font-semibold text-gray-800">{projectName}</h1>

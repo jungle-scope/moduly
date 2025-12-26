@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import { debounce } from 'lodash';
 import { useWorkflowStore } from '../store/useWorkflowStore';
 import { workflowApi } from '../api/workflowApi';
 
 export const useAutoSync = () => {
+  const params = useParams();
+  const workflowId = params.id as string;
   const nodes = useWorkflowStore((state) => state.nodes);
   const edges = useWorkflowStore((state) => state.edges);
   const features = useWorkflowStore((state) => state.features);
@@ -13,11 +16,38 @@ export const useAutoSync = () => {
   const conversationVariables = useWorkflowStore(
     (state) => state.conversationVariables,
   );
+  const setWorkflowData = useWorkflowStore((state) => state.setWorkflowData);
 
-  // 로컬 변경인지 초기 로드인지 추적할 방법이 필요함 (불필요한 동기화 방지)
-  // 현재는 모든 변경에 대해 단순 Debounce 적용
+  // 로딩 상태 관리
 
-  // useRef를 사용하여 debounced 함수를 '저장'만 하고, 렌더링 중에는 .current를 읽지 않도록 수정
+  const isLoadedRef = useRef(false);
+
+  // 1. 초기 데이터 로딩
+  useEffect(() => {
+    if (!workflowId) return;
+
+    const loadWorkflow = async () => {
+      try {
+        console.log('Loading workflow:', workflowId);
+        const data = await workflowApi.getDraftWorkflow(workflowId);
+
+        if (data) {
+          setWorkflowData(data);
+        }
+
+        // 데이터 로딩 완료 표시
+        isLoadedRef.current = true;
+      } catch (error) {
+        console.error('Failed to load workflow:', error);
+      }
+    };
+
+    // 초기화: 다른 워크플로우로 이동 시 loaded 상태 초기화
+    isLoadedRef.current = false;
+    loadWorkflow();
+  }, [workflowId, setWorkflowData]);
+
+  // 2. 자동 저장 (Debounce)
   const syncRef = useRef(
     debounce(
       async (
@@ -27,26 +57,22 @@ export const useAutoSync = () => {
         currentEnvVars: typeof environmentVariables,
         currentConvVars: typeof conversationVariables,
       ) => {
-        // F12 개발자 도구 콘솔에서 확인 가능하도록 로그 출력
-        // eslint-disable-next-line no-console
-        console.log('--- [Frontend Memory State] ---');
-        // eslint-disable-next-line no-console
-        console.log('Nodes:', currentNodes);
-        // eslint-disable-next-line no-console
-        console.log('Edges:', currentEdges);
-        // console.log('Features:', currentFeatures);
+        // 로딩이 완료되지 않았으면 저장하지 않음 (빈 상태로 덮어쓰기 방지)
+        if (!isLoadedRef.current) {
+          console.log('Skipping sync: Workflow not loaded yet');
+          return;
+        }
 
+        // console.log('Syncing workflow...', workflowId);
         try {
-          await workflowApi.syncDraftWorkflow('default-app-id', {
-            // 실제 App ID 컨텍스트로 교체 필요
+          await workflowApi.syncDraftWorkflow(workflowId, {
             nodes: currentNodes,
             edges: currentEdges,
-            viewport: { x: 0, y: 0, zoom: 1 }, // Todo: ReactFlow 인스턴스에서 실제 뷰포트 가져오기
+            viewport: { x: 0, y: 0, zoom: 1 },
             features: currentFeatures,
             environmentVariables: currentEnvVars,
             conversationVariables: currentConvVars,
           });
-          // console.log('Workflow synced successfully');
         } catch (error) {
           console.error('Failed to sync workflow:', error);
         }
@@ -56,9 +82,7 @@ export const useAutoSync = () => {
   );
 
   useEffect(() => {
-    // 렌더링 중이 아니라 useEffect 내부(Side Effect)에서 호출하므로 안전함
     const debouncedSync = syncRef.current;
-
     debouncedSync(
       nodes,
       edges,

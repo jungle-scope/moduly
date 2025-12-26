@@ -1,18 +1,19 @@
 'use client';
 
 import { useCallback, useMemo, useEffect } from 'react';
-import ReactFlow, {
+import {
+  ReactFlow,
   Background,
   Controls,
   BackgroundVariant,
   useReactFlow,
-  Viewport,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+  type Viewport,
+  type NodeTypes,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 
-import { useEditorStore } from '@/store/editorStore';
-import CustomNode from './nodes/CustomNode';
-import NoteNode from './nodes/NoteNode';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
 
@@ -27,17 +28,16 @@ export default function NodeCanvas() {
     workflows,
     activeWorkflowId,
     updateWorkflowViewport,
-  } = useEditorStore();
+  } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport } = useReactFlow();
 
   const nodeTypes = useMemo(
     () => ({
-      custom: CustomNode,
-      note: NoteNode,
+      note: NotePost,
     }),
     [],
-  );
+  ) as unknown as NodeTypes;
 
   // Restore viewport when switching workflows
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function NodeCanvas() {
             color="#d1d5db"
           />
           <Controls
-            className="!shadow-lg !border !border-gray-200 !rounded-lg"
+            className="shadow-lg! border! border-gray-200! rounded-lg!"
             showInteractive={false}
           />
         </ReactFlow>

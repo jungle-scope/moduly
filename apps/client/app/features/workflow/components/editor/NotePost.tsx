@@ -1,13 +1,13 @@
 import { memo, useState, useCallback, useRef, useEffect } from 'react';
-import { NodeProps, NodeResizer } from 'reactflow';
-import { useEditorStore } from '@/store/editorStore';
+import { type NodeProps, type Node, NodeResizer } from '@xyflow/react';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 
-interface NoteData {
+interface NotePostData extends Record<string, unknown> {
   content?: string;
 }
 
-function NoteNode({ id, data, selected }: NodeProps<NoteData>) {
-  const { nodes, setNodes } = useEditorStore();
+function NotePost({ id, data, selected }: NodeProps<Node<NotePostData>>) {
+  const { nodes, setNodes } = useWorkflowStore();
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(data.content || '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -82,4 +82,4 @@ function NoteNode({ id, data, selected }: NodeProps<NoteData>) {
   );
 }
 
-export default memo(NoteNode);
+export default memo(NotePost);

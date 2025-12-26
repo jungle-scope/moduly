@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { useReactFlow } from 'reactflow';
+import { useReactFlow } from '@xyflow/react';
 import {
   PlusIcon,
   PlayIcon,
@@ -11,7 +11,7 @@ import {
   FullscreenIcon,
   ChevronDownIcon,
 } from '../icons';
-import { useEditorStore } from '@/store/editorStore';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 
 // Node types for the Add Node modal
 const nodeCategories = [
@@ -97,9 +97,15 @@ export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
     nodes,
     setNodes,
     toggleFullscreen,
-  } = useEditorStore();
-  const { project, zoomIn, zoomOut, setViewport, getViewport, fitView } =
-    useReactFlow();
+  } = useWorkflowStore();
+  const {
+    screenToFlowPosition,
+    zoomIn,
+    zoomOut,
+    setViewport,
+    getViewport,
+    fitView,
+  } = useReactFlow();
 
   // Single state to track which modal is open (only one at a time)
   const [openModal, setOpenModal] = useState<
@@ -194,19 +200,8 @@ export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
         return;
       }
 
-      // Get ReactFlow wrapper element
-      const reactFlowWrapper = document.querySelector('.react-flow');
-      if (!reactFlowWrapper) return;
-
-      const rect = reactFlowWrapper.getBoundingClientRect();
-
-      // Calculate position relative to ReactFlow wrapper
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      // Convert screen coordinates to canvas coordinates using ReactFlow's project function
-      // This accounts for zoom and pan transformations
-      const position = project({ x, y });
+      // Convert screen coordinates to canvas coordinates
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
 
       // Create note at the projected position with custom note type
       const newNote = {
@@ -239,7 +234,7 @@ export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
       window.removeEventListener('click', handleClick);
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [isAddingNote, nodes, setNodes, project]);
+  }, [isAddingNote, nodes, setNodes, screenToFlowPosition]);
 
   const handleFullscreen = useCallback(() => {
     toggleFullscreen();
