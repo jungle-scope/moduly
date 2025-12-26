@@ -1,15 +1,20 @@
+import uuid
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, DateTime, Text
+
+from sqlalchemy import DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
+
 from db.base import Base
-import uuid
+
 
 class Workflow(Base):
     __tablename__ = "workflows"
 
     # === 기본 식별 필드 ===
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )
     tenant_id: Mapped[str] = mapped_column(String, nullable=False)
     app_id: Mapped[str] = mapped_column(String, nullable=False)
 
@@ -32,4 +37,6 @@ class Workflow(Base):
     created_by: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_by: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
