@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from schemas.workflow import WorkflowDraftRequest
+from services.workflow_engine import WorkflowEngine
 from services.workflow_service import WorkflowService
 
 workflow_router = APIRouter()
@@ -20,5 +21,6 @@ def execute_workflow(request: WorkflowDraftRequest):
     워크플로우를 실제로 실행합니다.
     노드와 엣지를 받아서 전체 워크플로우를 순차적으로 처리합니다.
     """
-    # TODO: WorkflowEngine 구현 후 여기서 호출
-    return {"status": "success", "message": "Workflow execution endpoint ready"}
+
+    engine = WorkflowEngine(request.nodes, request.edges)
+    return engine.execute()

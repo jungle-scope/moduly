@@ -9,19 +9,16 @@ export const workflowApi = {
     // 계획에 맞춰 엔드포인트 수정: POST /workflows/draft 또는 POST /apps/{appId}/workflows/draft
 
     // 현재는 전역 초안 또는 특정 앱 초안으로 가정.
-    // Dify는 보통 /apps/{appId}/workflows/draft 형식을 사용함
-    const response = await axios.post(`${API_BASE_URL}/workflows/draft`, data);
+    // Dify는 보통 /apps/{appId}/workflow/draft 형식을 사용함
+    const response = await axios.post(`${API_BASE_URL}/workflow/draft`, data);
     return response.data;
   },
 
   executeWorkflow: async (appId: string, data: WorkflowDraftRequest) => {
     // 실제로 워크플로우를 실행하는 함수
-    // 일단은 엔드포인트를 http://localhost:8000/api/v1/workflows/execute로 가정
+    // 일단은 엔드포인트를 http://localhost:8000/api/v1/workflow/execute로 가정
 
-    const response = await axios.post(
-      `${API_BASE_URL}/workflows/execute`,
-      data,
-    );
+    const response = await axios.post(`${API_BASE_URL}/workflow/execute`, data);
     return response.data;
   },
 };
