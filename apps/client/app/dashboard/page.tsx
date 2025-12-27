@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import { Search, Plus } from 'lucide-react';
+import CreateAppModal from '../features/app/components/create-app-modal';
 
 // 임시 데이터 (나중에 API로 대체)
 const mockApps = [
@@ -27,21 +28,15 @@ const mockApps = [
 ];
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const filteredApps = mockApps.filter((app) =>
     app.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleCreateApp = () => {
-    // TODO: 백엔드 API 연동 필요
-    // 1. POST /api/workflows - 새 워크플로우 생성
-    // 2. 생성된 워크플로우 ID 받아오기
-    // 3. router.push(`/workflows/${id}`)로 이동
-
-    // 임시: 대시보드 메인 페이지로 이동
-    router.push('/dashboard');
+    setIsCreateModalOpen(true);
   };
 
   return (
@@ -118,6 +113,17 @@ export default function DashboardPage() {
             &quot;{searchQuery}&quot;에 대한 검색 결과가 없습니다.
           </p>
         </div>
+      )}
+
+      {/* Create App Modal */}
+      {isCreateModalOpen && (
+        <CreateAppModal
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={() => {
+            // TODO: 목록 새로고침 로직 추가
+            setIsCreateModalOpen(false);
+          }}
+        />
       )}
     </div>
   );
