@@ -26,6 +26,11 @@ export default function LoginPage() {
         password: formData.password,
       });
 
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('moduly_session_token', data.session.token);
+        localStorage.setItem('moduly_user', JSON.stringify(data.user));
+      }
+
       // 성공: 대시보드로 리다이렉트
       console.log('로그인 성공:', data);
       router.push('/dashboard');
