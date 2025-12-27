@@ -70,7 +70,6 @@ export default function EditorHeader() {
     // 3. 성공 시 콘솔 출력
     console.log('[테스트 실행] 전체 데이터를 출력합니다.. ');
     console.log(JSON.stringify(nodes, null, 2));
-    alert('테스트 데이터가 브라우저 콘솔(F12)에 출력되었습니다!');
   }, [nodes]);
 
   return (

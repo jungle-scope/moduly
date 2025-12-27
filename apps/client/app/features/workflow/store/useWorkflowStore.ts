@@ -3,7 +3,6 @@ import {
   Connection,
   Edge,
   EdgeChange,
-  Node,
   NodeChange,
   addEdge,
   applyNodeChanges,
@@ -16,6 +15,7 @@ import {
   Features,
   EnvironmentVariable,
   ConversationVariable,
+  Node,
 } from '../types/Workflow';
 
 interface SidebarState {
@@ -160,7 +160,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   onNodesChange: (changes: NodeChange[]) => {
     const newNodes = applyNodeChanges(changes, get().nodes);
-    get().setNodes(newNodes);
+    get().setNodes(newNodes as Node[]);
   },
 
   onEdgesChange: (changes: EdgeChange[]) => {
