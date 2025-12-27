@@ -2,23 +2,11 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import { appApi } from '../../api/appApi';
 import { AppIcon } from './app-icon';
 import { AppIconPicker } from './app-icon-picker';
 import { AppIconSelection, CreateAppProps } from './types';
 import { twMerge } from 'tailwind-merge';
-
-// 임시 API 함수 (나중에 실제 서비스 파일로 이동해야 함)
-// 실제 백엔드 연동 전 UI 테스트를 위한 모의 함수입니다.
-const createApp = async (data: {
-  name: string;
-  description: string;
-  icon: string;
-  icon_background: string;
-}) => {
-  console.log('API 요청 데이터:', data);
-  // 네트워크 지연 효과 시뮬레이션 (0.8초)
-  return new Promise((resolve) => setTimeout(resolve, 800));
-};
 
 /**
  * 앱 생성 모달 컴포넌트
@@ -74,7 +62,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
 
     try {
       // API 호출
-      await createApp({
+      await appApi.createApp({
         name: name.trim(),
         description: description.trim(),
         icon: appIcon.emoji,
