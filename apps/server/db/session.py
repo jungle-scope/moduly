@@ -9,7 +9,9 @@ DATABASE_URL = os.getenv(
 )
 
 # SQLAlchemy 엔진 생성
-engine = create_engine(DATABASE_URL, echo=True)  # echo=True: SQL 쿼리 로그 출력
+engine = create_engine(
+    DATABASE_URL, echo=False
+)  # echo=True: SQL 쿼리 로그 출력, 디버깅 필요시 활성화
 
 # 세션 팩토리 생성
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
