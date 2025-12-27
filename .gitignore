@@ -5,7 +5,6 @@ __pycache__/
 *.py[cod]
 
 # Node
-apps/client/node_modules/
 apps/client/.next/
 
 # Environment
