@@ -1,27 +1,30 @@
 'use client';
 
-import { ReactFlow, Background, Controls } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-
-import { nodeTypes } from '../../features/workflow/components/nodes';
-import { StartNodeData } from '../../features/workflow/types/Nodes';
-
-const initialNodes = [
-  {
-    id: 'start-1',
-    type: 'startNode',
-    position: { x: 250, y: 250 },
-    data: { title: '시작', triggerType: 'Manual' } as StartNodeData,
-  },
-];
+import { ReactFlowProvider } from '@xyflow/react';
+import EditorHeader from '@/app/features/workflow/components/editor/EditorHeader';
+import EditorSidebar from '@/app/features/workflow/components/editor/EditorSidebar';
+import NodeCanvas from '@/app/features/workflow/components/editor/NodeCanvas';
+import { useAutoSync } from '@/app/features/workflow/hooks/useAutoSync';
 
 export default function WorkflowPage() {
+  // 자동 저장 활성화
+  useAutoSync();
+
   return (
-    <div className="h-screen w-full bg-background">
-      <ReactFlow defaultNodes={initialNodes} nodeTypes={nodeTypes} fitView>
-        <Background />
-        <Controls />
-      </ReactFlow>
-    </div>
+    <ReactFlowProvider>
+      <div className="flex flex-col h-screen bg-white">
+        {/* Header */}
+        <EditorHeader />
+
+        {/* Main content area with sidebar and canvas */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar */}
+          <EditorSidebar />
+
+          {/* Canvas Area */}
+          <NodeCanvas />
+        </div>
+      </div>
+    </ReactFlowProvider>
   );
 }

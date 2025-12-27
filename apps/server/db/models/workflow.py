@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import DateTime, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base
@@ -25,13 +26,12 @@ class Workflow(Base):
     marked_comment: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # === 핵심 기능 필드 (5가지) ===
-    # JSON 데이터는 Text 타입으로 저장 (PostgreSQL의 경우 JSONB 사용 권장하지만 여기선 호환성 위해 Text 사용 가능, Dify는 JSON/JSONB 사용)
-    # 여기서는 요청하신 대로 Mapped[str] (SQLAlchemy에서는 Text 또는 String 매핑) 형태로 정의합니다.
-    graph: Mapped[str] = mapped_column(Text, nullable=True)
-    _features: Mapped[str] = mapped_column(Text, nullable=True)
-    _environment_variables: Mapped[str] = mapped_column(Text, nullable=True)
-    _conversation_variables: Mapped[str] = mapped_column(Text, nullable=True)
-    _rag_pipeline_variables: Mapped[str] = mapped_column(Text, nullable=True)
+    # PostgreSQL JSONB 타입 사용 - 성능 향상 및 JSON 쿼리 가능
+    graph: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    _features: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    _environment_variables: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    _conversation_variables: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    _rag_pipeline_variables: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
     # === 메타데이터 필드 ===
     created_by: Mapped[str] = mapped_column(String, nullable=False)

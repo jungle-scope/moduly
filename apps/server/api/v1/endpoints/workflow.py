@@ -1,26 +1,31 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
+from db.session import get_db
 from schemas.workflow import WorkflowDraftRequest
 from services.workflow_service import WorkflowService
-from workflow.core.workflow_engine import WorkflowEngine
 
-workflow_router = APIRouter()
+router = APIRouter()
 
 
-@workflow_router.post("/draft")
-def sync_draft_workflow(request: WorkflowDraftRequest):
+@router.post("/{workflow_id}/draft")
+def sync_draft_workflow(
+    workflow_id: str, request: WorkflowDraftRequest, db: Session = Depends(get_db)
+):
     """
-    프론트엔드로부터 워크플로우 초안 데이터를 받아 동기화(저장)합니다.
+    프론트엔드로부터 워크플로우 초안 데이터를 받아 PostgreSQL에 저장합니다.
+
+    Args:
+        workflow_id: 워크플로우 ID (URL 경로에서 가져옴)
+        request: 워크플로우 데이터 (노드, 엣지, 뷰포트)
+        db: 데이터베이스 세션 (의존성 주입)
     """
-    return WorkflowService.save_draft(request)
+    return WorkflowService.save_draft(db, workflow_id, request)
 
 
-@workflow_router.post("/execute")
-def execute_workflow(request: WorkflowDraftRequest):
+@router.get("/{workflow_id}/draft")
+def get_draft_workflow(workflow_id: str, db: Session = Depends(get_db)):
     """
-    워크플로우를 실제로 실행합니다.
-    노드와 엣지를 받아서 전체 워크플로우를 순차적으로 처리합니다.
+    PostgreSQL에서 워크플로우 초안 데이터를 조회합니다.
     """
-
-    engine = WorkflowEngine(request.nodes, request.edges)
-    return engine.execute()
+    return WorkflowService.get_draft(db, workflow_id)
