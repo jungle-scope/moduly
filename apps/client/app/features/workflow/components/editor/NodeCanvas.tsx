@@ -13,6 +13,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
@@ -34,6 +35,7 @@ export default function NodeCanvas() {
 
   const nodeTypes = useMemo(
     () => ({
+      ...coreNodeTypes,
       note: NotePost,
     }),
     [],

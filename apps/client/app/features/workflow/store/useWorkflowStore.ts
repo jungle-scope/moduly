@@ -96,7 +96,14 @@ type WorkflowState = {
 };
 
 // Initial data
-const initialNodes: Node[] = [];
+const initialNodes: Node[] = [
+  {
+    id: 'start-1',
+    type: 'startNode',
+    position: { x: 250, y: 250 },
+    data: { title: '시작', triggerType: 'manual', variables: [] },
+  },
+];
 const initialEdges: Edge[] = [];
 
 const initialWorkflows: Workflow[] = [

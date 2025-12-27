@@ -3,6 +3,7 @@ import { useParams } from 'next/navigation';
 import { debounce } from 'lodash';
 import { useWorkflowStore } from '../store/useWorkflowStore';
 import { workflowApi } from '../api/workflowApi';
+import { DEFAULT_NODES } from '../constants';
 
 export const useAutoSync = () => {
   const params = useParams();
@@ -32,6 +33,16 @@ export const useAutoSync = () => {
         const data = await workflowApi.getDraftWorkflow(workflowId);
 
         if (data) {
+          console.log('[AutoSync] Fetched data:', data);
+          // 데이터는 있지만 노드가 비어있다면(초기 상태), 기본 StartNode를 넣어줍니다.
+          if (!data.nodes || data.nodes.length === 0) {
+            console.log(
+              '[AutoSync] Empty nodes detected. Using DEFAULT_NODES fallback.',
+            );
+            data.nodes = DEFAULT_NODES as any;
+          } else {
+            console.log('[AutoSync] Existing nodes found:', data.nodes);
+          }
           setWorkflowData(data);
         }
 
