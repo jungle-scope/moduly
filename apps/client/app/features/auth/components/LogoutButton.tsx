@@ -9,6 +9,10 @@ export default function LogoutButton() {
   const handleLogout = async () => {
     try {
       await authApi.logout();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('moduly_session_token');
+        localStorage.removeItem('moduly_user');
+      }
       router.push('/auth/login');
     } catch (error) {
       console.error('로그아웃 실패:', error);
