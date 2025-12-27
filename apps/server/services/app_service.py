@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from db.models.app import App
+from db.models.workflow import Workflow
 from schemas.app import AppCreateRequest
 
 
@@ -32,6 +33,20 @@ class AppService:
             icon_background=request.icon_background,
             created_by=user_id,
         )
+        db.add(app)
+        db.flush()  # App ID 생성
+
+        # 2. 기본 워크플로우 생성
+        workflow = Workflow(
+            tenant_id=tenant_id,
+            app_id=app.id,
+            created_by=user_id,
+        )
+        db.add(workflow)
+        db.flush()  # Workflow ID 생성
+
+        # 3. 앱에 워크플로우 ID 연결
+        app.workflow_id = workflow.id
 
         db.add(app)
         db.commit()

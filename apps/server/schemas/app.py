@@ -21,6 +21,7 @@ class AppResponse(BaseModel):
     description: Optional[str]
     icon: str
     icon_background: str
+    workflow_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

@@ -15,6 +15,7 @@ export interface AppResponse {
   description: string | null;
   icon: string;
   icon_background: string;
+  workflow_id?: string;
   created_at: string;
   updated_at: string;
 }

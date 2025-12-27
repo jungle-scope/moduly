@@ -1,5 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { appApi } from '../../api/appApi';
@@ -15,6 +17,7 @@ import { twMerge } from 'tailwind-merge';
  * 앱 이름, 설명, 아이콘을 입력받아 생성을 요청합니다.
  */
 export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
+  const router = useRouter();
   // --- 상태 관리 (State) ---
 
   // 입력 필드 상태
@@ -37,24 +40,16 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
   const isCreatingRef = useRef(false);
   const modalRef = useRef<HTMLDivElement>(null); // 현재는 e.target === e.currentTarget 방식으로 구현되어 있어 사용되지 않습니다. (삭제 가능)
 
-  // --- 유효성 검사 (Validation) ---
-  const validate = () => {
-    // 앱 이름은 필수 입력 사항입니다.
-    if (!name.trim()) {
-      // 실제 앱에서는 Toast(토스트) 메시지 컴포넌트를 사용하는 것이 좋습니다.
-      toast.error('앱 이름을 입력해주세요.');
-      return false;
-    }
-    return true;
-  };
-
   // --- 생성 핸들러 (Submit Handler) ---
   const handleCreate = useCallback(async () => {
     // 이미 생성 요청 중이면 중복 실행 방지
     if (isCreatingRef.current) return;
 
-    // 유효성 검사 실패 시 중단
-    if (!validate()) return;
+    // 유효성 검사
+    if (!name.trim()) {
+      toast.error('앱 이름을 입력해주세요.');
+      return;
+    }
 
     // 생성 시작 상태 설정
     isCreatingRef.current = true;
@@ -62,7 +57,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
 
     try {
       // API 호출
-      await appApi.createApp({
+      const response = await appApi.createApp({
         name: name.trim(),
         description: description.trim(),
         icon: appIcon.emoji,
@@ -70,10 +65,15 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
       });
 
       // 성공 처리
-      console.log('앱 생성 성공');
       toast.success('앱이 성공적으로 생성되었습니다.');
+
       onSuccess(); // 부모 컴포넌트에 성공 알림 (목록 새로고침 등)
       onClose(); // 모달 닫기
+
+      // 워크플로우 에디터로 리다이렉트
+      if (response.workflow_id) {
+        router.push(`/workflows/${response.workflow_id}`);
+      }
     } catch (error) {
       console.error('앱 생성 실패:', error);
       toast.error('앱 생성에 실패했습니다.');
@@ -82,7 +82,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
       isCreatingRef.current = false;
       setLoading(false);
     }
-  }, [name, description, appIcon, onSuccess, onClose]);
+  }, [name, description, appIcon, onSuccess, onClose, router]);
 
   // --- 키보드 단축키 (Keyboard Shortcuts) ---
   useEffect(() => {
