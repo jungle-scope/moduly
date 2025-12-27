@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:all": "concurrently \"npm run dev\" \"cd ../server && source .venv/bin/activate && uvicorn main:app --reload --port 8000\" --names \"CLIENT,SERVER\" --prefix-colors \"bgBlue.bold,bgGreen.bold\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -26,6 +27,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.2",
     "eslint-config-next": "16.1.1",
     "eslint-config-prettier": "^10.1.8",
