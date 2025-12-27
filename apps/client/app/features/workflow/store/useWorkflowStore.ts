@@ -3,7 +3,6 @@ import {
   Connection,
   Edge,
   EdgeChange,
-  Node,
   NodeChange,
   addEdge,
   applyNodeChanges,
@@ -16,6 +15,7 @@ import {
   Features,
   EnvironmentVariable,
   ConversationVariable,
+  Node,
 } from '../types/Workflow';
 
 interface SidebarState {
@@ -96,7 +96,14 @@ type WorkflowState = {
 };
 
 // Initial data
-const initialNodes: Node[] = [];
+const initialNodes: Node[] = [
+  {
+    id: 'start-1',
+    type: 'startNode',
+    position: { x: 250, y: 250 },
+    data: { title: '시작', triggerType: 'manual', variables: [] },
+  },
+];
 const initialEdges: Edge[] = [];
 
 const initialWorkflows: Workflow[] = [
@@ -153,7 +160,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   onNodesChange: (changes: NodeChange[]) => {
     const newNodes = applyNodeChanges(changes, get().nodes);
-    get().setNodes(newNodes);
+    get().setNodes(newNodes as Node[]);
   },
 
   onEdgesChange: (changes: EdgeChange[]) => {
