@@ -1,46 +1,40 @@
 import { memo } from 'react';
-import { Node, NodeProps } from '@xyflow/react';
+import { Handle, Position, Node, NodeProps } from '@xyflow/react';
 import { StartNodeData } from '../../../../types/Nodes';
-import { BaseNode } from '../../BaseNode';
-import { useVariableManager } from '../hooks/useVariableManager';
-import { VariableList } from './VariableList';
-import { TriggerSection } from './TriggerSection';
 
 export const StartNode = memo(
-  ({ id, data, selected }: NodeProps<Node<StartNodeData>>) => {
-    const {
-      variables,
-      addVariable,
-      updateVariable,
-      deleteVariable,
-      moveVariable,
-    } = useVariableManager(id, data);
-
+  ({ data, selected }: NodeProps<Node<StartNodeData>>) => {
     return (
-      <BaseNode
-        data={data}
-        selected={selected}
-        showTargetHandle={false}
-        showSourceHandle={true}
-        className="border-green-500/50 min-w-[280px]"
+      <div
+        className={`
+          relative bg-white rounded-lg border-2 px-4 py-3 shadow-md transition-all cursor-pointer
+          min-w-[200px]
+          ${selected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-300'}
+        `}
       >
-        <div className="flex flex-col gap-4">
-          {/* 1. 트리거 정보 표시 */}
-          <TriggerSection type={data.triggerType} />
+        {/* Source Handle (Right side) */}
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!bg-blue-500 !w-3 !h-3"
+        />
 
-          {/* 구분선 */}
-          <div className="h-px bg-border" />
+        {/* Node Content */}
+        <div className="flex items-center gap-3">
+          {/* Icon */}
+          <div className="flex items-center justify-center w-8 h-8 bg-blue-500 rounded text-white font-bold text-sm">
+            ▶️
+          </div>
 
-          {/* 2. 변수 목록 */}
-          <VariableList
-            variables={variables}
-            onAdd={addVariable}
-            onUpdate={updateVariable}
-            onDelete={deleteVariable}
-            onMove={moveVariable}
-          />
+          {/* Text Content */}
+          <div className="flex flex-col">
+            <div className="text-sm font-semibold text-gray-900">
+              {data.title || 'Start'}
+            </div>
+            <div className="text-xs text-gray-500">Input</div>
+          </div>
         </div>
-      </BaseNode>
+      </div>
     );
   },
 );
