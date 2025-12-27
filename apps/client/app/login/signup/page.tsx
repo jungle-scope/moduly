@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { authApi } from '@/app/features/auth/api/authApi';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -28,30 +29,21 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      // API 호출
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }),
+      // authApi.signup 사용
+      const data = await authApi.signup({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
+      // 토큰을 localStorage에 저장
+      localStorage.setItem('auth_token', data.session.token);
 
-      if (!response.ok) {
-        throw new Error(data.error || '회원가입에 실패했습니다.');
-      }
-
-      // 성공: 로그인 페이지로 리다이렉트
-      console.log(data);
-      router.push('/login');
+      // 성공: 대시보드로 리다이렉트 (로그인된 상태)
+      console.log('회원가입 성공:', data);
+      router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
+      setError(err instanceof Error ? err.message : '회원가입에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }

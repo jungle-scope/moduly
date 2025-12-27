@@ -76,9 +76,9 @@ export interface SignupRequest {
 // 회원가입 응답
 export interface SignupResponse {
   user: User;
-  verification: {
-    required: boolean;
-    message: string;
+  session: {
+    token: string;
+    expiresAt: string;
   };
 }
 
