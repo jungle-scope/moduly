@@ -10,8 +10,8 @@ class AppService:
     def create_app(
         db: Session,
         request: AppCreateRequest,
-        user_id: str = "default-user",
-        tenant_id: str = "default-tenant",
+        user_id: str,
+        tenant_id: str = None,
     ):
         """
         새로운 앱을 생성합니다.
@@ -19,12 +19,16 @@ class AppService:
         Args:
             db: 데이터베이스 세션
             request: 앱 생성 요청 데이터
-            user_id: 생성자 ID
-            tenant_id: 테넌트 ID
+            user_id: 생성자 ID (필수)
+            tenant_id: 테넌트 ID (선택, 기본값은 user_id)
 
         Returns:
             생성된 App 객체
         """
+        # tenant_id가 없으면 user_id를 사용 (유저별 분리)
+        if not tenant_id:
+            tenant_id = user_id
+
         app = App(
             tenant_id=tenant_id,
             name=request.name,
@@ -62,6 +66,6 @@ class AppService:
         return db.query(App).filter(App.id == app_id).first()
 
     @staticmethod
-    def list_apps(db: Session, tenant_id: str = "default-tenant"):
-        """테넌트의 모든 앱을 조회합니다."""
-        return db.query(App).filter(App.tenant_id == tenant_id).all()
+    def list_apps(db: Session, user_id: str):
+        """해당 유저가 만든 앱만 조회합니다."""
+        return db.query(App).filter(App.created_by == user_id).all()
