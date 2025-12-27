@@ -6,10 +6,9 @@ import EditorSidebar from '@/app/features/workflow/components/editor/EditorSideb
 import NodeCanvas from '@/app/features/workflow/components/editor/NodeCanvas';
 import { useAutoSync } from '@/app/features/workflow/hooks/useAutoSync';
 
-// WorkflowEditor: ReactFlowProvider 내부에서 자동 저장 관리
+// ReactFlowProvider 컨텍스트 내에서 자동 저장 로직을 관리하는 래퍼 컴포넌트
 function WorkflowEditor() {
-  // Provider 내부에서 안전하게 useAutoSync 호출
-  useAutoSync();
+  const { triggerSave } = useAutoSync();
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -22,7 +21,7 @@ function WorkflowEditor() {
         <EditorSidebar />
 
         {/* Canvas Area */}
-        <NodeCanvas />
+        <NodeCanvas onViewportChange={triggerSave} />
       </div>
     </div>
   );

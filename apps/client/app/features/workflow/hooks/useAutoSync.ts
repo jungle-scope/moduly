@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { debounce } from 'lodash';
 import { useReactFlow } from '@xyflow/react';
@@ -76,16 +76,14 @@ export const useAutoSync = () => {
           currentEnvVars: typeof environmentVariables,
           currentConvVars: typeof conversationVariables,
         ) => {
-          // console.log('Syncing workflow...', workflowId);
           try {
-            // 현재 viewport 상태 가져오기
             const currentViewport = getViewport();
 
             // 서버에 저장 요청 (이 부분은 1초 기다린 뒤에 딱 한 번만 실행됨)
             await workflowApi.syncDraftWorkflow(workflowId, {
               nodes: currentNodes,
               edges: currentEdges,
-              viewport: currentViewport, // 실제 viewport 값 사용
+              viewport: currentViewport,
               features: currentFeatures,
               environmentVariables: currentEnvVars,
               conversationVariables: currentConvVars,
@@ -97,12 +95,34 @@ export const useAutoSync = () => {
         1000, // 1초 동안 추가 입력이 없으면 저장
         { maxWait: 300000 }, // 5분이 지나면 강제로 한 번 저장
       ),
-    [workflowId, getViewport], // getViewport 의존성 추가
+    [workflowId, getViewport],
   );
 
-  // 변경 감지 및 저장 트리거
+  // 3. 수동 저장 트리거 (현재는 뷰포트 변경 이벤트 발생 시)
+  const triggerSave = useCallback(() => {
+    if (!isLoadedRef.current) {
+      return;
+    }
+
+    debouncedSync(
+      nodes,
+      edges,
+      features,
+      environmentVariables,
+      conversationVariables,
+    );
+  }, [
+    debouncedSync,
+    nodes,
+    edges,
+    features,
+    environmentVariables,
+    conversationVariables,
+  ]);
+
+  // 4. 노드/엣지 변경 자동 감지 및 저장 트리거
   useEffect(() => {
-    // [중요] 빈 내용으로 덮어쓰기 방지하기 위해 로딩이 완료되지 않았으면 아래 코드 수행하지 않도록 함
+    // 빈 내용으로 덮어쓰기 방지하기 위해 로딩이 완료되지 않았으면 바로 리턴
     if (!isLoadedRef.current) {
       return;
     }
@@ -126,4 +146,7 @@ export const useAutoSync = () => {
     environmentVariables,
     conversationVariables,
   ]);
+
+  // triggerSave 함수를 반환, 외부에서 호출 가능하도록
+  return { triggerSave };
 };

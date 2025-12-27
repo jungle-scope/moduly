@@ -22,7 +22,11 @@ import { StartNode } from '../nodes/start/components/StartNode';
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 
-export default function NodeCanvas() {
+interface NodeCanvasProps {
+  onViewportChange?: () => void;
+}
+
+export default function NodeCanvas({ onViewportChange }: NodeCanvasProps) {
   const {
     nodes,
     edges,
@@ -62,8 +66,10 @@ export default function NodeCanvas() {
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {
       updateWorkflowViewport(activeWorkflowId, viewport);
+      // 뷰포트 변경 시 자동 저장 트리거
+      onViewportChange?.();
     },
-    [activeWorkflowId, updateWorkflowViewport],
+    [activeWorkflowId, updateWorkflowViewport, onViewportChange],
   );
 
   // Handle node click to show details panel
