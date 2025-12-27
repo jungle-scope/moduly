@@ -17,9 +17,11 @@ import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
-import { StartNode } from '../nodes/start/components/StartNode';
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
+import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
+import { nodeTypes as registeredNodeTypes } from '../nodes';
+import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 
 export default function NodeCanvas() {
   const {
@@ -43,7 +45,7 @@ export default function NodeCanvas() {
   const nodeTypes = useMemo(
     () => ({
       note: NotePost,
-      startNode: StartNode,
+      ...registeredNodeTypes, // NOTE: [LLM] llmNode 렌더러 포함
     }),
     [],
   ) as unknown as NodeTypes;
@@ -84,6 +86,16 @@ export default function NodeCanvas() {
     if (!selectedNodeId) return null;
     return nodes.find((n) => n.id === selectedNodeId);
   }, [selectedNodeId, nodes]);
+
+  const panelHeader = useMemo(() => {
+    if (!selectedNodeType) return undefined;
+    const def = getNodeDefinitionByType(selectedNodeType);
+    return {
+      icon: def?.icon || '⬜️',
+      title: def?.name || 'Node',
+      description: def?.description,
+    }; // NOTE: [LLM] 노드 정의 기반으로 패널 헤더 표시
+  }, [selectedNodeType]);
 
   // Configure ReactFlow based on interactive mode
   const reactFlowConfig = useMemo(() => {
@@ -156,12 +168,22 @@ export default function NodeCanvas() {
         />
 
         {/* Node Details Panel - positioned relative to ReactFlow container */}
-        <NodeDetailsPanel nodeId={selectedNodeId} onClose={handleClosePanel}>
+        <NodeDetailsPanel
+          nodeId={selectedNodeId}
+          onClose={handleClosePanel}
+          header={panelHeader}
+        >
           {selectedNode && selectedNodeType === 'startNode' && (
             <StartNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />
+          )}
+          {selectedNode && selectedNodeType === 'llmNode' && (
+            <LLMNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            /> // NOTE: [LLM] LLM 노드 전용 설정 패널
           )}
         </NodeDetailsPanel>
       </div>

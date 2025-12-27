@@ -5,6 +5,11 @@ interface NodeDetailsPanelProps {
   nodeId: string | null;
   onClose: () => void;
   children: React.ReactNode;
+  header?: {
+    icon?: string;
+    title?: string;
+    description?: string;
+  };
 }
 
 /**
@@ -15,6 +20,7 @@ export default function NodeDetailsPanel({
   nodeId,
   onClose,
   children,
+  header,
 }: NodeDetailsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -65,19 +71,21 @@ export default function NodeDetailsPanel({
       className="absolute right-0 top-0 h-full w-[400px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200"
     >
       {/* Panel Header */}
+      {/* NOTE: [LLM] header prop으로 노드별 아이콘/텍스트를 표시하도록 확장 */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 bg-blue-500 rounded text-white font-bold text-sm">
-            ▶️
+            {header?.icon || '⬜️'}
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Start</h2>
-            <p className="text-xs text-gray-500">
-              The starting node of the workflow, used to set the information
-              needed to initiate the workflow.
-            </p>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {header?.title || 'Node'}
+              </h2>
+              {header?.description && (
+                <p className="text-xs text-gray-500">{header.description}</p>
+              )}
+            </div>
           </div>
-        </div>
         <button
           onClick={onClose}
           className="p-1 hover:bg-gray-100 rounded transition-colors"
