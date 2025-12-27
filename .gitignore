@@ -6,7 +6,6 @@ __pycache__/
 .pytest_cache/
 
 # Node
-apps/client/node_modules/
 apps/client/.next/
 
 # Environment

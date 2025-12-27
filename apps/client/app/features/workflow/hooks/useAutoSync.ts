@@ -1,12 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { debounce } from 'lodash';
 import { useWorkflowStore } from '../store/useWorkflowStore';
 import { workflowApi } from '../api/workflowApi';
+import { DEFAULT_NODES } from '../constants'; // 노드가 하나도 없을 때 쓸 기본값
+import { AppNode } from '../types/Nodes';
 
 export const useAutoSync = () => {
-  const params = useParams();
+  const params = useParams(); // 주소창의 파라미터 읽기
   const workflowId = params.id as string;
+
+  // Zustand Store에서 상태들을 가져옵니다.
   const nodes = useWorkflowStore((state) => state.nodes);
   const edges = useWorkflowStore((state) => state.edges);
   const features = useWorkflowStore((state) => state.features);
@@ -18,20 +22,26 @@ export const useAutoSync = () => {
   );
   const setWorkflowData = useWorkflowStore((state) => state.setWorkflowData);
 
-  // 로딩 상태 관리
-
+  // [중요] 로딩 완료 여부 체크
   const isLoadedRef = useRef(false);
 
-  // 1. 초기 데이터 로딩
+  // 1. 초기 데이터 로딩 (페이지 진입 시 1회 실행)
   useEffect(() => {
-    if (!workflowId) return;
+    if (!workflowId) return; //TODO: 가져올 workflow 가 없다는 뜻. 주소로 접근한거면 유저에게 접근불가 메시지 보여줘야함
 
     const loadWorkflow = async () => {
       try {
-        console.log('Loading workflow:', workflowId);
         const data = await workflowApi.getDraftWorkflow(workflowId);
 
         if (data) {
+          //TODO: 노드가 없으면 '에러' 대신 '기본값을 주입'하고 있습니다. 백엔드 연동되면 에러페이지 리다이렉트로 수정합니다.
+          if (!data.nodes || data.nodes.length === 0) {
+            console.warn('⚠️ 저장된 노드가 없어 기본 노드로 자동 복구합니다.');
+            data.nodes = DEFAULT_NODES as AppNode[];
+            // 기존에 작업하던 노드가 있는 경우 -> 저장된 그대로 불러옵니다.
+          } else {
+            console.log('[AutoSync] Existing nodes found:', data.nodes);
+          }
           setWorkflowData(data);
         }
 
@@ -42,47 +52,50 @@ export const useAutoSync = () => {
       }
     };
 
-    // 초기화: 다른 워크플로우로 이동 시 loaded 상태 초기화
-    isLoadedRef.current = false;
+    isLoadedRef.current = false; // 다른 워크플로우로 이동했을 때를 대비해 초기화
     loadWorkflow();
   }, [workflowId, setWorkflowData]);
 
   // 2. 자동 저장 (Debounce)
-  const syncRef = useRef(
-    debounce(
-      async (
-        currentNodes: typeof nodes,
-        currentEdges: typeof edges,
-        currentFeatures: typeof features,
-        currentEnvVars: typeof environmentVariables,
-        currentConvVars: typeof conversationVariables,
-      ) => {
-        // 로딩이 완료되지 않았으면 저장하지 않음 (빈 상태로 덮어쓰기 방지)
-        if (!isLoadedRef.current) {
-          console.log('Skipping sync: Workflow not loaded yet');
-          return;
-        }
-
-        // console.log('Syncing workflow...', workflowId);
-        try {
-          await workflowApi.syncDraftWorkflow(workflowId, {
-            nodes: currentNodes,
-            edges: currentEdges,
-            viewport: { x: 0, y: 0, zoom: 1 },
-            features: currentFeatures,
-            environmentVariables: currentEnvVars,
-            conversationVariables: currentConvVars,
-          });
-        } catch (error) {
-          console.error('Failed to sync workflow:', error);
-        }
-      },
-      500,
-    ),
+  // useRef 대신 useMemo를 사용하여 workflowId가 변경될 때만 함수를 재생성합니다.
+  const debouncedSync = useMemo(
+    () =>
+      debounce(
+        async (
+          currentNodes: typeof nodes,
+          currentEdges: typeof edges,
+          currentFeatures: typeof features,
+          currentEnvVars: typeof environmentVariables,
+          currentConvVars: typeof conversationVariables,
+        ) => {
+          // console.log('Syncing workflow...', workflowId);
+          try {
+            // 서버에 저장 요청 (이 부분은 1초 기다린 뒤에 딱 한 번만 실행됨)
+            await workflowApi.syncDraftWorkflow(workflowId, {
+              nodes: currentNodes,
+              edges: currentEdges,
+              viewport: { x: 0, y: 0, zoom: 1 },
+              features: currentFeatures,
+              environmentVariables: currentEnvVars,
+              conversationVariables: currentConvVars,
+            });
+          } catch (error) {
+            console.error('Failed to sync workflow:', error);
+          }
+        },
+        1000, // 1초 동안 추가 입력이 없으면 저장
+        { maxWait: 300000 }, // 5분이 지나면 강제로 한 번 저장
+      ),
+    [workflowId], // workflowId가 바뀔 때만 타이머를 새로 만듭니다
   );
 
+  // 변경 감지 및 저장 트리거
   useEffect(() => {
-    const debouncedSync = syncRef.current;
+    // [중요] 빈 내용으로 덮어쓰기 방지하기 위해 로딩이 완료되지 않았으면 아래 코드 수행하지 않도록 함
+    if (!isLoadedRef.current) {
+      return;
+    }
+
     debouncedSync(
       nodes,
       edges,
@@ -94,5 +107,12 @@ export const useAutoSync = () => {
     return () => {
       debouncedSync.cancel();
     };
-  }, [nodes, edges, features, environmentVariables, conversationVariables]);
+  }, [
+    debouncedSync,
+    nodes,
+    edges,
+    features,
+    environmentVariables,
+    conversationVariables,
+  ]);
 };
