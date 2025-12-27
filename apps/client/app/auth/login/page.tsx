@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { authApi } from '@/app/features/auth/api/authApi';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,29 +20,20 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // API 호출
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      // authApi.login 사용
+      const data = await authApi.login({
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '로그인에 실패했습니다.');
-      }
+      // 토큰을 localStorage에 저장
+      localStorage.setItem('auth_token', data.session.token);
 
       // 성공: 대시보드로 리다이렉트
-      console.log(data);
+      console.log('로그인 성공:', data);
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
+      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -55,9 +47,8 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = () => {
-    // authApi의 구글 로그인 함수 호출 (FastAPI로 리다이렉트)
-
-    window.location.href = 'http://localhost:8000/api/v1/auth/google/login';
+    // authApi의 구글 로그인 함수 호출
+    authApi.googleLogin();
   };
 
   return (
@@ -173,7 +164,7 @@ export default function LoginPage() {
               ← 홈으로 돌아가기
             </Link>
             <Link
-              href="/login/signup"
+              href="/auth/signup"
               className="text-gray-600 hover:text-gray-900"
             >
               계정이 없으신가요?{' '}

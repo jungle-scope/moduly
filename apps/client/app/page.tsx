@@ -17,7 +17,7 @@ export default function Home() {
           </Link>
 
           <Link
-            href="/login"
+            href="/auth/login"
             className="block w-full py-3 px-6 text-center text-white bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors"
           >
             Login으로 이동
