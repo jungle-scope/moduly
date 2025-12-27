@@ -2,8 +2,8 @@ from typing import Any, Dict
 
 from pydantic import Field
 
-from ..core.entities import BaseNodeData
-from ..core.node import Node
+from workflow.core.entities import BaseNodeData
+from workflow.core.node import Node
 
 
 class StartNodeData(BaseNodeData):
