@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useReactFlow } from '@xyflow/react';
+import { toast } from 'sonner';
 import {
   PlusIcon,
   PlayIcon,
@@ -12,85 +13,32 @@ import {
   ChevronDownIcon,
 } from '../icons';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import {
+  getNodesByCategory,
+  getNodeDefinition,
+  type NodeDefinition,
+} from '../../config/nodeRegistry';
 
-// Node types for the Add Node modal
-const nodeCategories = [
-  {
-    title: 'LLM',
-    nodes: [{ id: 'llm', name: 'LLM', color: 'bg-black' }],
-  },
-  {
-    title: 'Plugin',
-    nodes: [{ id: 'plugin', name: 'Plugin', color: 'bg-purple-500' }],
-  },
-  {
-    title: 'Workflow',
-    nodes: [{ id: 'workflow', name: 'Workflow', color: 'bg-green-500' }],
-  },
-  {
-    title: 'Logic',
-    nodes: [
-      { id: 'code', name: 'Code', color: 'bg-cyan-500' },
-      { id: 'condition', name: 'Condition', color: 'bg-blue-500' },
-      {
-        id: 'intent-recognition',
-        name: 'Intent recognition',
-        color: 'bg-cyan-500',
-      },
-      { id: 'loop', name: 'Loop', color: 'bg-blue-500' },
-      { id: 'batch', name: 'Batch', color: 'bg-cyan-500' },
-      { id: 'variable-merge', name: 'Variable Merge', color: 'bg-blue-500' },
-      { id: 'input-output', name: 'Input&Output', color: 'bg-cyan-500' },
-      { id: 'input', name: 'Input', color: 'bg-blue-600' },
-      { id: 'output', name: 'Output', color: 'bg-blue-600' },
-    ],
-  },
-  {
-    title: 'Database',
-    nodes: [
-      {
-        id: 'sql-customization',
-        name: 'SQL Customization',
-        color: 'bg-orange-500',
-      },
-      { id: 'update-data', name: 'Update Data', color: 'bg-orange-500' },
-      { id: 'query-data', name: 'Query Data', color: 'bg-orange-500' },
-      { id: 'delete-data', name: 'Delete Data', color: 'bg-orange-500' },
-      { id: 'add-data', name: 'Add Data', color: 'bg-orange-500' },
-    ],
-  },
-  {
-    title: 'Data',
-    nodes: [
-      {
-        id: 'knowledge-writing',
-        name: 'Knowledge writing',
-        color: 'bg-orange-500',
-      },
-      {
-        id: 'knowledge-retrieval',
-        name: 'Knowledge retrieval',
-        color: 'bg-orange-500',
-      },
-      {
-        id: 'knowledge-deleting',
-        name: 'Knowledge deleting',
-        color: 'bg-orange-500',
-      },
-      {
-        id: 'variable-assign',
-        name: 'Variable assign',
-        color: 'bg-orange-500',
-      },
-    ],
-  },
-];
+// Category display names mapping
+const categoryDisplayNames: Record<string, string> = {
+  trigger: 'Trigger',
+  llm: 'LLM',
+  plugin: 'Plugin',
+  workflow: 'Workflow',
+  logic: 'Logic',
+  database: 'Database',
+  data: 'Data',
+};
 
 interface BottomPanelProps {
   onCenterNodes: () => void;
+  isPanelOpen?: boolean;
 }
 
-export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
+export default function BottomPanel({
+  onCenterNodes,
+  isPanelOpen = false,
+}: BottomPanelProps) {
   const {
     interactiveMode,
     setInteractiveMode,
@@ -114,6 +62,13 @@ export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [notePosition, setNotePosition] = useState({ x: 0, y: 0 });
   const [currentZoom, setCurrentZoom] = useState(100);
+
+  // Node placement state
+  const [isAddingNode, setIsAddingNode] = useState(false);
+  const [selectedNodeDef, setSelectedNodeDef] = useState<NodeDefinition | null>(
+    null,
+  );
+  const [nodePosition, setNodePosition] = useState({ x: 0, y: 0 });
 
   // Refs for modals to detect outside clicks
   const addNodeModalRef = useRef<HTMLDivElement>(null);
@@ -246,10 +201,35 @@ export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
     setOpenModal(null); // Close any open modals
   }, []);
 
-  const handleAddNode = useCallback(() => {
-    // TODO: Implement add node functionality
-    setOpenModal(null);
-  }, []);
+  const handleSelectNode = useCallback(
+    (nodeDefId: string) => {
+      const nodeDef = getNodeDefinition(nodeDefId);
+      if (!nodeDef) return;
+
+      // Check if node is implemented
+      if (!nodeDef.implemented) {
+        toast.error(`${nodeDef.name} 노드는 아직 구현되지 않았습니다.`);
+        return;
+      }
+
+      // Check for uniqueness constraint (e.g., StartNode)
+      if (nodeDef.unique) {
+        const existingNode = nodes.find((node) => node.type === nodeDef.type);
+        if (existingNode) {
+          toast.warning(
+            `${nodeDef.name} 노드는 워크플로우당 하나만 사용할 수 있습니다.`,
+          );
+          return;
+        }
+      }
+
+      // Start node placement mode
+      setSelectedNodeDef(nodeDef);
+      setIsAddingNode(true);
+      setOpenModal(null);
+    },
+    [nodes],
+  );
 
   const selectInteractiveMode = useCallback(
     (mode: 'mouse' | 'touchpad') => {
@@ -289,8 +269,90 @@ export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
     setOpenModal(null);
   }, [fitView]);
 
+  // Node placement effect (similar to note placement)
+  useEffect(() => {
+    if (!isAddingNode || !selectedNodeDef) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const reactFlowWrapper = document.querySelector('.react-flow');
+      if (!reactFlowWrapper) {
+        setNodePosition({ x: e.clientX, y: e.clientY });
+        return;
+      }
+
+      const rect = reactFlowWrapper.getBoundingClientRect();
+      const x = Math.max(rect.left, Math.min(e.clientX, rect.right));
+      const y = Math.max(rect.top, Math.min(e.clientY, rect.bottom));
+      setNodePosition({ x, y });
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.pointer-events-auto')) {
+        return;
+      }
+
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+
+      // Create new node with data from registry
+      const newNode = {
+        id: `${selectedNodeDef.id}-${Date.now()}`,
+        type: selectedNodeDef.type,
+        data: selectedNodeDef.defaultData(),
+        position,
+      };
+
+      setNodes([...nodes, newNode]);
+      setIsAddingNode(false);
+      setSelectedNodeDef(null);
+      toast.success(`${selectedNodeDef.name} 노드가 추가되었습니다.`);
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsAddingNode(false);
+        setSelectedNodeDef(null);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('click', handleClick);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('click', handleClick);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isAddingNode, selectedNodeDef, nodes, setNodes, screenToFlowPosition]);
+
   return (
     <>
+      {/* Cursor-following node preview */}
+      {isAddingNode && selectedNodeDef && (
+        <div
+          className="fixed pointer-events-none z-50"
+          style={{
+            left: nodePosition.x + 10,
+            top: nodePosition.y + 10,
+          }}
+        >
+          <div className="bg-white border-2 border-blue-500 rounded-lg shadow-xl p-3 min-w-[200px]">
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className={`w-4 h-4 ${selectedNodeDef.color} rounded flex items-center justify-center text-xs`}
+              >
+                {selectedNodeDef.icon}
+              </div>
+              <div className="text-sm font-semibold text-gray-700">
+                {selectedNodeDef.name}
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 italic">클릭하여 배치...</div>
+          </div>
+        </div>
+      )}
+
       {/* Cursor-following note preview */}
       {isAddingNote && (
         <div
@@ -309,7 +371,15 @@ export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
       )}
 
       {/* Floating Toolbar */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+      <div
+        className="absolute bottom-6 z-10 pointer-events-auto transition-all duration-300"
+        style={{
+          left: '50%',
+          transform: isPanelOpen
+            ? 'translateX(calc(-50% - 100px))'
+            : 'translateX(-50%)',
+        }}
+      >
         <div className="flex items-center gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-2 py-1.5">
           {/* Interactive Settings */}
           <div className="relative" ref={interactiveModalRef}>
@@ -564,31 +634,41 @@ export default function BottomPanel({ onCenterNodes }: BottomPanelProps) {
                 />
 
                 <div className="space-y-3">
-                  {nodeCategories.map((category) => (
-                    <div key={category.title}>
-                      <div className="text-xs font-semibold text-gray-500 mb-2">
-                        {category.title}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {category.nodes.map((node) => (
-                          <button
-                            key={node.id}
-                            onClick={handleAddNode}
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded transition-colors text-left"
-                          >
-                            <div
-                              className={`w-4 h-4 ${node.color} rounded flex items-center justify-center`}
+                  {Array.from(getNodesByCategory().entries()).map(
+                    ([categoryKey, categoryNodes]) => (
+                      <div key={categoryKey}>
+                        <div className="text-xs font-semibold text-gray-500 mb-2">
+                          {categoryDisplayNames[categoryKey] || categoryKey}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {categoryNodes.map((nodeDef) => (
+                            <button
+                              key={nodeDef.id}
+                              onClick={() => handleSelectNode(nodeDef.id)}
+                              disabled={!nodeDef.implemented}
+                              className={`flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors text-left ${
+                                nodeDef.implemented
+                                  ? 'text-gray-700 hover:bg-gray-50 cursor-pointer'
+                                  : 'text-gray-400 cursor-not-allowed opacity-50'
+                              }`}
+                              title={
+                                nodeDef.implemented
+                                  ? nodeDef.description
+                                  : '아직 구현되지 않았습니다'
+                              }
                             >
-                              {node.color === 'bg-black' && (
-                                <span className="text-white text-xs">✓</span>
-                              )}
-                            </div>
-                            <span>{node.name}</span>
-                          </button>
-                        ))}
+                              <div
+                                className={`w-5 h-5 ${nodeDef.color} rounded flex items-center justify-center text-xs shrink-0`}
+                              >
+                                {nodeDef.icon}
+                              </div>
+                              <span className="truncate">{nodeDef.name}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </div>
             )}

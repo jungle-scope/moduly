@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -9,6 +9,7 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
+  type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -17,6 +18,9 @@ import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
+import { StartNode } from '../nodes/start/components/StartNode';
+import NodeDetailsPanel from './NodeDetailsPanel';
+import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -33,10 +37,15 @@ export default function NodeCanvas() {
 
   const { fitView, setViewport, getViewport } = useReactFlow();
 
+  // Track selected node for details panel
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
+
   const nodeTypes = useMemo(
     () => ({
       ...coreNodeTypes,
       note: NotePost,
+      startNode: StartNode,
     }),
     [],
   ) as unknown as NodeTypes;
@@ -56,6 +65,27 @@ export default function NodeCanvas() {
     },
     [activeWorkflowId, updateWorkflowViewport],
   );
+
+  // Handle node click to show details panel
+  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    // Only show panel for workflow nodes (not notes)
+    if (node.type && node.type !== 'note') {
+      setSelectedNodeId(node.id);
+      setSelectedNodeType(node.type);
+    }
+  }, []);
+
+  // Close details panel
+  const handleClosePanel = useCallback(() => {
+    setSelectedNodeId(null);
+    setSelectedNodeType(null);
+  }, []);
+
+  // Get selected node data
+  const selectedNode = useMemo(() => {
+    if (!selectedNodeId) return null;
+    return nodes.find((n) => n.id === selectedNodeId);
+  }, [selectedNodeId, nodes]);
 
   // Configure ReactFlow based on interactive mode
   const reactFlowConfig = useMemo(() => {
@@ -102,6 +132,7 @@ export default function NodeCanvas() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onMoveEnd={handleMoveEnd}
+          onNodeClick={handleNodeClick}
           nodeTypes={nodeTypes}
           fitView
           attributionPosition="bottom-right"
@@ -120,8 +151,21 @@ export default function NodeCanvas() {
           />
         </ReactFlow>
 
-        {/* Floating Bottom Panel */}
-        <BottomPanel onCenterNodes={centerNodes} />
+        {/* Floating Bottom Panel - adjust position based on side panel */}
+        <BottomPanel
+          onCenterNodes={centerNodes}
+          isPanelOpen={!!selectedNodeId}
+        />
+
+        {/* Node Details Panel - positioned relative to ReactFlow container */}
+        <NodeDetailsPanel nodeId={selectedNodeId} onClose={handleClosePanel}>
+          {selectedNode && selectedNodeType === 'startNode' && (
+            <StartNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+        </NodeDetailsPanel>
       </div>
     </div>
   );
