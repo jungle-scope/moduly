@@ -11,14 +11,31 @@ const API_BASE_URL = 'http://localhost:8000/api/v1';
 export const authApi = {
   // 회원가입
   signup: async (data: SignupRequest): Promise<SignupResponse> => {
-    const response = await axios.post(`${API_BASE_URL}/auth/signup`, data);
+    const response = await axios.post(
+      `${API_BASE_URL}/auth/signup`,
+      data,
+      { withCredentials: true }, // 쿠키 자동 전송
+    );
     return response.data;
   },
 
   // 로그인
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    const response = await axios.post(`${API_BASE_URL}/auth/login`, data);
+    const response = await axios.post(
+      `${API_BASE_URL}/auth/login`,
+      data,
+      { withCredentials: true }, // 쿠키 자동 전송
+    );
     return response.data;
+  },
+
+  // 로그아웃
+  logout: async (): Promise<void> => {
+    await axios.post(
+      `${API_BASE_URL}/auth/logout`,
+      {},
+      { withCredentials: true },
+    );
   },
 
   // 구글 OAuth 로그인

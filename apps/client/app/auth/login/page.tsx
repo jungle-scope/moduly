@@ -26,9 +26,6 @@ export default function LoginPage() {
         password: formData.password,
       });
 
-      // 토큰을 localStorage에 저장
-      localStorage.setItem('auth_token', data.session.token);
-
       // 성공: 대시보드로 리다이렉트
       console.log('로그인 성공:', data);
       router.push('/dashboard');
