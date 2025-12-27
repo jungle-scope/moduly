@@ -6,25 +6,32 @@ import EditorSidebar from '@/app/features/workflow/components/editor/EditorSideb
 import NodeCanvas from '@/app/features/workflow/components/editor/NodeCanvas';
 import { useAutoSync } from '@/app/features/workflow/hooks/useAutoSync';
 
-export default function WorkflowPage() {
-  // 자동 저장 활성화
+// WorkflowEditor: ReactFlowProvider 내부에서 자동 저장 관리
+function WorkflowEditor() {
+  // Provider 내부에서 안전하게 useAutoSync 호출
   useAutoSync();
 
   return (
-    <ReactFlowProvider>
-      <div className="flex flex-col h-screen bg-white">
-        {/* Header */}
-        <EditorHeader />
+    <div className="flex flex-col h-screen bg-white">
+      {/* Header */}
+      <EditorHeader />
 
-        {/* Main content area with sidebar and canvas */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar */}
-          <EditorSidebar />
+      {/* Main content area with sidebar and canvas */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar */}
+        <EditorSidebar />
 
-          {/* Canvas Area */}
-          <NodeCanvas />
-        </div>
+        {/* Canvas Area */}
+        <NodeCanvas />
       </div>
+    </div>
+  );
+}
+
+export default function WorkflowPage() {
+  return (
+    <ReactFlowProvider>
+      <WorkflowEditor />
     </ReactFlowProvider>
   );
 }

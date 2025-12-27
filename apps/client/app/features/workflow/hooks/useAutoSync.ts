@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { debounce } from 'lodash';
+import { useReactFlow } from '@xyflow/react';
 import { useWorkflowStore } from '../store/useWorkflowStore';
 import { workflowApi } from '../api/workflowApi';
 import { DEFAULT_NODES } from '../constants'; // 노드가 하나도 없을 때 쓸 기본값
@@ -9,6 +10,7 @@ import { AppNode } from '../types/Nodes';
 export const useAutoSync = () => {
   const params = useParams(); // 주소창의 파라미터 읽기
   const workflowId = params.id as string;
+  const { getViewport, setViewport } = useReactFlow(); // React Flow 인스턴스 접근
 
   // Zustand Store에서 상태들을 가져옵니다.
   const nodes = useWorkflowStore((state) => state.nodes);
@@ -43,6 +45,12 @@ export const useAutoSync = () => {
             console.log('[AutoSync] Existing nodes found:', data.nodes);
           }
           setWorkflowData(data);
+
+          // 저장된 viewport를 React Flow에 적용 (복원)
+          if (data.viewport) {
+            setViewport(data.viewport);
+            console.log('[AutoSync] Viewport restored:', data.viewport);
+          }
         }
 
         // 데이터 로딩 완료 표시
@@ -54,7 +62,7 @@ export const useAutoSync = () => {
 
     isLoadedRef.current = false; // 다른 워크플로우로 이동했을 때를 대비해 초기화
     loadWorkflow();
-  }, [workflowId, setWorkflowData]);
+  }, [workflowId, setWorkflowData, setViewport]);
 
   // 2. 자동 저장 (Debounce)
   // useRef 대신 useMemo를 사용하여 workflowId가 변경될 때만 함수를 재생성합니다.
@@ -70,11 +78,14 @@ export const useAutoSync = () => {
         ) => {
           // console.log('Syncing workflow...', workflowId);
           try {
+            // 현재 viewport 상태 가져오기
+            const currentViewport = getViewport();
+
             // 서버에 저장 요청 (이 부분은 1초 기다린 뒤에 딱 한 번만 실행됨)
             await workflowApi.syncDraftWorkflow(workflowId, {
               nodes: currentNodes,
               edges: currentEdges,
-              viewport: { x: 0, y: 0, zoom: 1 },
+              viewport: currentViewport, // 실제 viewport 값 사용
               features: currentFeatures,
               environmentVariables: currentEnvVars,
               conversationVariables: currentConvVars,
@@ -86,7 +97,7 @@ export const useAutoSync = () => {
         1000, // 1초 동안 추가 입력이 없으면 저장
         { maxWait: 300000 }, // 5분이 지나면 강제로 한 번 저장
       ),
-    [workflowId], // workflowId가 바뀔 때만 타이머를 새로 만듭니다
+    [workflowId, getViewport], // getViewport 의존성 추가
   );
 
   // 변경 감지 및 저장 트리거
