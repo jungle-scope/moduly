@@ -12,9 +12,9 @@ class NodeFactory:
     """
 
     # 노드 타입 → (NodeClass, DataClass) 매핑
+    # TODO: 추가 노드 타입 등록
     NODE_REGISTRY: Dict[str, tuple] = {
-        "start": (StartNode, StartNodeData),
-        # TODO: 추가 노드 타입 등록
+        "startNode": (StartNode, StartNodeData),
         # "llm": (LLMNode, LLMNodeData),
         # "code": (CodeNode, CodeNodeData),
         # "end": (EndNode, EndNodeData),
@@ -42,4 +42,6 @@ class NodeFactory:
 
         NodeClass, DataClass = NodeFactory.NODE_REGISTRY[schema.type]
         data = DataClass(**schema.data)
+
+        print("자 객체 생성 전입니다", data)
         return NodeClass(schema.id, data)
