@@ -5,7 +5,7 @@ import { StartNodeData } from './types/Nodes';
 export const DEFAULT_NODES: Node[] = [
   {
     id: 'start-1',
-    type: 'startNode',
+    type: 'start',
     position: { x: 250, y: 250 },
     deletable: false, // 개발용으로 임시 삽입
     data: {

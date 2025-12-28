@@ -2,6 +2,6 @@ import { StartNode } from './start/components/StartNode';
 // import EndNode from './EndNode';
 
 export const nodeTypes = {
-  startNode: StartNode,
+  start: StartNode,
   // endNode: EndNode,
 };

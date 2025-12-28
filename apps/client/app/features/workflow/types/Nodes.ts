@@ -43,7 +43,7 @@ export interface StartNodeData extends BaseNodeData {
 }
 
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
-export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
+export type StartNode = ReactFlowNode<StartNodeData, 'start'>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.

@@ -99,7 +99,7 @@ type WorkflowState = {
 const initialNodes: Node[] = [
   {
     id: 'start-1',
-    type: 'startNode',
+    type: 'start',
     position: { x: 250, y: 250 },
     data: { title: '시작', triggerType: 'manual', variables: [] },
   },
