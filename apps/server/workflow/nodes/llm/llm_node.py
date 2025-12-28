@@ -1,7 +1,9 @@
 from typing import Any, Dict, Optional
 
-from apps.server.services.llm_client.factory import get_llm_client
 from jinja2 import Environment
+
+from db.session import SessionLocal  # 임시 세션 생성용 (TODO: 엔진 주입으로 교체)
+from services.llm_service import LLMService
 
 from ..base.node import Node
 from .entities import LLMNodeData
@@ -36,46 +38,61 @@ class LLMNode(Node[LLMNodeData]):
         self.data.validate()
 
         # STEP 2. 모델 준비 ----------------------------------------------------
-        # TODO: DB/설정에서 provider/model에 맞는 크리덴셜을 조회 후 주입합니다.
-        # - 현재 사용자(또는 워크플로우 소유자)에 연결된 provider 목록 조회
-        # - provider 크리덴셜(API key 등) 유효성/활성 상태 확인
-        # - 요청한 model_id가 해당 provider에 속해 있고 사용 가능인지 검증
-        # - 필요 시 요금제/쿼터 확인 후 LLM 클라이언트 인스턴스 생성
-        # creds = {...}  # 예: {"api_key": "...", "base_url": "..."}
-        # get_llm_client -> factory method (apps/server/services/llm_client/factory.py)
-        client = get_llm_client(
-            provider=self.data.provider,
-            model_id=self.data.model_id,
-            credentials={},  # TODO: 조회한 크리덴셜로 대체
-        )
+        # TODO: per-user provider/credential로 교체 필요
+        # 현재는 임시 모드: DB에서 아무 provider/credential을 가져와 클라이언트 생성
+        # - 엔진이 db를 주입하지 않는 경우를 대비해 SessionLocal로 임시 세션 생성 (MVP 전용)
+        client_override = getattr(self, "_client_override", None)
+        if client_override:
+            client = client_override
+        else:
+            db_session = getattr(self, "db", None)
+            temp_session = None
+            if db_session is None:
+                temp_session = SessionLocal()
+                db_session = temp_session
+            try:
+                client = LLMService.get_any_provider_client(db_session)
+            finally:
+                # 임시 세션은 호출 후 정리
+                if temp_session is not None:
+                    temp_session.close()
 
         # STEP 3. 프롬프트 빌드 ------------------------------------------------
         # TODO: _render_prompt 구현 후, inputs + referenced/context 변수로 템플릿을 렌더링합니다.
         # - 템플릿에 있는 {{var}} / context placeholder 등을 inputs로 치환
         # - 비어있는 메시지는 제외해 LLM으로 전달
         messages = [
-            ("system", self._render_prompt(self.data.system_prompt, inputs)),
-            ("user", self._render_prompt(self.data.user_prompt, inputs)),
-            ("assistant", self._render_prompt(self.data.assistant_prompt, inputs)),
+            {
+                "role": "system",
+                "content": self._render_prompt(self.data.system_prompt, inputs),
+            },
+            {
+                "role": "user",
+                "content": self._render_prompt(self.data.user_prompt, inputs),
+            },
+            {
+                "role": "assistant",
+                "content": self._render_prompt(self.data.assistant_prompt, inputs),
+            },
         ]
-        messages = [
-            (role, msg) for role, msg in messages if msg
-        ]  # 비어있는 메시지 제외
+        messages = [m for m in messages if m["content"]]  # 비어있는 메시지 제외
 
         # STEP 4. LLM 호출 ----------------------------------------------------
         # TODO: 준비된 클라이언트로 호출
-        if self.data.parameters:
-            response = client.invoke(
-                messages=messages, **self.data.parameters
-            )  # 추가 파라미터가 있으면 전달 - 현재 mvp에는 없는데 일단 써둠
-        else:
-            response = client.invoke(messages=messages)
+        response = client.invoke(messages=messages, **(self.data.parameters or {}))
 
-        text = response["text"]
-        usage = response.get("usage", {})
+        # OpenAI 응답 포맷에서 텍스트/usage 추출 (missing 시 안전하게 빈 값)
+        text = ""
+        try:
+            text = (
+                response.get("choices", [{}])[0].get("message", {}).get("content", "")
+            )
+        except Exception:
+            text = ""
+        usage = response.get("usage", {}) if isinstance(response, dict) else {}
 
         # STEP 5. 결과 포맷팅 --------------------------------------------------
-        # TODO: downstream에서 사용할 출력 형태 확정 -> 수정 필요하면 수정하겠음
+        # TODO: downstream에서 사용할 출력 형태 확정 후 -> 수정 필요하면 수정하겠음
         return {"text": text, "usage": usage, "model": self.data.model_id}
 
     def _render_prompt(self, template: Optional[str], inputs: Dict[str, Any]) -> str:

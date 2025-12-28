@@ -19,8 +19,10 @@ import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
 import NodeDetailsPanel from './NodeDetailsPanel';
+import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
+import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -45,7 +47,6 @@ export default function NodeCanvas() {
     () => ({
       ...coreNodeTypes,
       note: NotePost,
-      ...registeredNodeTypes, // NOTE: [LLM] llmNode 렌더러 포함
     }),
     [],
   ) as unknown as NodeTypes;
@@ -182,6 +183,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'answerNode' && (
             <AnswerNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'llmNode' && (
+            <LLMNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

@@ -1,6 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
 import { LLMNodeData } from '../../../../types/Nodes';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+
+type ProviderOption = {
+  id: string;
+  name: string;
+  providerType: string;
+  models: string[];
+  baseUrl?: string;
+};
 
 interface LLMNodePanelProps {
   nodeId: string;
@@ -11,6 +20,8 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
   // NOTE: [LLM] 기존 StartNodePanel 패턴을 따라간 LLM 설정 패널
   const { updateNodeData, nodes } = useWorkflowStore();
   const [referencedInput, setReferencedInput] = useState('');
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [providerError, setProviderError] = useState<string | null>(null);
 
   const availableContextVars = useMemo(() => {
     // Start 노드 변수명을 옵션으로 활용 (추후 이전 노드 output으로 대체 예정)
@@ -42,26 +53,98 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     );
   };
 
+  // 임시: 모든 provider 목록을 가져와 선택하도록 제공 (나중에 per-user로 변경 예정)
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/v1/llm/providers', {
+          credentials: 'include',
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          setProviderError(
+            `Provider 목록 조회 실패 (status ${res.status}): ${body?.detail || body?.message || '알 수 없는 오류'}`,
+          );
+          return;
+        }
+
+        const parsed: ProviderOption[] = (body as any[]).map((p) => {
+          // encrypted_config는 마스킹된 JSON 문자열 (apiKey는 마스킹, model/baseUrl은 그대로)
+          const models: string[] = [];
+          let baseUrl: string | undefined;
+
+          const cfgStr = p.credentials?.[0]?.encrypted_config;
+          if (cfgStr) {
+            try {
+              const cfg = JSON.parse(cfgStr);
+              if (cfg.model) models.push(cfg.model);
+              if (cfg.baseUrl) baseUrl = cfg.baseUrl;
+            } catch (e) {
+              // 파싱 실패 시 무시
+            }
+          }
+
+          return {
+            id: p.id,
+            name: p.provider_name || p.provider_type || 'provider',
+            providerType: p.provider_type || 'openai',
+            models,
+            baseUrl,
+          };
+        });
+
+        setProviders(parsed);
+      } catch (error) {
+        setProviderError(
+          error instanceof Error ? error.message : 'Provider 목록 조회 실패',
+        );
+      }
+    };
+
+    fetchProviders();
+  }, []);
+
+  const handleProviderSelect = (providerId: string) => {
+    const selected = providers.find((p) => p.id === providerId);
+    if (!selected) return;
+    // 임시: providerType과 모델을 노드 데이터에 반영
+    handleFieldChange('provider', selected.providerType);
+    handleFieldChange('model_id', selected.models[0] || '');
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Provider / Model */}
+      {/* Model만 입력 가능, Provider 선택은 임시로 비활성화 */}
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-700">모델 설정</span>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-gray-700">모델 설정</span>
+            <span className="text-[11px] text-gray-500">
+              임시: Provider 선택은 비활성화, 모델만 직접 입력
+            </span>
+          </div>
         </div>
         <div className="px-4 py-3 bg-white flex flex-col gap-3">
+          {providerError && (
+            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {providerError}
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">Provider</label>
             <input
               type="text"
               value={data.provider || ''}
-              onChange={(e) => handleFieldChange('provider', e.target.value)}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-              placeholder="예: openai"
+              disabled
+              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+              placeholder="임시로 비활성화"
             />
+            <p className="text-[11px] text-gray-500">
+              TODO: 나중에 per-user provider 선택 기능으로 교체
+            </p>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Model ID</label>
+            <label className="text-xs font-medium text-gray-700">Model</label>
             <input
               type="text"
               value={data.model_id || ''}

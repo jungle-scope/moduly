@@ -20,7 +20,7 @@ class LLMNodeData(BaseNodeData):
     assistant_prompt: Optional[str] = None
     referenced_variables: List[str] = Field(default_factory=list)
     context_variable: Optional[str] = None
-    # 이전 노드의 output은 어떻게 받지?
+    # 이전 노드의 output은 어떻게 받을지?
 
     def validate(self) -> None:
         # 모델/프로바이더는 필수
