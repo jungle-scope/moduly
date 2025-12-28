@@ -19,11 +19,13 @@ export const workflowApi = {
     return response.data;
   },
 
-  executeWorkflow: async (appId: string, data: WorkflowDraftRequest) => {
+  executeWorkflow: async (workflowId: string, user_input: any) => {
     // 실제로 워크플로우를 실행하는 함수
-    // 일단은 엔드포인트를 http://localhost:8000/api/v1/workflow/execute로 가정
 
-    const response = await axios.post(`${API_BASE_URL}/workflow/execute`, data);
+    const response = await axios.post(
+      `${API_BASE_URL}/workflows/${workflowId}/execute`,
+      user_input,
+    );
     return response.data;
   },
 };

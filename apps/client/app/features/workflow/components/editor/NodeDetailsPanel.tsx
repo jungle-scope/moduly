@@ -84,7 +84,6 @@ export default function NodeDetailsPanel({
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {/* @ts-ignore */}
               {selectedNode.data.title || nodeDef?.name || 'Node'}
             </h2>
             <p className="text-xs text-gray-500">
