@@ -131,10 +131,18 @@ export default function SettingsProviderPage() {
         ),
       );
 
-      if (response.ok) {
-        setIsModalOpen(false);
-        fetchProviders();
+      if (!response.ok) {
+        // 눈에 보이는 알림: 간결하게 안내
+        alert(
+          `등록 실패: OpenAI API Key 검증 실패\nstatus ${response.status}${
+            body?.detail ? ` / ${body.detail}` : ''
+          }`,
+        );
+        return;
       }
+
+      setIsModalOpen(false);
+      fetchProviders();
     } catch (error) {
       console.error('[settings/provider] submit failed', error);
       setLastRequestLog(

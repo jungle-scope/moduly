@@ -2,6 +2,7 @@ import json
 import uuid
 from typing import List, Optional
 
+import requests
 from sqlalchemy.orm import Session, joinedload
 
 from db.models.llm import LLMCredential, LLMProvider
@@ -11,6 +12,7 @@ from schemas.llm import (
     LLMProviderResponse,
     LLMProviderSimpleCreate,
 )
+from services.llm_client.factory import get_llm_client
 
 
 class LLMService:
@@ -19,6 +21,7 @@ class LLMService:
     """
 
     # 임시 placeholder 사용자 ID (실제 users 테이블에 없으면 FK 에러 날 수 있음)
+    # TODO: 로그인 연동 후 실제 사용자로 대체하고 제거 필요
     PLACEHOLDER_USER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
 
     @staticmethod
@@ -36,8 +39,10 @@ class LLMService:
     def _mask_secret(secret: str) -> str:
         """
         클라이언트로 반환할 때 키를 그대로 노출하지 않기 위해 마스킹합니다.
-        앞 4글자 + **** + 끝 2글자 형태. 6글자 이하라면 '*' 반복.
+        - 암호화는 제거되었지만, API key가 그대로 노출되지 않도록 최소한의 보호를 유지합니다.
+        - 앞 4글자 + **** + 끝 2글자 형태. 6글자 이하라면 '*' 반복.
         - JSON 문자열이면 apiKey/api_key 필드를 찾아 마스킹 후 JSON 문자열로 반환
+        - TODO: 운영 전 암호화를 다시 적용할 때 마스킹 로직은 그대로 유지
         """
         if not secret:
             return ""
@@ -57,6 +62,47 @@ class LLMService:
 
         # 일반 문자열이면 전체를 마스킹
         return LLMService._mask_plain(secret)
+
+    @staticmethod
+    def _load_credential_config(credential: LLMCredential) -> dict:
+        """
+        credential.encrypted_config를 JSON으로 파싱해 dict로 반환합니다.
+        - 현재는 암호화 없이 평문 JSON을 저장/사용합니다.
+        - TODO: 운영 시 암호화를 복구할 때 이 함수도 수정 필요
+        """
+        raw = credential.encrypted_config
+
+        try:
+            loaded = json.loads(raw)
+            if isinstance(loaded, dict):
+                return loaded
+        except Exception:
+            pass
+
+        raise ValueError("credential 설정을 파싱할 수 없습니다. (JSON 형식 아님)")
+
+    @staticmethod
+    def _validate_openai_api_key(base_url: str, api_key: str) -> None:
+        """
+        OpenAI /models 엔드포인트로 키 유효성 검증.
+        - 200 OK이면 통과, 그 외 status는 실패로 간주
+        - 네트워크/타임아웃/기타 예외는 ValueError로 올려 사용자에게 전달
+        """
+        url = base_url.rstrip("/") + "/models"
+        try:
+            resp = requests.get(
+                url,
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=5,
+            )
+        except requests.RequestException as exc:
+            raise ValueError(f"OpenAI API key 검증 요청 실패: {exc}") from exc
+
+        if resp.status_code != 200:
+            snippet = resp.text[:200] if resp.text else ""
+            raise ValueError(
+                f"OpenAI API key 검증 실패 (status {resp.status_code}): {snippet}"
+            )
 
     @staticmethod
     def _resolve_user_id(db: Session, user_id: Optional[uuid.UUID]) -> uuid.UUID:
@@ -131,6 +177,15 @@ class LLMService:
             "providerType": request.provider_type,
         }
 
+        # 현재는 openai만 지원: /models 호출로 키 검증 (실패 시 ValueError)
+        if request.provider_type.lower() == "openai":
+            LLMService._validate_openai_api_key(
+                base_url=request.base_url, api_key=request.api_key
+            )
+        else:
+            # 향후 다른 provider 추가 시 여기에 분기
+            pass
+
         provider = LLMProvider(
             user_id=resolved_user_id,
             provider_name=request.alias,
@@ -147,7 +202,7 @@ class LLMService:
             provider_id=provider.id,
             user_id=resolved_user_id,
             credential_name=request.alias,
-            encrypted_config=json.dumps(config_payload),  # TODO: 암호화 적용
+            encrypted_config=json.dumps(config_payload),
             is_valid=True,
         )
         db.add(credential)
@@ -173,15 +228,15 @@ class LLMService:
             updated_at=provider.updated_at,
             credentials=[
                 LLMCredentialResponse(
-                id=credential.id,
-                provider_id=credential.provider_id,
-                user_id=credential.user_id,
-                credential_name=credential.credential_name,
-                encrypted_config=masked_api_key,
-                is_valid=credential.is_valid,
-                created_at=credential.created_at,
-                updated_at=credential.updated_at,
-            )
+                    id=credential.id,
+                    provider_id=credential.provider_id,
+                    user_id=credential.user_id,
+                    credential_name=credential.credential_name,
+                    encrypted_config=masked_api_key,
+                    is_valid=credential.is_valid,
+                    created_at=credential.created_at,
+                    updated_at=credential.updated_at,
+                )
             ],
         )
 
@@ -204,9 +259,7 @@ class LLMService:
         - TODO: 추후 로그인 사용자별 필터로 전환 필요.
         """
         providers = (
-            db.query(LLMProvider)
-            .options(joinedload(LLMProvider.credentials))
-            .all()
+            db.query(LLMProvider).options(joinedload(LLMProvider.credentials)).all()
         )
 
         response_list: List[LLMProviderResponse] = []
@@ -272,9 +325,9 @@ class LLMService:
         db.flush()
 
         # 연결된 credential 삭제
-        db.query(LLMCredential).filter(
-            LLMCredential.provider_id == provider_id
-        ).delete(synchronize_session=False)
+        db.query(LLMCredential).filter(LLMCredential.provider_id == provider_id).delete(
+            synchronize_session=False
+        )
         db.delete(provider)
         db.commit()
 
@@ -283,3 +336,55 @@ class LLMService:
             {"provider_id": str(provider_id), "mode": "shared (no user filter)"},
         )
         return True
+
+    # === 임시/공유 모드용 LLM 클라이언트 생성 ===
+    @staticmethod
+    def get_any_provider_client(db: Session):
+        """
+        TODO: 로그인 사용자별 provider로 제한해야 함.
+        현재는 임시/공유 모드: DB에 있는 provider 중 credential이 있는 첫 번째 것을 가져와 클라이언트 생성.
+        - 클라이언트는 services.llm_client.factory.get_llm_client 로 생성
+        - 자격정보는 복호화 후 credentials dict로 전달
+        """
+        provider = (
+            db.query(LLMProvider)
+            .options(joinedload(LLMProvider.credentials))
+            .filter(LLMProvider.credential_id.isnot(None))
+            .first()
+        )
+        if not provider or not provider.credentials:
+            raise ValueError("사용 가능한 provider/credential이 없습니다. (임시 모드)")
+
+        # 기본 credential 선택 (현재는 첫 번째 사용)
+        cred = provider.credentials[0]
+        cfg = LLMService._load_credential_config(cred)
+
+        api_key = cfg.get("apiKey") or cfg.get("api_key")
+        base_url = cfg.get("baseUrl") or cfg.get("base_url")
+        model = cfg.get("model")
+        provider_type = (
+            cfg.get("providerType") or provider.provider_type or ""
+        ).lower()
+
+        if not api_key or not base_url or not model or not provider_type:
+            raise ValueError(
+                "credential 설정이 부족합니다. (apiKey/baseUrl/model/providerType 필요)"
+            )
+
+        client = get_llm_client(
+            provider=provider_type,
+            model_id=model,
+            credentials={"apiKey": api_key, "baseUrl": base_url},
+        )
+
+        print(
+            "[llm] temp client created",
+            {
+                "provider_id": str(provider.id),
+                "credential_id": str(cred.id),
+                "provider_type": provider_type,
+                "model": model,
+                "mode": "shared (TODO: enforce per-user)",
+            },
+        )
+        return client
