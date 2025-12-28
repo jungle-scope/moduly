@@ -29,6 +29,13 @@ export default function Home() {
           >
             Workflow/1로 이동
           </Link>
+
+          <Link
+            href="/settings"
+            className="block w-full py-3 px-6 text-center text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors"
+          >
+            Settings로 이동
+          </Link>
         </div>
       </div>
     </div>

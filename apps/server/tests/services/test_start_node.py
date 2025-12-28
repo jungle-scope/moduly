@@ -15,7 +15,7 @@ def test_start_node_initialization():
     assert node.data.title == "내 시작 노드"
     assert node.data.trigger_type == "webhook"
     assert node.status == NodeStatus.IDLE
-    assert node.node_type == "start"
+    assert node.node_type == "startNode"
 
 
 def test_start_node_execution():
