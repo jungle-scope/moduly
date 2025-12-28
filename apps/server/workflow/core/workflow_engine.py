@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from schemas.workflow import EdgeSchema, NodeSchema
 from workflow.core.workflow_node_factory import NodeFactory
@@ -8,10 +8,28 @@ from workflow.core.workflow_node_factory import NodeFactory
 class WorkflowEngine:
     """노드와 엣지를 받아서 전체 워크플로우 실행을 담당하는 엔진"""
 
-    def __init__(self, nodes: List[NodeSchema], edges: List[EdgeSchema]):
+    def __init__(
+        self,
+        graph: Union[Dict[str, Any], tuple[List[NodeSchema], List[EdgeSchema]]],
+        user_input: Dict[str, Any] = None,
+    ):
+        """
+        WorkflowEngine 초기화
+
+        Args:
+            graph: 워크플로우 그래프 데이터
+                - Dict 형태: {"nodes": [...], "edges": [...], "viewport": ...}
+            user_input: 사용자가 입력한 변수 값들
+        """
+        # graph가 딕셔너리인 경우 nodes와 edges 추출
+        if isinstance(graph, dict):
+            nodes = [NodeSchema(**node) for node in graph.get("nodes", [])]
+            edges = [EdgeSchema(**edge) for edge in graph.get("edges", [])]
+
         self.node_schemas = {node.id: node for node in nodes}  # Schema 보관
         self.node_instances = {}  # Node 인스턴스 저장
         self.edges = edges
+        self.user_input = user_input if user_input is not None else {}
         self.graph = self._build_graph()
         self._build_node_instances()  # Schema → Node 변환
 
@@ -48,7 +66,7 @@ class WorkflowEngine:
 
             # 노드 실행: 입력 데이터 준비 후 Node.execute() 호출
             try:
-                inputs = self._get_inputs(node_id, results)
+                inputs = self._get_context(node_id, results)
                 result = node_instance.execute(inputs)
                 results[node_id] = result
             except Exception as e:
@@ -64,15 +82,15 @@ class WorkflowEngine:
                 if self._is_ready(next_node_id, results):
                     ready_queue.append(next_node_id)
 
-        return results
+        return self._get_context(node_id, results)
 
     def _find_start_node(self) -> str:
-        """시작 노드 찾기 (type == "start"인 노드)"""
+        """시작 노드 찾기 (type == "startNode"인 노드)"""
         start_nodes = []
 
-        # 모든 노드를 순회하면서 start 타입 찾기
+        # 모든 노드를 순회하면서 startNode 타입 찾기
         for node_id, node in self.node_schemas.items():
-            if node.type == "start":
+            if node.type == "startNode":
                 start_nodes.append(node_id)
 
         if len(start_nodes) > 1:
@@ -81,7 +99,7 @@ class WorkflowEngine:
             )
 
         elif len(start_nodes) == 0:
-            raise ValueError("워크플로우에 시작 노드(type='start')가 없습니다.")
+            raise ValueError("워크플로우에 시작 노드(type='startNode')가 없습니다.")
 
         return start_nodes[0]
 
@@ -101,15 +119,31 @@ class WorkflowEngine:
                     f"Cannot create node '{node_id}': {str(e)}"
                 ) from e
 
-    def _get_inputs(self, node_id: str, results: Dict) -> Dict[str, Any]:
-        """현재 노드가 필요한 입력 데이터를 results에서 찾아서 모으는 method"""
+    def _get_context(self, node_id: str, results: Dict) -> Dict[str, Any]:
+        """
+        현재 노드가 실행에 필요한 모든 입력 데이터를 구성
 
-        # TODO: 현재 노드가 필요한 입력 데이터 찾기 (입력 변수)
-        # TODO: results에서 찾아서 inputs으로 전달해주기
-        # TODO: 현재는 그냥 이전 노드들의 입력값을 모두 전달하는 방식입니다.
+        Returns:
+            inputs: {
+                # Flat 접근 (편의성)
+                "key1": "value1",
+                "key2": "value2",
 
+                # Node ID 네임스페이스 (명확성)
+                "node-a-id": {"key1": "value1"},
+                "node-b-id": {"key2": "value2"}
+            }
+        """
         inputs = {}
-        for edge in self.edges:
-            if edge.target == node_id:
-                inputs[edge.source] = results.get(edge.source, {})
+
+        # 1. user_input 추가 (최우선)
+        inputs.update(self.user_input)
+
+        # 2. 모든 이전 노드 결과를 두 가지 방식으로 제공
+        for prev_id, output in results.items():
+            # 방식 1: flat하게 추가 (편의성)
+            inputs.update(output)
+            # 방식 2: node_id로 감싸서 추가 (명확성/충돌 해결)
+            inputs[prev_id] = output
+
         return inputs

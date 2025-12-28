@@ -1,12 +1,20 @@
+"""
+LLM 클라이언트의 공통 인터페이스.
+
+각 provider별 클라이언트는 이 추상 클래스를 상속해 구현합니다.
+"""
+
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 
 class BaseLLMClient(ABC):
     """
-    공통 LLM 클라이언트 인터페이스.
+    provider별 클라이언트의 기본 구조를 정의합니다.
 
-    provider별 구현체는 이 클래스를 상속하고 invoke/get_num_tokens를 구현
+    Args:
+        model_id: 사용할 모델 식별자 (예: gpt-4o)
+        credentials: API 호출에 필요한 자격 정보 딕셔너리
     """
 
     def __init__(self, model_id: str, credentials: Optional[Dict[str, Any]] = None):
@@ -16,13 +24,26 @@ class BaseLLMClient(ABC):
     @abstractmethod
     def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
-        LLM 호출 수행. messages 형식과 반환 포맷은 구현체에서 정의합니다.
+        LLM에 메시지를 전달하고 결과를 반환합니다.
+
+        Args:
+            messages: role/content 형식의 메시지 리스트
+            **kwargs: 추가 옵션 (온도, 토큰 제한 등)
+
+        Returns:
+            모델 응답을 담은 딕셔너리
         """
-        raise NotImplementedError  # override 안하면 런타임에서 터짐
+        raise NotImplementedError
 
     @abstractmethod
     def get_num_tokens(self, messages: List[Dict[str, Any]]) -> int:
         """
-        토큰 수 계산. provider SDK를 사용하거나 내부 토크나이저로 구현하세요.
+        메시지 리스트가 소비할 토큰 수를 추정/계산합니다.
+
+        Args:
+            messages: role/content 형식의 메시지 리스트
+
+        Returns:
+            예상 토큰 수
         """
-        raise NotImplementedError  # override 안하면 런타임에서 터짐
+        raise NotImplementedError

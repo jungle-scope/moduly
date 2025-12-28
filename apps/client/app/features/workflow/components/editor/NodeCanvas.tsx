@@ -20,9 +20,7 @@ import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
-import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
-import { nodeTypes as registeredNodeTypes } from '../nodes';
-import { getNodeDefinitionByType } from '../../config/nodeRegistry';
+import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -63,6 +61,7 @@ export default function NodeCanvas() {
   // Save viewport changes for the active workflow
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {
+      // Zustand에 저장 → useAutoSync가 자동으로 감지하여 서버에 저장
       updateWorkflowViewport(activeWorkflowId, viewport);
     },
     [activeWorkflowId, updateWorkflowViewport],
@@ -181,11 +180,11 @@ export default function NodeCanvas() {
               data={selectedNode.data as any}
             />
           )}
-          {selectedNode && selectedNodeType === 'llmNode' && (
-            <LLMNodePanel
+          {selectedNode && selectedNodeType === 'answerNode' && (
+            <AnswerNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
-            /> // NOTE: [LLM] LLM 노드 전용 설정 패널
+            />
           )}
         </NodeDetailsPanel>
       </div>
