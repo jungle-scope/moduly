@@ -1,5 +1,7 @@
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 
 interface NodeDetailsPanelProps {
   nodeId: string | null;
@@ -17,6 +19,14 @@ export default function NodeDetailsPanel({
   children,
 }: NodeDetailsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const { nodes } = useWorkflowStore();
+
+  // Find the selected node
+  const selectedNode = nodes.find((n) => n.id === nodeId);
+  // Find the node definition (for icon, description, etc.)
+  const nodeDef = selectedNode
+    ? getNodeDefinitionByType(selectedNode.type || '')
+    : null;
 
   // Close panel when clicking outside (on canvas)
   useEffect(() => {
@@ -57,7 +67,7 @@ export default function NodeDetailsPanel({
     };
   }, [nodeId, onClose]);
 
-  if (!nodeId) return null;
+  if (!nodeId || !selectedNode) return null;
 
   return (
     <div
@@ -67,14 +77,18 @@ export default function NodeDetailsPanel({
       {/* Panel Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 bg-blue-500 rounded text-white font-bold text-sm">
-            ▶️
+          <div
+            className={`flex items-center justify-center w-8 h-8 rounded text-white font-bold text-sm ${nodeDef?.color || 'bg-gray-500'}`}
+          >
+            {nodeDef?.icon || '📦'}
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Start</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {/* @ts-ignore */}
+              {selectedNode.data.title || nodeDef?.name || 'Node'}
+            </h2>
             <p className="text-xs text-gray-500">
-              The starting node of the workflow, used to set the information
-              needed to initiate the workflow.
+              {nodeDef?.description || 'No description available.'}
             </p>
           </div>
         </div>
@@ -87,8 +101,18 @@ export default function NodeDetailsPanel({
         </button>
       </div>
 
-      {/* Panel Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+      {/* Panel Content - Currently showing children, which are usually empty in current usage */}
+      {/* Future: Add specific property editors here based on node type */}
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        {children}
+
+        {/* Fallback content if no children */}
+        {!children && (
+          <div className="text-sm text-gray-500">
+            Configure this node in the canvas or add property controls here.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

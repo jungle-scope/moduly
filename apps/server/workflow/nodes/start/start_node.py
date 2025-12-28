@@ -23,7 +23,7 @@ class StartNode(Node[StartNodeData]):
     사용자 입력을 그대로 다음 노드로 전달하는 역할을 합니다.
     """
 
-    node_type = "start"
+    node_type = "startNode"
 
     def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         # Start Node는 복잡한 로직 없이

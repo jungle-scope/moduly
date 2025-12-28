@@ -3,6 +3,7 @@ from typing import Dict
 from schemas.workflow import NodeSchema
 from workflow.core.node import Node
 from workflow.nodes.start import StartNode, StartNodeData
+from workflow.nodes.answer import AnswerNode, AnswerNodeData
 
 
 class NodeFactory:
@@ -12,12 +13,10 @@ class NodeFactory:
     """
 
     # 노드 타입 → (NodeClass, DataClass) 매핑
+    # 프론트엔드 React Flow 타입명과 일치해야 함
     NODE_REGISTRY: Dict[str, tuple] = {
-        "start": (StartNode, StartNodeData),
-        # TODO: 추가 노드 타입 등록
-        # "llm": (LLMNode, LLMNodeData),
-        # "code": (CodeNode, CodeNodeData),
-        # "end": (EndNode, EndNodeData),
+        "startNode": (StartNode, StartNodeData),
+        "answerNode": (AnswerNode, AnswerNodeData),
     }
 
     @staticmethod

@@ -21,6 +21,7 @@ import WorkflowTabs from './WorkflowTabs';
 import { StartNode } from '../nodes/start/components/StartNode';
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
+import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -161,6 +162,12 @@ export default function NodeCanvas() {
         <NodeDetailsPanel nodeId={selectedNodeId} onClose={handleClosePanel}>
           {selectedNode && selectedNodeType === 'startNode' && (
             <StartNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'answerNode' && (
+            <AnswerNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />
