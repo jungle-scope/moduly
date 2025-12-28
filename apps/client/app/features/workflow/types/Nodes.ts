@@ -36,18 +36,48 @@ export interface WorkflowVariable {
   options?: SelectOption[];
 }
 
-// [StartNode]
+// ========================== [Start Node] ====================================
 export interface StartNodeData extends BaseNodeData {
   triggerType: TriggerType;
   variables?: WorkflowVariable[];
 }
+// ===========================================================================
+
+// ========================= [Answer Node] ====================================
+export interface AnswerNodeOutput {
+  variable: string;
+  value_selector: string[]; // [node_id, key]
+}
+
+export interface AnswerNodeData extends BaseNodeData {
+  outputs: AnswerNodeOutput[];
+}
+// ============================================================================
+
+// ======================== [HTTP Request Node] ==============================
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
+export interface HttpRequestNodeData extends BaseNodeData {
+  method: HttpMethod;
+  url: string;
+  headers: { key: string; value: string }[];
+  body: string;
+  timeout: number;
+  [key: string]: unknown;
+}
+// ============================================================================
 
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
+export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
+export type HttpRequestNode = ReactFlowNode<
+  HttpRequestNodeData,
+  'httpRequestNode'
+>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
-export type AppNode = StartNode;
+export type AppNode = StartNode | AnswerNode | HttpRequestNode;
 
 // 하위 호환성 (필요시)
 export type NodeData = BaseNodeData;

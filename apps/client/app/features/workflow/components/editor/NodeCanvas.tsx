@@ -18,10 +18,11 @@ import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
-import { StartNode } from '../nodes/start/components/StartNode';
+
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
+import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -46,7 +47,6 @@ export default function NodeCanvas() {
     () => ({
       ...coreNodeTypes,
       note: NotePost,
-      startNode: StartNode,
     }),
     [],
   ) as unknown as NodeTypes;
@@ -169,6 +169,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'answerNode' && (
             <AnswerNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'httpRequestNode' && (
+            <HttpRequestNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

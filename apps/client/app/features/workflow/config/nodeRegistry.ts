@@ -142,6 +142,24 @@ export const nodeRegistry: NodeDefinition[] = [
       outputs: [],
     }),
   },
+  {
+    id: 'http',
+    type: 'httpRequestNode',
+    name: 'HTTP Request',
+    category: 'plugin',
+    color: 'bg-purple-500',
+    icon: '🌍',
+    implemented: true,
+    description: '외부 API로 HTTP 요청을 보냅니다.',
+    defaultData: () => ({
+      title: 'HTTP Request',
+      method: 'GET',
+      url: '',
+      headers: [],
+      body: '',
+      timeout: 5000,
+    }),
+  },
 ];
 
 /**
