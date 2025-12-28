@@ -2,7 +2,41 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class LLMProviderDebugCreate(BaseModel):
+    """
+    프론트엔드 연동 확인용: provider alias와 apiKey를 단순히 받아서 로깅.
+
+    - populate_by_name=True 설정으로 camelCase(apiKey)와 snake_case(api_key) 모두 허용
+    """
+
+    alias: str
+    api_key: str = Field(alias="apiKey")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class LLMProviderSimpleCreate(BaseModel):
+    """
+    최소 입력용 provider 생성 스키마.
+
+    - alias: provider 이름/별칭 (DB의 provider_name으로 사용)
+    - apiKey: credential로 저장할 키
+    - provider_type: 예) "openai" (지금은 openai만 사용, 다른 provider는 TODO)
+    - base_url, model: openai 규격에 필요한 최소 값
+    - user_id: 없으면 내부 로직에서 임시 사용자(fallback) 사용
+    """
+
+    alias: str
+    api_key: str = Field(alias="apiKey")
+    provider_type: str = "openai"
+    base_url: str = "https://api.openai.com/v1"
+    model: str = "gpt-4o-mini"
+    user_id: Optional[uuid.UUID] = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class LLMCredentialCreate(BaseModel):
