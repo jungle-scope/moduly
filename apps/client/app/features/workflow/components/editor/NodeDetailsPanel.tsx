@@ -21,42 +21,42 @@ export default function NodeDetailsPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const { nodes } = useWorkflowStore();
 
-  // Find the selected node
+  // 선택된 노드 찾기
   const selectedNode = nodes.find((n) => n.id === nodeId);
-  // Find the node definition (for icon, description, etc.)
+  // 노드 정의 찾기 (아이콘, 설명 등)
   const nodeDef = selectedNode
     ? getNodeDefinitionByType(selectedNode.type || '')
     : null;
 
-  // Close panel when clicking outside (on canvas)
+  // 외부(캔버스) 클릭 시 패널 닫기
   useEffect(() => {
     if (!nodeId) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
 
-      // Don't close if clicking inside the panel
+      // 패널 내부 클릭 시 닫지 않음
       if (panelRef.current?.contains(target)) {
         return;
       }
 
-      // Don't close if clicking on a node (let the node click handler manage it)
+      // 노드 클릭 시 닫지 않음 (노드 클릭 핸들러가 관리하도록 함)
       if (target.closest('.react-flow__node')) {
         return;
       }
 
-      // Don't close if clicking on bottom panel or other UI elements
+      // 하단 패널이나 다른 UI 요소를 클릭하면 닫지 않음
       if (target.closest('.pointer-events-auto')) {
         return;
       }
 
-      // Close the panel for canvas clicks
+      // 캔버스 클릭 시 패널 닫기
       if (target.closest('.react-flow__pane')) {
         onClose();
       }
     };
 
-    // Add slight delay to prevent immediate closure when opening
+    // 열 때 즉시 닫히는 것을 방지하기 위해 약간의 지연 추가
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
     }, 100);
@@ -74,7 +74,7 @@ export default function NodeDetailsPanel({
       ref={panelRef}
       className="absolute right-0 top-0 h-full w-[400px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200"
     >
-      {/* Panel Header */}
+      {/* 패널 헤더 */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <div
@@ -100,12 +100,12 @@ export default function NodeDetailsPanel({
         </button>
       </div>
 
-      {/* Panel Content - Currently showing children, which are usually empty in current usage */}
-      {/* Future: Add specific property editors here based on node type */}
+      {/* 패널 콘텐츠 - 현재는 children을 표시하며, 현재 사용에서는 보통 비어 있음 */}
+      {/* 향후: 노드 유형에 따라 여기에 특정 속성 편집기 추가 */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {children}
 
-        {/* Fallback content if no children */}
+        {/* children이 없을 경우 대체 콘텐츠 */}
         {!children && (
           <div className="text-sm text-gray-500">
             Configure this node in the canvas or add property controls here.

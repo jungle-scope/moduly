@@ -64,7 +64,7 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
               (n) => n.id === selectedSourceNodeId,
             );
 
-            // Get variables from source node
+            // 소스 노드에서 변수 가져오기
             let sourceVariables: { label: string; value: string }[] = [];
             const isStartNode = selectedSourceNode?.type === 'startNode';
 
@@ -76,7 +76,7 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                 value: v.name,
               }));
             }
-            // Add other node types here if needed (e.g. LLM result)
+            // 필요한 경우 다른 노드 유형 추가 (예: LLM 결과)
 
             return (
               <div
@@ -100,13 +100,13 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                   </button>
                 </div>
 
-                {/* Value Selector */}
+                {/* 값 선택기 */}
                 <div className="flex gap-2">
                   <select
                     className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
                     value={output.value_selector?.[0] || ''}
                     onChange={(e) => {
-                      const currentKey = ''; // Reset key when node changes
+                      const currentKey = ''; // 노드 변경 시 키 재설정
                       handleUpdateOutput(index, 'value_selector', [
                         e.target.value,
                         currentKey,
@@ -125,7 +125,7 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                       ))}
                   </select>
 
-                  {/* Dynamic Source Var Input/Select */}
+                  {/* 동적 소스 변수 입력/선택 */}
                   {isStartNode ? (
                     <select
                       className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
