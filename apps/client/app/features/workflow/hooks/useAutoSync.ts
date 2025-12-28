@@ -37,16 +37,16 @@ export const useAutoSync = () => {
 
         if (data) {
           //TODO: 노드가 없으면 '에러' 대신 '기본값을 주입'하고 있습니다. 백엔드 연동되면 에러페이지 리다이렉트로 수정합니다.
-          // Migration: Convert legacy 'startNode' to 'start'
+          // Migration: Convert 'start' (from temporary refactor) back to 'startNode'
           if (data.nodes && data.nodes.length > 0) {
             data.nodes = data.nodes.map((node: any) => {
-              if (node.type === 'startNode') {
-                return { ...node, type: 'start' };
+              if (node.type === 'start') {
+                return { ...node, type: 'startNode' };
               }
               return node;
             });
             console.log(
-              '[AutoSync] Migrated nodes (startNode -> start):',
+              '[AutoSync] Migrated nodes (start -> startNode):',
               data.nodes,
             );
           } else {

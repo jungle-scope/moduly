@@ -3,8 +3,7 @@ import { AnswerNode } from './answer/components/AnswerNode';
 // import EndNode from './EndNode';
 
 export const nodeTypes = {
-  start: StartNode,
-  // startNode: StartNode, // Legacy support if needed
+  startNode: StartNode,
   answerNode: AnswerNode,
   // endNode: EndNode,
 };

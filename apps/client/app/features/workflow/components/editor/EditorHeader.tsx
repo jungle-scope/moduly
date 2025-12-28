@@ -44,9 +44,7 @@ export default function EditorHeader() {
     setErrorMsg(null);
 
     // 1. StartNode 찾기
-    const startNode = nodes.find(
-      (node) => node.type === 'start' || node.type === 'startNode',
-    );
+    const startNode = nodes.find((node) => node.type === 'startNode');
     if (!startNode) {
       const errorContent =
         '시작 노드를 찾을 수 없습니다. 워크플로우에 시작 노드를 추가해주세요.';

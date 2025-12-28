@@ -35,7 +35,7 @@ export const nodeRegistry: NodeDefinition[] = [
   // Trigger Category
   {
     id: 'start',
-    type: 'start',
+    type: 'startNode',
     name: 'Start',
     category: 'trigger',
     color: 'bg-green-500',

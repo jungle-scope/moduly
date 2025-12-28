@@ -46,8 +46,7 @@ export default function NodeCanvas() {
     () => ({
       ...coreNodeTypes,
       note: NotePost,
-      start: StartNode,
-      startNode: StartNode, //브라우저 오류인 것 같아서 테스트용으로 추가함
+      startNode: StartNode,
     }),
     [],
   ) as unknown as NodeTypes;
@@ -162,14 +161,12 @@ export default function NodeCanvas() {
 
         {/* Node Details Panel - positioned relative to ReactFlow container */}
         <NodeDetailsPanel nodeId={selectedNodeId} onClose={handleClosePanel}>
-          {selectedNode &&
-            (selectedNodeType === 'start' ||
-              selectedNodeType === 'startNode') && (
-              <StartNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
+          {selectedNode && selectedNodeType === 'startNode' && (
+            <StartNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
           {selectedNode && selectedNodeType === 'answerNode' && (
             <AnswerNodePanel
               nodeId={selectedNode.id}
