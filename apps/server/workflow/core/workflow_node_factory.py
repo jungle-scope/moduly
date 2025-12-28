@@ -2,8 +2,8 @@ from typing import Dict
 
 from schemas.workflow import NodeSchema
 from workflow.core.node import Node
-from workflow.nodes.start import StartNode, StartNodeData
 from workflow.nodes.answer import AnswerNode, AnswerNodeData
+from workflow.nodes.start import StartNode, StartNodeData
 
 
 class NodeFactory:
@@ -41,4 +41,6 @@ class NodeFactory:
 
         NodeClass, DataClass = NodeFactory.NODE_REGISTRY[schema.type]
         data = DataClass(**schema.data)
+
+        print("자 객체 생성 전입니다", data)
         return NodeClass(schema.id, data)
