@@ -223,12 +223,34 @@ export default function BottomPanel({
         }
       }
 
-      // Start node placement mode
-      setSelectedNodeDef(nodeDef);
-      setIsAddingNode(true);
+      // Calculate center of the viewport
+      const viewport = getViewport();
+      const reactFlowWrapper = document.querySelector('.react-flow');
+      let position = { x: 0, y: 0 };
+
+      if (reactFlowWrapper) {
+        const { width, height } = reactFlowWrapper.getBoundingClientRect();
+        position = {
+          x: (-viewport.x + width / 2) / viewport.zoom - 75,
+          y: (-viewport.y + height / 2) / viewport.zoom - 40,
+        };
+      } else {
+        position = { x: 0, y: 0 };
+      }
+
+      // Create new node directly
+      const newNode = {
+        id: `${nodeDef.id}-${Date.now()}`,
+        type: nodeDef.type,
+        data: nodeDef.defaultData(),
+        position,
+      };
+
+      setNodes([...nodes, newNode] as unknown as any[]);
       setOpenModal(null);
+      toast.success(`${nodeDef.name} 노드가 추가되었습니다.`);
     },
-    [nodes],
+    [nodes, getViewport, setNodes],
   );
 
   const selectInteractiveMode = useCallback(
@@ -292,7 +314,29 @@ export default function BottomPanel({
         return;
       }
 
-      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      // Calculate center of the viewport
+      const viewport = getViewport();
+      const reactFlowWrapper = document.querySelector('.react-flow');
+
+      let position = { x: 0, y: 0 };
+
+      if (reactFlowWrapper) {
+        const { width, height } = reactFlowWrapper.getBoundingClientRect();
+        // Calculate center position in the flow coordinate system
+        // CenterX = (-viewport.x + width / 2) / viewport.zoom
+        // CenterY = (-viewport.y + height / 2) / viewport.zoom
+        // Subtract half of standard node width/height (approx 150x80) to center properly
+        position = {
+          x: (-viewport.x + width / 2) / viewport.zoom - 75,
+          y: (-viewport.y + height / 2) / viewport.zoom - 40,
+        };
+      } else {
+        // Fallback if wrapper not found
+        position = screenToFlowPosition({
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+        });
+      }
 
       // Create new node with data from registry
       const newNode = {
