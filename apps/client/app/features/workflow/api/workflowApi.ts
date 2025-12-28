@@ -20,7 +20,7 @@ export const workflowApi = {
     return response.data;
   },
 
-  runWorkflow: async (workflowId: string, userInput?: any) => {
+  executeWorkflow: async (workflowId: string, userInput?: any) => {
     // 저장된 드래프트로 워크플로우 실행
     // userInput이 있으면 같이 보냄 (Develop support)
     const response = await axios.post(
