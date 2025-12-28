@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { Search, Plus } from 'lucide-react';
 import CreateAppModal from '../features/app/components/create-app-modal';
+import LogoutButton from '../features/auth/components/LogoutButton';
 
 // 임시 데이터 (나중에 API로 대체)
 const mockApps = [
@@ -42,13 +43,16 @@ export default function DashboardPage() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          스튜디오
-        </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
-          모듈을 생성하고 편집하는 공간입니다.
-        </p>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            스튜디오
+          </h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            모듈을 생성하고 편집하는 공간입니다.
+          </p>
+        </div>
+        <LogoutButton />
       </div>
 
       {/* Search Bar */}

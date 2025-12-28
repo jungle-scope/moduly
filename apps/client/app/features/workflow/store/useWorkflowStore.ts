@@ -1,4 +1,3 @@
-import { create } from 'zustand';
 import {
   Connection,
   Edge,
@@ -17,6 +16,9 @@ import {
   ConversationVariable,
   Node,
 } from '../types/Workflow';
+
+import { create } from 'zustand';
+import { DEFAULT_NODES } from '../constants';
 
 interface SidebarState {
   workflow: boolean;
@@ -96,14 +98,7 @@ type WorkflowState = {
 };
 
 // Initial data
-const initialNodes: Node[] = [
-  {
-    id: 'start-1',
-    type: 'start',
-    position: { x: 250, y: 250 },
-    data: { title: '시작', triggerType: 'manual', variables: [] },
-  },
-];
+const initialNodes: Node[] = DEFAULT_NODES;
 const initialEdges: Edge[] = [];
 
 const initialWorkflows: Workflow[] = [

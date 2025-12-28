@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from db.models.workflow import Workflow
@@ -27,15 +28,12 @@ class WorkflowService:
         # 기존 워크플로우 찾기
         workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
+        # workflow 없으면 error 반환
         if not workflow:
-            # 새 워크플로우 생성
-            workflow = Workflow(
-                id=workflow_id,
-                tenant_id="default-tenant",
-                app_id="default-app",
-                created_by=user_id,
+            raise HTTPException(
+                status_code=404,  # "찾을 수 없음" (에러 종류)
+                detail="Workflow not found",  # 상세 메시지
             )
-            db.add(workflow)
 
         # Graph 데이터 저장 (JSONB 형식)
         workflow.graph = {
@@ -50,11 +48,6 @@ class WorkflowService:
         # DB에 커밋
         db.commit()
         db.refresh(workflow)
-
-        print("=== [Backend] Workflow Saved to DB ===")
-        print(f"Workflow ID: {workflow_id}")
-        print(f"Nodes count: {len(request.nodes)}")
-        print(f"Edges count: {len(request.edges)}")
 
         return {
             "status": "success",

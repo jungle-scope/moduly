@@ -20,21 +20,12 @@ export const workflowApi = {
     return response.data;
   },
 
-  runWorkflow: async (workflowId: string) => {
+  runWorkflow: async (workflowId: string, userInput?: any) => {
     // 저장된 드래프트로 워크플로우 실행
+    // userInput이 있으면 같이 보냄 (Develop support)
     const response = await axios.post(
       `${API_BASE_URL}/workflows/${workflowId}/execute`,
-    );
-    return response.data;
-  },
-
-  // 실행 생성
-  publishWorkflow: async (workflowId: string, description?: string) => {
-    // POST /api/v1/workflows/{id}/publish
-    // description은 선택 사항 (버전 설명 등)
-    const response = await axios.post(
-      `${API_BASE_URL}/workflows/${workflowId}/publish`,
-      { description },
+      userInput || {}, // Ensure body is sent if needed, or modify backend to accept empty
     );
     return response.data;
   },

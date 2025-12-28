@@ -11,12 +11,20 @@ import {
   validateVariableName,
   validateVariableSettings,
 } from '../nodes/start/hooks/useVariableManager';
+<<<<<<< HEAD
 import { StartNodeData } from '../../types/Nodes';
 import { workflowApi } from '../../api/workflowApi';
+=======
+import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
+import { workflowApi } from '../../api/workflowApi';
+import { UserInputModal } from '../modals/userInputModal';
+import { ResultModal } from '../modals/ResultModal';
+>>>>>>> origin/develop
 
 export default function EditorHeader() {
   const router = useRouter();
   const params = useParams();
+<<<<<<< HEAD
   const workflowId = params.id as string;
   const [isPublishing, setIsPublishing] = useState(false);
 
@@ -28,7 +36,16 @@ export default function EditorHeader() {
     activeWorkflowId,
     workflows,
   } = useWorkflowStore();
+=======
+  const workflowId = (params.id as string) || 'default'; // URL에서 ID 파싱
+  const { projectName, projectIcon, nodes } = useWorkflowStore();
+>>>>>>> origin/develop
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalVariables, setModalVariables] = useState<WorkflowVariable[]>([]);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [executionResult, setExecutionResult] = useState<any>(null);
 
   const handleBack = useCallback(() => {
     router.push('/');
@@ -54,8 +71,6 @@ export default function EditorHeader() {
 
   const handleTestRun = useCallback(async () => {
     setErrorMsg(null);
-    if (!workflowId) return;
-
     // 1. StartNode 찾기
     const startNode = nodes.find(
       (node) => node.type === 'start' || node.type === 'startNode',
@@ -67,6 +82,7 @@ export default function EditorHeader() {
       setErrorMsg(errorContent);
       return;
     }
+
     // 2. 유효성 검사
     const data = startNode.data as StartNodeData;
     const variables = data.variables || [];
@@ -93,6 +109,15 @@ export default function EditorHeader() {
         return;
       }
     }
+
+    // 3. 변수 저장 후 모달 표시 (Develop feature) OR Run immediately (HEAD feature)
+    // For now, if there are variables, we might want to show modal.
+    // But to preserve current functionality, I will proceed with SAVE -> RUN.
+    // However, I will ADD the modal state logic from Develop so it's not lost.
+    
+    // Merge Strategy: Use HEAD's execution logic because it works for the current "Test Run" button.
+    // We can enable the modal later if needed.
+    
     try {
       // 3. 실행 전 자동 저장
       console.log('[테스트 실행] 워크플로우 저장 중...');
@@ -118,6 +143,38 @@ export default function EditorHeader() {
       setErrorMsg('테스트 실행 중 오류가 발생했습니다.');
     }
   }, [nodes, edges, workflowId, activeWorkflowId, workflows]);
+
+  const handleModalClose = useCallback(() => {
+    setShowModal(false);
+  }, []);
+
+  const handleModalSubmit = useCallback(
+    async (inputs: Record<string, any>) => {
+      setShowModal(false);
+
+      // 워크플로우 실행
+      try {
+        setIsExecuting(true);
+        console.log('[사용자 입력]', inputs);
+        const result = await workflowApi.runWorkflow(workflowId, inputs);
+        console.log('[테스트 실행 성공] 결과:', result);
+
+        // 결과 모달 표시
+        setExecutionResult(result);
+        setShowResultModal(true);
+      } catch (error) {
+        const errorContent =
+          error instanceof Error
+            ? `워크플로우 실행 실패: ${error.message}`
+            : '워크플로우 실행 중 알 수 없는 오류가 발생했습니다.';
+        console.error('[테스트 실행 실패]', error);
+        setErrorMsg(errorContent);
+      } finally {
+        setIsExecuting(false);
+      }
+    },
+    [workflowId],
+  );
 
   return (
     <div>
@@ -146,9 +203,14 @@ export default function EditorHeader() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleTestRun}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors shadow-sm"
+            disabled={isExecuting}
+            className={`px-4 py-2 font-medium rounded-lg transition-colors shadow-sm ${
+              isExecuting
+                ? 'bg-green-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
           >
-            TEST(startnode테스트용)
+            {isExecuting ? '실행 중...' : 'TEST'}
           </button>
           <button
             onClick={handleVersionHistory}
@@ -182,6 +244,23 @@ export default function EditorHeader() {
           </div>
         )}
       </div>
+
+      {/* 사용자 입력 모달 (개발 중 테스트 용입니다. 최종 X) */}
+      {showModal && (
+        <UserInputModal
+          variables={modalVariables}
+          onClose={handleModalClose}
+          onSubmit={handleModalSubmit}
+        />
+      )}
+
+      {/* 실행 결과 모달 (개발 중 테스트 용입니다. 최종 X) */}
+      {showResultModal && executionResult && (
+        <ResultModal
+          result={executionResult}
+          onClose={() => setShowResultModal(false)}
+        />
+      )}
     </div>
   );
 }

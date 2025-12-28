@@ -9,7 +9,20 @@ vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'test-workflow-id' }),
 }));
 
-// 2. API 모킹 (실제 서버 요청 방지)
+// 2. React Flow 모킹 (viewport 관련 함수 제공)
+// 안정적인 함수 참조를 위해 모킹 함수를 미리 생성
+const mockGetViewport = vi.fn(() => ({ x: 0, y: 0, zoom: 1 }));
+const mockSetViewport = vi.fn();
+
+vi.mock('@xyflow/react', () => ({
+  useReactFlow: () => ({
+    getViewport: mockGetViewport,
+    setViewport: mockSetViewport,
+  }),
+  ReactFlowProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+// 3. API 모킹 (실제 서버 요청 방지)
 vi.mock('../api/workflowApi', () => ({
   workflowApi: {
     getDraftWorkflow: vi.fn(),
@@ -17,7 +30,7 @@ vi.mock('../api/workflowApi', () => ({
   },
 }));
 
-// 3. Zustand 초기화 헬퍼 (테스트 간 상태 간섭 방지)
+// 4. Zustand 초기화 헬퍼 (테스트 간 상태 간섭 방지)
 const initialStoreState = useWorkflowStore.getState();
 const resetStore = () => useWorkflowStore.setState(initialStoreState, true);
 

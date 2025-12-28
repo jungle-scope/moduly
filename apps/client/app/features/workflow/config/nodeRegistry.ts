@@ -128,6 +128,20 @@ export const nodeRegistry: NodeDefinition[] = [
       conditions: [],
     }),
   },
+  {
+    id: 'answer',
+    type: 'answerNode',
+    name: 'Answer',
+    category: 'logic',
+    color: 'bg-orange-500',
+    icon: '🏁',
+    implemented: true,
+    description: '워크플로우의 최종 결과를 수집합니다.',
+    defaultData: () => ({
+      title: 'Answer',
+      outputs: [],
+    }),
+  },
 ];
 
 /**
