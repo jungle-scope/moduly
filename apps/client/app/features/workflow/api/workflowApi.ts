@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
+import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -31,5 +32,17 @@ export const workflowApi = {
       userInput || {},
     );
     return response.data;
+  },
+
+  createDeployment: async (data: DeploymentCreate) => {
+    const response = await axios.post(`${API_BASE_URL}/deployments/`, data);
+    return response.data as DeploymentResponse;
+  },
+
+  getDeployments: async (workflowId: string) => {
+    const response = await axios.get(`${API_BASE_URL}/deployments/`, {
+      params: { workflow_id: workflowId },
+    });
+    return response.data as DeploymentResponse[];
   },
 };
