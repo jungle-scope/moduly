@@ -62,6 +62,7 @@ export default function NodeCanvas() {
   // Save viewport changes for the active workflow
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {
+      // Zustand에 저장 → useAutoSync가 자동으로 감지하여 서버에 저장
       updateWorkflowViewport(activeWorkflowId, viewport);
     },
     [activeWorkflowId, updateWorkflowViewport],
