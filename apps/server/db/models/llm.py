@@ -55,7 +55,9 @@ class LLMProvider(Base):
 
     # 한 provider는 여러 credential을 가질 수 있음 (1:N)
     credentials: Mapped[List["LLMCredential"]] = relationship(
-        "LLMCredential", back_populates="provider"
+        "LLMCredential",
+        back_populates="provider",
+        foreign_keys="LLMCredential.provider_id",  # 명시해서 provider_id만 사용
     )
     # 기본으로 사용할 credential (없을 수도 있음)
     default_credential: Mapped[Optional["LLMCredential"]] = relationship(
@@ -104,7 +106,9 @@ class LLMCredential(Base):
 
     # 소속 provider
     provider: Mapped["LLMProvider"] = relationship(
-        "LLMProvider", back_populates="credentials"
+        "LLMProvider",
+        back_populates="credentials",
+        foreign_keys=[provider_id],  # 어떤 FK로 이어지는지 명시
     )
     # 어떤 사용자가 만든 credential인지 연결
     # (현재는 역참조 back_populates를 두지 않고 단방향으로 둠)
