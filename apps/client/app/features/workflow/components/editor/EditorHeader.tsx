@@ -11,35 +11,16 @@ import {
   validateVariableName,
   validateVariableSettings,
 } from '../nodes/start/hooks/useVariableManager';
-<<<<<<< HEAD
-import { StartNodeData } from '../../types/Nodes';
-import { workflowApi } from '../../api/workflowApi';
-=======
 import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
 import { workflowApi } from '../../api/workflowApi';
 import { UserInputModal } from '../modals/userInputModal';
 import { ResultModal } from '../modals/ResultModal';
->>>>>>> origin/develop
 
 export default function EditorHeader() {
   const router = useRouter();
   const params = useParams();
-<<<<<<< HEAD
-  const workflowId = params.id as string;
-  const [isPublishing, setIsPublishing] = useState(false);
-
-  const {
-    projectName,
-    projectIcon,
-    nodes,
-    edges,
-    activeWorkflowId,
-    workflows,
-  } = useWorkflowStore();
-=======
   const workflowId = (params.id as string) || 'default'; // URL에서 ID 파싱
   const { projectName, projectIcon, nodes } = useWorkflowStore();
->>>>>>> origin/develop
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -55,26 +36,15 @@ export default function EditorHeader() {
     // TODO: Implement version history
   }, []);
 
-  const handlePublish = async () => {
-    if (!workflowId) return;
-    try {
-      // setIsPublishing(true); //TODO: 1. 로딩 시작 (버튼 비활성화 등)
-      // await workflowApi.publishWorkflow(workflowId, '버전 1.0 배포');
-      alert('성공적으로 게시되었습니다! 🚀');
-    } catch (error) {
-      console.error('Publish failed:', error);
-      alert('게시 중 오류가 발생했습니다.');
-    } finally {
-      setIsPublishing(false); // 3. 로딩 끝
-    }
-  };
+  const handlePublish = useCallback(() => {
+    // TODO: Implement publish functionality
+  }, []);
 
   const handleTestRun = useCallback(async () => {
     setErrorMsg(null);
+
     // 1. StartNode 찾기
-    const startNode = nodes.find(
-      (node) => node.type === 'start' || node.type === 'startNode',
-    );
+    const startNode = nodes.find((node) => node.type === 'startNode');
     if (!startNode) {
       const errorContent =
         '시작 노드를 찾을 수 없습니다. 워크플로우에 시작 노드를 추가해주세요.';
@@ -110,39 +80,10 @@ export default function EditorHeader() {
       }
     }
 
-    // 3. 변수 저장 후 모달 표시 (Develop feature) OR Run immediately (HEAD feature)
-    // For now, if there are variables, we might want to show modal.
-    // But to preserve current functionality, I will proceed with SAVE -> RUN.
-    // However, I will ADD the modal state logic from Develop so it's not lost.
-    
-    // Merge Strategy: Use HEAD's execution logic because it works for the current "Test Run" button.
-    // We can enable the modal later if needed.
-    
-    try {
-      // 3. 실행 전 자동 저장
-      console.log('[테스트 실행] 워크플로우 저장 중...');
-
-      // Viewport 정보 가져오기 (없으면 기본값)
-      const currentWorkflow = workflows.find((w) => w.id === activeWorkflowId);
-      const viewport = currentWorkflow?.viewport || { x: 0, y: 0, zoom: 1 };
-      const draftData = {
-        nodes,
-        edges,
-        viewport,
-        // features, environmentVariables 등 필요한 경우 추가
-      };
-      await workflowApi.syncDraftWorkflow(workflowId, draftData);
-      // 4. 실행 요청
-      console.log('[테스트 실행] 실행 요청 중...');
-      const result = await workflowApi.runWorkflow(workflowId);
-
-      console.log('실행 결과:', result);
-      // alert(`실행 성공!\n결과: ${JSON.stringify(result, null, 2)}`);
-    } catch (error) {
-      console.error('Test run failed:', error);
-      setErrorMsg('테스트 실행 중 오류가 발생했습니다.');
-    }
-  }, [nodes, edges, workflowId, activeWorkflowId, workflows]);
+    // 3. 변수 저장 후 모달 표시
+    setModalVariables(variables);
+    setShowModal(true);
+  }, [nodes]);
 
   const handleModalClose = useCallback(() => {
     setShowModal(false);
@@ -156,7 +97,7 @@ export default function EditorHeader() {
       try {
         setIsExecuting(true);
         console.log('[사용자 입력]', inputs);
-        const result = await workflowApi.runWorkflow(workflowId, inputs);
+        const result = await workflowApi.executeWorkflow(workflowId, inputs);
         console.log('[테스트 실행 성공] 결과:', result);
 
         // 결과 모달 표시
@@ -232,7 +173,7 @@ export default function EditorHeader() {
       <div>
         {/* 에러 메시지 배너 */}
         {errorMsg && (
-          <div className="fixed top-16 right-4 z-60 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md max-w-sm animate-bounce">
+          <div className="fixed top-16 right-4 z-[60] bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md max-w-sm animate-bounce">
             <strong className="font-bold mr-1">오류!</strong>
             <span className="block sm:inline text-sm">{errorMsg}</span>
             <button
