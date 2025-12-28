@@ -1,3 +1,12 @@
+/* 
+개발 과정 중 테스트를 용이하게 하기 위한 유저 입력 모달입니다.
+실제로 어떤 식으로 입력을 받을지는 모르기 때문에, 정해지면 이후에 해당 파일을 삭제해주세요.
+
+현재 기능은
+- 시작 노드에서 설정한 변수대로, 유저의 입력을 받는다.
+- 해당 input들을 POST api/v1/workflows/{workflowId}/execute로 전달한다. (실제로 요청을 보내는 함수는 EditorHeader.tsx의 handleModalSubmit 함수입니다)
+*/
+
 'use client';
 
 import { useState } from 'react';

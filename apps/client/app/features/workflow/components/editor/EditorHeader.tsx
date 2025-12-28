@@ -13,7 +13,8 @@ import {
 } from '../nodes/start/hooks/useVariableManager';
 import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
 import { workflowApi } from '../../api/workflowApi';
-import { UserInputModal } from './userInputModal';
+import { UserInputModal } from '../modals/userInputModal';
+import { ResultModal } from '../modals/ResultModal';
 
 export default function EditorHeader() {
   const router = useRouter();
@@ -24,6 +25,8 @@ export default function EditorHeader() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalVariables, setModalVariables] = useState<WorkflowVariable[]>([]);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [executionResult, setExecutionResult] = useState<any>(null);
 
   const handleBack = useCallback(() => {
     router.push('/');
@@ -39,6 +42,7 @@ export default function EditorHeader() {
 
   const handleTestRun = useCallback(async () => {
     setErrorMsg(null);
+
     // 1. StartNode 찾기
     const startNode = nodes.find((node) => node.type === 'startNode');
     if (!startNode) {
@@ -48,6 +52,7 @@ export default function EditorHeader() {
       setErrorMsg(errorContent);
       return;
     }
+
     // 2. 유효성 검사
     const data = startNode.data as StartNodeData;
     const variables = data.variables || [];
@@ -94,6 +99,10 @@ export default function EditorHeader() {
         console.log('[사용자 입력]', inputs);
         const result = await workflowApi.executeWorkflow(workflowId, inputs);
         console.log('[테스트 실행 성공] 결과:', result);
+
+        // 결과 모달 표시
+        setExecutionResult(result);
+        setShowResultModal(true);
       } catch (error) {
         const errorContent =
           error instanceof Error
@@ -177,12 +186,20 @@ export default function EditorHeader() {
         )}
       </div>
 
-      {/* 사용자 입력 모달 */}
+      {/* 사용자 입력 모달 (개발 중 테스트 용입니다. 최종 X) */}
       {showModal && (
         <UserInputModal
           variables={modalVariables}
           onClose={handleModalClose}
           onSubmit={handleModalSubmit}
+        />
+      )}
+
+      {/* 실행 결과 모달 (개발 중 테스트 용입니다. 최종 X) */}
+      {showResultModal && executionResult && (
+        <ResultModal
+          result={executionResult}
+          onClose={() => setShowResultModal(false)}
         />
       )}
     </div>
