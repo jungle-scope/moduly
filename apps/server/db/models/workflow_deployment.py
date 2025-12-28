@@ -1,11 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -16,10 +16,7 @@ class DeploymentType(str, Enum):
 
     API = "api"  # REST API
     WIDGET = "widget"  # 웹 위젯
-    SLACK = "slack"  # 슬랙 봇
-    DISCORD = "discord"  # 디스코드 봇
     MCP = "mcp"  # Model Context Protocol
-    LIBRARY = "library"  # Python/JS 라이브러리
 
 
 class WorkflowDeployment(Base):
@@ -29,39 +26,58 @@ class WorkflowDeployment(Base):
     """
 
     __tablename__ = "workflow_deployments"
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid.uuid4())
+
+    # 1. Native UUID 사용
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+
     # 🔗 원본 워크플로우 (1:N 관계)
+    # Workflows ID is String (VARCHAR) in workflow.py
     workflow_id: Mapped[str] = mapped_column(
-        String, ForeignKey("workflows.id"), nullable=False, index=True
+        String,
+        ForeignKey("workflows.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
+
     # 🔢 버전 관리 (1, 2, 3...)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
+
     # 🤖 배포 형태 (Default: API)
     type: Mapped[DeploymentType] = mapped_column(
         SQLEnum(DeploymentType), default=DeploymentType.API, nullable=False
     )
-    # 🔑 실행 및 인증 정보
-    # API: 엔드포인트 URL (예: /api/v1/run/{uuid})
-    endpoint_url: Mapped[Optional[str]] = mapped_column(
-        String, unique=True, nullable=True
+
+    # 🔑 실행 주소 (Slug)
+    # 예: /api/v1/run/{url_slug}
+    url_slug: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, nullable=True
     )
 
-    # API Key 또는 봇 토큰 (보안을 위해 해시 저장 권장)
+    # API Key
     auth_secret: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    # 📦 [핵심] 불변 스냅샷 데이터
-    # 배포 시점의 graph 데이터를 그대로 박제하여 저장
-    graph_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    # ⚙️ 채널별 추가 설정 (확장성)
-    # 예: Slack channel_id, Widget theme 등 가변적인 설정값
-    config: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    # 📝 메타데이터
-    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    created_by: Mapped[str] = mapped_column(String, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    # ⏯️ 활성 상태
+    # 배포 시점의 graph 데이터를 그대로 저장
+    graph_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+
+    # 배포 설정. 예시: {"rate_limit": 100, "timeout": 30}
+    config: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True, default={})
+
+    # 배포/버전 설명 (예: "v1.0 챗봇 출시")
+    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    # Users ID is UUID in user.py (FK)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    # 배포 활성화 여부
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    # Workflow 모델과의 관계 설정
+
+    # Workflow 모델과의 관계 설정 (Workflow 모델에 deployments 추가 필요)
     workflow = relationship("Workflow", back_populates="deployments")

@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy import DateTime, String
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
 
@@ -39,4 +39,11 @@ class Workflow(Base):
     updated_by: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    # === Relationships ===
+    deployments = relationship(
+        "WorkflowDeployment",
+        back_populates="workflow",
+        cascade="all, delete-orphan",
     )
