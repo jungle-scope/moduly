@@ -8,7 +8,7 @@ import { useAutoSync } from '@/app/features/workflow/hooks/useAutoSync';
 
 // ReactFlowProvider 컨텍스트 내에서 자동 저장 로직을 관리하는 래퍼 컴포넌트
 function WorkflowEditor() {
-  const { triggerSave } = useAutoSync();
+  useAutoSync();
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -21,7 +21,7 @@ function WorkflowEditor() {
         <EditorSidebar />
 
         {/* Canvas Area */}
-        <NodeCanvas onViewportChange={triggerSave} />
+        <NodeCanvas />
       </div>
     </div>
   );
