@@ -206,7 +206,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         id: created.id,
         name: created.marked_name || workflow.name,
         description: created.marked_comment || '',
-        icon: workflow.icon,
         nodes: [],
         edges: [],
         viewport: { x: 0, y: 0, zoom: 1 },
