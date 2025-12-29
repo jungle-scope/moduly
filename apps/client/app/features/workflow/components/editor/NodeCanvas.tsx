@@ -18,10 +18,13 @@ import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
+
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
+import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
+import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 
@@ -40,7 +43,7 @@ export default function NodeCanvas() {
 
   const { fitView, setViewport, getViewport } = useReactFlow();
 
-  // Track selected node for details panel
+  // 세부 정보 패널을 위한 선택된 노드 추적
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
 
@@ -52,7 +55,7 @@ export default function NodeCanvas() {
     [],
   ) as unknown as NodeTypes;
 
-  // Restore viewport when switching workflows
+  // 워크플로우 전환 시 뷰포트 복원
   useEffect(() => {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
     if (activeWorkflow?.viewport) {
@@ -60,7 +63,7 @@ export default function NodeCanvas() {
     }
   }, [activeWorkflowId, workflows, setViewport]);
 
-  // Save viewport changes for the active workflow
+  // 활성 워크플로우에 대한 뷰포트 변경 사항 저장
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {
       // Zustand에 저장 → useAutoSync가 자동으로 감지하여 서버에 저장
@@ -69,22 +72,22 @@ export default function NodeCanvas() {
     [activeWorkflowId, updateWorkflowViewport],
   );
 
-  // Handle node click to show details panel
+  // 노드 클릭 시 세부 정보 패널 표시 처리
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    // Only show panel for workflow nodes (not notes)
+    // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
     if (node.type && node.type !== 'note') {
       setSelectedNodeId(node.id);
       setSelectedNodeType(node.type);
     }
   }, []);
 
-  // Close details panel
+  // 세부 정보 패널 닫기
   const handleClosePanel = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedNodeType(null);
   }, []);
 
-  // Get selected node data
+  // 선택된 노드 데이터 가져오기
   const selectedNode = useMemo(() => {
     if (!selectedNodeId) return null;
     return nodes.find((n) => n.id === selectedNodeId);
@@ -100,23 +103,23 @@ export default function NodeCanvas() {
     }; // NOTE: [LLM] 노드 정의 기반으로 패널 헤더 표시
   }, [selectedNodeType]);
 
-  // Configure ReactFlow based on interactive mode
+  // 인터랙티브 모드에 따라 ReactFlow 구성
   const reactFlowConfig = useMemo(() => {
     if (interactiveMode === 'touchpad') {
       return {
-        panOnDrag: [1, 2], // Pan with two fingers (middle and right mouse buttons simulate this)
-        panOnScroll: true, // Enable scroll to pan
-        zoomOnScroll: false, // Disable zoom on scroll
-        zoomOnPinch: true, // Enable pinch to zoom
-        selectionOnDrag: true, // Allow node selection and dragging with left click
+        panOnDrag: [1, 2], // 두 손가락으로 이동 (중간 및 오른쪽 마우스 버튼으로 시뮬레이션)
+        panOnScroll: true, // 스크롤로 이동 활성화
+        zoomOnScroll: false, // 스크롤로 줌 비활성화
+        zoomOnPinch: true, // 핀치 줌 활성화
+        selectionOnDrag: true, // 왼쪽 클릭으로 노드 선택 및 드래그 허용
       };
     } else {
-      // Mouse-friendly mode
+      // 마우스 친화적 모드
       return {
-        panOnDrag: true, // Pan with left click drag
-        panOnScroll: false, // Don't pan on scroll
-        zoomOnScroll: true, // Zoom with scroll wheel
-        zoomOnPinch: true, // Also support pinch
+        panOnDrag: true, // 왼쪽 클릭 드래그로 이동
+        panOnScroll: false, // 스크롤 시 이동하지 않음
+        zoomOnScroll: true, // 스크롤 휠로 줌
+        zoomOnPinch: true, // 핀치 줌도 지원
         selectionOnDrag: false,
       };
     }
@@ -124,7 +127,7 @@ export default function NodeCanvas() {
 
   const centerNodes = useCallback(() => {
     fitView({ padding: 0.2, duration: 300 });
-    // Save the new viewport after centering
+    // 중앙 정렬 후 새로운 뷰포트 저장
     setTimeout(() => {
       const viewport = getViewport();
       updateWorkflowViewport(activeWorkflowId, viewport);
@@ -133,10 +136,10 @@ export default function NodeCanvas() {
 
   return (
     <div className="flex-1 bg-gray-50 relative flex flex-col">
-      {/* Workflow Tabs */}
+      {/* 워크플로우 탭 */}
       <WorkflowTabs />
 
-      {/* ReactFlow Canvas */}
+      {/* ReactFlow 캔버스 */}
       <div className="flex-1 relative">
         <ReactFlow
           nodes={nodes}
@@ -164,7 +167,7 @@ export default function NodeCanvas() {
           />
         </ReactFlow>
 
-        {/* Floating Bottom Panel - adjust position based on side panel */}
+        {/* 플로팅 하단 패널 - 사이드 패널에 따라 위치 조정 */}
         <BottomPanel
           onCenterNodes={centerNodes}
           isPanelOpen={!!selectedNodeId}
@@ -184,6 +187,18 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'answerNode' && (
             <AnswerNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'httpRequestNode' && (
+            <HttpRequestNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'conditionNode' && (
+            <ConditionNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />
