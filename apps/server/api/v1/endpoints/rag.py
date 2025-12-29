@@ -1,9 +1,9 @@
 from uuid import UUID
 
-from api.deps import get_db
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
+from api.deps import get_db
 from schemas.rag import IngestionResponse, RAGResponse, SearchQuery
 from services.ingestion import IngestionService
 from services.retrieval import RetrievalService
@@ -11,42 +11,38 @@ from services.retrieval import RetrievalService
 router = APIRouter()
 
 
-@router.post("/ingest", response_model=IngestionResponse)
+@router.post("/upload", response_model=IngestionResponse)
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    knowledge_base_id: UUID = Form(...),  # Form 데이터로 knowledge_base_id 수신
+    knowledge_base_id: UUID = Form(...),
     db: Session = Depends(get_db),
 ):
     """
-    [개발자 A 범위]
-    PDF 업로드 -> 파일 로컬 저장 -> 백그라운드 비동기 처리 트리거
+    파일 업로드 및 처리 파이프라인 시작점
     """
-    # 1. 파일 로컬 저장
-    file_location = f"apps/server/uploads/{file.filename}"
-    # 실제 운영 환경에서는 안전한 파일명 생성 및 중복 처리 필요
-    with open(file_location, "wb") as f:
-        f.write(file.file.read())
-
-    # 2. DB 레코드 생성 (Pending 상태)
     ingestion_service = IngestionService(db)
 
-    # knowledge_base_id를 전달하여 Document 생성
+    # [1] 파일 임시 저장 (설계 Step 2)
+    # PyMuPDFLoader가 파일 경로를 요구하기 때문에 디스크에 물리적으로 있어야 함
+    file_path = ingestion_service.save_temp_file(file)
+
+    # [2] DB 레코드 생성 (Pending)
+    # 비동기 작업 중 실패하더라도 기록을 남기고 상태를 추적한다
     doc_id = ingestion_service.create_pending_document(
-        knowledge_base_id=knowledge_base_id,
-        filename=file.filename,
-        file_path=file_location,
+        knowledge_base_id=knowledge_base_id, filename=file.filename, file_path=file_path
     )
 
     # 3. 비동기 작업 트리거
+    # 파싱/임베딩은 시간이 오래 걸리므로 사용자에게는 먼저 응답을 보내고 백그라운드에서 처리
     background_tasks.add_task(
-        ingestion_service.process_document_background, doc_id, file_location
+        ingestion_service.process_document_background, doc_id, file_path
     )
 
     return IngestionResponse(
         document_id=doc_id,
         status="processing",
-        message="문서 업로드가 시작되었습니다. 백그라운드에서 처리중입니다.",
+        message="파일 업로드가 완료되어 백그라운드 처리를 시작했습니다.",
     )
 
 

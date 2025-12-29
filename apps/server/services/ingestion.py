@@ -1,7 +1,10 @@
+import os  # 폴더 만들기용
+import shutil  # 파일 복사용
 from uuid import UUID
 
+import pymupdf4llm
+from fastapi import UploadFile
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyMuPDFLoader
 from sqlalchemy.orm import Session
 
 from db.models.knowledge import Document, DocumentChunk
@@ -16,11 +19,27 @@ class IngestionService:
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50,
-            # [수정] 한국어 문서는 문맥 끊김을 방지하기 위해 마침표나 줄바꿈 처리가 중요합니다.
-            # separators=["\n\n", "\n", ".", ",", " "],
+            # NOTE: 한국어 문서는 문맥 끊김을 방지하기 위해 마침표나 줄바꿈 처리가 중요
             separators=["\n\n", "\n", " ", ""],
             keep_separator=True,
         )
+
+    def save_temp_file(self, file: UploadFile) -> str:
+        """
+        설명: 메모리에 있는 업로드 파일을 디스크(uploads 폴더)에 저장합니다.
+        """
+
+        upload_dir = "uploads"
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # 저장될 파일의 전체 주소 (예: "uploads/보고서.pdf")
+        file_path = os.path.join(upload_dir, file.filename)
+
+        with open(file_path, "wb") as buffer:
+            # 메모리에 있는 파일(file.file)을 하드디스크(buffer)로 복사
+            shutil.copyfileobj(file.file, buffer)
+
+        return file_path
 
     def create_pending_document(
         self, knowledge_base_id: UUID, filename: str, file_path: str
@@ -64,16 +83,19 @@ class IngestionService:
 
     def _parse_pdf(self, file_path: str) -> list[dict]:
         """
-        LangChain의 PyMuPDFLoader를 사용하여 PDF를 로드하고 파싱합니다.
-        반환값: [{'text': '...', 'page': 1}, ...]
+        PDF 파일을 읽어서 마크다운 형식으로 바꿔주는 내부 함수
         """
-        loader = PyMuPDFLoader(file_path)
-        documents = loader.load()
+        # page_chunks=True: 페이지별로 분리해서 메타데이터와 함께 반환
+        # 결과(md_text_chunks)는 [{'text': '...', 'metadata': {...}}, ...] 형태의 리스트가 된다
+        md_text_chunks = pymupdf4llm.to_markdown(file_path, page_chunks=True)
 
         results = []
-        for doc in documents:
+        for chunk in md_text_chunks:
             results.append(
-                {"text": doc.page_content, "page": doc.metadata.get("page", 0) + 1}
+                {
+                    "text": chunk["text"],  # 마크다운 텍스트
+                    "page": chunk["metadata"]["page"] + 1,
+                }
             )
         return results
 

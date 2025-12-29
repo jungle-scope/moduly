@@ -46,6 +46,7 @@ export default function CreateKnowledgeModal({
     console.log('Creating knowledge base:', { file, ...formData });
     // TODO: API 연결
     // 지식 생성 모달에서 입력한 값들(useState의 file과 formdata)을 전달해야 함.
+
     onClose();
   };
 
