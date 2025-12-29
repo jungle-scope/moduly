@@ -72,14 +72,24 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
 
             // 소스 노드에서 변수 가져오기
             let sourceVariables: { label: string; value: string }[] = [];
-            const isStartNode = selectedSourceNode?.type === 'startNode';
+            const isStartNode =
+              selectedSourceNode &&
+              (selectedSourceNode.type as string) === 'startNode';
 
-            if (isStartNode) {
+            if (isStartNode && selectedSourceNode) {
               const startData =
                 selectedSourceNode.data as unknown as StartNodeData;
+              /**
+               * [중요] 변수 ID를 value로 저장하는 이유:
+               * - 사용자가 변수 이름을 변경해도 참조가 깨지지 않도록 함
+               * - 예: 변수명 "name" → "username" 변경 시
+               *   - 이름 기반: "name"을 찾음 → 없음 ❌
+               *   - ID 기반: "45af2b51-..."를 찾음 → 정상 동작 ✅
+               * - ID는 변경되지 않으므로 참조 안정성 보장
+               */
               sourceVariables = (startData.variables || []).map((v) => ({
-                label: v.name,
-                value: v.name,
+                label: v.name, // 드롭다운에는 이름 표시 (사용자 가독성)
+                value: v.id, // 저장할 때는 ID 사용 (참조 안정성)
               }));
             }
             // 필요한 경우 다른 노드 유형 추가 (예: LLM 결과)

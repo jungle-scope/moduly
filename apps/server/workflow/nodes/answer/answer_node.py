@@ -1,21 +1,9 @@
 from typing import Any, Dict, List
 
+from workflow.core.utils import get_nested_value
 from workflow.nodes.base.node import Node
 
 from .entities import AnswerNodeData
-
-
-def _get_nested_value(data: Any, keys: List[str]) -> Any:
-    """
-    중첩된 딕셔너리에서 키 경로를 따라 값을 추출합니다.
-    예: _get_nested_value({"a": {"b": "c"}}, ["a", "b"]) -> "c"
-    """
-    for key in keys:
-        if isinstance(data, dict):
-            data = data.get(key)
-        else:
-            return None
-    return data
 
 
 class AnswerNode(Node[AnswerNodeData]):
@@ -71,7 +59,7 @@ class AnswerNode(Node[AnswerNodeData]):
 
             # 2. P5: 깊은 중첩 selector 지원 (selector[1:] 사용)
             if isinstance(source_data, dict):
-                value = _get_nested_value(source_data, selector[1:])
+                value = get_nested_value(source_data, selector[1:])
                 result[variable_name] = value
             else:
                 print(
