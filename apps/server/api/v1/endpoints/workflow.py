@@ -83,7 +83,9 @@ def execute_workflow(
     graph = WorkflowService.get_draft(db, workflow_id)
     if not graph:
         # HTTPException으로 통일하는 것이 더 좋으므로 404를 던집니다.
-        raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' draft not found")
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
+        )
 
     # develop에서 추가된 user_input을 사용하여 엔진 실행
     engine = WorkflowEngine(graph, user_input)
