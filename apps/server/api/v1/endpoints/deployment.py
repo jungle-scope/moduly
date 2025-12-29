@@ -57,11 +57,16 @@ def create_deployment(
     ) or 0
     new_version = max_version + 1
 
-    # 4. API Key (auth_secret) 생성
-    # 사용자가 직접 지정하지 않았다면, 안전한 난수 키를 자동 발급
+    # 4. API Key (auth_secret) 및 URL Slug 생성
+    # 난수키를 자동 발급
     auth_secret = deployment_in.auth_secret
     if not auth_secret:
         auth_secret = f"sk-{secrets.token_hex(24)}"  # 예: sk-3af...
+
+    url_slug = deployment_in.url_slug
+    if not url_slug:
+        # 슬러그 미지정 시 자동 생성: v{version}-{random_hex}
+        url_slug = f"v{new_version}-{secrets.token_hex(4)}"
 
     # [DEV] 임시 유저 처리
     # 개발 중에는 로그인 없이 테스트하므로, DB에 첫 번째 유저를 찾거나 없으면 생성해서 할당함
@@ -80,7 +85,7 @@ def create_deployment(
         workflow_id=deployment_in.workflow_id,
         version=new_version,
         type=deployment_in.type,
-        url_slug=deployment_in.url_slug,
+        url_slug=url_slug,
         auth_secret=auth_secret,
         graph_snapshot=graph_snapshot,
         config=deployment_in.config,

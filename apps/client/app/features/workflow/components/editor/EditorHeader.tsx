@@ -51,12 +51,13 @@ export default function EditorHeader() {
     async (description: string) => {
       try {
         setIsDeploying(true);
-        await workflowApi.createDeployment({
+        const response = await workflowApi.createDeployment({
           workflow_id: workflowId,
           description,
           type: 'api', // 현재는 API 타입만 지원
           is_active: true,
         });
+        console.log('[배포 성공] 서버 응답:', response);
         alert('성공적으로 배포되었습니다!'); // TODO: Toast로 변경
         setShowDeployModal(false);
       } catch (error) {
