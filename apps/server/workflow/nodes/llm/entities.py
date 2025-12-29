@@ -34,12 +34,20 @@ class LLMNodeData(BaseNodeData):
             raise ValueError("system/user/assistant 프롬프트 중 최소 1개는 필요합니다.")
 
         # referenced_variables/context_variable은 선택 입력이지만, 제공 시 빈 문자열은 불가
-        invalid_vars = [v for v in self.referenced_variables if not v or not v.strip()]
-        if invalid_vars:
-            raise ValueError("참조 변수 이름이 비어있습니다.")
+        cleaned_referenced = []
+        for var in self.referenced_variables:
+            stripped = var.strip()
+            if stripped:
+                cleaned_referenced.append(stripped)
+        self.referenced_variables = cleaned_referenced
 
-        if self.context_variable is not None and not self.context_variable.strip():
-            raise ValueError("context_variable 이름이 비어있습니다.")
+        if self.context_variable is not None:
+            stripped_context = self.context_variable.strip()
+            if not stripped_context:
+                # 빈 문자열이면 입력하지 않은 것으로 간주
+                self.context_variable = None
+            else:
+                self.context_variable = stripped_context
 
         # Jinja2 {{var}} 플레이스홀더 탐지 (추후 이전 노드 값 검증에 활용)
         jinja_vars = []

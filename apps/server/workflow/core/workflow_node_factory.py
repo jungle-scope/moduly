@@ -19,7 +19,7 @@ class NodeFactory:
     NODE_REGISTRY: Dict[str, tuple] = {
         "startNode": (StartNode, StartNodeData),
         "answerNode": (AnswerNode, AnswerNodeData),
-        "llm": (LLMNode, LLMNodeData),
+        "llmNode": (LLMNode, LLMNodeData),
     }
 
     @staticmethod

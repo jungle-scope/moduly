@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { LLMNodeData } from '../../../../types/Nodes';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
@@ -32,9 +32,12 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
       .filter(Boolean);
   }, [nodes]);
 
-  const handleFieldChange = (field: keyof LLMNodeData, value: any) => {
-    updateNodeData(nodeId, { [field]: value });
-  };
+  const handleFieldChange = useCallback(
+    (field: keyof LLMNodeData, value: any) => {
+      updateNodeData(nodeId, { [field]: value });
+    },
+    [nodeId, updateNodeData],
+  );
 
   const handleAddReferenced = () => {
     const trimmed = referencedInput.trim();
@@ -104,13 +107,16 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     fetchProviders();
   }, []);
 
-  const handleProviderSelect = (providerId: string) => {
-    const selected = providers.find((p) => p.id === providerId);
-    if (!selected) return;
-    // 임시: providerType과 모델을 노드 데이터에 반영
-    handleFieldChange('provider', selected.providerType);
-    handleFieldChange('model_id', selected.models[0] || '');
-  };
+  useEffect(() => {
+    if (providers.length === 0 || data.provider) return;
+
+    const first = providers[0];
+    handleFieldChange('provider', first.providerType);
+
+    if (!data.model_id && first.models.length > 0) {
+      handleFieldChange('model_id', first.models[0]);
+    }
+  }, [providers, data.provider, data.model_id, handleFieldChange]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -120,7 +126,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-gray-700">모델 설정</span>
             <span className="text-[11px] text-gray-500">
-              임시: Provider 선택은 비활성화, 모델만 직접 입력
+              Provider는 첫 번째 등록된 값으로 자동 선택됩니다.
             </span>
           </div>
         </div>
@@ -130,19 +136,6 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
               {providerError}
             </div>
           )}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Provider</label>
-            <input
-              type="text"
-              value={data.provider || ''}
-              disabled
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
-              placeholder="임시로 비활성화"
-            />
-            <p className="text-[11px] text-gray-500">
-              TODO: 나중에 per-user provider 선택 기능으로 교체
-            </p>
-          </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">Model</label>
             <input
