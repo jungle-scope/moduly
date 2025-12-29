@@ -29,7 +29,7 @@ export default function EditorHeader() {
   const [executionResult, setExecutionResult] = useState<any>(null);
 
   const handleBack = useCallback(() => {
-    router.push('/');
+    router.push('/dashboard');
   }, [router]);
 
   const handleVersionHistory = useCallback(() => {
