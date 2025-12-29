@@ -39,6 +39,7 @@ def execute_workflow(
     """
     PostgreSQL에서 워크플로우 초안 데이터를 조회하고, WorkflowEngine을 사용하여 실행합니다.
     """
+    # TODO: TEST의 경우, 매번 db에 접근해서 가져오는 것보다 localStorage에 저장해두고 가져오는 게 어떨지?
     graph = WorkflowService.get_draft(db, workflow_id)
     if not graph:
         return {"error": f"Workflow '{workflow_id}' not found"}
