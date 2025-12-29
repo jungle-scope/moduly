@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useCallback, useState, useRef, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   PlusIcon,
@@ -65,6 +66,9 @@ function SidebarSection({
 }
 
 export default function EditorSidebar() {
+  const params = useParams();
+  const workflowId = params.id as string; // URL에서 workflow_id 추출
+
   const {
     workflows,
     activeWorkflowId,
@@ -79,7 +83,39 @@ export default function EditorSidebar() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
+  const [currentAppId, setCurrentAppId] = useState<string>('');
   const modalRef = useRef<HTMLDivElement>(null);
+  const modalInputRef = useRef<HTMLInputElement>(null);
+
+  // Load current workflow's app_id from backend
+  useEffect(() => {
+    const loadWorkflowAppId = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/v1/workflows/${workflowId}`,
+          {
+            credentials: 'include',
+          },
+        );
+        if (response.ok) {
+          const data = await response.json();
+          // Extract app_id from workflow
+          if (data.app_id) {
+            setCurrentAppId(data.app_id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load workflow app_id:', error);
+      }
+    };
+
+    if (workflowId) {
+      loadWorkflowAppId();
+    }
+  }, [workflowId]);
+
+  // Use loaded app_id or fallback to workflow_id temporarily
+  const appId = currentAppId || workflowId;
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -87,7 +123,7 @@ export default function EditorSidebar() {
       if (
         showCreateModal &&
         modalRef.current &&
-        !modalRef.current.contains(event.target as Node)
+        !modalRef.current.contains(event.target as HTMLElement)
       ) {
         setShowCreateModal(false);
       }
@@ -101,24 +137,45 @@ export default function EditorSidebar() {
     }
   }, [showCreateModal]);
 
+  useEffect(() => {
+    if (showCreateModal && modalInputRef.current) {
+      // Auto-focus on modal input when opened
+      const timeoutId = setTimeout(() => {
+        modalInputRef.current?.focus();
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [showCreateModal]);
+
   const handleAddWorkflow = useCallback(() => {
     setShowCreateModal(true);
   }, []);
 
-  const handleCreateWorkflow = useCallback(() => {
+  const handleCreateWorkflow = useCallback(async () => {
     if (workflowName.trim()) {
-      addWorkflow({
-        name: workflowName,
-        description: workflowDescription,
-        icon: '🔄', // Default icon
-        nodes: [],
-        edges: [],
-      });
-      setWorkflowName('');
-      setWorkflowDescription('');
-      setShowCreateModal(false);
+      try {
+        await addWorkflow(
+          {
+            name: workflowName,
+            description: workflowDescription,
+            icon: '🔄', // Default icon
+            nodes: [],
+            edges: [],
+          },
+          appId, // workflow ID를 app_id로 사용 (임시)
+        );
+        setWorkflowName('');
+        setWorkflowDescription('');
+        setShowCreateModal(false);
+      } catch (error) {
+        console.error('Failed to create workflow:', error);
+        // TODO: Show error message to user
+      }
     }
-  }, [workflowName, workflowDescription, addWorkflow]);
+  }, [workflowName, workflowDescription, addWorkflow, appId]);
 
   const handleCancelCreate = useCallback(() => {
     setWorkflowName('');

@@ -19,6 +19,7 @@ import {
 
 import { create } from 'zustand';
 import { DEFAULT_NODES } from '../constants';
+import { workflowApi } from '../api/workflowApi';
 
 interface SidebarState {
   workflow: boolean;
@@ -74,7 +75,10 @@ type WorkflowState = {
   setProjectInfo: (name: string, icon: string) => void;
   setInteractiveMode: (mode: 'mouse' | 'touchpad') => void;
   toggleFullscreen: () => void;
-  addWorkflow: (workflow: Omit<Workflow, 'id'>) => void;
+  addWorkflow: (
+    workflow: Omit<Workflow, 'id'>,
+    appId: string,
+  ) => Promise<string>;
   setActiveWorkflow: (id: string) => void;
   deleteWorkflow: (id: string) => void;
   updateWorkflowViewport: (
@@ -187,16 +191,35 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   toggleFullscreen: () =>
     set((state) => ({ isFullscreen: !state.isFullscreen })),
 
-  addWorkflow: (workflow) => {
-    const id = `workflow-${Date.now()}`;
-    const newWorkflow: Workflow = {
-      ...workflow,
-      id,
-      viewport: workflow.viewport || { x: 0, y: 0, zoom: 1 },
-    };
-    set((state) => ({
-      workflows: [...state.workflows, newWorkflow],
-    }));
+  addWorkflow: async (workflow, appId) => {
+    try {
+      // Backend API 호출
+      const created = await workflowApi.createWorkflow({
+        app_id: appId,
+        name: workflow.name,
+        description: workflow.description,
+      });
+
+      // Store에 추가
+      const newWorkflow: Workflow = {
+        id: created.id,
+        name: created.marked_name || workflow.name,
+        description: created.marked_comment || '',
+        icon: workflow.icon,
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+      };
+
+      set((state) => ({
+        workflows: [...state.workflows, newWorkflow],
+      }));
+
+      return created.id;
+    } catch (error) {
+      console.error('Failed to create workflow:', error);
+      throw error;
+    }
   },
 
   setActiveWorkflow: (id) => {
