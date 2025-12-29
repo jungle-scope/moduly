@@ -5,8 +5,8 @@ NodeFactory 테스트: 노드가 올바르게 생성되는지 검증
 import pytest
 
 from schemas.workflow import NodeSchema, Position
-from workflow.core.entities import NodeStatus
 from workflow.core.workflow_node_factory import NodeFactory
+from workflow.nodes.base.entities import NodeStatus
 from workflow.nodes.start import StartNode, StartNodeData
 
 

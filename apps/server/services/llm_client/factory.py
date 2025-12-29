@@ -11,7 +11,9 @@ from .base import BaseLLMClient
 from .openai_client import OpenAIClient
 
 
-def get_llm_client(provider: str, model_id: str, credentials: Dict[str, Any]) -> BaseLLMClient:
+def get_llm_client(
+    provider: str, model_id: str, credentials: Dict[str, Any]
+) -> BaseLLMClient:
     """
     provider 이름에 따라 적절한 LLM 클라이언트를 반환합니다.
 

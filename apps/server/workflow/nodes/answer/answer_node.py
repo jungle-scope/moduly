@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 
-from workflow.core.node import Node
+from workflow.nodes.base.node import Node
 
 from .entities import AnswerNodeData
 

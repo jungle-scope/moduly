@@ -173,7 +173,7 @@ export default function EditorHeader() {
       <div>
         {/* 에러 메시지 배너 */}
         {errorMsg && (
-          <div className="fixed top-16 right-4 z-[60] bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md max-w-sm animate-bounce">
+          <div className="fixed top-16 right-4 z-60 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md max-w-sm animate-bounce">
             <strong className="font-bold mr-1">오류!</strong>
             <span className="block sm:inline text-sm">{errorMsg}</span>
             <button
