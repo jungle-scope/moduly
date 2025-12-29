@@ -14,7 +14,7 @@ export const ConditionNode = memo(
           <Handle
             type="target"
             position={Position.Left}
-            className="!bg-blue-500 !w-3 !h-3"
+            className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white"
           />
 
           {/* Condition Logic Visualization */}
@@ -43,7 +43,7 @@ export const ConditionNode = memo(
                   type="source"
                   position={Position.Right}
                   id={caseItem.id}
-                  className="!bg-blue-500 !w-3 !h-3 !right-0"
+                  className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white !right-0"
                   style={{ top: '50%', transform: 'translateY(-50%)' }}
                 />
               </div>
@@ -61,7 +61,7 @@ export const ConditionNode = memo(
                 type="source"
                 position={Position.Right}
                 id="default"
-                className="!bg-gray-400 !w-3 !h-3 !right-0"
+                className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white !right-0"
                 style={{ top: '50%', transform: 'translateY(-50%)' }}
               />
             </div>
