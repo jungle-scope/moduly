@@ -88,7 +88,20 @@ class WorkflowService:
             "viewport": request.viewport.model_dump() if request.viewport else None,
         }
 
-        # 업데이트 정보
+        workflow._features = request.features if request.features else {}
+
+        # 환경 변수 처리: 요청에 환경 변수가 있으면 딕셔너리 형태로 변환하여 저장, 없으면 빈 리스트 저장
+        workflow._environment_variables = (
+            [v.model_dump() for v in request.environment_variables]
+            if request.environment_variables
+            else []
+        )
+        # 대화 변수 처리: 요청에 대화 변수가 있으면 딕셔너리 형태로 변환하여 저장, 없으면 빈 리스트 저장
+        workflow._conversation_variables = (
+            [v.model_dump() for v in request.conversation_variables]
+            if request.conversation_variables
+            else []
+        )
         workflow.updated_by = user_id
 
         # DB에 커밋
@@ -112,4 +125,9 @@ class WorkflowService:
             return None
 
         # 저장된 graph 데이터 반환
-        return workflow.graph if workflow.graph else None
+        data = workflow.graph if workflow.graph else {}
+
+        if workflow._features:
+            data["features"] = workflow._features
+
+        return data

@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base
@@ -32,8 +33,8 @@ class App(Base):
     icon_background: Mapped[str] = mapped_column(String(20), nullable=False)
 
     # === 워크플로우 연결 ===
-    workflow_id: Mapped[Optional[str]] = mapped_column(
-        String, ForeignKey("workflows.id"), nullable=True
+    workflow_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workflows.id"), nullable=True
     )
 
     # === 앱 설정 필드 ===

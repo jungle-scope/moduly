@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
+import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -40,7 +41,6 @@ export interface WorkflowResponse {
 export const workflowApi = {
   // 1. 드래프트 워크플로우 동기화 (저장)
   syncDraftWorkflow: async (workflowId: string, data: WorkflowDraftRequest) => {
-    // develop 브랜치의 주석 반영: data.nodes[0].variables에 시작노드의 input이 들어있음
     const response = await api.post(`/workflows/${workflowId}/draft`, data);
     return response.data;
   },
@@ -56,8 +56,6 @@ export const workflowApi = {
     workflowId: string,
     userInput?: Record<string, unknown>,
   ) => {
-    // develop 브랜치의 최신 인자(workflowId, userInput)와 엔드포인트를 따르되,
-    // 인증 처리를 위해 axios 대신 api 인스턴스를 사용합니다.
     const response = await api.post(
       `/workflows/${workflowId}/execute`,
       userInput || {},
@@ -65,7 +63,13 @@ export const workflowApi = {
     return response.data;
   },
 
-  // 4. 새 워크플로우 생성
+  // 4. 단일 워크플로우 상세 조회
+  getWorkflow: async (workflowId: string): Promise<WorkflowResponse> => {
+    const response = await api.get(`/workflows/${workflowId}`);
+    return response.data;
+  },
+
+  // 5. 새 워크플로우 생성
   createWorkflow: async (
     data: WorkflowCreateRequest,
   ): Promise<WorkflowResponse> => {
@@ -73,9 +77,21 @@ export const workflowApi = {
     return response.data;
   },
 
-  // 5. 특정 App의 워크플로우 목록 조회
+  // 6. 특정 App의 워크플로우 목록 조회
   listWorkflowsByApp: async (appId: string): Promise<WorkflowResponse[]> => {
     const response = await api.get(`/workflows/app/${appId}`);
     return response.data;
+  },
+
+  createDeployment: async (data: DeploymentCreate) => {
+    const response = await api.post('/deployments/', data);
+    return response.data as DeploymentResponse;
+  },
+
+  getDeployments: async (workflowId: string) => {
+    const response = await api.get('/deployments/', {
+      params: { workflow_id: workflowId },
+    });
+    return response.data as DeploymentResponse[];
   },
 };

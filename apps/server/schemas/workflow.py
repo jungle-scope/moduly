@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Position(BaseModel):
@@ -20,8 +20,12 @@ class NodeSchema(BaseModel):
 
 class EdgeSchema(BaseModel):
     id: str
+    # source/target은 '어떤 노드'끼리 연결되는지를 나타내고,
     source: str
     target: str
+    # sourceHandle/targetHandle은 '그 노드의 어떤 포트'에 연결되는지를 나타냄.
+    sourceHandle: Optional[str] = None  # 출발 노드의 특정 출력 포트 ID
+    targetHandle: Optional[str] = None  # 도착 노드의 특정 입력 포트 ID
 
     class Config:
         extra = "allow"
@@ -33,10 +37,31 @@ class ViewportSchema(BaseModel):
     zoom: float
 
 
+class EnvironmentVariableSchema(BaseModel):
+    id: str
+    key: str
+    value: str
+    type: str
+
+
+class ConversationVariableSchema(BaseModel):
+    id: str
+    key: str
+    name: str
+
+
 class WorkflowDraftRequest(BaseModel):
-    nodes: List[NodeSchema]
-    edges: List[EdgeSchema]
+    # 하나도 없으면 빈 리스트로 기본값 설정
+    nodes: List[NodeSchema] = []
+    edges: List[EdgeSchema] = []
     viewport: Optional[ViewportSchema] = None
+    features: Optional[Dict[str, Any]] = None
+    environment_variables: Optional[List[EnvironmentVariableSchema]] = Field(
+        None, alias="environmentVariables"
+    )
+    conversation_variables: Optional[List[ConversationVariableSchema]] = Field(
+        None, alias="conversationVariables"
+    )
 
 
 class WorkflowCreateRequest(BaseModel):

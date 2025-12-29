@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -21,7 +22,7 @@ class AppResponse(BaseModel):
     description: Optional[str]
     icon: str
     icon_background: str
-    workflow_id: Optional[str] = None
+    workflow_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

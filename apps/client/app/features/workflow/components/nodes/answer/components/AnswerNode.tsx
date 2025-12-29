@@ -1,11 +1,11 @@
 import React from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
-import { BaseNodeData } from '../../../../types/Nodes';
+import { BaseNodeData, StartNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 
 export interface AnswerNodeOutput {
   variable: string;
-  value_selector: string[]; // [node_id, key]
+  value_selector: string[]; // [node_id, variable_id]
 }
 
 export interface AnswerNodeData extends BaseNodeData {
@@ -28,12 +28,28 @@ export const AnswerNode: React.FC<AnswerNodeProps> = ({ data, selected }) => {
 
         {data.outputs?.map((output, index) => {
           const sourceNodeId = output.value_selector?.[0];
+          const variableId = output.value_selector?.[1];
           const sourceNode = nodes.find((n) => n.id === sourceNodeId);
           const sourceTitle =
             (sourceNode?.data as { title?: string })?.title ||
             sourceNode?.type ||
             'undefined';
-          const variableKey = output.value_selector?.[1] || 'undefined';
+
+          // 변수 ID를 기반으로 현재 변수 이름 조회
+          let variableKey = 'undefined';
+          if (
+            sourceNode &&
+            (sourceNode.type as string) === 'startNode' &&
+            variableId
+          ) {
+            const startData = sourceNode.data as unknown as StartNodeData;
+            const variable = startData.variables?.find(
+              (v) => v.id === variableId,
+            );
+            variableKey = variable?.name || '(삭제된 변수)';
+          } else if (variableId) {
+            variableKey = variableId;
+          }
 
           return (
             <div

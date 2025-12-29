@@ -346,7 +346,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           return {
             ...node,
             data: { ...node.data, ...newData },
-          };
+          } as Node;
         }
         return node;
       }),

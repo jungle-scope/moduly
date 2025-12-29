@@ -38,6 +38,15 @@ export const authApi = {
     );
   },
 
+  // 현재 사용자 정보 조회
+  me: async (): Promise<LoginResponse> => {
+    const response = await axios.get(
+      `${API_BASE_URL}/auth/me`,
+      { withCredentials: true }, // 쿠키 자동 전송
+    );
+    return response.data;
+  },
+
   // 구글 OAuth 로그인
   googleLogin: () => {
     // FastAPI 백엔드의 구글 로그인 엔드포인트로 리다이렉트
