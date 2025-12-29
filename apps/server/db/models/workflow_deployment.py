@@ -34,8 +34,8 @@ class WorkflowDeployment(Base):
 
     # 🔗 원본 워크플로우 (1:N 관계)
     # Workflows ID is String (VARCHAR) in workflow.py
-    workflow_id: Mapped[str] = mapped_column(
-        String,
+    workflow_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey("workflows.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import DateTime, String
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -13,9 +13,10 @@ class Workflow(Base):
     __tablename__ = "workflows"
 
     # === 기본 식별 필드 ===
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+
     tenant_id: Mapped[str] = mapped_column(String, nullable=False)
     app_id: Mapped[str] = mapped_column(String, nullable=False)
 
