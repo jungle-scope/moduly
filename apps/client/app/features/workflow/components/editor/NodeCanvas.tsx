@@ -22,6 +22,7 @@ import { StartNode } from '../nodes/start/components/StartNode';
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
+import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -169,6 +170,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'answerNode' && (
             <AnswerNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'conditionNode' && (
+            <ConditionNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

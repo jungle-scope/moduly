@@ -121,7 +121,7 @@ export const nodeRegistry: NodeDefinition[] = [
     category: 'logic',
     color: 'bg-blue-500',
     icon: '🔀',
-    implemented: false,
+    implemented: true,
     description: '조건에 따라 분기합니다.',
     defaultData: () => ({
       title: 'Condition',

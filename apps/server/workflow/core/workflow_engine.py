@@ -77,8 +77,8 @@ class WorkflowEngine:
             if node_schema.type == "end":
                 break
 
-            # 다음 노드들을 ready_queue에 추가
-            for next_node_id in self.graph.get(node_id, []):
+            # 다음 노드들을 ready_queue에 추가 (분기 노드 처리 포함)
+            for next_node_id in self._get_next_nodes(node_id, result):
                 if self._is_ready(next_node_id, results):
                     ready_queue.append(next_node_id)
 
@@ -102,6 +102,34 @@ class WorkflowEngine:
             raise ValueError("워크플로우에 시작 노드(type='startNode')가 없습니다.")
 
         return start_nodes[0]
+
+    def _get_next_nodes(self, node_id: str, result: Dict[str, Any]) -> List[str]:
+        """
+        현재 노드의 다음 노드 목록을 반환합니다.
+        분기 노드의 경우 selected_handle과 일치하는 엣지만 반환합니다.
+
+        Args:
+            node_id: 현재 노드 ID
+            result: 현재 노드의 실행 결과
+
+        Returns:
+            다음 실행할 노드 ID 목록
+        """
+        selected_handle = result.get("selected_handle")
+        next_nodes = []
+
+        for edge in self.edges:
+            if edge.source != node_id:
+                continue
+
+            # selected_handle이 있으면 sourceHandle과 비교
+            if selected_handle is not None:
+                if edge.sourceHandle != selected_handle:
+                    continue
+
+            next_nodes.append(edge.target)
+
+        return next_nodes
 
     def _is_ready(self, node_id: str, results: Dict) -> bool:
         """현재 노드에 선행되는 노드가 모두 완료되었는지 확인"""

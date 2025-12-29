@@ -3,6 +3,7 @@ from typing import Dict
 from schemas.workflow import NodeSchema
 from workflow.core.node import Node
 from workflow.nodes.answer import AnswerNode, AnswerNodeData
+from workflow.nodes.condition import ConditionNode, ConditionNodeData
 from workflow.nodes.start import StartNode, StartNodeData
 
 
@@ -17,6 +18,7 @@ class NodeFactory:
     NODE_REGISTRY: Dict[str, tuple] = {
         "startNode": (StartNode, StartNodeData),
         "answerNode": (AnswerNode, AnswerNodeData),
+        "conditionNode": (ConditionNode, ConditionNodeData),
     }
 
     @staticmethod
