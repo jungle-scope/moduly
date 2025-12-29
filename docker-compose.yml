@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: moduly-postgres
     environment:
       POSTGRES_DB: moduly

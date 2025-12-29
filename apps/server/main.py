@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from api.api import api_router
 from db.base import Base
@@ -29,7 +30,9 @@ def on_startup():
     """
     앱 시작 시 데이터베이스 테이블을 자동으로 생성합니다.
     """
-    # 모든 모델 클래스를 Import하여 메타데이터에 등록되게 함
+    # pgvector 확장 활성화
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     Base.metadata.create_all(bind=engine)
     print("✅ Database tables created successfully!")
