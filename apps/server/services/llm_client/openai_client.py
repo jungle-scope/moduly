@@ -4,7 +4,6 @@ OpenAI용 LLM 클라이언트.
 실제 SDK 대신 HTTP 호출로 동작하며, 응답/에러를 단순 래핑합니다.
 """
 
-import math
 from typing import Any, Dict, List
 
 import requests
@@ -30,12 +29,6 @@ class OpenAIClient(BaseLLMClient):
         self.base_url = credentials.get("baseUrl") or credentials.get("base_url")
         if not self.api_key or not self.base_url:
             raise ValueError("OpenAI credentials에 apiKey/baseUrl가 필요합니다.")
-        
-        # [Hotfix] OpenAI 공식 URL 사용 시 /v1 경로 누락 방어
-        # 사용자가 https://api.openai.com 까지만 입력했을 경우 자동으로 /v1 추가
-        if "api.openai.com" in self.base_url and "/v1" not in self.base_url:
-            self.base_url = self.base_url.rstrip("/") + "/v1"
-
         self.chat_url = self.base_url.rstrip("/") + "/chat/completions"
 
     def _build_headers(self) -> Dict[str, str]:
@@ -73,9 +66,7 @@ class OpenAIClient(BaseLLMClient):
 
         if resp.status_code >= 400:
             snippet = resp.text[:200] if resp.text else ""
-            raise ValueError(
-                f"OpenAI 호출 실패 (status {resp.status_code}): {snippet}"
-            )
+            raise ValueError(f"OpenAI 호출 실패 (status {resp.status_code}): {snippet}")
 
         try:
             return resp.json()
