@@ -42,6 +42,11 @@ export interface StartNodeData extends BaseNodeData {
   variables?: WorkflowVariable[];
 }
 
+// [NoteNode]
+export interface NoteNodeData extends BaseNodeData {
+  content: string;
+}
+
 export interface Condition {
   id: string; // uuid
   variable_selector: string[]; // [node_id, key]
@@ -73,13 +78,14 @@ export interface LLMNodeData extends BaseNodeData {
 }
 
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
-export type StartNode = ReactFlowNode<StartNodeData, 'start'>;
+export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
+export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
 export type LLMNode = ReactFlowNode<LLMNodeData, 'llm'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
-export type AppNode = StartNode | LLMNode | ConditionNode;
+export type AppNode = StartNode | NoteNode | LLMNode | ConditionNode;
 
 // 하위 호환성 (필요시)
 export type NodeData = BaseNodeData;
