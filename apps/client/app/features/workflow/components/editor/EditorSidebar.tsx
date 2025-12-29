@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useCallback, useState, useRef, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   PlusIcon,
@@ -67,6 +67,7 @@ function SidebarSection({
 
 export default function EditorSidebar() {
   const params = useParams();
+  const router = useRouter();
   const workflowId = params.id as string; // URL에서 workflow_id 추출
 
   const {
@@ -116,11 +117,25 @@ export default function EditorSidebar() {
   }, [workflowId]);
 
   // Load workflows when app_id is available
+  const hasAutoSelectedRef = useRef(false);
+
   useEffect(() => {
-    if (currentAppId) {
-      loadWorkflowsByApp(currentAppId);
+    if (currentAppId && !hasAutoSelectedRef.current) {
+      loadWorkflowsByApp(currentAppId).then(() => {
+        const loadedWorkflows = useWorkflowStore.getState().workflows;
+        const currentActiveId = useWorkflowStore.getState().activeWorkflowId;
+
+        if (loadedWorkflows.length > 0 && !currentActiveId) {
+          // Auto-select first workflow if none is selected
+          const firstWorkflow = loadedWorkflows[0];
+          setActiveWorkflow(firstWorkflow.id);
+          router.push(`/app/workflow/${firstWorkflow.id}`);
+          hasAutoSelectedRef.current = true;
+        }
+      });
     }
-  }, [currentAppId, loadWorkflowsByApp]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAppId]); // Only run when app_id changes
 
   // Use loaded app_id or fallback to workflow_id temporarily
   const appId = currentAppId || workflowId;
@@ -169,7 +184,6 @@ export default function EditorSidebar() {
           {
             name: workflowName,
             description: workflowDescription,
-            icon: '🔄', // Default icon
             nodes: [],
             edges: [],
           },

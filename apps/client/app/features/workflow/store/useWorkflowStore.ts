@@ -32,7 +32,6 @@ export interface Workflow {
   id: string;
   name: string;
   description: string;
-  icon: string;
   nodes: Node[];
   edges: Edge[];
   viewport?: {
@@ -111,7 +110,6 @@ const initialWorkflows: Workflow[] = [
     id: 'default',
     name: 'Main Workflow',
     description: 'Default workflow',
-    icon: '🔥',
     nodes: initialNodes,
     edges: initialEdges,
     viewport: { x: 0, y: 0, zoom: 1 },
@@ -226,15 +224,50 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       const workflows = await workflowApi.listWorkflowsByApp(appId);
 
-      // Convert backend workflows to frontend format
-      const formattedWorkflows: Workflow[] = workflows.map((w) => ({
-        id: w.id,
-        name: w.marked_name || 'Untitled Workflow',
-        description: w.marked_comment || '',
-        icon: '🔄',
-        nodes: [],
-        edges: [],
-      }));
+      // Load graph data for each workflow from server
+      const formattedWorkflows: Workflow[] = await Promise.all(
+        workflows.map(async (w) => {
+          try {
+            // Fetch draft data from server to get saved nodes/edges
+            const draftResponse = await fetch(
+              `http://localhost:8000/api/v1/workflows/${w.id}/draft`,
+              { credentials: 'include' },
+            );
+
+            let nodes = [];
+            let edges = [];
+            let viewport = { x: 0, y: 0, zoom: 1 };
+
+            if (draftResponse.ok) {
+              const graphData = await draftResponse.json();
+              // Add null check for graphData
+              if (graphData && typeof graphData === 'object') {
+                nodes = graphData.nodes || [];
+                edges = graphData.edges || [];
+                viewport = graphData.viewport || viewport;
+              }
+            }
+
+            return {
+              id: w.id,
+              name: w.marked_name || 'Untitled Workflow',
+              description: w.marked_comment || '',
+              nodes,
+              edges,
+              viewport,
+            };
+          } catch (error) {
+            console.error(`Failed to load graph for workflow ${w.id}:`, error);
+            return {
+              id: w.id,
+              name: w.marked_name || 'Untitled Workflow',
+              description: w.marked_comment || '',
+              nodes: [],
+              edges: [],
+            };
+          }
+        }),
+      );
 
       set({ workflows: formattedWorkflows });
     } catch (error) {
@@ -244,7 +277,27 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   setActiveWorkflow: (id) => {
-    const workflow = get().workflows.find((w) => w.id === id);
+    const state = get();
+
+    // Save current workflow's nodes/edges before switching
+    let updatedWorkflows = state.workflows;
+    if (state.activeWorkflowId && state.activeWorkflowId !== id) {
+      const currentIndex = state.workflows.findIndex(
+        (w) => w.id === state.activeWorkflowId,
+      );
+      if (currentIndex !== -1) {
+        updatedWorkflows = [...state.workflows];
+        updatedWorkflows[currentIndex] = {
+          ...updatedWorkflows[currentIndex],
+          nodes: state.nodes,
+          edges: state.edges,
+        };
+        set({ workflows: updatedWorkflows });
+      }
+    }
+
+    // Load new workflow's nodes/edges from UPDATED array
+    const workflow = updatedWorkflows.find((w) => w.id === id);
     if (workflow) {
       set({
         activeWorkflowId: id,

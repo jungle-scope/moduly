@@ -1,17 +1,18 @@
 ﻿'use client';
 
+import Link from 'next/link';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { NetworkIcon } from '../icons';
 
 export default function WorkflowTabs() {
-  const { workflows, activeWorkflowId, setActiveWorkflow } = useWorkflowStore();
+  const { workflows, activeWorkflowId } = useWorkflowStore();
 
   return (
     <div className="flex items-center gap-1 px-4 py-2 bg-white border-b border-gray-200 overflow-x-auto">
       {workflows.map((workflow) => (
-        <button
+        <Link
           key={workflow.id}
-          onClick={() => setActiveWorkflow(workflow.id)}
+          href={`/app/workflow/${workflow.id}`}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
             workflow.id === activeWorkflowId
               ? 'bg-gray-100 text-gray-900'
@@ -20,7 +21,7 @@ export default function WorkflowTabs() {
         >
           <NetworkIcon className="w-4 h-4" />
           <span>{workflow.name}</span>
-        </button>
+        </Link>
       ))}
     </div>
   );
