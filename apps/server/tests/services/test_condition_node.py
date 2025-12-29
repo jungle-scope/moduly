@@ -2,7 +2,7 @@
 
 import pytest
 
-from workflow.core.entities import NodeStatus
+from workflow.nodes.base.entities import NodeStatus
 from workflow.nodes.condition import ConditionNode, ConditionNodeData
 from workflow.nodes.condition.entities import Condition, ConditionOperator
 

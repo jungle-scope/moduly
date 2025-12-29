@@ -126,44 +126,27 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                   </select>
 
                   {/* 동적 소스 변수 입력/선택 */}
-                  {isStartNode ? (
-                    <select
-                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                      value={output.value_selector?.[1] || ''}
-                      onChange={(e) => {
-                        const currentNode = output.value_selector?.[0] || '';
-                        handleUpdateOutput(index, 'value_selector', [
-                          currentNode,
-                          e.target.value,
-                        ]);
-                      }}
-                      disabled={sourceVariables.length === 0}
-                    >
-                      <option value="" disabled>
-                        {sourceVariables.length === 0
-                          ? '변수 없음'
-                          : '변수 선택'}
+                  <select
+                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                    value={output.value_selector?.[1] || ''}
+                    onChange={(e) => {
+                      const currentNode = output.value_selector?.[0] || '';
+                      handleUpdateOutput(index, 'value_selector', [
+                        currentNode,
+                        e.target.value,
+                      ]);
+                    }}
+                    disabled={sourceVariables.length === 0}
+                  >
+                    <option value="" disabled>
+                      {sourceVariables.length === 0 ? '변수 없음' : '변수 선택'}
+                    </option>
+                    {sourceVariables.map((v) => (
+                      <option key={v.value} value={v.value}>
+                        {v.label}
                       </option>
-                      {sourceVariables.map((v) => (
-                        <option key={v.value} value={v.value}>
-                          {v.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none"
-                      placeholder="변수 키 직접 입력"
-                      value={output.value_selector?.[1] || ''}
-                      onChange={(e) => {
-                        const currentNode = output.value_selector?.[0] || '';
-                        handleUpdateOutput(index, 'value_selector', [
-                          currentNode,
-                          e.target.value,
-                        ]);
-                      }}
-                    />
-                  )}
+                    ))}
+                  </select>
                 </div>
               </div>
             );

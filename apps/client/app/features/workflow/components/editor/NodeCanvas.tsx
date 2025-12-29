@@ -100,16 +100,6 @@ export default function NodeCanvas() {
     }; // NOTE: [LLM] 노드 정의 기반으로 패널 헤더 표시
   }, [selectedNodeType]);
 
-  const panelHeader = useMemo(() => {
-    if (!selectedNodeType) return undefined;
-    const def = getNodeDefinitionByType(selectedNodeType);
-    return {
-      icon: def?.icon || '⬜️',
-      title: def?.name || 'Node',
-      description: def?.description,
-    }; // NOTE: [LLM] 노드 정의 기반으로 패널 헤더 표시
-  }, [selectedNodeType]);
-
   // 인터랙티브 모드에 따라 ReactFlow 구성
   const reactFlowConfig = useMemo(() => {
     if (interactiveMode === 'touchpad') {

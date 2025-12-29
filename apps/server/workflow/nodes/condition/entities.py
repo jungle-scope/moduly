@@ -5,7 +5,7 @@ from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from workflow.core.entities import BaseNodeData
+from workflow.nodes.base.entities import BaseNodeData
 
 
 class ConditionOperator(str, Enum):
