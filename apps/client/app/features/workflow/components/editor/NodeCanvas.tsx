@@ -26,6 +26,7 @@ import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
+import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -204,6 +205,13 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'llmNode' && (
             <LLMNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {/* NOTE: [TemplateNode] TemplateNode 선택 시 패널 렌더링 추가 */}
+          {selectedNode && selectedNodeType === 'templateNode' && (
+            <TemplateNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

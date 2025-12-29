@@ -308,8 +308,8 @@ export default function SettingsProviderPage() {
                     OpenAI provider 추가
                   </h2>
                   <p className="text-xs text-gray-500">
-                    (임시) openai 규격으로 저장됩니다. 나중에 다른 provider 유형으로
-                    분리 예정.
+                    (임시) openai 규격으로 저장됩니다. 나중에 다른 provider
+                    유형으로 분리 예정.
                   </p>
                 </div>
                 <button
