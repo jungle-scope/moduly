@@ -15,7 +15,7 @@ def test_factory_creates_start_node():
     # Given
     schema = NodeSchema(
         id="node-1",
-        type="start",
+        type="startNode",
         position=Position(x=0, y=0),
         data={"title": "시작 노드", "trigger_type": "manual"},
     )
@@ -29,7 +29,7 @@ def test_factory_creates_start_node():
     assert node.data.title == "시작 노드"
     assert node.data.trigger_type == "manual"
     assert node.status == NodeStatus.IDLE
-    assert node.node_type == "start"
+    assert node.node_type == "startNode"
 
 
 def test_factory_raises_error_for_unimplemented_node():
@@ -55,7 +55,7 @@ def test_factory_handles_missing_data_fields():
     # Given
     schema = NodeSchema(
         id="node-3",
-        type="start",
+        type="startNode",
         position=Position(x=0, y=0),
         data={},  # title이 없음 (필수 필드)
     )
@@ -70,7 +70,7 @@ def test_factory_uses_default_values():
     # Given
     schema = NodeSchema(
         id="node-4",
-        type="start",
+        type="startNode",
         position=Position(x=0, y=0),
         data={"title": "기본값 테스트"},  # trigger_type 생략
     )
@@ -88,7 +88,7 @@ def test_factory_node_is_executable():
     # Given
     schema = NodeSchema(
         id="node-5",
-        type="start",
+        type="startNode",
         position=Position(x=0, y=0),
         data={"title": "실행 테스트"},
     )
@@ -107,8 +107,8 @@ def test_factory_node_is_executable():
 def test_factory_registry_contains_start_node():
     """NODE_REGISTRY에 start 노드가 등록되어 있는지 확인"""
     # Then
-    assert "start" in NodeFactory.NODE_REGISTRY
-    assert NodeFactory.NODE_REGISTRY["start"] == (StartNode, StartNodeData)
+    assert "startNode" in NodeFactory.NODE_REGISTRY
+    assert NodeFactory.NODE_REGISTRY["startNode"] == (StartNode, StartNodeData)
 
 
 def test_factory_creates_multiple_nodes():
@@ -116,13 +116,13 @@ def test_factory_creates_multiple_nodes():
     # Given
     schema1 = NodeSchema(
         id="node-1",
-        type="start",
+        type="startNode",
         position=Position(x=0, y=0),
         data={"title": "첫 번째"},
     )
     schema2 = NodeSchema(
         id="node-2",
-        type="start",
+        type="startNode",
         position=Position(x=100, y=0),
         data={"title": "두 번째"},
     )

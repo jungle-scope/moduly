@@ -23,21 +23,27 @@ api.interceptors.response.use(
 );
 
 export const workflowApi = {
+  // 1. 드래프트 워크플로우 동기화 (저장)
   syncDraftWorkflow: async (workflowId: string, data: WorkflowDraftRequest) => {
+    // develop 브랜치의 주석 반영: data.nodes[0].variables에 시작노드의 input이 들어있음
     const response = await api.post(`/workflows/${workflowId}/draft`, data);
     return response.data;
   },
 
+  // 2. 드래프트 워크플로우 가져오기
   getDraftWorkflow: async (workflowId: string) => {
     const response = await api.get(`/workflows/${workflowId}/draft`);
     return response.data;
   },
 
-  executeWorkflow: async (appId: string, data: WorkflowDraftRequest) => {
-    // 실제로 워크플로우를 실행하는 함수
-    // 일단은 엔드포인트를 http://localhost:8000/api/v1/workflow/execute로 가정
-
-    const response = await api.post(`/workflow/execute`, data);
+// 3. 워크플로우 실행
+  executeWorkflow: async (
+    workflowId: string,
+    userInput?: Record<string, unknown>,
+  ) => {
+    // develop 브랜치의 최신 인자(workflowId, userInput)와 엔드포인트를 따르되, 
+    // 인증 처리를 위해 axios 대신 api 인스턴스를 사용합니다.
+    const response = await api.post(`/workflows/${workflowId}/execute`, userInput || {});
     return response.data;
   },
 };

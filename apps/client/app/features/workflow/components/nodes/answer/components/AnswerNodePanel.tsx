@@ -1,0 +1,181 @@
+import { useCallback } from 'react';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import { Plus, X } from 'lucide-react';
+import { AnswerNodeData, AnswerNodeOutput } from './AnswerNode';
+import { StartNodeData } from '../../../../types/Nodes';
+
+interface AnswerNodePanelProps {
+  nodeId: string;
+  data: AnswerNodeData;
+}
+
+export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
+  const { updateNodeData, nodes } = useWorkflowStore();
+
+  const handleAddOutput = useCallback(() => {
+    const newOutputs = [
+      ...(data.outputs || []),
+      { variable: '', value_selector: [] },
+    ];
+    updateNodeData(nodeId, { outputs: newOutputs });
+  }, [data.outputs, nodeId, updateNodeData]);
+
+  const handleUpdateOutput = useCallback(
+    (
+      index: number,
+      field: keyof AnswerNodeOutput,
+      value: string | string[],
+    ) => {
+      const newOutputs = [...(data.outputs || [])];
+      newOutputs[index] = { ...newOutputs[index], [field]: value };
+      updateNodeData(nodeId, { outputs: newOutputs });
+    },
+    [data.outputs, nodeId, updateNodeData],
+  );
+
+  const handleRemoveOutput = useCallback(
+    (index: number) => {
+      const newOutputs = [...(data.outputs || [])];
+      newOutputs.splice(index, 1);
+      updateNodeData(nodeId, { outputs: newOutputs });
+    },
+    [data.outputs, nodeId, updateNodeData],
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <span className="text-sm font-semibold text-gray-700">
+            출력 변수 설정
+          </span>
+          <button
+            onClick={handleAddOutput}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+          >
+            <Plus className="w-4 h-4 text-gray-600" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {data.outputs?.map((output, index) => {
+            const selectedSourceNodeId = output.value_selector?.[0];
+            const selectedSourceNode = nodes.find(
+              (n) => n.id === selectedSourceNodeId,
+            );
+
+            // Get variables from source node
+            let sourceVariables: { label: string; value: string }[] = [];
+            const isStartNode = selectedSourceNode?.type === 'startNode';
+
+            if (isStartNode) {
+              const startData =
+                selectedSourceNode.data as unknown as StartNodeData;
+              sourceVariables = (startData.variables || []).map((v) => ({
+                label: v.name,
+                value: v.name,
+              }));
+            }
+            // Add other node types here if needed (e.g. LLM result)
+
+            return (
+              <div
+                key={index}
+                className="flex flex-col gap-2 rounded border border-gray-200 p-3 bg-gray-50"
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    className="h-8 flex-1 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="출력 키 (예: result)"
+                    value={output.variable}
+                    onChange={(e) =>
+                      handleUpdateOutput(index, 'variable', e.target.value)
+                    }
+                  />
+                  <button
+                    className="flex items-center justify-center h-8 w-8 text-red-500 hover:bg-red-50 rounded"
+                    onClick={() => handleRemoveOutput(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Value Selector */}
+                <div className="flex gap-2">
+                  <select
+                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                    value={output.value_selector?.[0] || ''}
+                    onChange={(e) => {
+                      const currentKey = ''; // Reset key when node changes
+                      handleUpdateOutput(index, 'value_selector', [
+                        e.target.value,
+                        currentKey,
+                      ]);
+                    }}
+                  >
+                    <option value="" disabled>
+                      노드 선택
+                    </option>
+                    {nodes
+                      .filter((n) => n.id !== nodeId)
+                      .map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {(n.data as { title?: string })?.title || n.type}
+                        </option>
+                      ))}
+                  </select>
+
+                  {/* Dynamic Source Var Input/Select */}
+                  {isStartNode ? (
+                    <select
+                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                      value={output.value_selector?.[1] || ''}
+                      onChange={(e) => {
+                        const currentNode = output.value_selector?.[0] || '';
+                        handleUpdateOutput(index, 'value_selector', [
+                          currentNode,
+                          e.target.value,
+                        ]);
+                      }}
+                      disabled={sourceVariables.length === 0}
+                    >
+                      <option value="" disabled>
+                        {sourceVariables.length === 0
+                          ? '변수 없음'
+                          : '변수 선택'}
+                      </option>
+                      {sourceVariables.map((v) => (
+                        <option key={v.value} value={v.value}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none"
+                      placeholder="변수 키 직접 입력"
+                      value={output.value_selector?.[1] || ''}
+                      onChange={(e) => {
+                        const currentNode = output.value_selector?.[0] || '';
+                        handleUpdateOutput(index, 'value_selector', [
+                          currentNode,
+                          e.target.value,
+                        ]);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {(!data.outputs || data.outputs.length === 0) && (
+            <div className="text-center text-sm text-gray-400 py-4">
+              출력 변수가 없습니다. <br />+ 버튼을 눌러 추가하세요.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
