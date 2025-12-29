@@ -17,17 +17,13 @@ export const ConditionNode = memo(
               : '조건에 따라 분기합니다'}
           </div>
 
-          {/* Output Handles - 동적 생성 */}
-          <div
-            className="relative w-full flex flex-col justify-between mt-4 z-10"
-            style={{ minHeight: `${Math.max((cases.length + 1) * 32, 64)}px` }}
-          >
+          {/* Output Handles - Flexbox Refactor */}
+          <div className="flex flex-col gap-2 mt-4 z-10 w-[calc(100%+28px)] -mr-7 self-end">
             {/* Case별 핸들 */}
             {cases.map((caseItem, index) => (
               <div
                 key={caseItem.id}
-                className="absolute right-[-28px] flex items-center z-50"
-                style={{ top: `${index * 32}px` }}
+                className="flex items-center justify-end h-6 relative z-50"
               >
                 <span className="mr-2 text-xs text-blue-600 font-semibold whitespace-nowrap">
                   {caseItem.case_name || `Case ${index + 1}`}
@@ -36,17 +32,13 @@ export const ConditionNode = memo(
                   type="source"
                   position={Position.Right}
                   id={caseItem.id}
-                  className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white !right-0"
-                  style={{ top: '50%', transform: 'translateY(-50%)' }}
+                  className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white !static !transform-none"
                 />
               </div>
             ))}
 
             {/* Else 핸들 - 항상 마지막 */}
-            <div
-              className="absolute right-[-28px] flex items-center z-50"
-              style={{ top: `${cases.length * 32}px` }}
-            >
+            <div className="flex items-center justify-end h-6 relative z-50">
               <span className="mr-2 text-xs text-gray-500 font-semibold whitespace-nowrap">
                 Default
               </span>
@@ -54,8 +46,7 @@ export const ConditionNode = memo(
                 type="source"
                 position={Position.Right}
                 id="default"
-                className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white !right-0"
-                style={{ top: '50%', transform: 'translateY(-50%)' }}
+                className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white !static !transform-none"
               />
             </div>
           </div>
