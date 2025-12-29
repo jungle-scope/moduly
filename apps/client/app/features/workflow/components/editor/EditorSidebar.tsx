@@ -74,6 +74,7 @@ export default function EditorSidebar() {
     activeWorkflowId,
     setActiveWorkflow,
     addWorkflow,
+    loadWorkflowsByApp,
     sidebarCollapsed,
     toggleSidebarSection,
     activeConfigTab,
@@ -113,6 +114,13 @@ export default function EditorSidebar() {
       loadWorkflowAppId();
     }
   }, [workflowId]);
+
+  // Load workflows when app_id is available
+  useEffect(() => {
+    if (currentAppId) {
+      loadWorkflowsByApp(currentAppId);
+    }
+  }, [currentAppId, loadWorkflowsByApp]);
 
   // Use loaded app_id or fallback to workflow_id temporarily
   const appId = currentAppId || workflowId;

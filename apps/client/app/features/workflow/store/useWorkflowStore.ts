@@ -79,6 +79,7 @@ type WorkflowState = {
     workflow: Omit<Workflow, 'id'>,
     appId: string,
   ) => Promise<string>;
+  loadWorkflowsByApp: (appId: string) => Promise<void>;
   setActiveWorkflow: (id: string) => void;
   deleteWorkflow: (id: string) => void;
   updateWorkflowViewport: (
@@ -218,6 +219,27 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return created.id;
     } catch (error) {
       console.error('Failed to create workflow:', error);
+      throw error;
+    }
+  },
+
+  loadWorkflowsByApp: async (appId: string) => {
+    try {
+      const workflows = await workflowApi.listWorkflowsByApp(appId);
+
+      // Convert backend workflows to frontend format
+      const formattedWorkflows: Workflow[] = workflows.map((w) => ({
+        id: w.id,
+        name: w.marked_name || 'Untitled Workflow',
+        description: w.marked_comment || '',
+        icon: '🔄',
+        nodes: [],
+        edges: [],
+      }));
+
+      set({ workflows: formattedWorkflows });
+    } catch (error) {
+      console.error('Failed to load workflows:', error);
       throw error;
     }
   },
