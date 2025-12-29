@@ -50,3 +50,8 @@ SQLAlchemy==2.0.45
 psycopg2-binary==2.9.11
 python-dotenv==1.1.1
 tiktoken==0.12.0
+langchain==0.3.14
+langchain-community==0.3.14
+pgvector==0.3.6
+openai==1.59.5
+pymupdf==1.25.1
