@@ -1,16 +1,6 @@
 import React from 'react';
-import { BaseNodeData } from '../../../../types/Nodes';
+import { BaseNodeData, TemplateNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
-
-export interface TemplateVariable {
-  name: string;
-  value_selector: string[]; // [node_id, variable_key]
-}
-
-export interface TemplateNodeData extends BaseNodeData {
-  template: string;
-  variables: TemplateVariable[];
-}
 
 interface TemplateNodeProps {
   id: string;

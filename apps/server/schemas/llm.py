@@ -31,8 +31,8 @@ class LLMProviderSimpleCreate(BaseModel):
 
     alias: str
     api_key: str = Field(alias="apiKey")
-    provider_type: str = "openai"
-    base_url: str = "https://api.openai.com/v1"
+    provider_type: str = Field("openai", alias="providerType")
+    base_url: str = Field("https://api.openai.com/v1", alias="baseUrl")
     model: str = "gpt-4o-mini"
     user_id: Optional[uuid.UUID] = None
 

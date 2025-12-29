@@ -7,9 +7,7 @@ provider 이름에 따라 LLM 클라이언트를 생성하는 팩토리.
 
 from typing import Any, Dict
 
-from .anthropic_client import AnthropicClient
 from .base import BaseLLMClient
-from .google_client import GoogleClient
 from .openai_client import OpenAIClient
 
 
@@ -31,9 +29,5 @@ def get_llm_client(
 
     if key == "openai":
         return OpenAIClient(model_id=model_id, credentials=credentials)
-    if key in ("anthropic", "claude"):
-        return AnthropicClient(model_id=model_id, credentials=credentials)
-    if key in ("google", "gemini"):
-        return GoogleClient(model_id=model_id, credentials=credentials)
 
     raise ValueError(f"Unsupported provider: {provider}")

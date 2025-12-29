@@ -20,6 +20,26 @@ class LLMService:
     LLM provider/credential 관련 DB 작업을 담당합니다.
     """
 
+    @staticmethod
+    def _normalize_base_url(raw: str, remove_suffixes: list[str]) -> str:
+        """
+        base_url 입력이 '/v1' 또는 '/v1beta' 등을 포함해도 정상 동작하도록 정규화.
+        - 입력 끝에 지정된 suffix가 있으면 제거하고 trailing slash도 제거.
+        """
+        if not raw:
+            return raw
+        url = raw.rstrip("/")
+        lowered = url.lower()
+        for suffix in remove_suffixes:
+            suf = suffix.lower().rstrip("/")
+            if lowered.endswith("/" + suf):
+                url = url[: -len(suf) - 1].rstrip("/")
+                break
+            if lowered.endswith(suf):
+                url = url[: -len(suf)].rstrip("/")
+                break
+        return url
+
     # 임시 placeholder 사용자 ID (실제 users 테이블에 없으면 FK 에러 날 수 있음)
     # TODO: 로그인 연동 후 실제 사용자로 대체하고 제거 필요
     PLACEHOLDER_USER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
@@ -88,7 +108,8 @@ class LLMService:
         - 200 OK이면 통과, 그 외 status는 실패로 간주
         - 네트워크/타임아웃/기타 예외는 ValueError로 올려 사용자에게 전달
         """
-        url = base_url.rstrip("/") + "/models"
+        normalized = LLMService._normalize_base_url(base_url, ["v1"])
+        url = normalized.rstrip("/") + "/v1/models"
         try:
             resp = requests.get(
                 url,
@@ -112,7 +133,8 @@ class LLMService:
         Anthropic /v1/models 엔드포인트로 키 유효성 검증.
         - 200 OK이면 통과, 그 외 status는 실패로 간주
         """
-        url = base_url.rstrip("/") + "/v1/models"
+        normalized = LLMService._normalize_base_url(base_url, ["v1"])
+        url = normalized.rstrip("/") + "/v1/models"
         try:
             resp = requests.get(
                 url,
@@ -134,14 +156,26 @@ class LLMService:
     @staticmethod
     def _validate_google_api_key(base_url: str, api_key: str) -> None:
         """
-        Google Gemini /v1/models 엔드포인트로 키 유효성 검증.
+        Google Gemini /v1beta/models 엔드포인트로 키 유효성 검증.
         - 200 OK이면 통과, 그 외 status는 실패로 간주
         """
-        url = base_url.rstrip("/") + "/v1/models"
+        normalized = LLMService._normalize_base_url(base_url, ["v1", "v1beta"])
+
+        def _request(version: str):
+            url = normalized.rstrip("/") + f"/{version}/models"
+            return requests.get(url, params={"key": api_key}, timeout=5)
+
         try:
-            resp = requests.get(url, params={"key": api_key}, timeout=5)
+            resp = _request("v1beta")
         except requests.RequestException as exc:
             raise ValueError(f"Google Gemini API key 검증 요청 실패: {exc}") from exc
+
+        # v1beta에서 404가 나면 v1으로 한번 더 검증 시도
+        if resp.status_code == 404:
+            try:
+                resp = _request("v1")
+            except requests.RequestException as exc:
+                raise ValueError(f"Google Gemini API key 검증 요청 실패(v1): {exc}") from exc
 
         if resp.status_code != 200:
             snippet = resp.text[:200] if resp.text else ""
@@ -224,6 +258,11 @@ class LLMService:
             "gemini": "https://generativelanguage.googleapis.com",
         }.get(provider_key)
         base_url = request.base_url or default_base_url
+        # 입력 base_url이 /v1, /v1beta 등을 포함해도 정상화
+        normalize_suffixes = ["v1"]
+        if provider_key in ("google", "gemini"):
+            normalize_suffixes = ["v1", "v1beta"]
+        base_url = LLMService._normalize_base_url(base_url, normalize_suffixes)
         config_payload = {
             "apiKey": request.api_key,
             "baseUrl": base_url,
@@ -232,6 +271,8 @@ class LLMService:
         }
         if provider_key in ("anthropic", "claude"):
             config_payload["anthropicVersion"] = "2023-06-01"
+        if provider_key in ("google", "gemini"):
+            config_payload["apiVersion"] = "v1beta"
 
         # provider별 API key 검증
         if provider_key == "openai":

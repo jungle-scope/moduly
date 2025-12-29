@@ -18,7 +18,7 @@ type ProviderResponse = {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
-type ProviderType = 'openai' | 'anthropic' | 'google';
+type ProviderType = 'openai';
 
 // provider별 기본값(라벨/기본 URL/모델/키 힌트)을 한 곳에 모아둠
 const PROVIDER_PRESETS: Record<
@@ -30,18 +30,6 @@ const PROVIDER_PRESETS: Record<
     baseUrl: 'https://api.openai.com/v1',
     model: 'gpt-4o-mini',
     apiKeyHint: 'sk-...',
-  },
-  anthropic: {
-    label: 'Anthropic (Claude)',
-    baseUrl: 'https://api.anthropic.com',
-    model: 'claude-3-5-sonnet-latest',
-    apiKeyHint: 'sk-ant-...',
-  },
-  google: {
-    label: 'Google (Gemini)',
-    baseUrl: 'https://generativelanguage.googleapis.com',
-    model: 'gemini-1.5-pro-latest',
-    apiKeyHint: 'AIza...',
   },
 };
 
@@ -89,19 +77,28 @@ export default function SettingsProviderPage() {
     fetchProviders();
   }, []);
 
-  const applyPreset = (providerType: ProviderType) => {
-    const preset = PROVIDER_PRESETS[providerType];
+  const applyPreset = (providerType: ProviderType = 'openai') => {
+    const preset = PROVIDER_PRESETS[providerType] || PROVIDER_PRESETS.openai;
+    const resolvedType = preset === PROVIDER_PRESETS[providerType] ? providerType : 'openai';
     setForm({
       alias: '',
       apiKey: '',
       model: preset.model,
       baseUrl: preset.baseUrl,
-      providerType,
+      providerType: resolvedType,
     });
   };
 
-  const handleOpenModal = (providerType: ProviderType = 'openai') => {
-    applyPreset(providerType);
+  const handleOpenModal = (providerType?: ProviderType) => {
+    // event 객체가 넘어오는 경우도 있어 안전하게 문자열 검증
+    const key =
+      typeof providerType === 'string' &&
+      (['openai'] as ProviderType[]).includes(
+        providerType as ProviderType,
+      )
+        ? (providerType as ProviderType)
+        : 'openai';
+    applyPreset(key);
     setIsModalOpen(true);
   };
 
@@ -328,7 +325,7 @@ export default function SettingsProviderPage() {
 
         <button
           type="button"
-          onClick={handleOpenModal}
+          onClick={() => handleOpenModal()}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
         >
           <Plus className="h-5 w-5" />

@@ -20,7 +20,15 @@ def list_providers(db: Session = Depends(get_db)):
     try:
         return LLMService.list_providers(db)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        # provider별 안내 메시지 제공
+        detail = str(exc)
+        if request.provider_type.lower() in ("google", "gemini"):
+            detail = f"Google Gemini 키 검증 실패: {detail} (콘솔에서 발급한 API Key인지 확인하세요)"
+        elif request.provider_type.lower() in ("anthropic", "claude"):
+            detail = f"Anthropic 키 검증 실패: {detail} (대시보드에서 발급한 Key인지 확인하세요)"
+        else:
+            detail = f"OpenAI 키 검증 실패: {detail} (대시보드에서 발급한 Key인지 확인하세요)"
+        raise HTTPException(status_code=400, detail=detail)
 
 
 @router.post("/providers", response_model=LLMProviderResponse)
