@@ -6,7 +6,7 @@
 
 실행 방법:
     cd apps/server
-    .venv\Scripts\python.exe tests/integration/test_http_node_real.py
+    .venv\Scripts\python.exe tests/services/test_http_node_real.py
 """
 
 import os

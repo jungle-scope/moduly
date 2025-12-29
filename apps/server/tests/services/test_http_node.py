@@ -10,7 +10,10 @@ HTTP Request Node 최소 테스트 (unittest 버전)
 3. 응답 처리 검증: 라이브러리가 준 응답(Mock)을 노드 출력 포맷에 맞게 잘 변환하는지
 
 * 주의: 실제 인터넷으로 요청을 보내지는 않습니다 (Mock 사용).
-  - 이유: 속도, 안정성, 비용 문제
+
+실행 방법:
+    cd apps/server
+    .venv\Scripts\python.exe tests/services/test_http_node.py
 """
 
 import os

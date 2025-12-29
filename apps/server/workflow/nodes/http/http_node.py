@@ -108,22 +108,14 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
         def replace_match(match):
             variable_path = match.group(1).strip()
 
-            # 1. inputs에서 값 찾기
-            # inputs 구조는 { "Start.query": "value" } 형태 (Flat) 또는 { "Start": {"query": "value"} } 일 수 있음
-            # WorkflowEngine._get_context 구현에 따라 다르지만,
-            # 현재 self._substitute implementation을 위해 가장 단순하게 접근
+            # inputs 구조: { "Start": {"query": "value"} } 형태
+            # 예: {{Start.query}} -> inputs["Start"]["query"]
 
-            # Case A: Dot notation key가 바로 있는 경우 (Start.query)
-            if variable_path in inputs:
-                return str(inputs[variable_path])
-
-            # Case B: NodeId로 접근해야 하는 경우 (Start -> query)
+            # NodeId.변수명 형태를 파싱
             if "." in variable_path:
                 node_id, var_name = variable_path.split(".", 1)
                 node_data = inputs.get(node_id)
                 if isinstance(node_data, dict) and var_name in node_data:
-                    # StartNode의 경우 { "query": "value" } 형태일 수 있음.
-                    # 그러나 StartNode는 inputs 자체를 반환하므로 inputs["Start"]는 {"query": "value"}가 됨
                     return str(node_data[var_name])
 
             # 값을 찾지 못하면 원본 유지
