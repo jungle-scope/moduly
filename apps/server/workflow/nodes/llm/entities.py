@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydantic import Field
 
-from ...core.entities import BaseNodeData
+from workflow.nodes.base.entities import BaseNodeData
 
 
 class LLMNodeData(BaseNodeData):
