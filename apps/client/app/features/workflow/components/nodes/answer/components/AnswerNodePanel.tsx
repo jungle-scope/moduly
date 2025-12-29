@@ -1,8 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { Plus, X } from 'lucide-react';
-import { AnswerNodeData, AnswerNodeOutput } from './AnswerNode';
-import { StartNodeData } from '../../../../types/Nodes';
+import {
+  AnswerNodeData,
+  AnswerNodeOutput,
+  StartNodeData,
+} from '../../../../types/Nodes';
+import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 
 interface AnswerNodePanelProps {
   nodeId: string;
@@ -10,7 +14,12 @@ interface AnswerNodePanelProps {
 }
 
 export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
-  const { updateNodeData, nodes } = useWorkflowStore();
+  const { updateNodeData, nodes, edges } = useWorkflowStore();
+
+  const upstreamNodes = useMemo(
+    () => getUpstreamNodes(nodeId, nodes, edges),
+    [nodeId, nodes, edges],
+  );
 
   const handleAddOutput = useCallback(() => {
     const newOutputs = [
@@ -64,19 +73,29 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
               (n) => n.id === selectedSourceNodeId,
             );
 
-            // Get variables from source node
+            // 소스 노드에서 변수 가져오기
             let sourceVariables: { label: string; value: string }[] = [];
-            const isStartNode = selectedSourceNode?.type === 'startNode';
+            const isStartNode =
+              selectedSourceNode &&
+              (selectedSourceNode.type as string) === 'startNode';
 
-            if (isStartNode) {
+            if (isStartNode && selectedSourceNode) {
               const startData =
                 selectedSourceNode.data as unknown as StartNodeData;
+              /**
+               * [중요] 변수 ID를 value로 저장하는 이유:
+               * - 사용자가 변수 이름을 변경해도 참조가 깨지지 않도록 함
+               * - 예: 변수명 "name" → "username" 변경 시
+               *   - 이름 기반: "name"을 찾음 → 없음 ❌
+               *   - ID 기반: "45af2b51-..."를 찾음 → 정상 동작 ✅
+               * - ID는 변경되지 않으므로 참조 안정성 보장
+               */
               sourceVariables = (startData.variables || []).map((v) => ({
-                label: v.name,
-                value: v.name,
+                label: v.name, // 드롭다운에는 이름 표시 (사용자 가독성)
+                value: v.id, // 저장할 때는 ID 사용 (참조 안정성)
               }));
             }
-            // Add other node types here if needed (e.g. LLM result)
+            // 필요한 경우 다른 노드 유형 추가 (예: LLM 결과)
 
             return (
               <div
@@ -100,13 +119,13 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                   </button>
                 </div>
 
-                {/* Value Selector */}
+                {/* 값 선택기 */}
                 <div className="flex gap-2">
                   <select
                     className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
                     value={output.value_selector?.[0] || ''}
                     onChange={(e) => {
-                      const currentKey = ''; // Reset key when node changes
+                      const currentKey = ''; // 노드 변경 시 키 재설정
                       handleUpdateOutput(index, 'value_selector', [
                         e.target.value,
                         currentKey,
@@ -116,8 +135,8 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                     <option value="" disabled>
                       노드 선택
                     </option>
-                    {nodes
-                      .filter((n) => n.id !== nodeId)
+                    {upstreamNodes
+                      .filter((n) => n.type !== 'note')
                       .map((n) => (
                         <option key={n.id} value={n.id}>
                           {(n.data as { title?: string })?.title || n.type}
@@ -125,45 +144,28 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                       ))}
                   </select>
 
-                  {/* Dynamic Source Var Input/Select */}
-                  {isStartNode ? (
-                    <select
-                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                      value={output.value_selector?.[1] || ''}
-                      onChange={(e) => {
-                        const currentNode = output.value_selector?.[0] || '';
-                        handleUpdateOutput(index, 'value_selector', [
-                          currentNode,
-                          e.target.value,
-                        ]);
-                      }}
-                      disabled={sourceVariables.length === 0}
-                    >
-                      <option value="" disabled>
-                        {sourceVariables.length === 0
-                          ? '변수 없음'
-                          : '변수 선택'}
+                  {/* 동적 소스 변수 입력/선택 */}
+                  <select
+                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                    value={output.value_selector?.[1] || ''}
+                    onChange={(e) => {
+                      const currentNode = output.value_selector?.[0] || '';
+                      handleUpdateOutput(index, 'value_selector', [
+                        currentNode,
+                        e.target.value,
+                      ]);
+                    }}
+                    disabled={sourceVariables.length === 0}
+                  >
+                    <option value="" disabled>
+                      {sourceVariables.length === 0 ? '변수 없음' : '변수 선택'}
+                    </option>
+                    {sourceVariables.map((v) => (
+                      <option key={v.value} value={v.value}>
+                        {v.label}
                       </option>
-                      {sourceVariables.map((v) => (
-                        <option key={v.value} value={v.value}>
-                          {v.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none"
-                      placeholder="변수 키 직접 입력"
-                      value={output.value_selector?.[1] || ''}
-                      onChange={(e) => {
-                        const currentNode = output.value_selector?.[0] || '';
-                        handleUpdateOutput(index, 'value_selector', [
-                          currentNode,
-                          e.target.value,
-                        ]);
-                      }}
-                    />
-                  )}
+                    ))}
+                  </select>
                 </div>
               </div>
             );

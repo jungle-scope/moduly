@@ -127,7 +127,7 @@ export const nodeRegistry: NodeDefinition[] = [
     category: 'logic',
     color: 'bg-blue-500',
     icon: '🔀',
-    implemented: false,
+    implemented: true,
     description: '조건에 따라 분기합니다.',
     defaultData: () => ({
       title: 'Condition',
@@ -146,6 +146,24 @@ export const nodeRegistry: NodeDefinition[] = [
     defaultData: () => ({
       title: 'Answer',
       outputs: [],
+    }),
+  },
+  {
+    id: 'http',
+    type: 'httpRequestNode',
+    name: 'HTTP Request',
+    category: 'plugin',
+    color: 'bg-purple-500',
+    icon: '🌍',
+    implemented: true,
+    description: '외부 API로 HTTP 요청을 보냅니다.',
+    defaultData: () => ({
+      title: 'HTTP Request',
+      method: 'GET',
+      url: '',
+      headers: [],
+      body: '',
+      timeout: 5000,
     }),
   },
 ];

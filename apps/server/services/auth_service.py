@@ -62,6 +62,57 @@ class AuthService:
         return datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
 
     @staticmethod
+    def verify_jwt_token(token: str) -> str | None:
+        """
+        JWT 토큰 검증
+
+        Args:
+            token: JWT 토큰
+
+        Returns:
+            str | None: 유효한 경우 user_id, 그렇지 않으면 None
+        """
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id: str = payload.get("user_id")
+            return user_id
+        except jwt.JWTError:
+            return None
+
+    @staticmethod
+    def get_user_from_token(db: Session, token: str | None) -> User:
+        """
+        JWT 토큰으로 사용자 조회 (재사용 가능한 헬퍼 메서드)
+
+        Args:
+            db: 데이터베이스 세션
+            token: JWT 토큰
+
+        Returns:
+            User: 사용자 객체
+
+        Raises:
+            HTTPException: 인증 실패 시 401 에러
+        """
+        from fastapi import HTTPException
+
+        # 토큰 없음
+        if not token:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # 토큰 검증
+        user_id = AuthService.verify_jwt_token(token)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+        # 사용자 조회
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        return user
+
+    @staticmethod
     def signup(db: Session, request: SignupRequest) -> LoginResponse:
         """
         회원가입 처리 (JWT 기반)

@@ -15,6 +15,22 @@ import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
 import { workflowApi } from '../../api/workflowApi';
 import { UserInputModal } from '../modals/userInputModal';
 import { ResultModal } from '../modals/ResultModal';
+import { DeploymentModal } from '../modals/DeploymentModal';
+import { DeploymentResultModal } from '../modals/DeploymentResultModal';
+
+/** SY.
+ * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
+ * auth_secret: 누구나 접근 가능한 Public 배포시 null
+ * */
+type DeploymentResult =
+  | {
+      success: true;
+      url_slug: string | null;
+      auth_secret: string | null;
+      version: number;
+    }
+  | { success: false; message: string }
+  | null;
 
 export default function EditorHeader() {
   const router = useRouter();
@@ -23,10 +39,18 @@ export default function EditorHeader() {
   const { projectName, projectIcon, nodes } = useWorkflowStore();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
+
+  // Existing State
   const [showModal, setShowModal] = useState(false);
   const [modalVariables, setModalVariables] = useState<WorkflowVariable[]>([]);
   const [showResultModal, setShowResultModal] = useState(false);
   const [executionResult, setExecutionResult] = useState<any>(null);
+
+  // Deployment State
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deploymentResult, setDeploymentResult] =
+    useState<DeploymentResult>(null);
 
   const handleBack = useCallback(() => {
     router.push('/dashboard');
@@ -37,8 +61,46 @@ export default function EditorHeader() {
   }, []);
 
   const handlePublish = useCallback(() => {
-    // TODO: Implement publish functionality
+    setShowDeployModal(true);
   }, []);
+
+  const handleDeploySubmit = useCallback(
+    async (description: string) => {
+      try {
+        setIsDeploying(true);
+        const response = await workflowApi.createDeployment({
+          workflow_id: workflowId,
+          description,
+          type: 'api', // 현재는 API 타입만 지원
+          is_active: true,
+        });
+        console.log('[배포 성공] 서버 응답:', response);
+
+        // 성공 결과 모달 표시
+        setDeploymentResult({
+          success: true,
+          url_slug: response.url_slug ?? null,
+          auth_secret: response.auth_secret ?? null,
+          version: response.version,
+        });
+        setShowDeployModal(false);
+      } catch (error: any) {
+        console.error('Deployment failed:', error);
+
+        // 실패 결과 모달 표시
+        setDeploymentResult({
+          success: false,
+          message:
+            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
+        });
+        // 실패 시에도 입력 모달 닫기
+        setShowDeployModal(false);
+      } finally {
+        setIsDeploying(false);
+      }
+    },
+    [workflowId],
+  );
 
   const handleTestRun = useCallback(async () => {
     setErrorMsg(null);
@@ -185,6 +247,23 @@ export default function EditorHeader() {
           </div>
         )}
       </div>
+
+      {/* Deployment Modal */}
+      {showDeployModal && (
+        <DeploymentModal
+          onClose={() => setShowDeployModal(false)}
+          onSubmit={handleDeploySubmit}
+          isDeploying={isDeploying}
+        />
+      )}
+
+      {/* Deployment Result Modal (성공/실패) */}
+      {deploymentResult && (
+        <DeploymentResultModal
+          result={deploymentResult}
+          onClose={() => setDeploymentResult(null)}
+        />
+      )}
 
       {/* 사용자 입력 모달 (개발 중 테스트 용입니다. 최종 X) */}
       {showModal && (

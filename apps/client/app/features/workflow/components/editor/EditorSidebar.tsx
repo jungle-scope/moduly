@@ -11,6 +11,7 @@ import {
   PluginIcon,
   DatabaseIcon,
 } from '@/app/features/workflow/components/icons';
+import { workflowApi } from '../../api/workflowApi';
 
 interface SidebarSectionProps {
   title: string;
@@ -89,22 +90,12 @@ export default function EditorSidebar() {
   const modalRef = useRef<HTMLDivElement>(null);
   const modalInputRef = useRef<HTMLInputElement>(null);
 
-  // Load current workflow's app_id from backend
   useEffect(() => {
     const loadWorkflowAppId = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:8000/api/v1/workflows/${workflowId}`,
-          {
-            credentials: 'include',
-          },
-        );
-        if (response.ok) {
-          const data = await response.json();
-          // Extract app_id from workflow
-          if (data.app_id) {
-            setCurrentAppId(data.app_id);
-          }
+        const data = await workflowApi.getWorkflow(workflowId);
+        if (data.app_id) {
+          setCurrentAppId(data.app_id);
         }
       } catch (error) {
         console.error('Failed to load workflow app_id:', error);
@@ -116,9 +107,7 @@ export default function EditorSidebar() {
     }
   }, [workflowId]);
 
-  // Load workflows when app_id is available
   const hasAutoSelectedRef = useRef(false);
-
   useEffect(() => {
     if (currentAppId && !hasAutoSelectedRef.current) {
       loadWorkflowsByApp(currentAppId).then(() => {
@@ -137,10 +126,8 @@ export default function EditorSidebar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAppId]); // Only run when app_id changes
 
-  // Use loaded app_id or fallback to workflow_id temporarily
   const appId = currentAppId || workflowId;
 
-  // Close modal when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
