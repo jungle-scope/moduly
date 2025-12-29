@@ -110,7 +110,18 @@ export interface LLMNodeData extends BaseNodeData {
   context_variable?: string;
   parameters: Record<string, unknown>;
 }
-// ============================================================================
+
+// [TemplateNode]
+export interface TemplateVariable {
+  name: string;
+  value_selector: string[]; // [node_id, variable_key]
+}
+
+export interface TemplateNodeData extends BaseNodeData {
+  template: string;
+  variables: TemplateVariable[];
+}
+
 
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
@@ -122,6 +133,7 @@ export type HttpRequestNode = ReactFlowNode<
 export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
 export type LLMNode = ReactFlowNode<LLMNodeData, 'llm'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
+export type TemplateNode = ReactFlowNode<TemplateNodeData, 'templateNode'>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
@@ -130,7 +142,8 @@ export type AppNode =
   | AnswerNode
   | HttpRequestNode
   | LLMNode
-  | ConditionNode;
+  | ConditionNode
+  | TemplateNode;
 
 // 하위 호환성 (필요시)
 export type NodeData = BaseNodeData;
