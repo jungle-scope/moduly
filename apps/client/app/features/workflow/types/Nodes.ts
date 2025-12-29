@@ -8,7 +8,8 @@ export interface BaseNodeData {
   [key: string]: unknown;
 }
 
-// 변수의 데이터 타입을 정의
+// ========================== [Start Node] ====================================
+// 입력 변수의 데이터 타입을 정의
 export type VariableType =
   | 'text' // 단답형 텍스트
   | 'number' // 숫자
@@ -22,7 +23,7 @@ export interface SelectOption {
   value: string;
 }
 
-// 워크플로우 전역 변수
+// 워크플로우 전체의 시작 입력값 정의
 export interface WorkflowVariable {
   id: string;
   name: string; // 변수명 (코드용)
@@ -36,12 +37,11 @@ export interface WorkflowVariable {
   options?: SelectOption[];
 }
 
-// ========================== [Start Node] ====================================
 export interface StartNodeData extends BaseNodeData {
   triggerType: TriggerType;
   variables?: WorkflowVariable[];
 }
-// ===========================================================================
+// ============================================================================
 
 // ========================= [Answer Node] ====================================
 export interface AnswerNodeOutput {
@@ -54,8 +54,10 @@ export interface AnswerNodeData extends BaseNodeData {
 }
 // ============================================================================
 
-// ======================== [HTTP Request Node] ==============================
+// ======================== [HTTP Request Node] ===============================
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
+export type AuthType = 'none' | 'bearer' | 'apiKey';
 
 export interface HttpRequestNodeData extends BaseNodeData {
   method: HttpMethod;
@@ -63,6 +65,12 @@ export interface HttpRequestNodeData extends BaseNodeData {
   headers: { key: string; value: string }[];
   body: string;
   timeout: number;
+  authType: AuthType;
+  authConfig: {
+    token?: string; // Bearer token
+    apiKeyHeader?: string; // API Key header name
+    apiKeyValue?: string; // API Key value
+  };
   [key: string]: unknown;
 }
 // ============================================================================

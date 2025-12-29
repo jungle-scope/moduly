@@ -3,8 +3,8 @@ from typing import Dict
 from schemas.workflow import NodeSchema
 from workflow.nodes.answer import AnswerNode, AnswerNodeData
 from workflow.nodes.base.node import Node
-from workflow.nodes.llm.entities import LLMNodeData
-from workflow.nodes.llm.llm_node import LLMNode
+from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
+from workflow.nodes.llm import LLMNode, LLMNodeData
 from workflow.nodes.start import StartNode, StartNodeData
 
 
@@ -20,6 +20,7 @@ class NodeFactory:
         "startNode": (StartNode, StartNodeData),
         "answerNode": (AnswerNode, AnswerNodeData),
         "llmNode": (LLMNode, LLMNodeData),
+        "httpRequestNode": (HttpRequestNode, HttpRequestNodeData),
     }
 
     @staticmethod

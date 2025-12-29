@@ -24,9 +24,9 @@ export const HttpRequestNode = memo(
         data={data}
         selected={selected}
         showSourceHandle={true}
-        className="border-blue-500 hover:border-blue-600 ring-blue-500"
+        className="w-[300px] border-blue-500 hover:border-blue-600 ring-blue-500"
       >
-        <div className="flex flex-col gap-2 p-1 min-w-[180px]">
+        <div className="flex flex-col gap-2 p-1">
           {/* Method and URL Preview */}
           <div className="flex items-center gap-2">
             <div
@@ -34,7 +34,13 @@ export const HttpRequestNode = memo(
             >
               {method}
             </div>
-            <div className="text-xs text-gray-600 truncate flex-1 font-mono">
+            <div
+              className="text-xs text-gray-600 flex-1 font-mono overflow-x-auto whitespace-nowrap scrollbar-hide"
+              onWheel={(e) => {
+                e.stopPropagation();
+                e.currentTarget.scrollLeft += e.deltaY;
+              }}
+            >
               {data.url || 'URL을 입력하세요'}
             </div>
           </div>

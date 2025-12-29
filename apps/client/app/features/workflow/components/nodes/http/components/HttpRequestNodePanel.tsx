@@ -1,7 +1,11 @@
 import { useCallback } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { Plus, Trash2 } from 'lucide-react';
-import { HttpRequestNodeData, HttpMethod } from '../../../../types/Nodes';
+import {
+  HttpRequestNodeData,
+  HttpMethod,
+  AuthType,
+} from '../../../../types/Nodes';
 
 interface HttpRequestNodePanelProps {
   nodeId: string;
@@ -85,54 +89,153 @@ export function HttpRequestNodePanel({
         />
       </div>
 
-      {/* 2. Headers */}
+      {/* 2. Authentication */}
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <span className="text-sm font-semibold text-gray-700">Headers</span>
-          <button
-            onClick={handleAddHeader}
-            className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
-            title="헤더 추가"
+          <span className="text-sm font-semibold text-gray-700">
+            Authentication
+          </span>
+          <select
+            className="h-7 rounded border border-gray-300 bg-white px-2 text-xs shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            value={data.authType || 'none'}
+            onChange={(e) =>
+              handleUpdateData('authType', e.target.value as AuthType)
+            }
           >
-            <Plus className="w-4 h-4 text-gray-600" />
-          </button>
+            <option value="none">None</option>
+            <option value="bearer">Bearer Token</option>
+            <option value="apiKey">API Key</option>
+          </select>
         </div>
 
-        <div className="p-4 space-y-3">
-          {data.headers?.map((header, index) => (
-            <div key={index} className="flex gap-2 items-center">
-              <input
-                className="h-8 flex-1 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none font-mono placeholder:text-gray-400"
-                placeholder="Key"
-                value={header.key}
-                onChange={(e) =>
-                  handleUpdateHeader(index, 'key', e.target.value)
-                }
-              />
-              <span className="text-gray-400">:</span>
-              <input
-                className="h-8 flex-1 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none font-mono placeholder:text-gray-400"
-                placeholder="Value"
-                value={header.value}
-                onChange={(e) =>
-                  handleUpdateHeader(index, 'value', e.target.value)
-                }
-              />
-              <button
-                className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                onClick={() => handleRemoveHeader(index)}
-                title="삭제"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+        {data.authType === 'none' && (
+          <div className="p-4 text-sm text-gray-500 text-center">
+            인증 설정 X
+          </div>
+        )}
 
-          {(!data.headers || data.headers.length === 0) && (
-            <div className="text-center text-sm text-gray-400 py-2">
-              설정된 헤더가 없습니다.
+        {data.authType === 'bearer' && (
+          <div className="p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Token
+            </label>
+            <input
+              className="w-full h-9 rounded border border-gray-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+              placeholder="TODO: 전역변수 입력하게 하고, 끌어 쓰기?"
+              value={data.authConfig?.token || ''}
+              onChange={(e) =>
+                handleUpdateData('authConfig', {
+                  ...data.authConfig,
+                  token: e.target.value,
+                })
+              }
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Will be sent as:{' '}
+              <code className="bg-gray-100 px-1 rounded">
+                Authorization: Bearer {'{token}'}
+              </code>
+            </p>
+          </div>
+        )}
+
+        {data.authType === 'apiKey' && (
+          <div className="p-4 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Header Name
+              </label>
+              <input
+                className="w-full h-9 rounded border border-gray-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                placeholder="X-API-Key"
+                value={data.authConfig?.apiKeyHeader || 'X-API-Key'}
+                onChange={(e) =>
+                  handleUpdateData('authConfig', {
+                    ...data.authConfig,
+                    apiKeyHeader: e.target.value,
+                  })
+                }
+              />
             </div>
-          )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                API Key
+              </label>
+              <input
+                className="w-full h-9 rounded border border-gray-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                placeholder="TODO: 다른 곳에서 입력, 끌어 쓰기?"
+                value={data.authConfig?.apiKeyValue || ''}
+                onChange={(e) =>
+                  handleUpdateData('authConfig', {
+                    ...data.authConfig,
+                    apiKeyValue: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Headers */}
+      <div className="flex flex-col gap-2">
+        <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <span className="text-sm font-semibold text-gray-700">Headers</span>
+            <button
+              onClick={handleAddHeader}
+              className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
+              title="헤더 추가"
+            >
+              <Plus className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+
+          <div className="p-4 space-y-3">
+            {data.headers?.map((header, index) => (
+              <div key={index} className="flex gap-2 items-center">
+                <input
+                  className="h-8 w-24 flex-shrink-0 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none font-mono placeholder:text-gray-400"
+                  placeholder="Key"
+                  value={header.key}
+                  onChange={(e) =>
+                    handleUpdateHeader(index, 'key', e.target.value)
+                  }
+                />
+                <span className="text-gray-400 flex-shrink-0">:</span>
+                <input
+                  className="h-8 flex-1 min-w-0 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none font-mono placeholder:text-gray-400"
+                  placeholder="Value"
+                  value={header.value}
+                  onChange={(e) =>
+                    handleUpdateHeader(index, 'value', e.target.value)
+                  }
+                />
+                <button
+                  className="p-1.5 flex-shrink-0 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                  onClick={() => handleRemoveHeader(index)}
+                  title="삭제"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+
+            {(!data.headers || data.headers.length === 0) && (
+              <div className="text-center text-sm text-gray-400 py-2">
+                설정된 헤더가 없습니다.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
+          💡 <code className="bg-blue-100 px-1 rounded font-mono">Header</code>
+          를 입력하지 않으면 Body가 있을 때 자동으로{' '}
+          <code className="bg-blue-100 px-1 rounded font-mono">
+            application/json
+          </code>
+          이 추가됩니다.
         </div>
       </div>
 
@@ -157,11 +260,11 @@ export function HttpRequestNodePanel({
               onChange={(e) => handleUpdateData('body', e.target.value)}
             />
           </div>
-          <p className="text-xs text-gray-500">
-            JSON 형식으로 입력하거나 텍스트를 입력하세요.{' '}
-            <code className="bg-gray-100 px-1 rounded">{`{{variable}}`}</code>{' '}
+          <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
+            💡{' '}
+            <code className="bg-blue-100 px-1 rounded font-mono">{`{{variable}}`}</code>{' '}
             문법으로 변수를 사용할 수 있습니다.
-          </p>
+          </div>
         </div>
       )}
 
