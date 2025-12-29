@@ -45,7 +45,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
         <Handle
           type="target"
           position={Position.Left} // 기본값은 왼쪽으로 설정 (취향에 따라 Top 변경)
-          className="bg-primary"
+          className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white"
         />
       )}
 
@@ -67,7 +67,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
         <Handle
           type="source"
           position={Position.Right} // 기본값은 오른쪽 (취향에 따라 Bottom 변경)
-          className="bg-primary"
+          className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white"
         />
       )}
     </div>
