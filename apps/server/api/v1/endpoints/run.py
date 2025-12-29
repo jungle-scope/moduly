@@ -1,33 +1,77 @@
-from fastapi import APIRouter, HTTPException
+from typing import Optional
 
+from fastapi import APIRouter, Depends, Header, HTTPException
+from sqlalchemy.orm import Session
+
+from api.deps import get_db
+from db.models.workflow_deployment import WorkflowDeployment
 from workflow.core.workflow_engine import WorkflowEngine
 
 router = APIRouter()
 
 
-@router.post("/run")
-def run_workflow(request_body: dict):
-    # 1. 데이터 준비
-    # DB에서 저장된 그래프(snapshot)를 가져오거나 요청 바디에서 받음
-    graph_data = request_body.get("graph")
-    user_inputs = request_body.get("inputs", {})
+@router.post("/run/{url_slug}")
+def run_workflow(
+    url_slug: str,
+    request_body: dict = {},
+    authorization: Optional[str] = Header(None),
+    x_auth_secret: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    """
+    배포된 워크플로우를 URL Slug로 실행합니다.
+    - url_slug: workflow_deployments 생성시 만들어진 고유 주소
+    """
+
+    # url_slug와 일치하는 배포 찾기
+    deployment = (
+        db.query(WorkflowDeployment)
+        .filter(WorkflowDeployment.url_slug == url_slug)
+        .first()
+    )
+
+    # 존재여부 및 활성상태 체크
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment not found.")
+
+    if not deployment.is_active:
+        raise HTTPException(status_code=404, detail="Deployment is inactive")
+
+    # 인증 검증 (공개배포가 아닐 경우만)
+    if deployment.auth_secret:
+        token = None
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.split(" ")[1]
+        elif x_auth_secret:  # [DEV] 테스트용
+            token = x_auth_secret
+
+        if token != deployment.auth_secret:
+            raise HTTPException(status_code=401, detail="Invalid authentication secret")
+
+    # 그래프 데이터 준비
+    graph_data = deployment.graph_snapshot
+
+    # 워크플로우 실행 요청
     try:
-        # 2. 엔진 초기화
-        # 받은 데이터(graph_data)를 그대로 엔진에 주입
-        engine = WorkflowEngine(graph=graph_data, user_input=user_inputs)
-        # 3. 워크플로우 실행
-        # 이 함수는 동기(Sync)로 실행되므로 모든 노드 처리가 끝날 때까지 대기합니다.
+        engine = WorkflowEngine(
+            graph=graph_data, user_input=request_body.get("inputs", {})
+        )
+
+        # 실행 (동기방식)
         results = engine.execute()
-        # 4. 결과 반환
+
         return {"status": "success", "results": results}
+
     except ValueError as e:
-        # 엔진이 유효성 검사(StartNode 없음 등) 중 발생시킨 에러
+        # 필수 노드 누락 등 검증 에러
         raise HTTPException(status_code=400, detail=str(e))
+
     except NotImplementedError as e:
-        # 지원하지 않는 노드 타입이 포함된 경우
+        # 지원하지 않는 기능 에러
         raise HTTPException(status_code=501, detail=str(e))
+
     except Exception as e:
-        # 실행 중 발생한 기타 런타임 에러
+        # 기타 서버 에러
         raise HTTPException(
-            status_code=500, detail=f"Engine execution failed: {str(e)}"
+            status_code=500, detail=f"Engine Execution failed: {str(e)}"
         )

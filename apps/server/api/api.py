@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from api.v1.endpoints import app, auth, deployment, llm, workflow
+from api.v1.endpoints import app, auth, deployment, llm, run, workflow
 
 # 메인 API 라우터 생성
 api_router = APIRouter()
@@ -19,3 +19,4 @@ api_router.include_router(llm.router, prefix="/llm", tags=["llm"])
 api_router.include_router(
     deployment.router, prefix="/deployments", tags=["deployments"]
 )
+api_router.include_router(run.router, tags=["run"])
