@@ -10,13 +10,6 @@ export const ConditionNode = memo(
     return (
       <BaseNode data={data} selected={selected} showSourceHandle={false}>
         <div className="p-4 text-sm text-gray-500 text-center">
-          {/* Input Handle */}
-          <Handle
-            type="target"
-            position={Position.Left}
-            className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white"
-          />
-
           {/* Condition Logic Visualization */}
           <div className="mb-2">
             {cases.length > 0
@@ -26,17 +19,17 @@ export const ConditionNode = memo(
 
           {/* Output Handles - 동적 생성 */}
           <div
-            className="relative w-full flex flex-col justify-between mt-4"
+            className="relative w-full flex flex-col justify-between mt-4 z-10"
             style={{ minHeight: `${Math.max((cases.length + 1) * 32, 64)}px` }}
           >
             {/* Case별 핸들 */}
             {cases.map((caseItem, index) => (
               <div
                 key={caseItem.id}
-                className="absolute right-[-28px] flex items-center"
+                className="absolute right-[-28px] flex items-center z-50"
                 style={{ top: `${index * 32}px` }}
               >
-                <span className="mr-2 text-xs text-blue-600 font-semibold">
+                <span className="mr-2 text-xs text-blue-600 font-semibold whitespace-nowrap">
                   {caseItem.case_name || `Case ${index + 1}`}
                 </span>
                 <Handle
@@ -51,10 +44,10 @@ export const ConditionNode = memo(
 
             {/* Else 핸들 - 항상 마지막 */}
             <div
-              className="absolute right-[-28px] flex items-center"
+              className="absolute right-[-28px] flex items-center z-50"
               style={{ top: `${cases.length * 32}px` }}
             >
-              <span className="mr-2 text-xs text-gray-500 font-semibold">
+              <span className="mr-2 text-xs text-gray-500 font-semibold whitespace-nowrap">
                 Default
               </span>
               <Handle

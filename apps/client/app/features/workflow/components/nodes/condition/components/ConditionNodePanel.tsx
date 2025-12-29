@@ -41,9 +41,14 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
 
   // Case 추가
   const handleAddCase = useCallback(() => {
+    let caseIndex = 1;
+    while (cases.some((c) => c.case_name === `Case ${caseIndex}`)) {
+      caseIndex++;
+    }
+
     const newCase: ConditionCase = {
       id: crypto.randomUUID(),
-      case_name: `Case ${cases.length + 1}`,
+      case_name: `Case ${caseIndex}`,
       conditions: [],
       logical_operator: 'and',
     };
@@ -54,7 +59,29 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
   // Case 삭제
   const handleRemoveCase = useCallback(
     (caseIndex: number) => {
-      const newCases = cases.filter((_, i) => i !== caseIndex);
+      const caseToRemove = cases[caseIndex];
+      const remainingCases = cases.filter((_, i) => i !== caseIndex);
+
+      // 1. Edge 제거 (삭제된 Case에 연결된 엣지 제거)
+      if (caseToRemove) {
+        useWorkflowStore.setState((state) => ({
+          edges: state.edges.filter(
+            (edge) =>
+              !(
+                edge.source === nodeId && edge.sourceHandle === caseToRemove.id
+              ),
+          ),
+        }));
+      }
+
+      // Re-numbering: 'Case N' 패턴을 가진 케이스들을 인덱스에 맞춰 'Case i+1'로 변경
+      const newCases = remainingCases.map((c, i) => {
+        if (/^Case\s+\d+$/.test(c.case_name)) {
+          return { ...c, case_name: `Case ${i + 1}` };
+        }
+        return c;
+      });
+
       updateNodeData(nodeId, { cases: newCases });
     },
     [cases, nodeId, updateNodeData],
