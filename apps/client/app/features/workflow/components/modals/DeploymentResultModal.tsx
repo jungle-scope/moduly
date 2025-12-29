@@ -134,6 +134,31 @@ export function DeploymentResultModal({ onClose, result }: Props) {
                 )}
               </div>
             </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Test Command (cURL)
+              </label>
+              <div className="relative">
+                <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
+                  {`curl -X POST "${API_URL}" \\
+  -H "Content-Type: application/json" \\
+${result.auth_secret ? `  -H "Authorization: Bearer ${result.auth_secret}" \\` : ''}
+  -d '{ "inputs": {} }'`}
+                </pre>
+                <button
+                  onClick={() =>
+                    handleCopy(`curl -X POST "${API_URL}" \\
+  -H "Content-Type: application/json" \\
+${result.auth_secret ? `  -H "Authorization: Bearer ${result.auth_secret}" \\` : ''}
+  -d '{ "inputs": {} }'`)
+                  }
+                  className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                >
+                  복사
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* 푸터 */}
