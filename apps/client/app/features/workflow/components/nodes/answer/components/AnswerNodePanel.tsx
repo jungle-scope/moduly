@@ -1,8 +1,11 @@
 import { useCallback, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { Plus, X } from 'lucide-react';
-import { AnswerNodeData, AnswerNodeOutput } from './AnswerNode';
-import { StartNodeData } from '../../../../types/Nodes';
+import {
+  AnswerNodeData,
+  AnswerNodeOutput,
+  StartNodeData,
+} from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 
 interface AnswerNodePanelProps {

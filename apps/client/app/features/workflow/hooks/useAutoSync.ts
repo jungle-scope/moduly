@@ -46,6 +46,7 @@ export const useAutoSync = () => {
 
           if (data.nodes && data.nodes.length > 0) {
             data.nodes = data.nodes.map((node: any) => {
+              // TODO: 임시 마이그레이션 로직, 삭제 필요
               if (node.type === 'start') {
                 return { ...node, type: 'startNode' };
               }

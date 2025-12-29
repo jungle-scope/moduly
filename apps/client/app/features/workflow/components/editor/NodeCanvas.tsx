@@ -18,10 +18,12 @@ import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
+
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
+import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 
@@ -184,6 +186,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'answerNode' && (
             <AnswerNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'httpRequestNode' && (
+            <HttpRequestNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />
