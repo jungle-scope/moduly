@@ -75,6 +75,11 @@ export interface HttpRequestNodeData extends BaseNodeData {
 // ============================================================================
 
 // ======================== [Condition Node] ==================================
+// [NoteNode]
+export interface NoteNodeData extends BaseNodeData {
+  content: string;
+}
+
 export interface Condition {
   id: string; // uuid
   variable_selector: string[]; // [node_id, key]
@@ -114,6 +119,7 @@ export type HttpRequestNode = ReactFlowNode<
   HttpRequestNodeData,
   'httpRequestNode'
 >;
+export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
 export type LLMNode = ReactFlowNode<LLMNodeData, 'llm'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
 
