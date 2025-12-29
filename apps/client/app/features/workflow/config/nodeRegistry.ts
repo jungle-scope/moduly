@@ -109,15 +109,17 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'code',
     type: 'codeNode',
-    name: 'Code',
+    name: '코드 실행',
     category: 'logic',
-    color: 'bg-cyan-500',
+    color: '#10B981', // Changed from 'bg-cyan-500' to '#10B981'
     icon: '💻',
-    implemented: false,
-    description: '커스텀 코드를 실행합니다.',
+    implemented: true,
+    description: 'Python 코드를 Docker 샌드박스에서 안전하게 실행합니다', // Updated description
     defaultData: () => ({
-      title: 'Code',
-      code: '',
+      title: '코드 실행', // Updated title
+      code: 'def main(inputs):\n    return {"result": "hello"}', // Updated default code
+      inputs: [], // Added inputs
+      timeout: 10, // Added timeout
     }),
   },
   {

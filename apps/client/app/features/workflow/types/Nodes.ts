@@ -112,6 +112,19 @@ export interface LLMNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ======================== [CodeNode] ========================================
+export interface CodeNodeInput {
+  name: string; // 코드 내에서 사용할 변수 이름
+  source: string; // 소스 경로 (예: "Start.query")
+}
+
+export interface CodeNodeData extends BaseNodeData {
+  code: string; // 실행할 Python 코드
+  inputs: CodeNodeInput[]; // 입력 변수 매핑
+  timeout: number; // 타임아웃 (초)
+}
+// ============================================================================
+
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
 export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
@@ -122,6 +135,7 @@ export type HttpRequestNode = ReactFlowNode<
 export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
 export type LLMNode = ReactFlowNode<LLMNodeData, 'llm'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
+export type CodeNode = ReactFlowNode<CodeNodeData, 'codeNode'>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
@@ -130,8 +144,9 @@ export type AppNode =
   | AnswerNode
   | HttpRequestNode
   | LLMNode
-  | ConditionNode;
+  | ConditionNode
+  | CodeNode;
 
-// 하위 호환성 (필요시)
+//하위 호환성 (필요시)
 export type NodeData = BaseNodeData;
 export type Node = AppNode;
