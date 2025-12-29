@@ -17,7 +17,7 @@ class AppCreateRequest(BaseModel):
 class AppResponse(BaseModel):
     """앱 응답 스키마"""
 
-    id: str
+    id: UUID
     name: str
     description: Optional[str]
     icon: str

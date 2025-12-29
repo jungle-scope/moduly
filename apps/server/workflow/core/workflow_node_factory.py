@@ -47,6 +47,4 @@ class NodeFactory:
 
         NodeClass, DataClass = NodeFactory.NODE_REGISTRY[schema.type]
         data = DataClass(**schema.data)
-
-        print("자 객체 생성 전입니다", data)
         return NodeClass(schema.id, data)
