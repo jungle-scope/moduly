@@ -18,6 +18,7 @@ import {
   getNodeDefinition,
   type NodeDefinition,
 } from '../../config/nodeRegistry';
+import { type NoteNode, type AppNode } from '../../types/Nodes';
 
 // Category display names mapping
 const categoryDisplayNames: Record<string, string> = {
@@ -159,10 +160,11 @@ export default function BottomPanel({
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
 
       // Create note at the projected position with custom note type
-      const newNote = {
+      // Create note at the projected position with custom note type
+      const newNote: NoteNode = {
         id: `note-${Date.now()}`,
         type: 'note',
-        data: { content: '' },
+        data: { content: '', title: '메모' },
         position,
         style: {
           width: 200,
@@ -339,10 +341,10 @@ export default function BottomPanel({
       }
 
       // Create new node with data from registry
-      const newNode = {
+      const newNode: AppNode = {
         id: `${selectedNodeDef.id}-${Date.now()}`,
-        type: selectedNodeDef.type,
-        data: selectedNodeDef.defaultData(),
+        type: selectedNodeDef.type as any, // type assertion needed because selectedNodeDef.type is string
+        data: selectedNodeDef.defaultData() as any, // data might need casting
         position,
       };
 

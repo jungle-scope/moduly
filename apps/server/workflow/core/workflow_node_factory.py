@@ -5,8 +5,8 @@ from workflow.nodes.answer import AnswerNode, AnswerNodeData
 from workflow.nodes.base.node import Node
 from workflow.nodes.code import CodeNode, CodeNodeData
 from workflow.nodes.condition import ConditionNode, ConditionNodeData
-from workflow.nodes.llm.entities import LLMNodeData
-from workflow.nodes.llm.llm_node import LLMNode
+from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
+from workflow.nodes.llm import LLMNode, LLMNodeData
 from workflow.nodes.start import StartNode, StartNodeData
 
 
@@ -24,6 +24,7 @@ class NodeFactory:
         "codeNode": (CodeNode, CodeNodeData),
         "conditionNode": (ConditionNode, ConditionNodeData),
         "llmNode": (LLMNode, LLMNodeData),
+        "httpRequestNode": (HttpRequestNode, HttpRequestNodeData),
     }
 
     @staticmethod
@@ -48,6 +49,4 @@ class NodeFactory:
 
         NodeClass, DataClass = NodeFactory.NODE_REGISTRY[schema.type]
         data = DataClass(**schema.data)
-
-        print("자 객체 생성 전입니다", data)
         return NodeClass(schema.id, data)

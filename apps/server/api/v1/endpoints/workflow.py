@@ -33,7 +33,7 @@ def create_workflow(
     )
 
     return {
-        "id": workflow.id,
+        "id": str(workflow.id),
         "app_id": workflow.app_id,
         "marked_name": workflow.marked_name,
         "marked_comment": workflow.marked_comment,
@@ -60,7 +60,7 @@ def get_workflow(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return {
-        "id": workflow.id,
+        "id": str(workflow.id),
         "app_id": workflow.app_id,
         "marked_name": workflow.marked_name,
         "marked_comment": workflow.marked_comment,
@@ -91,7 +91,7 @@ def list_workflows_by_app(
 
     return [
         {
-            "id": w.id,
+            "id": str(w.id),
             "app_id": w.app_id,
             "marked_name": w.marked_name,
             "marked_comment": w.marked_comment,
@@ -160,7 +160,7 @@ def execute_workflow(
     """
     PostgreSQL에서 워크플로우 초안 데이터를 조회하고, WorkflowEngine을 사용하여 실행합니다. (인증 필요)
     """
-    # 1. 권한 확인 (본인의 보안 로직 유지)
+    # 1. 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
     if not workflow:
@@ -169,16 +169,25 @@ def execute_workflow(
     if workflow.created_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # 2. 데이터 조회 및 실행 (develop의 최신 구조 반영)
-    graph = WorkflowService.get_draft(db, workflow_id)
-    if not graph:
-        # HTTPException으로 통일하는 것이 더 좋으므로 404를 던집니다.
-        raise HTTPException(
-            status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
-        )
+    # 2. 데이터 조회 및 실행
+    try:
+        graph = WorkflowService.get_draft(db, workflow_id)
+        if not graph:
+            raise HTTPException(
+                status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
+            )
 
-    # develop에서 추가된 user_input을 사용하여 엔진 실행
-    engine = WorkflowEngine(graph, user_input)
-    print("user_input", user_input)
+        engine = WorkflowEngine(graph, user_input)
+        print("user_input", user_input)
 
-    return engine.execute()
+        return engine.execute()
+    except ValueError as e:
+        # 노드 검증 실패 등의 입력 오류
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotImplementedError as e:
+        # 미지원 노드 등
+        raise HTTPException(status_code=501, detail=str(e))
+    except Exception as e:
+        # 그 외 서버 에러
+        print(f"Workflow execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

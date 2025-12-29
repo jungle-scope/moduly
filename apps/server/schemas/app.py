@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -16,12 +17,12 @@ class AppCreateRequest(BaseModel):
 class AppResponse(BaseModel):
     """앱 응답 스키마"""
 
-    id: str
+    id: UUID
     name: str
     description: Optional[str]
     icon: str
     icon_background: str
-    workflow_id: Optional[str] = None
+    workflow_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

@@ -36,8 +36,17 @@ export const useAutoSync = () => {
         const data = await workflowApi.getDraftWorkflow(workflowId);
 
         if (data) {
+          if (data.features?.noteNodes) {
+            if (data.nodes) {
+              data.nodes = [...data.nodes, ...data.features.noteNodes];
+            } else {
+              data.nodes = data.features.noteNodes;
+            }
+          }
+
           if (data.nodes && data.nodes.length > 0) {
             data.nodes = data.nodes.map((node: any) => {
+              // TODO: 임시 마이그레이션 로직, 삭제 필요
               if (node.type === 'start') {
                 return { ...node, type: 'startNode' };
               }
@@ -88,12 +97,22 @@ export const useAutoSync = () => {
           try {
             const currentViewport = getViewport();
 
+            // Note 노드와 일반 노드 분리
+            const realNodes = currentNodes.filter((n) => n.type !== 'note');
+            const noteNodes = currentNodes.filter((n) => n.type === 'note');
+
+            // features에 noteNodes 저장
+            const featuresToSave = {
+              ...currentFeatures,
+              noteNodes,
+            };
+
             // 서버에 저장 요청
             await workflowApi.syncDraftWorkflow(workflowId, {
-              nodes: currentNodes,
+              nodes: realNodes, // 엔진용 깨끗한 노드 목록
               edges: currentEdges,
               viewport: currentViewport,
-              features: currentFeatures,
+              features: featuresToSave,
               environmentVariables: currentEnvVars,
               conversationVariables: currentConvVars,
             });

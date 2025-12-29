@@ -29,8 +29,7 @@ export interface ConversationVariable {
   name: string;
 }
 
-// Features: e.g. { "file_upload": { "enabled": true }, ... }
-export type Features = Record<string, Record<string, unknown>>;
+export type Features = Record<string, any>;
 
 export interface WorkflowDraftRequest {
   nodes: Node[];
