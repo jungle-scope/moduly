@@ -16,7 +16,7 @@ export const StartNode = memo(
         <Handle
           type="source"
           position={Position.Right}
-          className="!bg-blue-500 !w-3 !h-3"
+          className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white"
         />
 
         {/* Node Content */}

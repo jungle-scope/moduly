@@ -22,6 +22,21 @@ api.interceptors.response.use(
   },
 );
 
+export interface WorkflowCreateRequest {
+  app_id: string;
+  name: string;
+  description?: string;
+}
+
+export interface WorkflowResponse {
+  id: string;
+  app_id: string;
+  marked_name: string | null;
+  marked_comment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const workflowApi = {
   // 1. 드래프트 워크플로우 동기화 (저장)
   syncDraftWorkflow: async (workflowId: string, data: WorkflowDraftRequest) => {
@@ -36,14 +51,31 @@ export const workflowApi = {
     return response.data;
   },
 
-// 3. 워크플로우 실행
+  // 3. 워크플로우 실행
   executeWorkflow: async (
     workflowId: string,
     userInput?: Record<string, unknown>,
   ) => {
-    // develop 브랜치의 최신 인자(workflowId, userInput)와 엔드포인트를 따르되, 
+    // develop 브랜치의 최신 인자(workflowId, userInput)와 엔드포인트를 따르되,
     // 인증 처리를 위해 axios 대신 api 인스턴스를 사용합니다.
-    const response = await api.post(`/workflows/${workflowId}/execute`, userInput || {});
+    const response = await api.post(
+      `/workflows/${workflowId}/execute`,
+      userInput || {},
+    );
+    return response.data;
+  },
+
+  // 4. 새 워크플로우 생성
+  createWorkflow: async (
+    data: WorkflowCreateRequest,
+  ): Promise<WorkflowResponse> => {
+    const response = await api.post('/workflows', data);
+    return response.data;
+  },
+
+  // 5. 특정 App의 워크플로우 목록 조회
+  listWorkflowsByApp: async (appId: string): Promise<WorkflowResponse[]> => {
+    const response = await api.get(`/workflows/app/${appId}`);
     return response.data;
   },
 };

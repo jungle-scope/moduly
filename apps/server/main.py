@@ -5,7 +5,7 @@ from api.api import api_router
 from db.base import Base
 from db.session import engine
 
-app = FastAPI(title="Moduly API")
+app = FastAPI(title="Moduly API", redirect_slashes=False)
 
 # CORS 설정 (withCredentials 지원)
 app.add_middleware(

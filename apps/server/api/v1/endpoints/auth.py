@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from db.session import get_db
@@ -71,6 +71,39 @@ def logout(response: Response):
     """로그아웃 - 쿠키 삭제"""
     response.delete_cookie(key="auth_token", path="/")
     return {"message": "Logged out successfully"}
+
+
+@router.get("/me", response_model=LoginResponse)
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    """
+    현재 로그인된 사용자 정보 조회
+
+    Args:
+        request: FastAPI Request (쿠키 읽기용)
+        db: 데이터베이스 세션
+
+    Returns:
+        LoginResponse: 사용자 정보 + 세션 정보
+    """
+
+    # 쿠키에서 토큰 가져오기
+    token = request.cookies.get("auth_token")
+    user = AuthService.get_user_from_token(db, token)
+
+    from schemas.auth import SessionInfo, UserResponse
+
+    return LoginResponse(
+        user=UserResponse(
+            id=str(user.id),
+            email=user.email,
+            name=user.name,
+            created_at=user.created_at,
+        ),
+        session=SessionInfo(
+            token=token,
+            expires_at=AuthService.get_token_expiry(),
+        ),
+    )
 
 
 @router.get("/google/login")
