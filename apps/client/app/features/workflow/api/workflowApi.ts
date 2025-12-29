@@ -66,7 +66,13 @@ export const workflowApi = {
     return response.data;
   },
 
-  // 4. 새 워크플로우 생성
+  // 4. 단일 워크플로우 상세 조회
+  getWorkflow: async (workflowId: string): Promise<WorkflowResponse> => {
+    const response = await api.get(`/workflows/${workflowId}`);
+    return response.data;
+  },
+
+  // 5. 새 워크플로우 생성
   createWorkflow: async (
     data: WorkflowCreateRequest,
   ): Promise<WorkflowResponse> => {
@@ -74,7 +80,7 @@ export const workflowApi = {
     return response.data;
   },
 
-  // 5. 특정 App의 워크플로우 목록 조회
+  // 6. 특정 App의 워크플로우 목록 조회
   listWorkflowsByApp: async (appId: string): Promise<WorkflowResponse[]> => {
     const response = await api.get(`/workflows/app/${appId}`);
     return response.data;

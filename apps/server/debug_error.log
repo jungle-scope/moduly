@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/Users/soyoungan/dev/moduly/apps/server/api/v1/endpoints/workflow.py", line 185, in execute_workflow
+    return engine.execute()
+           ~~~~~~~~~~~~~~^^
+  File "/Users/soyoungan/dev/moduly/apps/server/workflow/core/workflow_engine.py", line 70, in execute
+    result = node_instance.execute(inputs)
+  File "/Users/soyoungan/dev/moduly/apps/server/workflow/nodes/base/node.py", line 45, in execute
+    raise e
+  File "/Users/soyoungan/dev/moduly/apps/server/workflow/nodes/base/node.py", line 36, in execute
+    outputs = self._run(inputs)
+  File "/Users/soyoungan/dev/moduly/apps/server/workflow/nodes/llm/llm_node.py", line 38, in _run
+    self.data.validate()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "/Users/soyoungan/dev/moduly/apps/server/workflow/nodes/llm/entities.py", line 30, in validate
+    raise ValueError("provider를 선택하세요.")
+ValueError: provider를 선택하세요.
