@@ -82,7 +82,8 @@ class WorkflowEngine:
                 if self._is_ready(next_node_id, results):
                     ready_queue.append(next_node_id)
 
-        return self._get_context(node_id, results)
+        # 마지막 실행된 노드의 결과 반환
+        return results.get(node_id, {})
 
     def _find_start_node(self) -> str:
         """시작 노드 찾기 (type == "startNode"인 노드)"""

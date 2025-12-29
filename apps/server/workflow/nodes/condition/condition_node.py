@@ -35,18 +35,20 @@ class ConditionNode(Node[ConditionNodeData]):
         print(f"[{self.data.title}] 조건 평가 시작 (케이스 수: {len(cases)})")
 
         for case in cases:
-            result = self._evaluate_case(case, inputs)
-            print(f"  - 케이스 '{case.case_name or case.id}': {result}")
+            case_result = self._evaluate_case(case, inputs)
+            print(f"  - 케이스 '{case.case_name or case.id}': {case_result}")
 
-            if result:
+            if case_result:
                 print(f"[{self.data.title}] 선택된 핸들: {case.id}")
                 return {
+                    "result": True,
                     "matched_case_id": case.id,
                     "selected_handle": case.id,
                 }
 
         print(f"[{self.data.title}] 매칭된 케이스 없음, 선택된 핸들: default")
         return {
+            "result": False,
             "matched_case_id": None,
             "selected_handle": "default",
         }

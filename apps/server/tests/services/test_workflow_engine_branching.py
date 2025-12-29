@@ -76,7 +76,7 @@ class TestWorkflowEngineBranching:
                     "id": "e3",
                     "source": "condition-1",
                     "target": "answer-false",
-                    "sourceHandle": "false",
+                    "sourceHandle": "default",
                 },
             ],
         }
@@ -156,7 +156,7 @@ class TestWorkflowEngineBranching:
                     "id": "e3",
                     "source": "condition-1",
                     "target": "answer-false",
-                    "sourceHandle": "false",
+                    "sourceHandle": "default",
                 },
             ],
         }
