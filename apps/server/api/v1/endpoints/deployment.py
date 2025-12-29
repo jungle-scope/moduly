@@ -6,6 +6,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
+from auth.dependencies import get_current_user
 from db.models.user import User
 from db.models.workflow import Workflow
 from db.models.workflow_deployment import WorkflowDeployment
@@ -19,8 +20,7 @@ router = APIRouter()
 def create_deployment(
     deployment_in: DeploymentCreate,
     db: Session = Depends(get_db),
-    # [DEV] user 정보 없어서 개발 중 임시로 주석처리
-    # current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     워크플로우를 배포합니다.
@@ -28,15 +28,22 @@ def create_deployment(
     2. 버전 번호를 채번합니다 (Max + 1).
     3. 배포 이력을 저장합니다.
     """
-    # 1. 워크플로우 존재 확인
-    # TODO: 권한 체크 (내 워크플로우인지)
+    # 워크플로우 존재 확인
     workflow = (
         db.query(Workflow).filter(Workflow.id == deployment_in.workflow_id).first()
     )
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    # 2. Draft 데이터(Snapshop) 가져오기
+    # 권한 체크 (내 워크플로우인지)
+    # Workflow.created_by는 String, User.id는 UUID이므로 문자열로 변환하여 비교
+    if workflow.created_by != str(current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to deploy this workflow.",
+        )
+
+    # Draft 데이터(Snapshop) 가져오기
     # 현재: DB의 현재 Draft 데이터 가져옴
     # TODO: API Body로 받은 데이터 (나중에 프론트에서 구현 시)
     graph_snapshot = deployment_in.graph_snapshot
@@ -65,20 +72,8 @@ def create_deployment(
 
     url_slug = deployment_in.url_slug
     if not url_slug:
-        # 슬러그 미지정 시 자동 생성: v{version}-{random_hex}
+        # 슬러그 자동 생성: v{version}-{random_hex}
         url_slug = f"v{new_version}-{secrets.token_hex(4)}"
-
-    # [DEV] 임시 유저 처리
-    # 개발 중에는 로그인 없이 테스트하므로, DB에 첫 번째 유저를 찾거나 없으면 생성해서 할당함
-    temp_user = db.query(User).first()
-    if not temp_user:
-        temp_user = User(
-            email="test@moduly.app",
-            name="Test User",
-        )
-        db.add(temp_user)
-        db.commit()
-        db.refresh(temp_user)
 
     # 5. 배포 모델 생성
     db_obj = WorkflowDeployment(
@@ -90,8 +85,7 @@ def create_deployment(
         graph_snapshot=graph_snapshot,
         config=deployment_in.config,
         description=deployment_in.description,
-        # created_by=current_user.id,
-        created_by=temp_user.id,  # current_user.id 대신 temp_user.id 사용
+        created_by=current_user.id,
         is_active=deployment_in.is_active,
     )
 
@@ -113,8 +107,7 @@ def get_deployments(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    # [DEV] user 정보 없어서 개발 중 임시로 주석처리
-    # current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     특정 워크플로우의 배포 이력을 조회합니다.
@@ -134,8 +127,7 @@ def get_deployments(
 def get_deployment(
     deployment_id: str,
     db: Session = Depends(get_db),
-    # [DEV] user 정보 없어서 개발 중 임시로 주석처리
-    # current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     특정 배포 ID의 상세 정보를 조회합니다.

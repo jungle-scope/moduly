@@ -16,6 +16,21 @@ import { workflowApi } from '../../api/workflowApi';
 import { UserInputModal } from '../modals/userInputModal';
 import { ResultModal } from '../modals/ResultModal';
 import { DeploymentModal } from '../modals/DeploymentModal';
+import { DeploymentResultModal } from '../modals/DeploymentResultModal';
+
+/** SY.
+ * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
+ * auth_secret: 누구나 접근 가능한 Public 배포시 null
+ * */
+type DeploymentResult =
+  | {
+      success: true;
+      url_slug: string | null;
+      auth_secret: string | null;
+      version: number;
+    }
+  | { success: false; message: string }
+  | null;
 
 export default function EditorHeader() {
   const router = useRouter();
@@ -34,6 +49,8 @@ export default function EditorHeader() {
   // Deployment State
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [deploymentResult, setDeploymentResult] =
+    useState<DeploymentResult>(null);
 
   const handleBack = useCallback(() => {
     router.push('/');
@@ -58,15 +75,26 @@ export default function EditorHeader() {
           is_active: true,
         });
         console.log('[배포 성공] 서버 응답:', response);
-        alert('성공적으로 배포되었습니다!'); // TODO: Toast로 변경
+
+        // 성공 결과 모달 표시
+        setDeploymentResult({
+          success: true,
+          url_slug: response.url_slug ?? null,
+          auth_secret: response.auth_secret ?? null,
+          version: response.version,
+        });
         setShowDeployModal(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Deployment failed:', error);
-        const msg =
-          error instanceof Error
-            ? error.message
-            : '배포 중 오류가 발생했습니다.';
-        setErrorMsg(`배포 실패: ${msg}`);
+
+        // 실패 결과 모달 표시
+        setDeploymentResult({
+          success: false,
+          message:
+            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
+        });
+        // 실패 시에도 입력 모달 닫기
+        setShowDeployModal(false);
       } finally {
         setIsDeploying(false);
       }
@@ -226,6 +254,14 @@ export default function EditorHeader() {
           onClose={() => setShowDeployModal(false)}
           onSubmit={handleDeploySubmit}
           isDeploying={isDeploying}
+        />
+      )}
+
+      {/* Deployment Result Modal (성공/실패) */}
+      {deploymentResult && (
+        <DeploymentResultModal
+          result={deploymentResult}
+          onClose={() => setDeploymentResult(null)}
         />
       )}
 

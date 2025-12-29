@@ -37,24 +37,27 @@ export const workflowApi = {
     return response.data;
   },
 
-// 3. 워크플로우 실행
+  // 3. 워크플로우 실행
   executeWorkflow: async (
     workflowId: string,
     userInput?: Record<string, unknown>,
   ) => {
-    // develop 브랜치의 최신 인자(workflowId, userInput)와 엔드포인트를 따르되, 
+    // develop 브랜치의 최신 인자(workflowId, userInput)와 엔드포인트를 따르되,
     // 인증 처리를 위해 axios 대신 api 인스턴스를 사용합니다.
-    const response = await api.post(`/workflows/${workflowId}/execute`, userInput || {});
+    const response = await api.post(
+      `/workflows/${workflowId}/execute`,
+      userInput || {},
+    );
     return response.data;
   },
 
   createDeployment: async (data: DeploymentCreate) => {
-    const response = await axios.post(`${API_BASE_URL}/deployments/`, data);
+    const response = await api.post('/deployments/', data);
     return response.data as DeploymentResponse;
   },
 
   getDeployments: async (workflowId: string) => {
-    const response = await axios.get(`${API_BASE_URL}/deployments/`, {
+    const response = await api.get('/deployments/', {
       params: { workflow_id: workflowId },
     });
     return response.data as DeploymentResponse[];
