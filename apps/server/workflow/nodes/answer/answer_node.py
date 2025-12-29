@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from workflow.core.utils import get_nested_value
 from workflow.nodes.base.node import Node
