@@ -721,13 +721,13 @@ export default function BottomPanel({
           <div className="w-px h-6 bg-gray-200" />
 
           {/* Test Run */}
-          <button
+          {/* <button
             onClick={handleTestRun}
             className="px-3 py-1.5 flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded transition-colors"
           >
             <PlayIcon className="w-4 h-4" />
             <span className="text-sm">Test run</span>
-          </button>
+          </button> */}
         </div>
       </div>
     </>
