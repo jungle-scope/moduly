@@ -105,6 +105,51 @@ class LLMService:
             )
 
     @staticmethod
+    def _validate_anthropic_api_key(
+        base_url: str, api_key: str, version: str = "2023-06-01"
+    ) -> None:
+        """
+        Anthropic /v1/models 엔드포인트로 키 유효성 검증.
+        - 200 OK이면 통과, 그 외 status는 실패로 간주
+        """
+        url = base_url.rstrip("/") + "/v1/models"
+        try:
+            resp = requests.get(
+                url,
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": version,
+                },
+                timeout=5,
+            )
+        except requests.RequestException as exc:
+            raise ValueError(f"Anthropic API key 검증 요청 실패: {exc}") from exc
+
+        if resp.status_code != 200:
+            snippet = resp.text[:200] if resp.text else ""
+            raise ValueError(
+                f"Anthropic API key 검증 실패 (status {resp.status_code}): {snippet}"
+            )
+
+    @staticmethod
+    def _validate_google_api_key(base_url: str, api_key: str) -> None:
+        """
+        Google Gemini /v1/models 엔드포인트로 키 유효성 검증.
+        - 200 OK이면 통과, 그 외 status는 실패로 간주
+        """
+        url = base_url.rstrip("/") + "/v1/models"
+        try:
+            resp = requests.get(url, params={"key": api_key}, timeout=5)
+        except requests.RequestException as exc:
+            raise ValueError(f"Google Gemini API key 검증 요청 실패: {exc}") from exc
+
+        if resp.status_code != 200:
+            snippet = resp.text[:200] if resp.text else ""
+            raise ValueError(
+                f"Google Gemini API key 검증 실패 (status {resp.status_code}): {snippet}"
+            )
+
+    @staticmethod
     def _resolve_user_id(db: Session, user_id: Optional[uuid.UUID]) -> uuid.UUID:
         """
         임시 방편:
@@ -161,7 +206,7 @@ class LLMService:
         db: Session, request: LLMProviderSimpleCreate
     ) -> LLMProviderResponse:
         """
-        alias + openai 필수 값(apiKey/baseUrl/model)으로 provider와 credential을 함께 생성합니다.
+        alias + provider 필수 값(apiKey/baseUrl/model)으로 provider와 credential을 함께 생성합니다.
 
         1) user_id 결정 (요청값 → DB 첫 사용자 → placeholder)
         2) provider 생성/flush로 ID 확보
@@ -170,21 +215,41 @@ class LLMService:
         5) 생성된 provider + credential을 응답 모델로 반환 (apiKey는 마스킹)
         """
         resolved_user_id = LLMService._resolve_user_id(db, request.user_id)
+        provider_key = request.provider_type.lower()
+        default_base_url = {
+            "openai": "https://api.openai.com/v1",
+            "anthropic": "https://api.anthropic.com",
+            "claude": "https://api.anthropic.com",
+            "google": "https://generativelanguage.googleapis.com",
+            "gemini": "https://generativelanguage.googleapis.com",
+        }.get(provider_key)
+        base_url = request.base_url or default_base_url
         config_payload = {
             "apiKey": request.api_key,
-            "baseUrl": request.base_url,
+            "baseUrl": base_url,
             "model": request.model,
             "providerType": request.provider_type,
         }
+        if provider_key in ("anthropic", "claude"):
+            config_payload["anthropicVersion"] = "2023-06-01"
 
-        # 현재는 openai만 지원: /models 호출로 키 검증 (실패 시 ValueError)
-        if request.provider_type.lower() == "openai":
+        # provider별 API key 검증
+        if provider_key == "openai":
             LLMService._validate_openai_api_key(
-                base_url=request.base_url, api_key=request.api_key
+                base_url=base_url, api_key=request.api_key
+            )
+        elif provider_key in ("anthropic", "claude"):
+            LLMService._validate_anthropic_api_key(
+                base_url=base_url,
+                api_key=request.api_key,
+                version=config_payload["anthropicVersion"],
+            )
+        elif provider_key in ("google", "gemini"):
+            LLMService._validate_google_api_key(
+                base_url=base_url, api_key=request.api_key
             )
         else:
-            # 향후 다른 provider 추가 시 여기에 분기
-            pass
+            raise ValueError(f"지원하지 않는 provider_type: {request.provider_type}")
 
         provider = LLMProvider(
             user_id=resolved_user_id,
@@ -362,9 +427,7 @@ class LLMService:
         api_key = cfg.get("apiKey") or cfg.get("api_key")
         base_url = cfg.get("baseUrl") or cfg.get("base_url")
         model = cfg.get("model")
-        provider_type = (
-            cfg.get("providerType") or provider.provider_type or ""
-        ).lower()
+        provider_type = (cfg.get("providerType") or provider.provider_type or "").lower()
 
         if not api_key or not base_url or not model or not provider_type:
             raise ValueError(
@@ -372,9 +435,7 @@ class LLMService:
             )
 
         client = get_llm_client(
-            provider=provider_type,
-            model_id=model,
-            credentials={"apiKey": api_key, "baseUrl": base_url},
+            provider=provider_type, model_id=model, credentials=cfg
         )
 
         print(

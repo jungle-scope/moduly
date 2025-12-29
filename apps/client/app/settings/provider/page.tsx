@@ -18,16 +18,42 @@ type ProviderResponse = {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
+type ProviderType = 'openai' | 'anthropic' | 'google';
+
+// provider별 기본값(라벨/기본 URL/모델/키 힌트)을 한 곳에 모아둠
+const PROVIDER_PRESETS: Record<
+  ProviderType,
+  { label: string; baseUrl: string; model: string; apiKeyHint: string }
+> = {
+  openai: {
+    label: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-mini',
+    apiKeyHint: 'sk-...',
+  },
+  anthropic: {
+    label: 'Anthropic (Claude)',
+    baseUrl: 'https://api.anthropic.com',
+    model: 'claude-3-5-sonnet-latest',
+    apiKeyHint: 'sk-ant-...',
+  },
+  google: {
+    label: 'Google (Gemini)',
+    baseUrl: 'https://generativelanguage.googleapis.com',
+    model: 'gemini-1.5-pro-latest',
+    apiKeyHint: 'AIza...',
+  },
+};
+
 export default function SettingsProviderPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showProviderMenu, setShowProviderMenu] = useState(false);
   const [providers, setProviders] = useState<ProviderResponse[]>([]);
   const [form, setForm] = useState({
     alias: '',
     apiKey: '',
-    model: 'gpt-4o-mini',
-    baseUrl: 'https://api.openai.com/v1',
-    providerType: 'openai',
+    model: PROVIDER_PRESETS.openai.model,
+    baseUrl: PROVIDER_PRESETS.openai.baseUrl,
+    providerType: 'openai' as ProviderType,
   });
   const [submitting, setSubmitting] = useState(false);
   const [lastRequestLog, setLastRequestLog] = useState<string | null>(null);
@@ -63,14 +89,19 @@ export default function SettingsProviderPage() {
     fetchProviders();
   }, []);
 
-  const handleOpenModal = () => {
+  const applyPreset = (providerType: ProviderType) => {
+    const preset = PROVIDER_PRESETS[providerType];
     setForm({
       alias: '',
       apiKey: '',
-      model: 'gpt-4o-mini',
-      baseUrl: 'https://api.openai.com/v1',
-      providerType: 'openai',
+      model: preset.model,
+      baseUrl: preset.baseUrl,
+      providerType,
     });
+  };
+
+  const handleOpenModal = (providerType: ProviderType = 'openai') => {
+    applyPreset(providerType);
     setIsModalOpen(true);
   };
 
@@ -85,7 +116,18 @@ export default function SettingsProviderPage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  const handleProviderTypeChange = (providerType: ProviderType) => {
+    const preset = PROVIDER_PRESETS[providerType];
+    setForm((prev) => ({
+      ...prev,
+      providerType,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+    }));
+  };
+
   const handleSubmit = async () => {
+    const providerLabel = PROVIDER_PRESETS[form.providerType].label;
     const payload = {
       alias: form.alias.trim(),
       apiKey: form.apiKey.trim(),
@@ -134,7 +176,7 @@ export default function SettingsProviderPage() {
       if (!response.ok) {
         // 눈에 보이는 알림: 간결하게 안내
         alert(
-          `등록 실패: OpenAI API Key 검증 실패\nstatus ${response.status}${
+          `등록 실패: ${providerLabel} API Key 검증 실패\nstatus ${response.status}${
             body?.detail ? ` / ${body.detail}` : ''
           }`,
         );
@@ -183,6 +225,8 @@ export default function SettingsProviderPage() {
       );
     }
   };
+
+  const currentPreset = PROVIDER_PRESETS[form.providerType];
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -255,38 +299,31 @@ export default function SettingsProviderPage() {
             <div>
               <p className="text-xs uppercase text-gray-500">Provider 선택</p>
               <h3 className="text-sm font-semibold text-gray-900">
-                현재: OpenAI 등록 폼
+                타입을 골라 등록 폼을 열어보세요
               </h3>
               <p className="text-xs text-gray-500">
-                다른 provider는 준비 중이며, 선택지만 먼저 보여줍니다.
+                현재는 모든 유저가 등록된 provider를 공유해서 사용합니다. (임시 방편)
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowProviderMenu((prev) => !prev)}
-              className="rounded-md border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              {showProviderMenu ? '닫기' : '다른 provider 보기'}
-            </button>
           </div>
-          {showProviderMenu && (
-            <div className="mt-3 space-y-2">
-              <button
-                type="button"
-                className="w-full rounded-md border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600"
-                disabled
-              >
-                Anthropic (준비 중)
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-md border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600"
-                disabled
-              >
-                Azure OpenAI (준비 중)
-              </button>
-            </div>
-          )}
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            {(Object.keys(PROVIDER_PRESETS) as ProviderType[]).map((key) => {
+              const preset = PROVIDER_PRESETS[key];
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  onClick={() => handleOpenModal(key)}
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-left text-sm text-gray-700 hover:border-indigo-500 hover:bg-indigo-50"
+                >
+                  <div className="text-sm font-semibold">{preset.label}</div>
+                  <div className="text-xs text-gray-500">
+                    기본 모델: {preset.model}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <button
@@ -303,13 +340,14 @@ export default function SettingsProviderPage() {
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase text-gray-500">OpenAI</p>
+                  <p className="text-xs uppercase text-gray-500">
+                    {currentPreset.label}
+                  </p>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    OpenAI provider 추가
+                    {currentPreset.label} provider 추가
                   </h2>
                   <p className="text-xs text-gray-500">
-                    (임시) openai 규격으로 저장됩니다. 나중에 다른 provider 유형으로
-                    분리 예정.
+                    선택한 provider 규격으로 저장됩니다. (현재는 모든 사용자가 공유 모드)
                   </p>
                 </div>
                 <button
@@ -321,6 +359,27 @@ export default function SettingsProviderPage() {
                 </button>
               </div>
 
+              <div className="mb-4 flex gap-2">
+                {(Object.keys(PROVIDER_PRESETS) as ProviderType[]).map((key) => {
+                  const preset = PROVIDER_PRESETS[key];
+                  const active = key === form.providerType;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleProviderTypeChange(key)}
+                      className={`flex-1 rounded-md border px-3 py-2 text-xs font-semibold ${
+                        active
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                          : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
@@ -330,7 +389,7 @@ export default function SettingsProviderPage() {
                     type="text"
                     value={form.alias}
                     onChange={(e) => handleChange(e, 'alias')}
-                    placeholder="예: my-openai-provider"
+                    placeholder={`예: my-${form.providerType}-provider`}
                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
@@ -342,7 +401,7 @@ export default function SettingsProviderPage() {
                     type="password"
                     value={form.apiKey}
                     onChange={(e) => handleChange(e, 'apiKey')}
-                    placeholder="sk-***"
+                    placeholder={currentPreset.apiKeyHint}
                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
@@ -354,7 +413,7 @@ export default function SettingsProviderPage() {
                     type="text"
                     value={form.model}
                     onChange={(e) => handleChange(e, 'model')}
-                    placeholder="예: gpt-4o, gpt-4o-mini"
+                    placeholder={currentPreset.model}
                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
@@ -366,7 +425,7 @@ export default function SettingsProviderPage() {
                     type="text"
                     value={form.baseUrl}
                     onChange={(e) => handleChange(e, 'baseUrl')}
-                    placeholder="https://api.openai.com/v1"
+                    placeholder={currentPreset.baseUrl}
                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>

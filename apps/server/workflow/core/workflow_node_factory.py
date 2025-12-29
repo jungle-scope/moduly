@@ -6,6 +6,8 @@ from workflow.nodes.answer import AnswerNode, AnswerNodeData
 from workflow.nodes.llm.entities import LLMNodeData
 from workflow.nodes.llm.llm_node import LLMNode
 from workflow.nodes.start import StartNode, StartNodeData
+from workflow.nodes.template.entities import TemplateNodeData
+from workflow.nodes.template.template_node import TemplateNode
 
 
 class NodeFactory:
@@ -20,6 +22,7 @@ class NodeFactory:
         "startNode": (StartNode, StartNodeData),
         "answerNode": (AnswerNode, AnswerNodeData),
         "llmNode": (LLMNode, LLMNodeData),
+        "templateNode": (TemplateNode, TemplateNodeData),
     }
 
     @staticmethod

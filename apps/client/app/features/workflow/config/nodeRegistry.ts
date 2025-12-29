@@ -148,6 +148,21 @@ export const nodeRegistry: NodeDefinition[] = [
       outputs: [],
     }),
   },
+  {
+    id: 'template',
+    type: 'templateNode',
+    name: 'Template',
+    category: 'logic',
+    color: 'bg-yellow-500',
+    icon: '📝',
+    implemented: true,
+    description: '여러 변수를 조합하여 텍스트를 생성합니다.',
+    defaultData: () => ({
+      title: 'Template',
+      template: '',
+      variables: [],
+    }),
+  },
 ];
 
 /**
