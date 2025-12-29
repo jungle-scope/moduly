@@ -7,6 +7,11 @@ interface NodeDetailsPanelProps {
   nodeId: string | null;
   onClose: () => void;
   children: React.ReactNode;
+  header?: {
+    icon?: string;
+    title?: string;
+    description?: string;
+  };
 }
 
 /**
@@ -17,6 +22,7 @@ export default function NodeDetailsPanel({
   nodeId,
   onClose,
   children,
+  header,
 }: NodeDetailsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const { nodes } = useWorkflowStore();
@@ -75,6 +81,7 @@ export default function NodeDetailsPanel({
       className="absolute right-0 top-0 h-full w-[400px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200"
     >
       {/* 패널 헤더 */}
+      {/* NOTE: [LLM] header prop으로 노드별 아이콘/텍스트를 표시하도록 확장 */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <div

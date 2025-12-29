@@ -2,8 +2,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from workflow.core.entities import BaseNodeData
-from workflow.core.node import Node
+from workflow.nodes.base.entities import BaseNodeData
+from workflow.nodes.base.node import Node
 
 
 class SelectOption(BaseModel):

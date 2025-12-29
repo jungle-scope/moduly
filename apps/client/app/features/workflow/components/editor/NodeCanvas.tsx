@@ -18,11 +18,12 @@ import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
-import { StartNode } from '../nodes/start/components/StartNode';
 import NodeDetailsPanel from './NodeDetailsPanel';
+import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
+import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -47,7 +48,6 @@ export default function NodeCanvas() {
     () => ({
       ...coreNodeTypes,
       note: NotePost,
-      startNode: StartNode,
     }),
     [],
   ) as unknown as NodeTypes;
@@ -89,6 +89,26 @@ export default function NodeCanvas() {
     if (!selectedNodeId) return null;
     return nodes.find((n) => n.id === selectedNodeId);
   }, [selectedNodeId, nodes]);
+
+  const panelHeader = useMemo(() => {
+    if (!selectedNodeType) return undefined;
+    const def = getNodeDefinitionByType(selectedNodeType);
+    return {
+      icon: def?.icon || '⬜️',
+      title: def?.name || 'Node',
+      description: def?.description,
+    }; // NOTE: [LLM] 노드 정의 기반으로 패널 헤더 표시
+  }, [selectedNodeType]);
+
+  const panelHeader = useMemo(() => {
+    if (!selectedNodeType) return undefined;
+    const def = getNodeDefinitionByType(selectedNodeType);
+    return {
+      icon: def?.icon || '⬜️',
+      title: def?.name || 'Node',
+      description: def?.description,
+    }; // NOTE: [LLM] 노드 정의 기반으로 패널 헤더 표시
+  }, [selectedNodeType]);
 
   // 인터랙티브 모드에 따라 ReactFlow 구성
   const reactFlowConfig = useMemo(() => {
@@ -160,8 +180,12 @@ export default function NodeCanvas() {
           isPanelOpen={!!selectedNodeId}
         />
 
-        {/* 노드 세부 정보 패널 - ReactFlow 컨테이너에 상대적으로 위치 */}
-        <NodeDetailsPanel nodeId={selectedNodeId} onClose={handleClosePanel}>
+        {/* Node Details Panel - positioned relative to ReactFlow container */}
+        <NodeDetailsPanel
+          nodeId={selectedNodeId}
+          onClose={handleClosePanel}
+          header={panelHeader}
+        >
           {selectedNode && selectedNodeType === 'startNode' && (
             <StartNodePanel
               nodeId={selectedNode.id}
@@ -176,6 +200,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'conditionNode' && (
             <ConditionNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'llmNode' && (
+            <LLMNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

@@ -58,12 +58,18 @@ export const nodeRegistry: NodeDefinition[] = [
     category: 'llm',
     color: 'bg-black',
     icon: '🤖',
-    implemented: false,
+    implemented: true, // NOTE: [LLM] 프론트에서 LLM 노드를 사용 가능하게 활성화
     description: 'LLM 모델을 호출합니다.',
     defaultData: () => ({
       title: 'LLM',
-      model: 'gpt-4',
-      prompt: '',
+      provider: '',
+      model_id: '',
+      system_prompt: '',
+      user_prompt: '',
+      assistant_prompt: '',
+      referenced_variables: [],
+      context_variable: '',
+      parameters: {},
     }),
   },
 

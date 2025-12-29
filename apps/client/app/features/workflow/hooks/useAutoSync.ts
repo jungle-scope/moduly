@@ -36,13 +36,21 @@ export const useAutoSync = () => {
         const data = await workflowApi.getDraftWorkflow(workflowId);
 
         if (data) {
-          //TODO: 노드가 없으면 '에러' 대신 '기본값을 주입'하고 있습니다. 백엔드 연동되면 에러페이지 리다이렉트로 수정합니다.
-          if (!data.nodes || data.nodes.length === 0) {
+          if (data.nodes && data.nodes.length > 0) {
+            data.nodes = data.nodes.map((node: any) => {
+              if (node.type === 'start') {
+                return { ...node, type: 'startNode' };
+              }
+              return node;
+            });
+            console.log(
+              '[AutoSync] Migrated nodes (start -> startNode):',
+              data.nodes,
+            );
+            //TODO: 노드가 없으면 '에러' 대신 '기본값을 주입'하고 있습니다. 백엔드 연동되면 에러페이지 리다이렉트로 수정합니다.
+          } else {
             console.warn('⚠️ 저장된 노드가 없어 기본 노드로 자동 복구합니다.');
             data.nodes = DEFAULT_NODES as AppNode[];
-            // 기존에 작업하던 노드가 있는 경우 -> 저장된 그대로 불러옵니다.
-          } else {
-            console.log('[AutoSync] Existing nodes found:', data.nodes);
           }
           setWorkflowData(data);
 
@@ -73,6 +81,10 @@ export const useAutoSync = () => {
           currentEnvVars: typeof environmentVariables,
           currentConvVars: typeof conversationVariables,
         ) => {
+          if (!workflowId) {
+            console.warn('[AutoSync] workflowId가 없어 동기화를 건너뜁니다.');
+            return;
+          }
           try {
             const currentViewport = getViewport();
 
