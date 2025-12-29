@@ -42,7 +42,7 @@ class WorkflowService:
             "viewport": request.viewport.model_dump() if request.viewport else None,
         }
 
-        # 업데이트 정보
+        workflow._features = request.features if request.features else {}
         workflow.updated_by = user_id
 
         # DB에 커밋
@@ -66,4 +66,9 @@ class WorkflowService:
             return None
 
         # 저장된 graph 데이터 반환
-        return workflow.graph if workflow.graph else None
+        data = workflow.graph if workflow.graph else {}
+
+        if workflow._features:
+            data["features"] = workflow._features
+
+        return data

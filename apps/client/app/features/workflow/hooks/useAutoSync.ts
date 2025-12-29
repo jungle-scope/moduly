@@ -36,6 +36,14 @@ export const useAutoSync = () => {
         const data = await workflowApi.getDraftWorkflow(workflowId);
 
         if (data) {
+          if (data.features?.noteNodes) {
+            if (data.nodes) {
+              data.nodes = [...data.nodes, ...data.features.noteNodes];
+            } else {
+              data.nodes = data.features.noteNodes;
+            }
+          }
+
           if (data.nodes && data.nodes.length > 0) {
             data.nodes = data.nodes.map((node: any) => {
               if (node.type === 'start') {
@@ -44,7 +52,7 @@ export const useAutoSync = () => {
               return node;
             });
             console.log(
-              '[AutoSync] Migrated nodes (start -> startNode):',
+              // '[AutoSync] Migrated nodes (start -> startNode):',
               data.nodes,
             );
             //TODO: 노드가 없으면 '에러' 대신 '기본값을 주입'하고 있습니다. 백엔드 연동되면 에러페이지 리다이렉트로 수정합니다.
@@ -84,12 +92,22 @@ export const useAutoSync = () => {
           try {
             const currentViewport = getViewport();
 
+            // Note 노드와 일반 노드 분리
+            const realNodes = currentNodes.filter((n) => n.type !== 'note');
+            const noteNodes = currentNodes.filter((n) => n.type === 'note');
+
+            // features에 noteNodes 저장
+            const featuresToSave = {
+              ...currentFeatures,
+              noteNodes,
+            };
+
             // 서버에 저장 요청
             await workflowApi.syncDraftWorkflow(workflowId, {
-              nodes: currentNodes,
+              nodes: realNodes, // 엔진용 깨끗한 노드 목록
               edges: currentEdges,
               viewport: currentViewport,
-              features: currentFeatures,
+              features: featuresToSave,
               environmentVariables: currentEnvVars,
               conversationVariables: currentConvVars,
             });

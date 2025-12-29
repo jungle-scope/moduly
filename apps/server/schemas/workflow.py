@@ -37,3 +37,4 @@ class WorkflowDraftRequest(BaseModel):
     nodes: List[NodeSchema]
     edges: List[EdgeSchema]
     viewport: Optional[ViewportSchema] = None
+    features: Optional[Dict[str, Any]] = None
