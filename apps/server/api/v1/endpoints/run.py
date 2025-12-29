@@ -3,8 +3,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
-from api.deps import get_db
 from db.models.workflow_deployment import WorkflowDeployment
+from db.session import get_db
 from workflow.core.workflow_engine import WorkflowEngine
 
 router = APIRouter()

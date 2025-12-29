@@ -160,7 +160,7 @@ def execute_workflow(
     """
     PostgreSQL에서 워크플로우 초안 데이터를 조회하고, WorkflowEngine을 사용하여 실행합니다. (인증 필요)
     """
-    # 1. 권한 확인 (본인의 보안 로직 유지)
+    # 1. 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
     if not workflow:
@@ -169,16 +169,14 @@ def execute_workflow(
     if workflow.created_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # 2. 데이터 조회 및 실행 (develop의 최신 구조 반영)
+    # 2. 데이터 조회 및 실행
     try:
         graph = WorkflowService.get_draft(db, workflow_id)
         if not graph:
-            # HTTPException으로 통일하는 것이 더 좋으므로 404를 던집니다.
             raise HTTPException(
                 status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
             )
 
-        # develop에서 추가된 user_input을 사용하여 엔진 실행
         engine = WorkflowEngine(graph, user_input)
         print("user_input", user_input)
 

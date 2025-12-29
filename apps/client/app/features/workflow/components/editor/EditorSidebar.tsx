@@ -106,17 +106,14 @@ export default function EditorSidebar() {
     }
   }, [workflowId]);
 
-  // Load workflows when app_id is available
   useEffect(() => {
     if (currentAppId) {
       loadWorkflowsByApp(currentAppId);
     }
   }, [currentAppId, loadWorkflowsByApp]);
 
-  // Use loaded app_id or fallback to workflow_id temporarily
   const appId = currentAppId || workflowId;
 
-  // Close modal when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (

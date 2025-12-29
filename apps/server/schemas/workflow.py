@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Position(BaseModel):
@@ -33,11 +33,31 @@ class ViewportSchema(BaseModel):
     zoom: float
 
 
+class EnvironmentVariableSchema(BaseModel):
+    id: str
+    key: str
+    value: str
+    type: str
+
+
+class ConversationVariableSchema(BaseModel):
+    id: str
+    key: str
+    name: str
+
+
 class WorkflowDraftRequest(BaseModel):
-    nodes: List[NodeSchema]
-    edges: List[EdgeSchema]
+    # 하나도 없으면 빈 리스트로 기본값 설정
+    nodes: List[NodeSchema] = []
+    edges: List[EdgeSchema] = []
     viewport: Optional[ViewportSchema] = None
     features: Optional[Dict[str, Any]] = None
+    environment_variables: Optional[List[EnvironmentVariableSchema]] = Field(
+        None, alias="environmentVariables"
+    )
+    conversation_variables: Optional[List[ConversationVariableSchema]] = Field(
+        None, alias="conversationVariables"
+    )
 
 
 class WorkflowCreateRequest(BaseModel):

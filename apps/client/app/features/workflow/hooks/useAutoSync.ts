@@ -52,7 +52,7 @@ export const useAutoSync = () => {
               return node;
             });
             console.log(
-              // '[AutoSync] Migrated nodes (start -> startNode):',
+              '[AutoSync] Migrated nodes (start -> startNode):',
               data.nodes,
             );
             //TODO: 노드가 없으면 '에러' 대신 '기본값을 주입'하고 있습니다. 백엔드 연동되면 에러페이지 리다이렉트로 수정합니다.

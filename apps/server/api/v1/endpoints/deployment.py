@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from api.deps import get_db
 from auth.dependencies import get_current_user
 from db.models.user import User
 from db.models.workflow import Workflow
 from db.models.workflow_deployment import WorkflowDeployment
+from db.session import get_db
 from schemas.deployment import DeploymentCreate, DeploymentResponse
 from services.workflow_service import WorkflowService
 
@@ -24,9 +24,9 @@ def create_deployment(
 ):
     """
     워크플로우를 배포합니다.
-    1. 현재 워크플로우의 Draft 상태(Graph)를 DB에서 읽어옵니다.
-    2. 버전 번호를 채번합니다 (Max + 1).
-    3. 배포 이력을 저장합니다.
+    1. 현재 워크플로우의 Draft 상태(Graph)를 DB에서 읽어오기
+    2. 버전 번호 Max + 1
+    3. 배포 이력을 저장합
     """
     # 워크플로우 존재 확인
     workflow = (

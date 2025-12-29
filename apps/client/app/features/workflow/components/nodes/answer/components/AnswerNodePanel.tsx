@@ -117,7 +117,7 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                       노드 선택
                     </option>
                     {nodes
-                      .filter((n) => n.id !== nodeId)
+                      .filter((n) => n.id !== nodeId && n.type !== 'note')
                       .map((n) => (
                         <option key={n.id} value={n.id}>
                           {(n.data as { title?: string })?.title || n.type}
