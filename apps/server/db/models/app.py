@@ -21,8 +21,8 @@ class App(Base):
     __tablename__ = "apps"
 
     # === 기본 식별 필드 ===
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     tenant_id: Mapped[str] = mapped_column(String, nullable=False)
 

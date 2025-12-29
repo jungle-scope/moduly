@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.api import api_router
 from db.base import Base
+
+# Import all models to register them with SQLAlchemy metadata
+from db.models import app
 from db.session import engine
 
 app = FastAPI(title="Moduly API", redirect_slashes=False)
