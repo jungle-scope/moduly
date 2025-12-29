@@ -20,26 +20,6 @@ class LLMService:
     LLM provider/credential 관련 DB 작업을 담당합니다.
     """
 
-    @staticmethod
-    def _normalize_base_url(raw: str, remove_suffixes: list[str]) -> str:
-        """
-        base_url 입력이 '/v1' 또는 '/v1beta' 등을 포함해도 정상 동작하도록 정규화.
-        - 입력 끝에 지정된 suffix가 있으면 제거하고 trailing slash도 제거.
-        """
-        if not raw:
-            return raw
-        url = raw.rstrip("/")
-        lowered = url.lower()
-        for suffix in remove_suffixes:
-            suf = suffix.lower().rstrip("/")
-            if lowered.endswith("/" + suf):
-                url = url[: -len(suf) - 1].rstrip("/")
-                break
-            if lowered.endswith(suf):
-                url = url[: -len(suf)].rstrip("/")
-                break
-        return url
-
     # 임시 placeholder 사용자 ID (실제 users 테이블에 없으면 FK 에러 날 수 있음)
     # TODO: 로그인 연동 후 실제 사용자로 대체하고 제거 필요
     PLACEHOLDER_USER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
@@ -108,8 +88,7 @@ class LLMService:
         - 200 OK이면 통과, 그 외 status는 실패로 간주
         - 네트워크/타임아웃/기타 예외는 ValueError로 올려 사용자에게 전달
         """
-        normalized = LLMService._normalize_base_url(base_url, ["v1"])
-        url = normalized.rstrip("/") + "/v1/models"
+        url = base_url.rstrip("/") + "/models"
         try:
             resp = requests.get(
                 url,
@@ -123,64 +102,6 @@ class LLMService:
             snippet = resp.text[:200] if resp.text else ""
             raise ValueError(
                 f"OpenAI API key 검증 실패 (status {resp.status_code}): {snippet}"
-            )
-
-    @staticmethod
-    def _validate_anthropic_api_key(
-        base_url: str, api_key: str, version: str = "2023-06-01"
-    ) -> None:
-        """
-        Anthropic /v1/models 엔드포인트로 키 유효성 검증.
-        - 200 OK이면 통과, 그 외 status는 실패로 간주
-        """
-        normalized = LLMService._normalize_base_url(base_url, ["v1"])
-        url = normalized.rstrip("/") + "/v1/models"
-        try:
-            resp = requests.get(
-                url,
-                headers={
-                    "x-api-key": api_key,
-                    "anthropic-version": version,
-                },
-                timeout=5,
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"Anthropic API key 검증 요청 실패: {exc}") from exc
-
-        if resp.status_code != 200:
-            snippet = resp.text[:200] if resp.text else ""
-            raise ValueError(
-                f"Anthropic API key 검증 실패 (status {resp.status_code}): {snippet}"
-            )
-
-    @staticmethod
-    def _validate_google_api_key(base_url: str, api_key: str) -> None:
-        """
-        Google Gemini /v1beta/models 엔드포인트로 키 유효성 검증.
-        - 200 OK이면 통과, 그 외 status는 실패로 간주
-        """
-        normalized = LLMService._normalize_base_url(base_url, ["v1", "v1beta"])
-
-        def _request(version: str):
-            url = normalized.rstrip("/") + f"/{version}/models"
-            return requests.get(url, params={"key": api_key}, timeout=5)
-
-        try:
-            resp = _request("v1beta")
-        except requests.RequestException as exc:
-            raise ValueError(f"Google Gemini API key 검증 요청 실패: {exc}") from exc
-
-        # v1beta에서 404가 나면 v1으로 한번 더 검증 시도
-        if resp.status_code == 404:
-            try:
-                resp = _request("v1")
-            except requests.RequestException as exc:
-                raise ValueError(f"Google Gemini API key 검증 요청 실패(v1): {exc}") from exc
-
-        if resp.status_code != 200:
-            snippet = resp.text[:200] if resp.text else ""
-            raise ValueError(
-                f"Google Gemini API key 검증 실패 (status {resp.status_code}): {snippet}"
             )
 
     @staticmethod
@@ -240,7 +161,7 @@ class LLMService:
         db: Session, request: LLMProviderSimpleCreate
     ) -> LLMProviderResponse:
         """
-        alias + provider 필수 값(apiKey/baseUrl/model)으로 provider와 credential을 함께 생성합니다.
+        alias + openai 필수 값(apiKey/baseUrl/model)으로 provider와 credential을 함께 생성합니다.
 
         1) user_id 결정 (요청값 → DB 첫 사용자 → placeholder)
         2) provider 생성/flush로 ID 확보
@@ -249,48 +170,21 @@ class LLMService:
         5) 생성된 provider + credential을 응답 모델로 반환 (apiKey는 마스킹)
         """
         resolved_user_id = LLMService._resolve_user_id(db, request.user_id)
-        provider_key = request.provider_type.lower()
-        default_base_url = {
-            "openai": "https://api.openai.com/v1",
-            "anthropic": "https://api.anthropic.com",
-            "claude": "https://api.anthropic.com",
-            "google": "https://generativelanguage.googleapis.com",
-            "gemini": "https://generativelanguage.googleapis.com",
-        }.get(provider_key)
-        base_url = request.base_url or default_base_url
-        # 입력 base_url이 /v1, /v1beta 등을 포함해도 정상화
-        normalize_suffixes = ["v1"]
-        if provider_key in ("google", "gemini"):
-            normalize_suffixes = ["v1", "v1beta"]
-        base_url = LLMService._normalize_base_url(base_url, normalize_suffixes)
         config_payload = {
             "apiKey": request.api_key,
-            "baseUrl": base_url,
+            "baseUrl": request.base_url,
             "model": request.model,
             "providerType": request.provider_type,
         }
-        if provider_key in ("anthropic", "claude"):
-            config_payload["anthropicVersion"] = "2023-06-01"
-        if provider_key in ("google", "gemini"):
-            config_payload["apiVersion"] = "v1beta"
 
-        # provider별 API key 검증
-        if provider_key == "openai":
+        # 현재는 openai만 지원: /models 호출로 키 검증 (실패 시 ValueError)
+        if request.provider_type.lower() == "openai":
             LLMService._validate_openai_api_key(
-                base_url=base_url, api_key=request.api_key
-            )
-        elif provider_key in ("anthropic", "claude"):
-            LLMService._validate_anthropic_api_key(
-                base_url=base_url,
-                api_key=request.api_key,
-                version=config_payload["anthropicVersion"],
-            )
-        elif provider_key in ("google", "gemini"):
-            LLMService._validate_google_api_key(
-                base_url=base_url, api_key=request.api_key
+                base_url=request.base_url, api_key=request.api_key
             )
         else:
-            raise ValueError(f"지원하지 않는 provider_type: {request.provider_type}")
+            # 향후 다른 provider 추가 시 여기에 분기
+            pass
 
         provider = LLMProvider(
             user_id=resolved_user_id,
@@ -468,7 +362,9 @@ class LLMService:
         api_key = cfg.get("apiKey") or cfg.get("api_key")
         base_url = cfg.get("baseUrl") or cfg.get("base_url")
         model = cfg.get("model")
-        provider_type = (cfg.get("providerType") or provider.provider_type or "").lower()
+        provider_type = (
+            cfg.get("providerType") or provider.provider_type or ""
+        ).lower()
 
         if not api_key or not base_url or not model or not provider_type:
             raise ValueError(
@@ -476,7 +372,9 @@ class LLMService:
             )
 
         client = get_llm_client(
-            provider=provider_type, model_id=model, credentials=cfg
+            provider=provider_type,
+            model_id=model,
+            credentials={"apiKey": api_key, "baseUrl": base_url},
         )
 
         print(
