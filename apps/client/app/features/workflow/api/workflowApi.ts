@@ -23,6 +23,21 @@ api.interceptors.response.use(
   },
 );
 
+export interface WorkflowCreateRequest {
+  app_id: string;
+  name: string;
+  description?: string;
+}
+
+export interface WorkflowResponse {
+  id: string;
+  app_id: string;
+  marked_name: string | null;
+  marked_comment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const workflowApi = {
   // 1. 드래프트 워크플로우 동기화 (저장)
   syncDraftWorkflow: async (workflowId: string, data: WorkflowDraftRequest) => {
@@ -48,6 +63,20 @@ export const workflowApi = {
       `/workflows/${workflowId}/execute`,
       userInput || {},
     );
+    return response.data;
+  },
+
+  // 4. 새 워크플로우 생성
+  createWorkflow: async (
+    data: WorkflowCreateRequest,
+  ): Promise<WorkflowResponse> => {
+    const response = await api.post('/workflows', data);
+    return response.data;
+  },
+
+  // 5. 특정 App의 워크플로우 목록 조회
+  listWorkflowsByApp: async (appId: string): Promise<WorkflowResponse[]> => {
+    const response = await api.get(`/workflows/app/${appId}`);
     return response.data;
   },
 

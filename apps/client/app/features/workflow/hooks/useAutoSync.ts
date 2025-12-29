@@ -89,6 +89,10 @@ export const useAutoSync = () => {
           currentEnvVars: typeof environmentVariables,
           currentConvVars: typeof conversationVariables,
         ) => {
+          if (!workflowId) {
+            console.warn('[AutoSync] workflowId가 없어 동기화를 건너뜁니다.');
+            return;
+          }
           try {
             const currentViewport = getViewport();
 

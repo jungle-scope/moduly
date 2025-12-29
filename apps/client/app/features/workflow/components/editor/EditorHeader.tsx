@@ -53,7 +53,7 @@ export default function EditorHeader() {
     useState<DeploymentResult>(null);
 
   const handleBack = useCallback(() => {
-    router.push('/');
+    router.push('/dashboard');
   }, [router]);
 
   const handleVersionHistory = useCallback(() => {

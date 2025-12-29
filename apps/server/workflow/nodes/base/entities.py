@@ -14,14 +14,6 @@ class NodeStatus(str, Enum):
     SKIPPED = "skipped"
 
 
-class EdgeStatus(str, Enum):
-    """엣지 실행 상태"""
-
-    IDLE = "idle"
-    SKIPPED = "skipped"
-    EXECUTED = "executed"
-
-
 class BaseNodeData(BaseModel):
     """
     모든 노드가 공통으로 가지는 데이터 구조입니다.

@@ -1,4 +1,4 @@
-from workflow.core.entities import NodeStatus
+from workflow.nodes.base.entities import NodeStatus
 from workflow.nodes.start import StartNode, StartNodeData
 
 
