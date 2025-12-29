@@ -5,6 +5,8 @@ import { ConditionNodeData } from '../../../../types/Nodes';
 
 export const ConditionNode = memo(
   ({ data, selected }: NodeProps<Node<ConditionNodeData>>) => {
+    const cases = data.cases || [];
+
     return (
       <BaseNode data={data} selected={selected} showSourceHandle={false}>
         <div className="p-4 text-sm text-gray-500 text-center">
@@ -15,33 +17,51 @@ export const ConditionNode = memo(
             className="!bg-blue-500 !w-3 !h-3"
           />
 
-          {/* Condition Logic Visualization could go here */}
-          <div className="mb-2">조건에 따라 분기합니다</div>
+          {/* Condition Logic Visualization */}
+          <div className="mb-2">
+            {cases.length > 0
+              ? `${cases.length}개 분기 조건`
+              : '조건에 따라 분기합니다'}
+          </div>
 
-          {/* Output Handles */}
-          <div className="relative h-16 w-full flex flex-col justify-between mt-4">
-            <div className="absolute right-[-28px] top-0 flex items-center">
-              <span className="mr-2 text-xs text-blue-600 font-semibold">
-                True
+          {/* Output Handles - 동적 생성 */}
+          <div
+            className="relative w-full flex flex-col justify-between mt-4"
+            style={{ minHeight: `${Math.max((cases.length + 1) * 32, 64)}px` }}
+          >
+            {/* Case별 핸들 */}
+            {cases.map((caseItem, index) => (
+              <div
+                key={caseItem.id}
+                className="absolute right-[-28px] flex items-center"
+                style={{ top: `${index * 32}px` }}
+              >
+                <span className="mr-2 text-xs text-blue-600 font-semibold">
+                  {caseItem.case_name || `Case ${index + 1}`}
+                </span>
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={caseItem.id}
+                  className="!bg-blue-500 !w-3 !h-3 !right-0"
+                  style={{ top: '50%', transform: 'translateY(-50%)' }}
+                />
+              </div>
+            ))}
+
+            {/* Else 핸들 - 항상 마지막 */}
+            <div
+              className="absolute right-[-28px] flex items-center"
+              style={{ top: `${cases.length * 32}px` }}
+            >
+              <span className="mr-2 text-xs text-gray-500 font-semibold">
+                Default
               </span>
               <Handle
                 type="source"
                 position={Position.Right}
-                id="true"
-                className="!bg-blue-500 !w-3 !h-3 !right-0"
-                style={{ top: '50%', transform: 'translateY(-50%)' }}
-              />
-            </div>
-
-            <div className="absolute right-[-28px] bottom-0 flex items-center">
-              <span className="mr-2 text-xs text-red-600 font-semibold">
-                False
-              </span>
-              <Handle
-                type="source"
-                position={Position.Right}
-                id="false"
-                className="!bg-red-500 !w-3 !h-3 !right-0"
+                id="default"
+                className="!bg-gray-400 !w-3 !h-3 !right-0"
                 style={{ top: '50%', transform: 'translateY(-50%)' }}
               />
             </div>

@@ -36,12 +36,31 @@ class Condition(BaseModel):
     value: Optional[Any] = Field(None, description="비교할 값 (연산자에 따라 필요)")
 
 
-class ConditionNodeData(BaseNodeData):
-    """Condition Node 전용 데이터"""
+class ConditionCase(BaseModel):
+    """단일 분기 케이스 - 여러 조건을 가질 수 있음"""
 
+    id: str = Field(..., description="케이스 고유 ID (핸들 ID로 사용)")
+    case_name: str = Field("", description="사용자가 지정하는 분기 이름")
     conditions: List[Condition] = Field(
-        default_factory=list, description="평가할 조건 목록"
+        default_factory=list, description="이 케이스의 조건 목록"
     )
     logical_operator: Literal["and", "or"] = Field(
-        "and", description="여러 조건 결합 방식"
+        "and", description="조건 결합 방식"
+    )
+
+
+class ConditionNodeData(BaseNodeData):
+    """Condition Node 전용 데이터 - Multi-Branch 지원"""
+
+    # 새로운 multi-branch 구조
+    cases: List[ConditionCase] = Field(
+        default_factory=list, description="분기 케이스 목록 (순차 평가)"
+    )
+
+    # 하위 호환성을 위한 레거시 필드 (deprecated)
+    conditions: Optional[List[Condition]] = Field(
+        None, description="[DEPRECATED] 기존 단일 조건 그룹"
+    )
+    logical_operator: Optional[Literal["and", "or"]] = Field(
+        None, description="[DEPRECATED] 기존 논리 연산자"
     )

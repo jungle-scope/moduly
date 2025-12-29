@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
-import { Plus, X } from 'lucide-react';
-// import { v4 as uuidv4 } from 'uuid';
+import { Plus, Trash2, X } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   ConditionNodeData,
   Condition,
+  ConditionCase,
   StartNodeData,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
@@ -37,34 +37,109 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
     [nodeId, nodes, edges],
   );
 
-  const handleAddCondition = useCallback(() => {
-    const newCondition: Condition = {
+  const cases = data.cases || [];
+
+  // Case 추가
+  const handleAddCase = useCallback(() => {
+    const newCase: ConditionCase = {
       id: crypto.randomUUID(),
-      variable_selector: [],
-      operator: 'equals',
-      value: '',
+      case_name: `Case ${cases.length + 1}`,
+      conditions: [],
+      logical_operator: 'and',
     };
 
-    const newConditions = [...(data.conditions || []), newCondition];
-    updateNodeData(nodeId, { conditions: newConditions });
-  }, [data.conditions, nodeId, updateNodeData]);
+    updateNodeData(nodeId, { cases: [...cases, newCase] });
+  }, [cases, nodeId, updateNodeData]);
 
-  const handleUpdateCondition = useCallback(
-    (index: number, field: keyof Condition, value: any) => {
-      const newConditions = [...(data.conditions || [])];
-      newConditions[index] = { ...newConditions[index], [field]: value };
-      updateNodeData(nodeId, { conditions: newConditions });
+  // Case 삭제
+  const handleRemoveCase = useCallback(
+    (caseIndex: number) => {
+      const newCases = cases.filter((_, i) => i !== caseIndex);
+      updateNodeData(nodeId, { cases: newCases });
     },
-    [data.conditions, nodeId, updateNodeData],
+    [cases, nodeId, updateNodeData],
   );
 
-  const handleRemoveCondition = useCallback(
-    (index: number) => {
-      const newConditions = [...(data.conditions || [])];
-      newConditions.splice(index, 1);
-      updateNodeData(nodeId, { conditions: newConditions });
+  // Case 이름 수정
+  const handleUpdateCaseName = useCallback(
+    (caseIndex: number, newName: string) => {
+      const newCases = [...cases];
+      newCases[caseIndex] = { ...newCases[caseIndex], case_name: newName };
+      updateNodeData(nodeId, { cases: newCases });
     },
-    [data.conditions, nodeId, updateNodeData],
+    [cases, nodeId, updateNodeData],
+  );
+
+  // Case 논리 연산자 수정
+  const handleUpdateCaseLogicalOperator = useCallback(
+    (caseIndex: number, operator: 'and' | 'or') => {
+      const newCases = [...cases];
+      newCases[caseIndex] = {
+        ...newCases[caseIndex],
+        logical_operator: operator,
+      };
+      updateNodeData(nodeId, { cases: newCases });
+    },
+    [cases, nodeId, updateNodeData],
+  );
+
+  // 조건 추가
+  const handleAddCondition = useCallback(
+    (caseIndex: number) => {
+      const newCondition: Condition = {
+        id: crypto.randomUUID(),
+        variable_selector: [],
+        operator: 'equals',
+        value: '',
+      };
+
+      const newCases = [...cases];
+      newCases[caseIndex] = {
+        ...newCases[caseIndex],
+        conditions: [...newCases[caseIndex].conditions, newCondition],
+      };
+      updateNodeData(nodeId, { cases: newCases });
+    },
+    [cases, nodeId, updateNodeData],
+  );
+
+  // 조건 수정
+  const handleUpdateCondition = useCallback(
+    (
+      caseIndex: number,
+      conditionIndex: number,
+      field: keyof Condition,
+      value: any,
+    ) => {
+      const newCases = [...cases];
+      const newConditions = [...newCases[caseIndex].conditions];
+      newConditions[conditionIndex] = {
+        ...newConditions[conditionIndex],
+        [field]: value,
+      };
+      newCases[caseIndex] = {
+        ...newCases[caseIndex],
+        conditions: newConditions,
+      };
+      updateNodeData(nodeId, { cases: newCases });
+    },
+    [cases, nodeId, updateNodeData],
+  );
+
+  // 조건 삭제
+  const handleRemoveCondition = useCallback(
+    (caseIndex: number, conditionIndex: number) => {
+      const newCases = [...cases];
+      const newConditions = newCases[caseIndex].conditions.filter(
+        (_, i) => i !== conditionIndex,
+      );
+      newCases[caseIndex] = {
+        ...newCases[caseIndex],
+        conditions: newConditions,
+      };
+      updateNodeData(nodeId, { cases: newCases });
+    },
+    [cases, nodeId, updateNodeData],
   );
 
   return (
@@ -72,164 +147,263 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
           <span className="text-sm font-semibold text-gray-700">
-            Conditions
+            분기 조건 ({cases.length}개)
           </span>
           <button
-            onClick={handleAddCondition}
+            onClick={handleAddCase}
             className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="분기 추가"
           >
             <Plus className="w-4 h-4 text-gray-600" />
           </button>
         </div>
 
         <div className="p-4 space-y-4">
-          <div className="text-sm text-gray-500 mb-2">
-            조건을 설정하여 워크플로우를 분기할 수 있습니다.
+          <div className="text-xs text-gray-500 mb-2">
+            각 분기(Case)는 순서대로 평가되며, 첫 번째로 조건이 만족되는 분기로
+            진행됩니다.
             <br />
-            (모든 조건은 현재 AND 로직으로 동작합니다)
+            어떤 조건도 만족하지 않으면{' '}
+            <span className="font-medium">Default</span>로 진행됩니다.
           </div>
 
-          {data.conditions?.map((condition, index) => {
-            const selectedSourceNodeId = condition.variable_selector?.[0];
-            const selectedSourceNode = nodes.find(
-              (n) => n.id === selectedSourceNodeId,
-            );
-
-            // 소스 노드에서 변수 가져오기
-            let sourceVariables: { label: string; value: string }[] = [];
-            const isStartNode = selectedSourceNode?.type === 'startNode';
-
-            if (isStartNode) {
-              const startData =
-                selectedSourceNode.data as unknown as StartNodeData;
-              sourceVariables = (startData.variables || []).map((v) => ({
-                label: v.name,
-                value: v.name,
-              }));
-            }
-
+          {cases.map((caseItem, caseIndex) => {
             return (
               <div
-                key={condition.id}
-                className="flex flex-col gap-3 rounded border border-gray-200 p-3 bg-gray-50 relative"
+                key={caseItem.id}
+                className="border border-gray-200 rounded-lg overflow-hidden border-l-4 border-l-blue-500"
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-gray-500">
-                    Condition #{index + 1}
-                  </span>
+                {/* Case 헤더 */}
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="text-sm font-medium text-gray-700 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1"
+                      value={caseItem.case_name}
+                      onChange={(e) =>
+                        handleUpdateCaseName(caseIndex, e.target.value)
+                      }
+                      placeholder={`Case ${caseIndex + 1}`}
+                    />
+                    <select
+                      className="text-xs px-2 py-1 rounded border border-gray-300 bg-white"
+                      value={caseItem.logical_operator}
+                      onChange={(e) =>
+                        handleUpdateCaseLogicalOperator(
+                          caseIndex,
+                          e.target.value as 'and' | 'or',
+                        )
+                      }
+                    >
+                      <option value="and">AND</option>
+                      <option value="or">OR</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleAddCondition(caseIndex)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors"
+                      title="조건 추가"
+                    >
+                      <Plus className="w-3 h-3 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveCase(caseIndex)}
+                      className="p-1 hover:bg-red-100 rounded transition-colors"
+                      title="분기 삭제"
+                    >
+                      <Trash2 className="w-3 h-3 text-red-500" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 조건 목록 */}
+                <div className="p-3 space-y-3">
+                  {caseItem.conditions.length === 0 ? (
+                    <div className="text-center py-4 text-gray-400 text-xs">
+                      조건이 없습니다 (항상 참)
+                    </div>
+                  ) : (
+                    caseItem.conditions.map((condition, conditionIndex) => {
+                      const selectedSourceNodeId =
+                        condition.variable_selector?.[0];
+                      const selectedSourceNode = nodes.find(
+                        (n) => n.id === selectedSourceNodeId,
+                      );
+
+                      let sourceVariables: { label: string; value: string }[] =
+                        [];
+                      const isStartNode =
+                        selectedSourceNode?.type === 'startNode';
+
+                      if (isStartNode) {
+                        const startData =
+                          selectedSourceNode.data as unknown as StartNodeData;
+                        sourceVariables = (startData.variables || []).map(
+                          (v) => ({
+                            label: v.name,
+                            value: v.name,
+                          }),
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={condition.id}
+                          className="flex flex-col gap-2 p-2 bg-gray-50 rounded border border-gray-200"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">
+                              조건 #{conditionIndex + 1}
+                            </span>
+                            <button
+                              className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              onClick={() =>
+                                handleRemoveCondition(caseIndex, conditionIndex)
+                              }
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+
+                          {/* Variable Selector Row */}
+                          <div className="flex gap-2">
+                            <select
+                              className="h-7 w-1/2 rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none bg-white"
+                              value={condition.variable_selector?.[0] || ''}
+                              onChange={(e) => {
+                                handleUpdateCondition(
+                                  caseIndex,
+                                  conditionIndex,
+                                  'variable_selector',
+                                  [e.target.value, ''],
+                                );
+                              }}
+                            >
+                              <option value="" disabled>
+                                노드 선택
+                              </option>
+                              {upstreamNodes.map((n) => (
+                                <option key={n.id} value={n.id}>
+                                  {(n.data as { title?: string })?.title ||
+                                    n.type}
+                                </option>
+                              ))}
+                            </select>
+
+                            {isStartNode ? (
+                              <select
+                                className="h-7 w-1/2 rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none bg-white"
+                                value={condition.variable_selector?.[1] || ''}
+                                onChange={(e) => {
+                                  const currentNode =
+                                    condition.variable_selector?.[0] || '';
+                                  handleUpdateCondition(
+                                    caseIndex,
+                                    conditionIndex,
+                                    'variable_selector',
+                                    [currentNode, e.target.value],
+                                  );
+                                }}
+                                disabled={sourceVariables.length === 0}
+                              >
+                                <option value="" disabled>
+                                  {sourceVariables.length === 0
+                                    ? '변수 없음'
+                                    : '변수 선택'}
+                                </option>
+                                {sourceVariables.map((v) => (
+                                  <option key={v.value} value={v.value}>
+                                    {v.label}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                className="h-7 w-1/2 rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none"
+                                placeholder="변수 키"
+                                value={condition.variable_selector?.[1] || ''}
+                                onChange={(e) => {
+                                  const currentNode =
+                                    condition.variable_selector?.[0] || '';
+                                  handleUpdateCondition(
+                                    caseIndex,
+                                    conditionIndex,
+                                    'variable_selector',
+                                    [currentNode, e.target.value],
+                                  );
+                                }}
+                              />
+                            )}
+                          </div>
+
+                          {/* Operator Selector */}
+                          <select
+                            className="h-7 w-full rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none bg-white"
+                            value={condition.operator}
+                            onChange={(e) =>
+                              handleUpdateCondition(
+                                caseIndex,
+                                conditionIndex,
+                                'operator',
+                                e.target.value,
+                              )
+                            }
+                          >
+                            {CONDITION_OPERATORS.map((op) => (
+                              <option key={op.value} value={op.value}>
+                                {op.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Value Input */}
+                          <input
+                            className="h-7 w-full rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none"
+                            placeholder="비교할 값"
+                            value={condition.value}
+                            onChange={(e) =>
+                              handleUpdateCondition(
+                                caseIndex,
+                                conditionIndex,
+                                'value',
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+
                   <button
-                    className="flex items-center justify-center h-6 w-6 text-red-500 hover:bg-red-50 rounded"
-                    onClick={() => handleRemoveCondition(index)}
+                    onClick={() => handleAddCondition(caseIndex)}
+                    className="w-full py-1.5 text-xs font-medium text-gray-600 border border-dashed border-gray-300 rounded hover:bg-gray-100 transition-colors"
                   >
-                    <X className="h-3 w-3" />
+                    + 조건 추가
                   </button>
                 </div>
-
-                {/* Variable Selector Row */}
-                <div className="flex gap-2">
-                  <select
-                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                    value={condition.variable_selector?.[0] || ''}
-                    onChange={(e) => {
-                      // Reset second part of selector when node changes
-                      handleUpdateCondition(index, 'variable_selector', [
-                        e.target.value,
-                        '',
-                      ]);
-                    }}
-                  >
-                    <option value="" disabled>
-                      노드 선택
-                    </option>
-                    {upstreamNodes.map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {(n.data as { title?: string })?.title || n.type}
-                      </option>
-                    ))}
-                  </select>
-
-                  {isStartNode ? (
-                    <select
-                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                      value={condition.variable_selector?.[1] || ''}
-                      onChange={(e) => {
-                        const currentNode =
-                          condition.variable_selector?.[0] || '';
-                        handleUpdateCondition(index, 'variable_selector', [
-                          currentNode,
-                          e.target.value,
-                        ]);
-                      }}
-                      disabled={sourceVariables.length === 0}
-                    >
-                      <option value="" disabled>
-                        {sourceVariables.length === 0
-                          ? '변수 없음'
-                          : '변수 선택'}
-                      </option>
-                      {sourceVariables.map((v) => (
-                        <option key={v.value} value={v.value}>
-                          {v.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none"
-                      placeholder="변수 키"
-                      value={condition.variable_selector?.[1] || ''}
-                      onChange={(e) => {
-                        const currentNode =
-                          condition.variable_selector?.[0] || '';
-                        handleUpdateCondition(index, 'variable_selector', [
-                          currentNode,
-                          e.target.value,
-                        ]);
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Operator Selector */}
-                <select
-                  className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                  value={condition.operator}
-                  onChange={(e) =>
-                    handleUpdateCondition(index, 'operator', e.target.value)
-                  }
-                >
-                  {CONDITION_OPERATORS.map((op) => (
-                    <option key={op.value} value={op.value}>
-                      {op.label}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Value Input */}
-                <input
-                  className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="비교할 값"
-                  value={condition.value}
-                  onChange={(e) =>
-                    handleUpdateCondition(index, 'value', e.target.value)
-                  }
-                />
               </div>
             );
           })}
 
-          {(!data.conditions || data.conditions.length === 0) && (
+          {cases.length === 0 && (
             <div className="text-center py-8 bg-gray-50 rounded border border-dashed border-gray-300 text-gray-400 text-xs">
-              조건이 없습니다. <br />+ 버튼을 눌러 추가하세요.
+              분기가 없습니다. <br />+ 버튼을 눌러 분기를 추가하세요.
             </div>
           )}
 
           <button
-            onClick={handleAddCondition}
+            onClick={handleAddCase}
             className="w-full py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition-colors"
           >
-            + 조건 추가
+            + 분기 추가
           </button>
+
+          {/* Default 안내 */}
+          <div className="px-3 py-2 bg-gray-100 rounded text-xs text-gray-600">
+            <span className="font-medium">Default:</span> 위의 모든 조건이
+            만족하지 않으면 이 분기로 진행됩니다.
+          </div>
         </div>
       </div>
     </div>

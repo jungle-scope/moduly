@@ -1,10 +1,10 @@
-"""조건 분기 노드 구현"""
+"""조건 분기 노드 구현 - Multi-Branch 지원"""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from workflow.nodes.base.node import Node
 
-from .entities import Condition, ConditionNodeData, ConditionOperator
+from .entities import Condition, ConditionCase, ConditionNodeData, ConditionOperator
 
 
 def _get_nested_value(data: Any, keys: List[str]) -> Any:
@@ -23,46 +23,83 @@ def _get_nested_value(data: Any, keys: List[str]) -> Any:
 class ConditionNode(Node[ConditionNodeData]):
     """
     조건을 평가하여 워크플로우 흐름을 분기시키는 노드입니다.
-    조건 평가 결과에 따라 'true' 또는 'false' 핸들로 분기합니다.
+    여러 분기 케이스를 순차적으로 평가하여 첫 번째로 만족하는 케이스의 핸들로 분기합니다.
+    어떤 케이스도 만족하지 않으면 'else' 핸들로 분기합니다.
     """
 
     node_type = "conditionNode"
 
     def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        설정된 조건들을 평가하고 선택된 분기 핸들을 반환합니다.
+        설정된 케이스들을 순차적으로 평가하고 선택된 분기 핸들을 반환합니다.
 
         Args:
             inputs: 이전 노드들의 실행 결과
 
         Returns:
             {
-                "result": bool,           # 조건 평가 결과
-                "selected_handle": str    # "true" 또는 "false"
+                "matched_case_id": str | None,  # 매칭된 케이스 ID
+                "selected_handle": str          # 케이스 ID 또는 "else"
             }
         """
+        cases = self._get_cases()
+
+        print(f"[{self.data.title}] 조건 평가 시작 (케이스 수: {len(cases)})")
+
+        for case in cases:
+            result = self._evaluate_case(case, inputs)
+            print(f"  - 케이스 '{case.case_name or case.id}': {result}")
+
+            if result:
+                print(f"[{self.data.title}] 선택된 핸들: {case.id}")
+                return {
+                    "matched_case_id": case.id,
+                    "selected_handle": case.id,
+                }
+
+        print(f"[{self.data.title}] 매칭된 케이스 없음, 선택된 핸들: default")
+        return {
+            "matched_case_id": None,
+            "selected_handle": "default",
+        }
+
+    def _get_cases(self) -> List[ConditionCase]:
+        """
+        케이스 목록을 반환합니다.
+        하위 호환성을 위해 레거시 conditions 필드도 지원합니다.
+        """
+        # 새로운 cases 필드가 있으면 사용
+        if self.data.cases:
+            return self.data.cases
+
+        # 레거시: 기존 conditions 필드가 있으면 하나의 케이스로 변환
+        if self.data.conditions:
+            legacy_case = ConditionCase(
+                id="true",  # 기존 동작과 호환: 조건 만족 시 "true"
+                case_name="True",
+                conditions=self.data.conditions,
+                logical_operator=self.data.logical_operator or "and",
+            )
+            return [legacy_case]
+
+        return []
+
+    def _evaluate_case(self, case: ConditionCase, inputs: Dict[str, Any]) -> bool:
+        """단일 케이스의 모든 조건을 평가합니다."""
+        if not case.conditions:
+            # 조건이 없으면 항상 참 (catch-all)
+            return True
+
         results = []
-
-        print(f"[{self.data.title}] 조건 평가 시작 (조건 수: {len(self.data.conditions)})")
-
-        for condition in self.data.conditions:
+        for condition in case.conditions:
             result = self._evaluate_condition(condition, inputs)
             results.append(result)
-            print(f"  - 조건 '{condition.id}': {result}")
 
         # 논리 연산자로 결과 결합
-        if self.data.logical_operator == "and":
-            final_result = all(results) if results else False
+        if case.logical_operator == "and":
+            return all(results)
         else:  # "or"
-            final_result = any(results) if results else False
-
-        selected_handle = "true" if final_result else "false"
-        print(f"[{self.data.title}] 최종 결과: {final_result}, 선택된 핸들: {selected_handle}")
-
-        return {
-            "result": final_result,
-            "selected_handle": selected_handle,
-        }
+            return any(results)
 
     def _evaluate_condition(self, condition: Condition, inputs: Dict[str, Any]) -> bool:
         """단일 조건을 평가합니다."""

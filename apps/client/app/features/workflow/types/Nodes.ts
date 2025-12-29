@@ -49,9 +49,15 @@ export interface Condition {
   value: string;
 }
 
-export interface ConditionNodeData extends BaseNodeData {
+export interface ConditionCase {
+  id: string; // case ID (핸들 ID로 사용)
+  case_name: string; // 사용자가 지정하는 분기 이름
   conditions: Condition[];
   logical_operator: 'and' | 'or';
+}
+
+export interface ConditionNodeData extends BaseNodeData {
+  cases: ConditionCase[];
 }
 
 // [LLMNode]
