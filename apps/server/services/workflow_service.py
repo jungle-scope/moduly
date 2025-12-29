@@ -1,11 +1,57 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from db.models.app import App
 from db.models.workflow import Workflow
-from schemas.workflow import WorkflowDraftRequest
+from schemas.workflow import WorkflowCreateRequest, WorkflowDraftRequest
 
 
 class WorkflowService:
+    @staticmethod
+    def create_workflow(
+        db: Session,
+        request: WorkflowCreateRequest,
+        user_id: str,
+    ) -> Workflow:
+        """
+        새 워크플로우 생성
+
+        Args:
+            db: 데이터베이스 세션
+            request: 워크플로우 생성 요청 (app_id, name, description)
+            user_id: 생성자 ID
+
+        Returns:
+            생성된 Workflow 객체
+        """
+        # 앱 존재 확인 및 권한 체크
+        app = db.query(App).filter(App.id == request.app_id).first()
+        if not app:
+            raise HTTPException(status_code=404, detail="App not found")
+
+        if app.created_by != user_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        # 새 워크플로우 생성
+        workflow = Workflow(
+            tenant_id=user_id,
+            app_id=request.app_id,
+            created_by=user_id,
+            marked_name=request.name,
+            marked_comment=request.description,
+            graph={
+                "nodes": [],
+                "edges": [],
+                "viewport": {"x": 0, "y": 0, "zoom": 1},
+            },
+        )
+
+        db.add(workflow)
+        db.commit()
+        db.refresh(workflow)
+
+        return workflow
+
     @staticmethod
     def save_draft(
         db: Session,
