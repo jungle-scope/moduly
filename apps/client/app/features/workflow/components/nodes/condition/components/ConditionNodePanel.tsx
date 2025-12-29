@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Plus, X } from 'lucide-react';
 // import { v4 as uuidv4 } from 'uuid';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
@@ -7,6 +7,7 @@ import {
   Condition,
   StartNodeData,
 } from '../../../../types/Nodes';
+import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 
 interface ConditionNodePanelProps {
   nodeId: string;
@@ -29,7 +30,12 @@ const CONDITION_OPERATORS = [
 ];
 
 export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
-  const { updateNodeData, nodes } = useWorkflowStore();
+  const { updateNodeData, nodes, edges } = useWorkflowStore();
+
+  const upstreamNodes = useMemo(
+    () => getUpstreamNodes(nodeId, nodes, edges),
+    [nodeId, nodes, edges],
+  );
 
   const handleAddCondition = useCallback(() => {
     const newCondition: Condition = {
@@ -135,13 +141,11 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                     <option value="" disabled>
                       노드 선택
                     </option>
-                    {nodes
-                      .filter((n) => n.id !== nodeId)
-                      .map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {(n.data as { title?: string })?.title || n.type}
-                        </option>
-                      ))}
+                    {upstreamNodes.map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {(n.data as { title?: string })?.title || n.type}
+                      </option>
+                    ))}
                   </select>
 
                   {isStartNode ? (

@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { Plus, X } from 'lucide-react';
 import { AnswerNodeData, AnswerNodeOutput } from './AnswerNode';
 import { StartNodeData } from '../../../../types/Nodes';
+import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 
 interface AnswerNodePanelProps {
   nodeId: string;
@@ -10,7 +11,12 @@ interface AnswerNodePanelProps {
 }
 
 export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
-  const { updateNodeData, nodes } = useWorkflowStore();
+  const { updateNodeData, nodes, edges } = useWorkflowStore();
+
+  const upstreamNodes = useMemo(
+    () => getUpstreamNodes(nodeId, nodes, edges),
+    [nodeId, nodes, edges],
+  );
 
   const handleAddOutput = useCallback(() => {
     const newOutputs = [
@@ -116,13 +122,11 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                     <option value="" disabled>
                       노드 선택
                     </option>
-                    {nodes
-                      .filter((n) => n.id !== nodeId)
-                      .map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {(n.data as { title?: string })?.title || n.type}
-                        </option>
-                      ))}
+                    {upstreamNodes.map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {(n.data as { title?: string })?.title || n.type}
+                      </option>
+                    ))}
                   </select>
 
                   {/* 동적 소스 변수 입력/선택 */}
