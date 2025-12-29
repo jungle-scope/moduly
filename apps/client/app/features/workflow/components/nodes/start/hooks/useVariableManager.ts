@@ -1,15 +1,107 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   StartNodeData,
   WorkflowVariable,
   SelectOption,
   VariableType,
+  ConditionNodeData,
 } from '../../../../types/Nodes';
+import { AnswerNodeData } from '../../answer/components/AnswerNode';
 
 export const useVariableManager = (id: string, data: StartNodeData) => {
   const { updateNodeData } = useReactFlow();
+  const { nodes, updateNodeData: storeUpdateNodeData } = useWorkflowStore();
   const variables = useMemo(() => data.variables || [], [data.variables]);
+
+  // 기존 이름 기반 참조를 ID 기반으로 마이그레이션
+  useEffect(() => {
+    if (variables.length === 0) return;
+
+    // 이 시작 노드를 참조하는 모든 Answer 노드 찾기
+    const answerNodes = nodes.filter(
+      (n) => (n.type as string) === 'answerNode',
+    );
+
+    answerNodes.forEach((answerNode) => {
+      const answerData = answerNode.data as unknown as AnswerNodeData;
+      if (!answerData.outputs) return;
+
+      let needsUpdate = false;
+      const updatedOutputs = answerData.outputs.map((output) => {
+        // 이 시작 노드를 참조하는 출력만 처리
+        if (output.value_selector?.[0] !== id) return output;
+
+        const currentRef = output.value_selector[1];
+        if (!currentRef) return output;
+
+        // 이미 ID 기반인지 확인 (UUID 형식이면 이미 ID)
+        const isAlreadyId = variables.some((v) => v.id === currentRef);
+        if (isAlreadyId) return output;
+
+        // 이름으로 변수 찾아서 ID로 변환
+        const matchedVar = variables.find((v) => v.name === currentRef);
+        if (matchedVar) {
+          needsUpdate = true;
+          return {
+            ...output,
+            value_selector: [id, matchedVar.id],
+          };
+        }
+
+        return output;
+      });
+
+      if (needsUpdate) {
+        storeUpdateNodeData(answerNode.id, { outputs: updatedOutputs });
+      }
+    });
+
+    // Condition 노드의 variable_selector도 마이그레이션
+    const conditionNodes = nodes.filter(
+      (n) => (n.type as string) === 'conditionNode',
+    );
+
+    conditionNodes.forEach((conditionNode) => {
+      const conditionData = conditionNode.data as unknown as ConditionNodeData;
+      if (!conditionData.cases) return;
+
+      let needsUpdate = false;
+      const updatedCases = conditionData.cases.map((caseItem) => {
+        const updatedConditions = caseItem.conditions.map((condition) => {
+          // 이 시작 노드를 참조하는 조건만 처리
+          if (condition.variable_selector?.[0] !== id) return condition;
+
+          const currentRef = condition.variable_selector[1];
+          if (!currentRef) return condition;
+
+          // 이미 ID 기반인지 확인
+          const isAlreadyId = variables.some((v) => v.id === currentRef);
+          if (isAlreadyId) return condition;
+
+          // 이름으로 변수 찾아서 ID로 변환
+          const matchedVar = variables.find((v) => v.name === currentRef);
+          if (matchedVar) {
+            needsUpdate = true;
+            return {
+              ...condition,
+              variable_selector: [id, matchedVar.id],
+            };
+          }
+
+          return condition;
+        });
+
+        return { ...caseItem, conditions: updatedConditions };
+      });
+
+      if (needsUpdate) {
+        storeUpdateNodeData(conditionNode.id, { cases: updatedCases });
+      }
+    });
+  }, [id, variables, nodes, storeUpdateNodeData]);
+
   const addVariable = useCallback(() => {
     const newVar: WorkflowVariable = {
       id: crypto.randomUUID(),
