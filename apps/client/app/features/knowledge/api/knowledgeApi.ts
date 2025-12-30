@@ -35,6 +35,7 @@ export interface KnowledgeCreateRequest {
   similarity: number;
   chunkSize: number;
   chunkOverlap: number;
+  knowledgeBaseId?: string;
 }
 
 export interface KnowledgeBaseResponse {
@@ -44,6 +45,20 @@ export interface KnowledgeBaseResponse {
   document_count: number;
   created_at: string;
   embedding_model: string;
+}
+
+export interface DocumentResponse {
+  id: string;
+  filename: string;
+  status: 'pending' | 'indexing' | 'completed' | 'failed';
+  created_at: string;
+  error_message?: string;
+  chunk_count: number;
+  token_count: number;
+}
+
+export interface KnowledgeBaseDetailResponse extends KnowledgeBaseResponse {
+  documents: DocumentResponse[];
 }
 
 export const knowledgeApi = {
@@ -60,6 +75,8 @@ export const knowledgeApi = {
     formData.append('similarity', data.similarity.toString());
     formData.append('chunkSize', data.chunkSize.toString());
     formData.append('chunkOverlap', data.chunkOverlap.toString());
+    if (data.knowledgeBaseId)
+      formData.append('knowledgeBaseId', data.knowledgeBaseId);
 
     // Content-Type은 axios가 자동으로 multipart/form-data로 설정함
     const response = await api.post('/rag/upload', formData);
@@ -78,5 +95,13 @@ export const knowledgeApi = {
       console.error('[knowledgeApi] Error details:', error);
       throw error;
     }
+  },
+
+  // 지식 베이스 상세 조회
+  getKnowledgeBase: async (
+    id: string,
+  ): Promise<KnowledgeBaseDetailResponse> => {
+    const response = await api.get(`/knowledge/${id}`);
+    return response.data;
   },
 };

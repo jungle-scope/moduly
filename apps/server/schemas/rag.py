@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
-# --- Ingestion Schemas (Dev A) ---
+# --- Dev A ---
 class IngestionResponse(BaseModel):
     knowledge_base_id: UUID
     document_id: UUID
@@ -20,6 +20,20 @@ class KnowledgeBaseResponse(BaseModel):
     document_count: int
     created_at: datetime
     embedding_model: str
+
+
+class DocumentResponse(BaseModel):
+    id: UUID
+    filename: str
+    status: str
+    created_at: datetime
+    error_message: Optional[str] = None
+    chunk_count: int = 0
+    token_count: int = 0  # 추후 구현
+
+
+class KnowledgeBaseDetailResponse(KnowledgeBaseResponse):
+    documents: List[DocumentResponse]
 
 
 # --- Retrieval Schemas (Dev B) ---

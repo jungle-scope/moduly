@@ -18,7 +18,7 @@ app.add_middleware(
         "http://localhost:3000",  # Frontend 개발 서버
         "http://127.0.0.1:3000",
     ],
-    allow_credentials=True,  # ✅ 쿠키 전송 허용
+    allow_credentials=True,  # 쿠키 전송 허용
     allow_methods=["*"],
     allow_headers=["*"],
 )

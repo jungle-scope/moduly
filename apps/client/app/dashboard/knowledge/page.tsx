@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search, Plus, Database, Calendar, FileText } from 'lucide-react';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import {
@@ -9,6 +10,7 @@ import {
 } from '@/app/features/knowledge/api/knowledgeApi';
 
 export default function KnowledgePage() {
+  const router = useRouter();
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseResponse[]>(
     [],
   );
@@ -114,6 +116,7 @@ export default function KnowledgePage() {
           {filteredKnowledge.map((kb, index) => (
             <div
               key={kb.id}
+              onClick={() => router.push(`/dashboard/knowledge/${kb.id}`)}
               className={`group flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
                 index !== filteredKnowledge.length - 1
                   ? 'border-b border-gray-200 dark:border-gray-700'

@@ -7,11 +7,13 @@ import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
 interface CreateKnowledgeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  knowledgeBaseId?: string;
 }
 
 export default function CreateKnowledgeModal({
   isOpen,
   onClose,
+  knowledgeBaseId,
 }: CreateKnowledgeModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
@@ -64,13 +66,14 @@ export default function CreateKnowledgeModal({
         similarity: formData.similarity,
         chunkSize: formData.chunkSize,
         chunkOverlap: formData.chunkOverlap,
+        knowledgeBaseId: knowledgeBaseId,
       });
 
-      // 성공 시 모달 닫기 (부모 컴포넌트에서 리스트 갱신됨)
+      // 성공 시 모달 닫기
       onClose();
     } catch (error) {
-      console.error('Failed to create knowledge base:', error);
-      alert('지식 베이스 생성에 실패했습니다.');
+      console.error('Failed to create/upload knowledge base:', error);
+      alert('요청 처리에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +87,7 @@ export default function CreateKnowledgeModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            지식 베이스 생성
+            {knowledgeBaseId ? '문서 추가' : '지식 베이스 생성'}
           </h2>
           <button
             onClick={onClose}
@@ -133,42 +136,44 @@ export default function CreateKnowledgeModal({
             </div>
           </div>
 
-          {/* Basic Info */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              📝 기본 정보
-            </label>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  이름
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  placeholder="예: 제품 매뉴얼"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  설명
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="이 지식 베이스에 대한 설명을 입력하세요"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                />
+          {/* Basic Info (Only for New KB) */}
+          {!knowledgeBaseId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                📝 기본 정보
+              </label>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    이름
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    placeholder="예: 제품 매뉴얼"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    설명
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    placeholder="이 지식 베이스에 대한 설명을 입력하세요"
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Advanced Settings */}
           <div>
@@ -312,6 +317,8 @@ export default function CreateKnowledgeModal({
                 <Loader2 className="w-4 h-4 animate-spin" />
                 생성 중...
               </>
+            ) : knowledgeBaseId ? (
+              '추가하기'
             ) : (
               '생성하기'
             )}
