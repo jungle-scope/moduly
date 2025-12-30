@@ -1,5 +1,9 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+load_dotenv()  # .env 파일 로드
+from sqlalchemy import text
 
 from api.api import api_router
 from db.base import Base
@@ -14,7 +18,7 @@ app.add_middleware(
         "http://localhost:3000",  # Frontend 개발 서버
         "http://127.0.0.1:3000",
     ],
-    allow_credentials=True,  # ✅ 쿠키 전송 허용
+    allow_credentials=True,  # 쿠키 전송 허용
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -29,6 +33,10 @@ def on_startup():
     """
     앱 시작 시 데이터베이스 테이블을 자동으로 생성합니다.
     """
+    # pgvector 확장 활성화
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
     Base.metadata.create_all(bind=engine)
     print("✅ Database tables created successfully!")
 
