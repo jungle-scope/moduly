@@ -109,15 +109,28 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'code',
     type: 'codeNode',
-    name: 'Code',
+    name: '코드 실행',
     category: 'logic',
-    color: 'bg-cyan-500',
+    color: '#10B981', // Changed from 'bg-cyan-500' to '#10B981'
     icon: '💻',
-    implemented: false,
-    description: '커스텀 코드를 실행합니다.',
+    implemented: true,
+    description: 'Python 코드를 Docker 샌드박스에서 안전하게 실행합니다', // Updated description
     defaultData: () => ({
-      title: 'Code',
-      code: '',
+      title: '코드 실행',
+      code: `def main(inputs):
+    # 입력변수를 inputs['변수명']의 형태로 할당
+    
+    val1 = inputs['변수명1']
+    val2 = inputs['변수명2']
+    
+    total = val1 + val2
+    
+    # 반드시 딕셔너리 형태로 결과 반환
+    return {
+        "result": total
+    }`,
+      inputs: [],
+      timeout: 10,
     }),
   },
   {

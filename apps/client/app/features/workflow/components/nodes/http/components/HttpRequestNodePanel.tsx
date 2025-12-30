@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { Plus, Trash2 } from 'lucide-react';
 import {
@@ -6,6 +6,8 @@ import {
   HttpMethod,
   AuthType,
 } from '../../../../types/Nodes';
+import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 
 interface HttpRequestNodePanelProps {
   nodeId: string;
@@ -16,23 +18,27 @@ export function HttpRequestNodePanel({
   nodeId,
   data,
 }: HttpRequestNodePanelProps) {
-  const { updateNodeData, nodes } = useWorkflowStore();
+  const { updateNodeData, nodes, edges } = useWorkflowStore();
 
-  // Get available variables from other nodes
-  const availableVariables = nodes
-    .filter((n) => n.id !== nodeId)
-    .flatMap((n) => {
-      if (n.type === 'startNode') {
-        const startData = n.data as any; // Using any to avoid circular type dependency issues for now
-        return (startData.variables || []).map((v: any) => ({
-          id: `${n.id}.${v.name}`,
-          label: `${n.data.title || 'Start'} > ${v.label}`,
-          value: `{{${n.id}.${v.name}}}`,
+  // 상위 노드 가져오기
+  const upstreamNodes = useMemo(
+    () => getUpstreamNodes(nodeId, nodes, edges),
+    [nodeId, nodes, edges],
+  );
+
+  // 모든 상위 노드에서 사용 가능한 변수 가져오기
+  const availableVariables = useMemo(
+    () =>
+      upstreamNodes.flatMap((n) => {
+        const outputs = getNodeOutputs(n);
+        return outputs.map((outputKey) => ({
+          id: `${n.id}.${outputKey}`,
+          label: `${(n.data as { title?: string })?.title || n.type} > ${outputKey}`,
+          value: `{{${n.id}.${outputKey}}}`,
         }));
-      }
-      // Future: Add other node types here (e.g. LLMNode outputs)
-      return [];
-    });
+      }),
+    [upstreamNodes],
+  );
 
   const handleUpdateData = useCallback(
     (key: keyof HttpRequestNodeData, value: unknown) => {
