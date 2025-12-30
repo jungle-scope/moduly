@@ -116,10 +116,21 @@ export const nodeRegistry: NodeDefinition[] = [
     implemented: true,
     description: 'Python 코드를 Docker 샌드박스에서 안전하게 실행합니다', // Updated description
     defaultData: () => ({
-      title: '코드 실행', // Updated title
-      code: 'def main(inputs):\n    return {"result": "hello"}', // Updated default code
-      inputs: [], // Added inputs
-      timeout: 10, // Added timeout
+      title: '코드 실행',
+      code: `def main(inputs):
+    # 입력변수를 inputs['변수명']의 형태로 할당
+    
+    val1 = inputs['변수명1']
+    val2 = inputs['변수명2']
+    
+    total = val1 + val2
+    
+    # 반드시 딕셔너리 형태로 결과 반환
+    return {
+        "result": total
+    }`,
+      inputs: [],
+      timeout: 10,
     }),
   },
   {

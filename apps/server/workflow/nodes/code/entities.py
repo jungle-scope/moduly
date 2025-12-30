@@ -18,7 +18,19 @@ class CodeNodeData(BaseNodeData):
     """코드 실행 노드 데이터 모델"""
 
     code: str = Field(
-        "def main(inputs):\n    return {}", description="실행할 파이썬 코드"
+        "def main(inputs):\n"
+        "    # 입력변수를 inputs['변수명']의 형태로 할당\n"
+        "    \n"
+        "    val1 = inputs['변수명1']\n"
+        "    val2 = inputs['변수명2']\n"
+        "    \n"
+        "    total = val1 + val2\n"
+        "    \n"
+        "    # 반드시 딕셔너리 형태로 결과 반환\n"
+        "    return {\n"
+        '        "result": total\n'
+        "    }",
+        description="실행할 파이썬 코드",
     )
     inputs: List[CodeNodeInput] = Field(
         default_factory=list, description="입력 변수 매핑"

@@ -9,12 +9,9 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react';
-import {
-  CodeNodeData,
-  CodeNodeInput,
-  StartNodeData,
-} from '../../../../types/Nodes';
+import { CodeNodeData, CodeNodeInput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 
 interface CodeNodePanelProps {
   nodeId: string;
@@ -22,14 +19,16 @@ interface CodeNodePanelProps {
 }
 
 const DEFAULT_CODE = `def main(inputs):
-    """
-    inputs: 딕셔너리 (예: {"query": "hello"})
-    return: 반드시 딕셔너리를 리턴해야 합니다.
-    """
-    # 여기에 코드를 작성하세요
+    # 입력변수를 inputs['변수명']의 형태로 할당
     
+    val1 = inputs['변수명1']
+    val2 = inputs['변수명2']
+    
+    total = val1 + val2
+    
+    # 반드시 딕셔너리 형태로 결과 반환
     return {
-        "result": "처리 결과"
+        "result": total
     }
 `;
 
@@ -108,7 +107,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Input Variables Section */}
+      {/* 입력 변수 섹션 */}
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-gray-800">입력 변수</h3>
@@ -121,21 +120,16 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
           </button>
         </div>
 
-        {/* Input Variables List */}
+        {/* 입력 변수 목록 */}
         <div className="space-y-3">
           {data.inputs?.map((input, index) => {
             const [sourceNodeId, sourceVariable] = input.source.split('.');
             const selectedSourceNode = nodes.find((n) => n.id === sourceNodeId);
 
-            let sourceVariables: { label: string; value: string }[] = [];
-            if (selectedSourceNode && selectedSourceNode.type === 'startNode') {
-              const startData =
-                selectedSourceNode.data as unknown as StartNodeData;
-              sourceVariables = (startData.variables || []).map((v) => ({
-                label: v.name,
-                value: v.name,
-              }));
-            }
+            // 선택된 노드의 출력 목록 가져오기
+            const availableOutputs = selectedSourceNode
+              ? getNodeOutputs(selectedSourceNode)
+              : [];
 
             return (
               <div
@@ -182,19 +176,21 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
                   </select>
 
                   <select
-                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                    className={`h-8 w-1/2 rounded border px-2 text-sm focus:border-blue-500 focus:outline-none ${
+                      !selectedSourceNode
+                        ? 'bg-gray-100 text-gray-400 border-gray-200'
+                        : 'border-gray-300 bg-white'
+                    }`}
                     value={sourceVariable || ''}
                     onChange={(e) =>
                       handleSourceVariableChange(index, e.target.value)
                     }
-                    disabled={sourceVariables.length === 0}
+                    disabled={!selectedSourceNode}
                   >
-                    <option value="" disabled>
-                      {sourceVariables.length === 0 ? '변수 없음' : '변수 선택'}
-                    </option>
-                    {sourceVariables.map((v) => (
-                      <option key={v.value} value={v.value}>
-                        {v.label}
+                    <option value="">출력 선택</option>
+                    {availableOutputs.map((outKey) => (
+                      <option key={outKey} value={outKey}>
+                        {outKey}
                       </option>
                     ))}
                   </select>
@@ -210,7 +206,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
           </p>
         )}
 
-        {/* Usage Hint */}
+        {/* 사용 힌트 */}
         <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
           💡 코드에서{' '}
           <code className="px-1 py-0.5 bg-blue-100 rounded font-mono">
@@ -220,7 +216,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
         </div>
       </div>
 
-      {/* Code Editor Section */}
+      {/* 코드 에디터 섹션 */}
       <div className="flex-1 flex flex-col bg-gray-900">
         <div className="px-4 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
           <h3 className="text-sm font-medium text-gray-200">Python 코드</h3>
@@ -252,7 +248,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
         </div>
       </div>
 
-      {/* Advanced Settings */}
+      {/* 고급 설정 */}
       <div className="border-t border-gray-200 bg-gray-50">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
@@ -296,11 +292,11 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
         )}
       </div>
 
-      {/* Expanded Modal */}
+      {/* 확장 모달(코드 에디터) */}
       {isExpanded && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-8">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl h-[80vh] flex flex-col">
-            {/* Modal Header */}
+            {/* 모달 헤더 */}
             <div className="px-6 py-4 bg-gray-800 rounded-t-lg flex items-center justify-between">
               <h3 className="text-lg font-semibold text-white">
                 Python 코드 편집기
@@ -314,7 +310,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
               </button>
             </div>
 
-            {/* Modal Content */}
+            {/* 모달 내용 */}
             <div className="flex-1 bg-gray-900">
               <Editor
                 height="100%"
@@ -334,7 +330,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
               />
             </div>
 
-            {/* Modal Footer */}
+            {/* 모달 푸터 */}
             <div className="px-6 py-4 bg-gray-100 rounded-b-lg border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
