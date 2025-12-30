@@ -16,3 +16,8 @@ api_router.include_router(app.router, prefix="/apps", tags=["apps"])
 # 예: api_router.include_router(user.router, prefix="/users", tags=["users"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(llm.router, prefix="/llm", tags=["llm"])
+api_router.include_router(rag.router, prefix="/rag", tags=["rag"])
+api_router.include_router(
+    deployment.router, prefix="/deployments", tags=["deployments"]
+)
+api_router.include_router(run.router, tags=["run"])

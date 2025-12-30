@@ -11,7 +11,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from api.deps import get_db
+from db.session import get_db
 from db.models.knowledge import KnowledgeBase
 from schemas.rag import IngestionResponse, RAGResponse, SearchQuery
 from services.ingestion import IngestionService
