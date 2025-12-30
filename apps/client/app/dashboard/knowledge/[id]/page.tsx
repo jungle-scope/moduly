@@ -13,6 +13,7 @@ import {
   XCircle,
   Clock,
   Settings,
+  Trash2,
 } from 'lucide-react';
 import {
   knowledgeApi,
@@ -293,7 +294,15 @@ export default function KnowledgeDetailPage() {
                       {formatDate(doc.created_at)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {/* 추후 삭제 버튼 등 추가 예정 */}
+                      <button
+                        className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                        title="문서 삭제"
+                        onClick={() =>
+                          alert(`삭제 기능(준비중): ${doc.filename}`)
+                        }
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))
