@@ -13,6 +13,7 @@ from schemas.rag import (
     DocumentResponse,
     KnowledgeBaseDetailResponse,
     KnowledgeBaseResponse,
+    KnowledgeUpdate,
 )
 
 router = APIRouter()
@@ -94,4 +95,42 @@ def get_knowledge_base(
         created_at=kb.created_at,
         embedding_model=kb.embedding_model,
         documents=doc_responses,
+    )
+
+
+@router.patch("/{kb_id}", response_model=KnowledgeBaseResponse)
+def update_knowledge_base(
+    kb_id: UUID,
+    update_data: KnowledgeUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    지식 베이스의 설정을 수정합니다. (이름, 설명)
+    """
+    kb = (
+        db.query(KnowledgeBase)
+        .filter(KnowledgeBase.id == kb_id, KnowledgeBase.user_id == current_user.id)
+        .first()
+    )
+
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge Base not found")
+
+    if update_data.name is not None:
+        kb.name = update_data.name
+    if update_data.description is not None:
+        kb.description = update_data.description
+
+    db.commit()
+    db.refresh(kb)
+
+    # PATCH에서는 문서 개수를 세지 않음 (성능 최적화)
+    return KnowledgeBaseResponse(
+        id=kb.id,
+        name=kb.name,
+        description=kb.description,
+        document_count=None,
+        created_at=kb.created_at,
+        embedding_model=kb.embedding_model,
     )

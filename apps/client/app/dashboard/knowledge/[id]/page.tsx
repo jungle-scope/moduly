@@ -30,12 +30,20 @@ export default function KnowledgeDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+
   // 데이터 조회
   const fetchKnowledgeBase = async () => {
     try {
       setIsLoading(true);
       const data = await knowledgeApi.getKnowledgeBase(id);
       setKnowledgeBase(data);
+
+      setEditName(data.name);
+      setEditDesc(data.description || '');
     } catch (error) {
       console.error('Failed to fetch knowledge base', error);
       alert('지식 베이스를 불러오는데 실패했습니다.');
@@ -97,6 +105,39 @@ export default function KnowledgeDetailPage() {
     }
   };
 
+  const handleNameUpdate = async () => {
+    if (!editName.trim()) {
+      alert('이름은 비워둘 수 없습니다.');
+      return;
+    }
+    if (editName === knowledgeBase?.name) {
+      setIsEditingName(false);
+      return;
+    }
+    try {
+      await knowledgeApi.updateKnowledgeBase(id, { name: editName });
+      setIsEditingName(false);
+      fetchKnowledgeBase();
+    } catch {
+      alert('이름 수정 실패');
+    }
+  };
+
+  // 설명 수정 핸들러
+  const handleDescUpdate = async () => {
+    if (editDesc === knowledgeBase?.description) {
+      setIsEditingDesc(false);
+      return;
+    }
+    try {
+      await knowledgeApi.updateKnowledgeBase(id, { description: editDesc });
+      setIsEditingDesc(false);
+      fetchKnowledgeBase();
+    } catch {
+      alert('설명 수정 실패');
+    }
+  };
+
   if (isLoading || !knowledgeBase) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -118,15 +159,56 @@ export default function KnowledgeDetailPage() {
 
       {/* Title Header */}
       <div className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <Database className="w-8 h-8 text-blue-600" />
-            {knowledgeBase.name}
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400 max-w-3xl">
-            {knowledgeBase.description || '설명 없음'}
-          </p>
-          <div className="flex items-center gap-4 mt-4 text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex-1 mr-4">
+          <div className="flex items-center gap-3">
+            <Database className="w-8 h-8 text-blue-600 flex-shrink-0" />
+            {isEditingName ? (
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onBlur={handleNameUpdate}
+                onKeyDown={(e) => e.key === 'Enter' && handleNameUpdate()}
+                autoFocus
+                className="text-3xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
+              />
+            ) : (
+              <h1
+                onClick={() => setIsEditingName(true)}
+                className="text-3xl font-bold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors"
+                title="클릭하여 이름 수정"
+              >
+                {knowledgeBase.name}
+              </h1>
+            )}
+          </div>
+          <div className="mt-2 ml-11">
+            {isEditingDesc ? (
+              <textarea
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                onBlur={handleDescUpdate}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleDescUpdate();
+                  }
+                }}
+                autoFocus
+                rows={2}
+                className="text-gray-600 dark:text-gray-400 bg-transparent border-b-2 border-blue-500 focus:outline-none w-full resize-none"
+              />
+            ) : (
+              <p
+                onClick={() => setIsEditingDesc(true)}
+                className="text-gray-600 dark:text-gray-400 max-w-3xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors min-h-[1.5rem]"
+                title="클릭하여 설명 수정"
+              >
+                {knowledgeBase.description || '설명 없음 (클릭하여 추가)'}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-4 mt-4 ml-11 text-sm text-gray-500 dark:text-gray-400">
             <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
               <Calendar className="w-4 h-4" />
               <span>생성: {formatDate(knowledgeBase.created_at)}</span>
@@ -178,7 +260,7 @@ export default function KnowledgeDetailPage() {
                   >
                     <div className="flex flex-col items-center gap-2">
                       <FileText className="w-8 h-8 opacity-20" />
-                      <p>아직 등록된 문 서가 없습니다.</p>
+                      <p>아직 등록된 문서가 없습니다.</p>
                     </div>
                   </td>
                 </tr>

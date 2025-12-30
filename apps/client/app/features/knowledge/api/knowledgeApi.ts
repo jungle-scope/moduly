@@ -104,4 +104,13 @@ export const knowledgeApi = {
     const response = await api.get(`/knowledge/${id}`);
     return response.data;
   },
+
+  // 지식 베이스 수정 (이름, 설명)
+  updateKnowledgeBase: async (
+    id: string,
+    data: { name?: string; description?: string },
+  ): Promise<KnowledgeBaseResponse> => {
+    const response = await api.patch(`/knowledge/${id}`, data);
+    return response.data;
+  },
 };

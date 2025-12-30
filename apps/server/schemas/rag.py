@@ -17,9 +17,14 @@ class KnowledgeBaseResponse(BaseModel):
     id: UUID
     name: str
     description: Optional[str] = None
-    document_count: int
+    document_count: Optional[int] = None
     created_at: datetime
     embedding_model: str
+
+
+class KnowledgeUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 
 class DocumentResponse(BaseModel):
