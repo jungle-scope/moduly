@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Plus, Database, FileText, Calendar } from 'lucide-react';
+import { Search, Plus, Database, Calendar } from 'lucide-react';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 
 // 임시 데이터
