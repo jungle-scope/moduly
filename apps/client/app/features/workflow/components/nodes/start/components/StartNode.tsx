@@ -9,7 +9,12 @@ export const StartNode = memo(
         className={`
           relative bg-white rounded-lg border-2 px-4 py-3 shadow-md transition-all cursor-pointer
           min-w-[200px]
-          ${selected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-300'}
+          ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-border'}
+          
+          {/* 실행 상태 시각화 (BaseNode와 동일한 로직 적용) */}
+          ${data.status === 'running' && 'border-blue-500 ring-2 ring-blue-500/20 animate-pulse'}
+          ${data.status === 'success' && 'border-green-500 ring-2 ring-green-500/20'}
+          ${data.status === 'failure' && 'border-red-500 ring-2 ring-red-500/20'}
         `}
       >
         {/* Source Handle (Right side) */}

@@ -159,17 +159,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   onNodesChange: (changes: NodeChange[]) => {
-    const newNodes = applyNodeChanges(changes, get().nodes);
+    const currentNodes = get().nodes || [];
+    const newNodes = applyNodeChanges(changes, currentNodes);
     get().setNodes(newNodes as Node[]);
   },
 
   onEdgesChange: (changes: EdgeChange[]) => {
-    const newEdges = applyEdgeChanges(changes, get().edges);
+    const currentEdges = get().edges || [];
+    const newEdges = applyEdgeChanges(changes, currentEdges);
     get().setEdges(newEdges);
   },
 
   onConnect: (connection: Connection) => {
-    const newEdges = addEdge(connection, get().edges);
+    const currentEdges = get().edges || [];
+    const newEdges = addEdge(connection, currentEdges);
     get().setEdges(newEdges);
   },
 
@@ -294,7 +297,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           return {
             ...node,
             data: { ...node.data, ...newData },
-          };
+          } as Node;
         }
         return node;
       }),
@@ -303,8 +306,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setWorkflowData: (data) => {
     set({
-      nodes: data.nodes,
-      edges: data.edges,
+      nodes: data.nodes || [],
+      edges: data.edges || [],
       features: data.features || {},
       environmentVariables: data.environmentVariables || [],
       conversationVariables: data.conversationVariables || [],

@@ -1,6 +1,8 @@
 from typing import List
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
@@ -33,7 +35,7 @@ def create_workflow(
     )
 
     return {
-        "id": workflow.id,
+        "id": str(workflow.id),
         "app_id": workflow.app_id,
         "marked_name": workflow.marked_name,
         "marked_comment": workflow.marked_comment,
@@ -60,7 +62,7 @@ def get_workflow(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return {
-        "id": workflow.id,
+        "id": str(workflow.id),
         "app_id": workflow.app_id,
         "marked_name": workflow.marked_name,
         "marked_comment": workflow.marked_comment,
@@ -91,7 +93,7 @@ def list_workflows_by_app(
 
     return [
         {
-            "id": w.id,
+            "id": str(w.id),
             "app_id": w.app_id,
             "marked_name": w.marked_name,
             "marked_comment": w.marked_comment,
@@ -160,7 +162,7 @@ def execute_workflow(
     """
     PostgreSQL에서 워크플로우 초안 데이터를 조회하고, WorkflowEngine을 사용하여 실행합니다. (인증 필요)
     """
-    # 1. 권한 확인 (본인의 보안 로직 유지)
+    # 1. 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
     if not workflow:
@@ -169,16 +171,77 @@ def execute_workflow(
     if workflow.created_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # 2. 데이터 조회 및 실행 (develop의 최신 구조 반영)
-    graph = WorkflowService.get_draft(db, workflow_id)
-    if not graph:
-        # HTTPException으로 통일하는 것이 더 좋으므로 404를 던집니다.
-        raise HTTPException(
-            status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
-        )
+    # 2. 데이터 조회 및 실행
+    try:
+        graph = WorkflowService.get_draft(db, workflow_id)
+        if not graph:
+            raise HTTPException(
+                status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
+            )
 
-    # develop에서 추가된 user_input을 사용하여 엔진 실행
-    engine = WorkflowEngine(graph, user_input)
-    print("user_input", user_input)
+        # WorkflowEngine 인스턴스 생성 및 초기화:
+        # 1. 입력받은 graph(dict)를 NodeSchema/EdgeSchema 객체로 파싱 및 검증
+        # 2. 엣지 정보를 바탕으로 노드 간의 실행 경로(Graph 구조) 빌드
+        # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
+        engine = WorkflowEngine(graph, user_input)
+        print("user_input", user_input)
 
-    return engine.execute()
+        # 준비된 엔진을 실행 (시작 노드 탐색 -> Queue 기반 순차 실행 -> 결과 반환)
+        return engine.execute()
+    except ValueError as e:
+        # 노드 검증 실패 등의 입력 오류
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotImplementedError as e:
+        # 미지원 노드 등
+        raise HTTPException(status_code=501, detail=str(e))
+    except Exception as e:
+        # 그 외 서버 에러
+        print(f"Workflow execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{workflow_id}/stream")
+def stream_workflow(
+    workflow_id: str,
+    user_input: dict = {},
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    워크플로우를 실행하고 실행 과정을 SSE(Server-Sent Events)로 스트리밍합니다.
+    클라이언트는 이 스트림을 통해 실시간으로 노드 실행 상태('running', 'success' 등)를 시각화할 수 있습니다.
+    """
+
+    # 1. 권한 확인
+    workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    if workflow.created_by != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # 2. 데이터 조회 및 엔진 초기화
+    try:
+        graph = WorkflowService.get_draft(db, workflow_id)
+        if not graph:
+            raise HTTPException(
+                status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
+            )
+
+        engine = WorkflowEngine(graph, user_input)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # 3. 제너레이터 함수 정의 (SSE 포맷팅)
+    def event_generator():
+        try:
+            for event in engine.execute_stream():
+                # SSE 포맷: "data: {json_content}\n\n"
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            # 스트리밍 도중 에러 발생 시 에러 이벤트 전송
+            error_event = {"type": "error", "data": {"message": str(e)}}
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+    # 4. StreamingResponse 반환
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

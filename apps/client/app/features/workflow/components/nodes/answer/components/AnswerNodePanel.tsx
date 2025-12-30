@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { Plus, X } from 'lucide-react';
-import { AnswerNodeData, AnswerNodeOutput } from './AnswerNode';
-import { StartNodeData } from '../../../../types/Nodes';
+import { AnswerNodeData, AnswerNodeOutput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 
 interface AnswerNodePanelProps {
   nodeId: string;
@@ -66,23 +66,16 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
         <div className="p-4 space-y-3">
           {data.outputs?.map((output, index) => {
             const selectedSourceNodeId = output.value_selector?.[0];
+            const selectedOutputKey = output.value_selector?.[1];
+
             const selectedSourceNode = nodes.find(
               (n) => n.id === selectedSourceNodeId,
             );
 
-            // 소스 노드에서 변수 가져오기
-            let sourceVariables: { label: string; value: string }[] = [];
-            const isStartNode = selectedSourceNode?.type === 'startNode';
-
-            if (isStartNode) {
-              const startData =
-                selectedSourceNode.data as unknown as StartNodeData;
-              sourceVariables = (startData.variables || []).map((v) => ({
-                label: v.name,
-                value: v.name,
-              }));
-            }
-            // 필요한 경우 다른 노드 유형 추가 (예: LLM 결과)
+            // 선택된 노드의 가능한 output 키 목록 (Template/LLM 방식)
+            const availableOutputs = selectedSourceNode
+              ? getNodeOutputs(selectedSourceNode)
+              : [];
 
             return (
               <div
@@ -122,17 +115,23 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                     <option value="" disabled>
                       노드 선택
                     </option>
-                    {upstreamNodes.map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {(n.data as { title?: string })?.title || n.type}
-                      </option>
-                    ))}
+                    {upstreamNodes
+                      .filter((n) => n.type !== 'note')
+                      .map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {(n.data as { title?: string })?.title || n.type}
+                        </option>
+                      ))}
                   </select>
 
-                  {/* 동적 소스 변수 입력/선택 */}
+                  {/* Output 키 선택 (Template/LLM 방식) */}
                   <select
-                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                    value={output.value_selector?.[1] || ''}
+                    className={`h-8 w-1/2 rounded border px-2 text-sm focus:border-blue-500 focus:outline-none ${
+                      !selectedSourceNodeId
+                        ? 'bg-gray-100 text-gray-400 border-gray-200'
+                        : 'border-gray-300 bg-white'
+                    }`}
+                    value={selectedOutputKey || ''}
                     onChange={(e) => {
                       const currentNode = output.value_selector?.[0] || '';
                       handleUpdateOutput(index, 'value_selector', [
@@ -140,14 +139,14 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                         e.target.value,
                       ]);
                     }}
-                    disabled={sourceVariables.length === 0}
+                    disabled={!selectedSourceNodeId}
                   >
-                    <option value="" disabled>
-                      {sourceVariables.length === 0 ? '변수 없음' : '변수 선택'}
+                    <option value="">
+                      {!selectedSourceNodeId ? '출력 선택' : '출력 키 선택'}
                     </option>
-                    {sourceVariables.map((v) => (
-                      <option key={v.value} value={v.value}>
-                        {v.label}
+                    {availableOutputs.map((outKey) => (
+                      <option key={outKey} value={outKey}>
+                        {outKey}
                       </option>
                     ))}
                   </select>

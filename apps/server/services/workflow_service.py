@@ -88,7 +88,20 @@ class WorkflowService:
             "viewport": request.viewport.model_dump() if request.viewport else None,
         }
 
-        # 업데이트 정보
+        workflow._features = request.features if request.features else {}
+
+        # 환경 변수 처리: 요청에 환경 변수가 있으면 딕셔너리 형태로 변환하여 저장, 없으면 빈 리스트 저장
+        workflow._environment_variables = (
+            [v.model_dump() for v in request.environment_variables]
+            if request.environment_variables
+            else []
+        )
+        # 대화 변수 처리: 요청에 대화 변수가 있으면 딕셔너리 형태로 변환하여 저장, 없으면 빈 리스트 저장
+        workflow._conversation_variables = (
+            [v.model_dump() for v in request.conversation_variables]
+            if request.conversation_variables
+            else []
+        )
         workflow.updated_by = user_id
 
         # DB에 커밋
@@ -106,10 +119,19 @@ class WorkflowService:
         """
         워크플로우 초안을 PostgreSQL에서 조회합니다.
         """
+        # db.query(...).first()는 조건에 맞는 첫 번째 행을 'Workflow' 모델 인스턴스(객체)로 반환합니다.
+        # 데이터가 없으면 None을 반환합니다.
         workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
         if not workflow:
             return None
 
-        # 저장된 graph 데이터 반환
-        return workflow.graph if workflow.graph else None
+        # workflow.graph는 DB의 JSONB 타입 컬럼이며, 파이썬에서는 딕셔너리(dict)로 변환되어 반환됩니다.
+        # 구조 예시: {"nodes": [...], "edges": [...], "viewport": {...}}
+        # 이 데이터는 WorkflowEngine의 초기화 인자로 전달되어 실행에 사용됩니다.
+        data = workflow.graph if workflow.graph else {}
+
+        if workflow._features:
+            data["features"] = workflow._features
+
+        return data

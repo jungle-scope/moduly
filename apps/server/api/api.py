@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from api.v1.endpoints import app, auth, knowledge, llm, rag, workflow
+from api.v1.endpoints import app, auth, deployment, knowledge, llm, rag, run, workflow
 
 # 메인 API 라우터 생성
 api_router = APIRouter()
@@ -16,5 +16,13 @@ api_router.include_router(app.router, prefix="/apps", tags=["apps"])
 # 예: api_router.include_router(user.router, prefix="/users", tags=["users"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(llm.router, prefix="/llm", tags=["llm"])
+
+# Knowledge & RAG (Dev A)
 api_router.include_router(knowledge.router, prefix="/knowledge", tags=["knowledge"])
 api_router.include_router(rag.router, prefix="/rag", tags=["rag"])
+
+# Deployment & Run (Dev B)
+api_router.include_router(
+    deployment.router, prefix="/deployments", tags=["deployments"]
+)
+api_router.include_router(run.router, tags=["run"])

@@ -37,6 +37,13 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
         'min-w-[200px] rounded-lg border bg-card px-4 py-3 shadow-md transition-all',
         // 선택되었을 때 테두리 색상 강조
         selected ? 'border-primary ring-2 ring-primary/20' : 'border-border',
+        // 실행 상태(status)에 따른 테두리 색상 및 애니메이션
+        // running: 파란색 맥박(Pulse) 효과 / success: 초록색 / failure: 빨간색
+        data.status === 'running' &&
+          'border-blue-500 ring-2 ring-blue-500/20 animate-pulse',
+        data.status === 'success' &&
+          'border-green-500 ring-2 ring-green-500/20',
+        data.status === 'failure' && 'border-red-500 ring-2 ring-red-500/20',
         className,
       )}
     >

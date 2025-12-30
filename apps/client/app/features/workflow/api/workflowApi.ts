@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
+import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -40,7 +41,6 @@ export interface WorkflowResponse {
 export const workflowApi = {
   // 1. 드래프트 워크플로우 동기화 (저장)
   syncDraftWorkflow: async (workflowId: string, data: WorkflowDraftRequest) => {
-    // develop 브랜치의 주석 반영: data.nodes[0].variables에 시작노드의 input이 들어있음
     const response = await api.post(`/workflows/${workflowId}/draft`, data);
     return response.data;
   },
@@ -56,8 +56,6 @@ export const workflowApi = {
     workflowId: string,
     userInput?: Record<string, unknown>,
   ) => {
-    // develop 브랜치의 최신 인자(workflowId, userInput)와 엔드포인트를 따르되,
-    // 인증 처리를 위해 axios 대신 api 인스턴스를 사용합니다.
     const response = await api.post(
       `/workflows/${workflowId}/execute`,
       userInput || {},
@@ -65,7 +63,79 @@ export const workflowApi = {
     return response.data;
   },
 
-  // 4. 새 워크플로우 생성
+  // 3-1. 워크플로우 스트리밍 실행 (SSE)
+  executeWorkflowStream: async (
+    workflowId: string,
+    userInput?: Record<string, unknown>,
+    onEvent?: (event: any) => void | Promise<void>,
+  ) => {
+    const response = await fetch(
+      `${API_BASE_URL}/workflows/${workflowId}/stream`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // 쿠키 인증 포함
+        body: JSON.stringify(userInput || {}),
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Workflow execution failed');
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      buffer += chunk;
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // 마지막 불완전한 라인은 버퍼에 유지
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const jsonStr = line.slice(6);
+            const event = JSON.parse(jsonStr);
+            if (onEvent) await onEvent(event);
+          } catch (e) {
+            console.error('Failed to parse SSE event:', e);
+          }
+        }
+      }
+    }
+
+    // 남은 버퍼 처리
+    if (buffer.startsWith('data: ')) {
+      try {
+        const jsonStr = buffer.slice(6);
+        const event = JSON.parse(jsonStr);
+        if (onEvent) await onEvent(event);
+      } catch (e) {
+        console.error('Failed to parse SSE event:', e);
+      }
+    }
+  },
+
+  // 4. 단일 워크플로우 상세 조회
+  getWorkflow: async (workflowId: string): Promise<WorkflowResponse> => {
+    const response = await api.get(`/workflows/${workflowId}`);
+    return response.data;
+  },
+
+  // 5. 새 워크플로우 생성
   createWorkflow: async (
     data: WorkflowCreateRequest,
   ): Promise<WorkflowResponse> => {
@@ -73,9 +143,21 @@ export const workflowApi = {
     return response.data;
   },
 
-  // 5. 특정 App의 워크플로우 목록 조회
+  // 6. 특정 App의 워크플로우 목록 조회
   listWorkflowsByApp: async (appId: string): Promise<WorkflowResponse[]> => {
     const response = await api.get(`/workflows/app/${appId}`);
     return response.data;
+  },
+
+  createDeployment: async (data: DeploymentCreate) => {
+    const response = await api.post('/deployments/', data);
+    return response.data as DeploymentResponse;
+  },
+
+  getDeployments: async (workflowId: string) => {
+    const response = await api.get('/deployments/', {
+      params: { workflow_id: workflowId },
+    });
+    return response.data as DeploymentResponse[];
   },
 };
