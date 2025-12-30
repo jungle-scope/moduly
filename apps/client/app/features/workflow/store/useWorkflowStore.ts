@@ -306,8 +306,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setWorkflowData: (data) => {
     set({
-      nodes: data.nodes,
-      edges: data.edges,
+      nodes: data.nodes || [],
+      edges: data.edges || [],
       features: data.features || {},
       environmentVariables: data.environmentVariables || [],
       conversationVariables: data.conversationVariables || [],

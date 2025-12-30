@@ -10,6 +10,8 @@ export function getUpstreamNodes(
   nodes: Node[],
   edges: Edge[],
 ): Node[] {
+  if (!nodes || !edges) return [];
+
   const visited = new Set<string>();
   const queue: string[] = [targetNodeId];
   const upstreamNodeIds = new Set<string>();
