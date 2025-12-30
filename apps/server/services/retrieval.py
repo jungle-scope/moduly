@@ -37,11 +37,17 @@ class RetrievalService:
             self.api_key = None
 
 
-    def search_documents(self, query: str, top_k: int = 5, threshold: float = 0.3) -> list[ChunkPreview]:
+
+    def search_documents(self, query: str, knowledge_base_id: str = None, top_k: int = 5, threshold: float = 0.3) -> list[ChunkPreview]:
         """
         [Public API] 지식 베이스 검색 (Vector Search Only)
         다른 노드(예: Knowledge Node)에서 검색 결과만 필요할 때 이 함수를 직접 호출하세요.
         """
+        # knowledge_base_id가 없으면 빈 리스트 반환 (안전장치)
+        if not knowledge_base_id:
+            print("[Search] Missing knowledge_base_id")
+            return []
+
         # 0. Query Expansion (Smart Search)
         # 한글 발음(모듈리) -> 영어 키워드(Moduly) 등으로 변환하여 검색 품질 향상
         try:
@@ -77,6 +83,7 @@ class RetrievalService:
         stmt = (
             select(DocumentChunk, Document, distance_col)
             .join(Document)
+            .where(Document.knowledge_base_id == knowledge_base_id)  # <-- Filter by Knowledge Base ID
             .order_by(distance_col)
             .limit(top_k)
         )
@@ -103,29 +110,31 @@ class RetrievalService:
 
         return previews
 
-    def retrieve_context(self, query: str, top_k: int = 5) -> str:
+    def retrieve_context(self, query: str, knowledge_base_id: str, top_k: int = 5) -> str:
         """
         [Public API] 검색된 문서들의 내용을 하나의 문자열로 합쳐서 반환합니다.
         LLM에게 프롬프트로 넘겨줄 Context 덩어리가 필요할 때 유용합니다.
         """
-        chunks = self.search_documents(query, top_k)
+        chunks = self.search_documents(query, knowledge_base_id, top_k)
         if not chunks:
             return ""
         
         return "\n\n".join([c.content for c in chunks])
 
-    def generate_answer(self, query: str) -> RAGResponse:
+    def generate_answer(self, query: str, knowledge_base_id: str) -> RAGResponse:
         """
         [Public API] 검색 + 답변 생성 (Chat Interface용)
         """
+
         if not self.api_key:
             return RAGResponse(
                 answer="⚠️ OpenAI API Key가 설정되지 않아 실제 검색을 수행할 수 없습니다.",
                 references=[]
             )
 
+
         # Step 1: Search (Reuse public method)
-        relevant_chunks = self.search_documents(query)
+        relevant_chunks = self.search_documents(query, knowledge_base_id)
 
         # Step 2: Context Construction
         if not relevant_chunks:
