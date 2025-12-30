@@ -19,7 +19,7 @@ export default function CreateKnowledgeModal({
     description: '',
     chunkSize: 500,
     chunkOverlap: 50,
-    embeddingModel: 'openai-ada-2',
+    embeddingModel: 'text-embedding-3-small',
     topK: 5,
     similarity: 0.7,
   });
@@ -238,9 +238,11 @@ export default function CreateKnowledgeModal({
                     }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
-                    <option value="openai-ada-2">OpenAI Ada-2</option>
-                    <option value="openai-ada-3">OpenAI Ada-3</option>
-                    <option value="cohere-embed">Cohere Embed</option>
+                    <option value="text-embedding-3-small">
+                      text-embedding-3-small
+                    </option>
+                    <option value="TEST1">TEST1</option>
+                    <option value="TEST2">TEST2</option>
                   </select>
                 </div>
               </div>

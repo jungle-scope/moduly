@@ -116,8 +116,8 @@ async def upload_document(
         chunk_overlap=chunk_overlap,
     )
 
-    # [3] 비동기 작업 트리거 (Background Task)
-    # 파싱/임베딩은 시간이 오래 걸리므로 사용자에게는 먼저 응답을 보내고 백그라운드에서 처리
+    # [3] 비동기 작업 트리거
+    # 사용자에게 먼저 응답을 보내고 파싱/임베딩은 백그라운드에서 처리
     background_tasks.add_task(
         ingestion_service.process_document_background,
         doc_id,
@@ -125,7 +125,7 @@ async def upload_document(
         file_path,
     )
 
-    return IngestionResponse(
+    return IngestionResponse(  # TODO: 프론트에서 응답 받아서 사용
         knowledge_base_id=target_kb_id,  # 프론트엔드 이동용
         document_id=doc_id,
         status="processing",

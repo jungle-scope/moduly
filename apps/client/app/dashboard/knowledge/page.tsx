@@ -71,6 +71,16 @@ export default function KnowledgePage() {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 transition-shadow"
           />
         </div>
+        {/* 리스트가 없을 때만 우상단 버튼 표시됨 */}
+        {knowledgeBases.length > 0 && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+            지식 생성
+          </button>
+        )}
       </div>
 
       {/* Loading State */}

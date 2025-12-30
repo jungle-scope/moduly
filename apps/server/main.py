@@ -1,5 +1,8 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+load_dotenv()  # .env 파일 로드
 from sqlalchemy import text
 
 from api.api import api_router
