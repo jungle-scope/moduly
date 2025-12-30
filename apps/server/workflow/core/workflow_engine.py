@@ -106,7 +106,17 @@ class WorkflowEngine:
     def _get_next_nodes(self, node_id: str, result: Dict[str, Any]) -> List[str]:
         """
         현재 노드의 다음 노드 목록을 반환합니다.
-        분기 노드의 경우 selected_handle과 일치하는 엣지만 반환합니다.
+
+        동작 방식:
+        1. selected_handle is None (기본 동작):
+           - "특정 경로를 선택하지 않음"을 의미합니다.
+           - 연결된 모든 엣지를 따라 다음 노드들을 실행합니다. (Parallel 실행 가능)
+           - 예: 일반 노드에서 여러 갈래로 뻗어나가는 경우 모두 실행.
+
+        2. selected_handle has value (분기 동작):
+           - "특정 핸들(경로)만 선택함"을 의미합니다.
+           - 엣지의 sourceHandle이 selected_handle과 일치하는 경우에만 실행합니다.
+           - 예: IF 노드에서 조건에 따라 'True' 또는 'False' 경로 중 하나만 실행.
 
         Args:
             node_id: 현재 노드 ID
@@ -122,7 +132,8 @@ class WorkflowEngine:
             if edge.source != node_id:
                 continue
 
-            # selected_handle이 있으면 sourceHandle과 비교
+            # selected_handle이 있으면 sourceHandle과 비교 (분기 처리)
+            # selected_handle이 None이면 조건문이 실행되지 않아 모든 엣지가 추가됨 (Parallel 실행 등)
             if selected_handle is not None:
                 if edge.sourceHandle != selected_handle:
                     continue
