@@ -17,8 +17,8 @@ function WorkflowEditor() {
 
       {/* Main content area with sidebar and canvas */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar */}
-        <EditorSidebar />
+        {/* Left Sidebar - 임시로 비활성화하겠습니다.*/}
+        {/* <EditorSidebar /> */}
 
         {/* Canvas Area */}
         <NodeCanvas />
