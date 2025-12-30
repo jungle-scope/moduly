@@ -57,3 +57,4 @@ openai==1.59.5
 pymupdf==1.25.1
 python-multipart
 pymupdf4llm
+langchain-openai

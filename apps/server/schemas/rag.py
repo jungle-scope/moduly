@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 # --- Ingestion Schemas (Dev A) ---
 class IngestionResponse(BaseModel):
+    knowledge_base_id: UUID
     document_id: UUID
     status: str
     message: str

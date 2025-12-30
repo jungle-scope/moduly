@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,8 +12,7 @@ from db.base import Base
 
 class KnowledgeBase(Base):
     """
-    지식 베이스 모델
-    여러 문서를 그룹화하는 최상위 개념입니다.
+    지식 베이스 모델: 여러 문서를 그룹화하는 최상위 개념
     """
 
     __tablename__ = "knowledge_bases"
@@ -24,12 +23,15 @@ class KnowledgeBase(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # 임베딩 모델 정보 (확장성 고려: 나중에 모델을 변경할 수 있도록 저장)
+    # 임베딩 모델 정보
     embedding_model: Mapped[str] = mapped_column(
         String(50), default="text-embedding-3-small"
     )
+    # 검색 설정
+    top_k: Mapped[int] = mapped_column(Integer, default=5)
+    similarity_threshold: Mapped[float] = mapped_column(Float, default=0.7)
 
-    created_by: Mapped[str] = mapped_column(String, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -43,8 +45,7 @@ class KnowledgeBase(Base):
 
 class Document(Base):
     """
-    문서 모델
-    업로드된 개별 파일을 나타냅니다.
+    문서 모델: 업로드된 개별 파일
     """
 
     __tablename__ = "documents"
@@ -58,10 +59,17 @@ class Document(Base):
     )
 
     filename: Mapped[str] = mapped_column(String, nullable=False)
-    file_path: Mapped[str] = mapped_column(String, nullable=False)  # 로컬이나 S3 경로
+    file_path: Mapped[str] = mapped_column(String, nullable=False)
 
     # 상태 관리: pending -> indexing -> completed / failed
     status: Mapped[str] = mapped_column(String(20), default="pending")
+
+    # 실패 원인 담는 에러메세지
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # 청킹 설정
+    chunk_size: Mapped[int] = mapped_column(Integer, default=1000)
+    chunk_overlap: Mapped[int] = mapped_column(Integer, default=200)
 
     # 메타 데이터 (파일 크기, 파싱 결과 요약 등)
     meta_info: Mapped[dict] = mapped_column(JSONB, default={})
@@ -80,7 +88,7 @@ class Document(Base):
 class DocumentChunk(Base):
     """
     문서 청크 모델 (Vector Store)
-    실제 검색 대상이 되는 텍스트 조각과 벡터 임베딩을 저장합니다.
+    실제 검색 대상이 되는 텍스트 조각과 벡터 임베딩을 저장
     """
 
     __tablename__ = "document_chunks"
@@ -91,12 +99,16 @@ class DocumentChunk(Base):
     document_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("documents.id"), nullable=False
     )
+    # 바로 검색 가능하도록 성능 최적화를 위해 추가함
+    knowledge_base_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("knowledge_bases.id"), nullable=False
+    )
 
     # 실제 검색될 텍스트 내용
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
-    # 벡터 데이터 (OpenAI text-embedding-3-small 기준 1536차원)
-    embedding: Mapped[list] = mapped_column(Vector(1536))
+    # 벡터 데이터
+    embedding: Mapped[list] = mapped_column(Vector())
 
     # 문서 내 순서 (나중에 앞뒤 문맥 가져올 때 사용)
     chunk_index: Mapped[int] = mapped_column(Integer, default=0)
