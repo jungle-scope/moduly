@@ -1,6 +1,8 @@
 from typing import List
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
@@ -196,3 +198,50 @@ def execute_workflow(
         # 그 외 서버 에러
         print(f"Workflow execution failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{workflow_id}/stream")
+def stream_workflow(
+    workflow_id: str,
+    user_input: dict = {},
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    워크플로우를 실행하고 실행 과정을 SSE(Server-Sent Events)로 스트리밍합니다.
+    클라이언트는 이 스트림을 통해 실시간으로 노드 실행 상태('running', 'success' 등)를 시각화할 수 있습니다.
+    """
+
+    # 1. 권한 확인
+    workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    if workflow.created_by != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # 2. 데이터 조회 및 엔진 초기화
+    try:
+        graph = WorkflowService.get_draft(db, workflow_id)
+        if not graph:
+            raise HTTPException(
+                status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
+            )
+
+        engine = WorkflowEngine(graph, user_input)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # 3. 제너레이터 함수 정의 (SSE 포맷팅)
+    def event_generator():
+        try:
+            for event in engine.execute_stream():
+                # SSE 포맷: "data: {json_content}\n\n"
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            # 스트리밍 도중 에러 발생 시 에러 이벤트 전송
+            error_event = {"type": "error", "data": {"message": str(e)}}
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+    # 4. StreamingResponse 반환
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
