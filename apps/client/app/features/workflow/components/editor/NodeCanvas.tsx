@@ -125,6 +125,10 @@ export default function NodeCanvas() {
     }
   }, [interactiveMode]);
 
+  function centerNodes(): void {
+    throw new Error('Function not implemented.');
+  }
+
   return (
     <div className="flex-1 bg-gray-50 relative flex flex-col">
       {/* 워크플로우 탭 */}
