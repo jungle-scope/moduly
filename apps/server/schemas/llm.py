@@ -72,8 +72,9 @@ class LLMCredentialResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True  # SQLAlchemy 모델을 Pydantic 모델로 자동 변환 허용
+    model_config = ConfigDict(
+        from_attributes=True
+    )  # SQLAlchemy 모델을 Pydantic 모델로 자동 변환 허용
 
 
 class LLMProviderCreate(BaseModel):
@@ -116,5 +117,6 @@ class LLMProviderResponse(BaseModel):
     updated_at: datetime
     credentials: List[LLMCredentialResponse] = Field(default_factory=list)
 
-    class Config:
-        orm_mode = True  # SQLAlchemy 모델을 Pydantic 모델로 자동 변환 허용
+    model_config = ConfigDict(
+        from_attributes=True
+    )  # SQLAlchemy 모델을 Pydantic 모델로 자동 변환 허용

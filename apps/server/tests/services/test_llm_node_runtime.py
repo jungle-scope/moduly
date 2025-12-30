@@ -41,7 +41,7 @@ def test_llm_node_runs_with_override_client():
         user_prompt="user {{var}}",
         assistant_prompt="assistant {{var}}",
         referenced_variables=[
-            LLMVariable(name="var", value_selector=["dummy-node", "var"])
+            LLMVariable(name="var", value_selector=["some_node", "var"])
         ],
         context_variable=None,
         parameters={},

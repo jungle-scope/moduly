@@ -81,7 +81,7 @@ class TestHttpNode(unittest.TestCase):
 
         # Then: 응답 검증
         self.assertEqual(outputs["status"], 200)
-        self.assertEqual(outputs["body"]["id"], 1)
+        self.assertEqual(outputs["data"]["id"], 1)
         self.assertEqual(node.status, NodeStatus.COMPLETED)
 
     def test_http_node_post_with_body(self):

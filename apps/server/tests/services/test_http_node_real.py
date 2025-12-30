@@ -38,14 +38,14 @@ def test_real_get_request():
 
     # 검증
     assert outputs["status"] == 200, f"Expected 200, got {outputs['status']}"
-    assert outputs["body"]["userId"] == 1, "userId should be 1"
-    assert outputs["body"]["id"] == 1, "id should be 1"
-    assert "title" in outputs["body"], "Response should have 'title' field"
+    assert outputs["data"]["userId"] == 1, "userId should be 1"
+    assert outputs["data"]["id"] == 1, "id should be 1"
+    assert "title" in outputs["data"], "Response should have 'title' field"
 
     print("✅ GET 요청 성공!")
     print(f"   응답 상태: {outputs['status']}")
-    print(f"   게시글 제목: {outputs['body']['title']}")
-    print(f"   전체 응답: {outputs['body']}\n")
+    print(f"   게시글 제목: {outputs['data']['title']}")
+    print(f"   전체 응답: {outputs['data']}\n")
 
 
 def test_real_post_request():
@@ -64,12 +64,12 @@ def test_real_post_request():
     outputs = node.execute({})
 
     assert outputs["status"] == 201, f"Expected 201, got {outputs['status']}"
-    assert outputs["body"]["id"] == 101, "JSONPlaceholder returns id 101 for new posts"
+    assert outputs["data"]["id"] == 101, "JSONPlaceholder returns id 101 for new posts"
 
     print("✅ POST 요청 성공!")
     print(f"   응답 상태: {outputs['status']}")
-    print(f"   생성된 ID: {outputs['body']['id']}")
-    print(f"   전체 응답: {outputs['body']}\n")
+    print(f"   생성된 ID: {outputs['data']['id']}")
+    print(f"   전체 응답: {outputs['data']}\n")
 
 
 def test_real_get_list():
@@ -87,13 +87,13 @@ def test_real_get_list():
     outputs = node.execute({})
 
     assert outputs["status"] == 200
-    assert isinstance(outputs["body"], list), "Response should be a list"
-    assert len(outputs["body"]) > 0, "List should not be empty"
+    assert isinstance(outputs["data"], list), "Response should be a list"
+    assert len(outputs["data"]) > 0, "List should not be empty"
 
     print("✅ 목록 조회 성공!")
     print(f"   응답 상태: {outputs['status']}")
-    print(f"   게시글 개수: {len(outputs['body'])}개")
-    print(f"   첫 번째 게시글: {outputs['body'][0]['title']}\n")
+    print(f"   게시글 개수: {len(outputs['data'])}개")
+    print(f"   첫 번째 게시글: {outputs['data'][0]['title']}\n")
 
 
 def test_real_with_custom_headers():
