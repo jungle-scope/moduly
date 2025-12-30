@@ -177,9 +177,14 @@ def execute_workflow(
                 status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
             )
 
+        # WorkflowEngine 인스턴스 생성 및 초기화:
+        # 1. 입력받은 graph(dict)를 NodeSchema/EdgeSchema 객체로 파싱 및 검증
+        # 2. 엣지 정보를 바탕으로 노드 간의 실행 경로(Graph 구조) 빌드
+        # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
         engine = WorkflowEngine(graph, user_input)
         print("user_input", user_input)
 
+        # 준비된 엔진을 실행 (시작 노드 탐색 -> Queue 기반 순차 실행 -> 결과 반환)
         return engine.execute()
     except ValueError as e:
         # 노드 검증 실패 등의 입력 오류
