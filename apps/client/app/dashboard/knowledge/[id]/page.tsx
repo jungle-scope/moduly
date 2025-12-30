@@ -14,12 +14,14 @@ import {
   Clock,
   Settings,
   Trash2,
+  Bot,
 } from 'lucide-react';
 import {
   knowledgeApi,
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
+import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
 
 export default function KnowledgeDetailPage() {
   const params = useParams();
@@ -30,6 +32,7 @@ export default function KnowledgeDetailPage() {
     useState<KnowledgeBaseDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingDesc, setIsEditingDesc] = useState(false);
@@ -220,13 +223,22 @@ export default function KnowledgeDetailPage() {
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setIsUploadModalOpen(true)}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-        >
-          <Plus className="w-5 h-5 mr-1.5" />
-          문서 추가
-        </button>
+        <div className="flex items-center">
+          <button
+            onClick={() => setIsSearchModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-white rounded-lg transition-colors mr-3 shadow-sm"
+          >
+            <Bot className="w-5 h-5 mr-1.5 text-blue-600 dark:text-blue-400" />
+            검색 테스트
+          </button>
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5 mr-1.5" />
+            문서 추가
+          </button>
+        </div>
       </div>
 
       {/* Document List */}
@@ -320,6 +332,13 @@ export default function KnowledgeDetailPage() {
           setIsUploadModalOpen(false);
           fetchKnowledgeBase(); // 모달 닫히면 데이터 갱신
         }}
+      />
+      
+      {/* Search Test Modal */}
+      <KnowledgeSearchModal
+        isOpen={isSearchModalOpen}
+        knowledgeBaseId={id}
+        onClose={() => setIsSearchModalOpen(false)}
       />
     </div>
   );

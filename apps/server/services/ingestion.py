@@ -145,8 +145,13 @@ class IngestionService:
         except KeyError:
             encoding = tiktoken.get_encoding("cl100k_base")  # gpt-4로 가정하고 계산
 
-        # 임베딩 모델 초기화
-        embeddings_model = OpenAIEmbeddings(model=self.ai_model)
+        # DB에서 API Key 가져오기 (환경변수 의존 제거)
+        from services.llm_service import LLMService
+
+        api_key = LLMService.get_default_api_key(self.db)
+
+        # 임베딩 모델 초기화 (API Key 명시)
+        embeddings_model = OpenAIEmbeddings(model=self.ai_model, openai_api_key=api_key)
 
         # 1. 텍스트 추출 (배치 처리를 위해)
         texts = [chunk["content"] for chunk in chunks]

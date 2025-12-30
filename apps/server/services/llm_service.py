@@ -388,3 +388,27 @@ class LLMService:
             },
         )
         return client
+
+    @staticmethod
+    def get_default_api_key(db: Session) -> str:
+        """
+        임시/공유 모드: DB에서 사용 가능한 첫 번째 Provider의 API Key를 반환합니다.
+        IngestionService 등에서 Embeddings 초기화 시 사용합니다.
+        """
+        provider = (
+            db.query(LLMProvider)
+            .options(joinedload(LLMProvider.credentials))
+            .filter(LLMProvider.credential_id.isnot(None))
+            .first()
+        )
+        if not provider or not provider.credentials:
+            raise ValueError("사용 가능한 provider/credential이 없습니다. (임시 모드)")
+
+        cred = provider.credentials[0]
+        cfg = LLMService._load_credential_config(cred)
+        api_key = cfg.get("apiKey") or cfg.get("api_key")
+
+        if not api_key:
+            raise ValueError("Credential에 API Key가 없습니다.")
+
+        return api_key
