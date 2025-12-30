@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Body, Depends, Header
 from sqlalchemy.orm import Session
 
 from db.session import get_db
@@ -12,7 +12,7 @@ router = APIRouter()
 @router.post("/run/{url_slug}")
 def run_workflow(
     url_slug: str,
-    request_body: dict = {},
+    request_body: dict = Body(...),
     authorization: Optional[str] = Header(None),
     x_auth_secret: Optional[str] = Header(None),
     db: Session = Depends(get_db),
@@ -41,7 +41,7 @@ def run_workflow(
 @router.post("/run-public/{url_slug}")
 def run_workflow_public(
     url_slug: str,
-    request_body: dict = {},
+    request_body: dict = Body(...),
     db: Session = Depends(get_db),
 ):
     """
