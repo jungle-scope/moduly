@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
@@ -10,6 +11,15 @@ class IngestionResponse(BaseModel):
     document_id: UUID
     status: str
     message: str
+
+
+class KnowledgeBaseResponse(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    document_count: int
+    created_at: datetime
+    embedding_model: str
 
 
 # --- Retrieval Schemas (Dev B) ---

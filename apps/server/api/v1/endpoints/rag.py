@@ -43,6 +43,17 @@ async def upload_document(
     """
     파일 업로드 및 처리 파이프라인 시작점
     """
+    # [Debug Log] 수신된 데이터 확인
+    print("=== [upload_document] Request Received ===")
+    print(f"filename: {file.filename}")
+    print(f"knowledge_base_id: {knowledge_base_id}")
+    print(f"name: {name}, description: {description}")
+    print(
+        f"ai_model: {ai_model}, top_k: {top_k}, similarity_threshold: {similarity_threshold}"
+    )
+    print(f"chunk_size: {chunk_size}, chunk_overlap: {chunk_overlap}")
+    ########################
+
     target_kb_id = knowledge_base_id
     target_ai_model = ai_model
 
