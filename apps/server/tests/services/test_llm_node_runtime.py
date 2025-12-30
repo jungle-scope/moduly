@@ -51,8 +51,8 @@ def test_llm_node_runs_with_override_client():
     # DB 세션 대신 직접 클라이언트 주입
     node._client_override = dummy_client  # noqa: SLF001 - 테스트용
 
-    # value_selector가 ["dummy-node", "var"]이므로 dummy-node의 var 값을 전달
-    result = node.execute({"dummy-node": {"var": "X"}})
+    # value_selector가 ["some_node", "var"]이므로 some_node의 var 값을 전달
+    result = node.execute({"some_node": {"var": "X"}})
 
     # 클라이언트 호출 검증
     assert dummy_client.calls
