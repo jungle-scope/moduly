@@ -17,6 +17,7 @@ class DeploymentType(str, Enum):
     API = "api"  # REST API
     WIDGET = "widget"  # 웹 위젯
     MCP = "mcp"  # Model Context Protocol
+    WEBAPP = "webapp"  # 웹 앱 배포 (공개 접근)
 
 
 class WorkflowDeployment(Base):

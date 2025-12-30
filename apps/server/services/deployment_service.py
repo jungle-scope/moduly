@@ -9,7 +9,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from db.models.workflow import Workflow
-from db.models.workflow_deployment import WorkflowDeployment
+from db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from schemas.deployment import DeploymentCreate
 from services.workflow_service import WorkflowService
 from workflow.core.workflow_engine import WorkflowEngine
@@ -71,8 +71,15 @@ class DeploymentService:
 
         # 5. API Key (auth_secret) 및 URL Slug 생성
         auth_secret = deployment_in.auth_secret
-        if not auth_secret:
+
+        # 배포 타입에 따라 auth_secret 처리
+        if deployment_in.type == DeploymentType.WEBAPP:
+            # 웹 앱은 무조건 공개 접근 (auth_secret 없음)
+            auth_secret = None
+        elif not auth_secret:
+            # REST API 등은 자동 생성 (auth_secret이 제공되지 않은 경우)
             auth_secret = f"sk-{secrets.token_hex(24)}"
+        # else: auth_secret이 명시적으로 제공된 경우 그대로 사용
 
         url_slug = deployment_in.url_slug
         if not url_slug:
@@ -159,6 +166,7 @@ class DeploymentService:
         url_slug: str,
         user_inputs: Dict[str, Any],
         auth_token: Optional[str] = None,
+        require_auth: bool = True,  # 인증 필요 여부 (기본값: 필요)
     ) -> Dict[str, Any]:
         """
         배포된 워크플로우를 실행합니다.
@@ -168,6 +176,7 @@ class DeploymentService:
             url_slug: 배포 URL slug (예: "v3-24fb1145")
             user_inputs: 워크플로우 실행 시 사용자 입력 데이터
             auth_token: 인증 토큰 (Bearer 토큰 또는 API secret)
+            require_auth: 인증 검증 필요 여부 (True: REST API, False: 웹 앱)
 
         Returns:
             워크플로우 실행 결과 {"status": "success", "results": {...}}
@@ -190,19 +199,33 @@ class DeploymentService:
         if not deployment.is_active:
             raise HTTPException(status_code=404, detail="Deployment is inactive")
 
-        # 4. 인증 검증 (auth_secret이 설정된 경우만)
-        if deployment.auth_secret:
+        # 4. 인증 검증
+        # WEBAPP 타입은 공개 접근 (인증 불필요)
+        # 나머지 타입은 require_auth 파라미터에 따라 결정
+        if deployment.type == DeploymentType.WEBAPP:
+            # 웹 앱은 항상 공개 접근
+            pass
+        elif require_auth:
+            # 인증이 필요한 경우 (REST API 등)
+            if not deployment.auth_secret:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Deployment has no auth_secret but requires authentication",
+                )
             if not auth_token or auth_token != deployment.auth_secret:
                 raise HTTPException(
                     status_code=401, detail="Invalid authentication secret"
                 )
+        # require_auth가 False면 인증 스킵
 
         # 5. 그래프 데이터 준비
         graph_data = deployment.graph_snapshot
 
         # 6. 워크플로우 실행
         try:
-            engine = WorkflowEngine(graph=graph_data, user_input=user_inputs)
+            engine = WorkflowEngine(
+                graph=graph_data, user_input=user_inputs, is_deployed=True
+            )
             results = engine.execute()
             return {"status": "success", "results": results}
 
