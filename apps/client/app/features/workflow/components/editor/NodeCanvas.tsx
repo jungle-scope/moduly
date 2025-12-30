@@ -125,9 +125,14 @@ export default function NodeCanvas() {
     }
   }, [interactiveMode]);
 
-  function centerNodes(): void {
-    throw new Error('Function not implemented.');
-  }
+  const centerNodes = useCallback(() => {
+    fitView({ padding: 0.2, duration: 300 });
+    // 중앙 정렬 후 새로운 뷰포트 저장
+    setTimeout(() => {
+      const viewport = getViewport();
+      updateWorkflowViewport(activeWorkflowId, viewport);
+    }, 300);
+  }, [fitView, getViewport, activeWorkflowId, updateWorkflowViewport]);
 
   return (
     <div className="flex-1 bg-gray-50 relative flex flex-col">
