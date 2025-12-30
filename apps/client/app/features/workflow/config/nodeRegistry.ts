@@ -148,6 +148,39 @@ export const nodeRegistry: NodeDefinition[] = [
       outputs: [],
     }),
   },
+  {
+    id: 'http',
+    type: 'httpRequestNode',
+    name: 'HTTP Request',
+    category: 'plugin',
+    color: 'bg-purple-500',
+    icon: '🌍',
+    implemented: true,
+    description: '외부 API로 HTTP 요청을 보냅니다.',
+    defaultData: () => ({
+      title: 'HTTP Request',
+      method: 'GET',
+      url: '',
+      headers: [],
+      body: '',
+      timeout: 5000,
+    }),
+  },
+  {
+    id: 'template',
+    type: 'templateNode',
+    name: 'Template',
+    category: 'logic',
+    color: 'bg-yellow-500',
+    icon: '📝',
+    implemented: true,
+    description: '여러 변수를 조합하여 텍스트를 생성합니다.',
+    defaultData: () => ({
+      title: 'Template',
+      template: '',
+      variables: [],
+    }),
+  },
 ];
 
 /**

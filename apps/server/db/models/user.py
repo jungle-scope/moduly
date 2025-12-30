@@ -19,3 +19,4 @@ class User(Base):
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+    # TODO: tenant_id 추가.

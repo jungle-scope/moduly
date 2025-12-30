@@ -8,7 +8,8 @@ export interface BaseNodeData {
   [key: string]: unknown;
 }
 
-// 변수의 데이터 타입을 정의
+// ========================== [Start Node] ====================================
+// 입력 변수의 데이터 타입을 정의
 export type VariableType =
   | 'text' // 단답형 텍스트
   | 'number' // 숫자
@@ -22,7 +23,7 @@ export interface SelectOption {
   value: string;
 }
 
-// 워크플로우 전역 변수
+// 워크플로우 전체의 시작 입력값 정의
 export interface WorkflowVariable {
   id: string;
   name: string; // 변수명 (코드용)
@@ -36,10 +37,47 @@ export interface WorkflowVariable {
   options?: SelectOption[];
 }
 
-// [StartNode]
 export interface StartNodeData extends BaseNodeData {
   triggerType: TriggerType;
   variables?: WorkflowVariable[];
+}
+// ============================================================================
+
+// ========================= [Answer Node] ====================================
+export interface AnswerNodeOutput {
+  variable: string;
+  value_selector: string[]; // [node_id, key]
+}
+
+export interface AnswerNodeData extends BaseNodeData {
+  outputs: AnswerNodeOutput[];
+}
+// ============================================================================
+
+// ======================== [HTTP Request Node] ===============================
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
+export type AuthType = 'none' | 'bearer' | 'apiKey';
+
+export interface HttpRequestNodeData extends BaseNodeData {
+  method: HttpMethod;
+  url: string;
+  headers: { key: string; value: string }[];
+  body: string;
+  timeout: number;
+  authType: AuthType;
+  authConfig: {
+    token?: string; // Bearer token
+    apiKeyHeader?: string; // API Key header name
+    apiKeyValue?: string; // API Key value
+  };
+}
+// ============================================================================
+
+// ======================== [Condition Node] ==================================
+// [NoteNode]
+export interface NoteNodeData extends BaseNodeData {
+  content: string;
 }
 
 export interface Condition {
@@ -59,27 +97,57 @@ export interface ConditionCase {
 export interface ConditionNodeData extends BaseNodeData {
   cases: ConditionCase[];
 }
+// ============================================================================
 
-// [LLMNode]
+// ======================== [LLMNode] =========================================
+export interface LLMVariable {
+  name: string;
+  value_selector: string[];
+}
+
 export interface LLMNodeData extends BaseNodeData {
   provider: string;
   model_id: string;
   system_prompt?: string;
   user_prompt?: string;
   assistant_prompt?: string;
-  referenced_variables: string[];
+  referenced_variables: LLMVariable[];
   context_variable?: string;
   parameters: Record<string, unknown>;
 }
 
+// [TemplateNode]
+export interface TemplateVariable {
+  name: string;
+  value_selector: string[]; // [node_id, variable_key]
+}
+
+export interface TemplateNodeData extends BaseNodeData {
+  template: string;
+  variables: TemplateVariable[];
+}
+
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
-export type StartNode = ReactFlowNode<StartNodeData, 'start'>;
-export type LLMNode = ReactFlowNode<LLMNodeData, 'llm'>;
+export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
+export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
+export type HttpRequestNode = ReactFlowNode<
+  HttpRequestNodeData,
+  'httpRequestNode'
+>;
+export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
+export type LLMNode = ReactFlowNode<LLMNodeData, 'llmNode'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
+export type TemplateNode = ReactFlowNode<TemplateNodeData, 'templateNode'>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
-export type AppNode = StartNode | LLMNode | ConditionNode;
+export type AppNode =
+  | StartNode
+  | AnswerNode
+  | HttpRequestNode
+  | LLMNode
+  | ConditionNode
+  | TemplateNode;
 
 // 하위 호환성 (필요시)
 export type NodeData = BaseNodeData;

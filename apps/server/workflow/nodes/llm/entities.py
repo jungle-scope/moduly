@@ -1,9 +1,19 @@
-import re
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from workflow.nodes.base.entities import BaseNodeData
+
+
+class LLMVariable(BaseModel):
+    """
+    LLM 프롬프트에서 사용될 변수 정의 (Template 노드와 동일한 구조)
+    """
+
+    name: str = Field(..., description="프롬프트 변수명 (예: username)")
+    value_selector: List[str] = Field(
+        ..., description="값을 가져올 경로 [node_id, variable_key]"
+    )
 
 
 class LLMNodeData(BaseNodeData):
@@ -18,9 +28,8 @@ class LLMNodeData(BaseNodeData):
     system_prompt: Optional[str] = None
     user_prompt: Optional[str] = None
     assistant_prompt: Optional[str] = None
-    referenced_variables: List[str] = Field(default_factory=list)
+    referenced_variables: List[LLMVariable] = Field(default_factory=list)
     context_variable: Optional[str] = None
-    # 이전 노드의 output은 어떻게 받을지?
 
     def validate(self) -> None:
         # 모델/프로바이더는 필수
@@ -33,25 +42,16 @@ class LLMNodeData(BaseNodeData):
         if all(not p for p in prompts):
             raise ValueError("system/user/assistant 프롬프트 중 최소 1개는 필요합니다.")
 
-        # referenced_variables/context_variable은 선택 입력이지만, 제공 시 빈 문자열은 불가
-        cleaned_referenced = []
+        # referenced_variables 검증 (각 변수에 name과 value_selector가 있는지)
         for var in self.referenced_variables:
-            stripped = var.strip()
-            if stripped:
-                cleaned_referenced.append(stripped)
-        self.referenced_variables = cleaned_referenced
+            if not var.name or not var.name.strip():
+                raise ValueError("변수명이 비어있습니다.")
+            if not var.value_selector or len(var.value_selector) < 1:
+                raise ValueError(f"변수 '{var.name}'의 value_selector가 비어있습니다.")
 
         if self.context_variable is not None:
             stripped_context = self.context_variable.strip()
             if not stripped_context:
-                # 빈 문자열이면 입력하지 않은 것으로 간주
                 self.context_variable = None
             else:
                 self.context_variable = stripped_context
-
-        # Jinja2 {{var}} 플레이스홀더 탐지 (추후 이전 노드 값 검증에 활용)
-        jinja_vars = []
-        for prompt in prompts:
-            if prompt:
-                jinja_vars.extend(re.findall(r"{{\s*([^{}]+?)\s*}}", prompt))
-        # TODO: inputs 스펙 확정 후, jinja_vars/referenced_variables가 이전 노드에 존재하는지 검증.
