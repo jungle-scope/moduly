@@ -140,5 +140,6 @@ def chat_with_knowledge(query: SearchQuery, db: Session = Depends(get_db)):
     벡터 검색 -> LLM 생성
     """
     retrieval_service = RetrievalService(db)
-    response = retrieval_service.generate_answer(query.query)
+    kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
+    response = retrieval_service.generate_answer(query.query, knowledge_base_id=kb_id_str)
     return response
