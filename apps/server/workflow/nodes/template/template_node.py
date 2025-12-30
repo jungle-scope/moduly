@@ -1,7 +1,9 @@
 from typing import Any, Dict, List
+
 from jinja2 import Template
 
 from workflow.nodes.base.node import Node
+
 from .entities import TemplateNodeData
 
 
@@ -32,7 +34,7 @@ class TemplateNode(Node[TemplateNodeData]):
         3. 결과를 반환합니다.
         """
         context = {}
-        
+
         # 1. Context 구성
         for variable in self.data.variables:
             var_name = variable.name
@@ -42,16 +44,16 @@ class TemplateNode(Node[TemplateNodeData]):
             if not var_name or not selector or len(selector) < 1:
                 context[var_name] = ""  # 값이 없으면 빈 문자열 처리
                 continue
-            
+
             target_node_id = selector[0]
-            
+
             # 입력 데이터에서 해당 노드의 결과 찾기
             source_data = inputs.get(target_node_id)
-            
+
             if source_data is None:
                 context[var_name] = ""
                 continue
-            
+
             # 값 추출 (selector가 2개 이상일 경우 중첩된 값 탐색)
             # 예: ["NodeA", "outputKey"] -> inputs["NodeA"]["outputKey"]
             if len(selector) > 1:
