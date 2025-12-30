@@ -65,6 +65,14 @@ class WorkflowDeployment(Base):
     # 배포 설정. 예시: {"rate_limit": 100, "timeout": 30}
     config: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True, default={})
 
+    # 입출력 스키마 (graph_snapshot에서 자동 추출하여 저장)
+    input_schema: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True, comment="StartNode 입력 변수 스키마"
+    )
+    output_schema: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True, comment="AnswerNode 출력 변수 스키마"
+    )
+
     # 배포/버전 설명 (예: "v1.0 챗봇 출시")
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 

@@ -85,7 +85,11 @@ class DeploymentService:
         if not url_slug:
             url_slug = f"v{new_version}-{secrets.token_hex(4)}"
 
-        # 6. 배포 모델 생성
+        # 6. graph_snapshot에서 입출력 스키마 자동 추출
+        input_schema = DeploymentService._extract_input_schema(graph_snapshot)
+        output_schema = DeploymentService._extract_output_schema(graph_snapshot)
+
+        # 7. 배포 모델 생성
         db_obj = WorkflowDeployment(
             workflow_id=deployment_in.workflow_id,
             version=new_version,
@@ -94,6 +98,8 @@ class DeploymentService:
             auth_secret=auth_secret,
             graph_snapshot=graph_snapshot,
             config=deployment_in.config,
+            input_schema=input_schema,  # 추출된 입력 스키마
+            output_schema=output_schema,  # 추출된 출력 스키마
             description=deployment_in.description,
             created_by=user_id,
             is_active=deployment_in.is_active,
@@ -242,3 +248,74 @@ class DeploymentService:
             raise HTTPException(
                 status_code=500, detail=f"Engine Execution failed: {str(e)}"
             )
+
+    @staticmethod
+    def _extract_input_schema(graph_snapshot: dict) -> dict | None:
+        """
+        graph_snapshot에서 StartNode의 입력 변수 스키마를 추출합니다.
+
+        Returns:
+            {
+                "variables": [
+                    {"name": "question", "type": "string", "label": "질문"},
+                    ...
+                ]
+            }
+        """
+        if not graph_snapshot or not graph_snapshot.get("nodes"):
+            return None
+
+        for node in graph_snapshot["nodes"]:
+            if node.get("type") == "startNode":
+                variables = node.get("data", {}).get("variables", [])
+                if not variables:
+                    return None
+
+                return {
+                    "variables": [
+                        {
+                            "name": var.get("name", ""),
+                            "type": var.get("type", "string"),
+                            "label": var.get("label", var.get("name", "")),
+                        }
+                        for var in variables
+                        if var.get("name")
+                    ]
+                }
+
+        return None
+
+    @staticmethod
+    def _extract_output_schema(graph_snapshot: dict) -> dict | None:
+        """
+        graph_snapshot에서 AnswerNode의 출력 스키마를 추출합니다.
+
+        Returns:
+            {
+                "outputs": [
+                    {"variable": "result", "label": "결과"},
+                    ...
+                ]
+            }
+        """
+        if not graph_snapshot or not graph_snapshot.get("nodes"):
+            return None
+
+        for node in graph_snapshot["nodes"]:
+            if node.get("type") == "answerNode":
+                outputs = node.get("data", {}).get("outputs", [])
+                if not outputs:
+                    return None
+
+                return {
+                    "outputs": [
+                        {
+                            "variable": output.get("variable", ""),
+                            "label": output.get("label", output.get("variable", "")),
+                        }
+                        for output in outputs
+                        if output.get("variable")
+                    ]
+                }
+
+        return None
