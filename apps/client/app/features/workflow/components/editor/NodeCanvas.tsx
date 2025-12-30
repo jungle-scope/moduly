@@ -20,7 +20,10 @@ import BottomPanel from './BottomPanel';
 import WorkflowTabs from './WorkflowTabs';
 
 import NodeDetailsPanel from './NodeDetailsPanel';
-import { getNodeDefinitionByType } from '../../config/nodeRegistry';
+import {
+  getNodeDefinitionByType,
+  getNodeDefinition,
+} from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
@@ -42,7 +45,8 @@ export default function NodeCanvas() {
     updateWorkflowViewport,
   } = useWorkflowStore();
 
-  const { fitView, setViewport, getViewport } = useReactFlow();
+  const { fitView, setViewport, getViewport, screenToFlowPosition } =
+    useReactFlow();
 
   // 세부 정보 패널을 위한 선택된 노드 추적
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -135,6 +139,59 @@ export default function NodeCanvas() {
     }, 300);
   }, [fitView, getViewport, activeWorkflowId, updateWorkflowViewport]);
 
+  // Handle drop from sidebar
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const nodeDefId = event.dataTransfer.getData('nodeDefId');
+      if (!nodeDefId) return;
+
+      const nodeDef = getNodeDefinition(nodeDefId);
+      if (!nodeDef) return;
+
+      // Check if node is implemented
+      if (!nodeDef.implemented) {
+        return;
+      }
+
+      // Check for uniqueness
+      if (nodeDef.unique) {
+        const existingNode = nodes.find((node) => node.type === nodeDef.type);
+        if (existingNode) {
+          return;
+        }
+      }
+
+      // Get position from drop event
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      // Create new node at drop position
+      const newNode = {
+        id: `${nodeDef.id}-${Date.now()}`,
+        type: nodeDef.type,
+        data: nodeDef.defaultData(),
+        position,
+      };
+
+      onNodesChange([
+        {
+          type: 'add',
+          item: newNode as any,
+        },
+      ]);
+    },
+    [nodes, screenToFlowPosition, onNodesChange],
+  );
+
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
   return (
     <div className="flex-1 bg-gray-50 relative flex flex-col">
       {/* 워크플로우 탭 */}
@@ -150,6 +207,8 @@ export default function NodeCanvas() {
           onConnect={onConnect}
           onMoveEnd={handleMoveEnd}
           onNodeClick={handleNodeClick}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
           nodeTypes={nodeTypes}
           fitView
           attributionPosition="bottom-right"
@@ -166,10 +225,10 @@ export default function NodeCanvas() {
         </ReactFlow>
 
         {/* 플로팅 하단 패널 - 사이드 패널에 따라 위치 조정 */}
-        <BottomPanel
+        {/* <BottomPanel
           onCenterNodes={centerNodes}
           isPanelOpen={!!selectedNodeId}
-        />
+        /> */}
 
         {/* Node Details Panel - positioned relative to ReactFlow container */}
         <NodeDetailsPanel

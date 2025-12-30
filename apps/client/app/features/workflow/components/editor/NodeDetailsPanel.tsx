@@ -1,5 +1,5 @@
-import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { XIcon } from '../icons';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 
@@ -103,7 +103,7 @@ export default function NodeDetailsPanel({
           className="p-1 hover:bg-gray-100 rounded transition-colors"
           aria-label="Close panel"
         >
-          <X className="w-5 h-5 text-gray-500" />
+          <XIcon className="w-5 h-5 text-gray-500" />
         </button>
       </div>
 
