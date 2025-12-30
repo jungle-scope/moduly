@@ -17,7 +17,6 @@ import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore
 import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
-import WorkflowTabs from './WorkflowTabs';
 
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { getNodeDefinitionByType } from '../../config/nodeRegistry';
@@ -136,9 +135,6 @@ export default function NodeCanvas() {
 
   return (
     <div className="flex-1 bg-gray-50 relative flex flex-col">
-      {/* 워크플로우 탭 */}
-      <WorkflowTabs />
-
       {/* ReactFlow 캔버스 */}
       <div className="flex-1 relative">
         <ReactFlow

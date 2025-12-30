@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import NodeCanvas from '@/app/features/workflow/components/editor/NodeCanvas';
+import WorkflowTabs from '@/app/features/workflow/components/editor/WorkflowTabs';
 import { useAutoSync } from '@/app/features/workflow/hooks/useAutoSync';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 
@@ -24,7 +25,13 @@ function WorkflowContent() {
   }, [id, setActiveWorkflow]);
 
   useAutoSync(); // Auto-save workflow changes to server
-  return <NodeCanvas key={id} />; // Key forces remount when workflow changes
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <WorkflowTabs />
+      <NodeCanvas key={id} />
+    </div>
+  );
 }
 
 // Plugin section placeholder
