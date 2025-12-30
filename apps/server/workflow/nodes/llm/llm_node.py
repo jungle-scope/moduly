@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from jinja2 import Environment
 
@@ -9,6 +9,19 @@ from ..base.node import Node
 from .entities import LLMNodeData
 
 _jinja_env = Environment(autoescape=False)
+
+
+def _get_nested_value(data: Any, keys: List[str]) -> Any:
+    """
+    중첩된 딕셔너리에서 키 경로를 따라 값을 추출합니다.
+    Template 노드와 동일한 헬퍼 함수.
+    """
+    for key in keys:
+        if isinstance(data, dict):
+            data = data.get(key)
+        else:
+            return None
+    return data
 
 
 class LLMNode(Node[LLMNodeData]):
@@ -22,7 +35,7 @@ class LLMNode(Node[LLMNodeData]):
     - 상세 기능: 모델 선택, 시스템/유저/어시스턴트 프롬프트, 컨텍스트(RAG) 전달.
     """
 
-    node_type = "llm"
+    node_type = "llmNode"
 
     def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -58,9 +71,6 @@ class LLMNode(Node[LLMNodeData]):
                     temp_session.close()
 
         # STEP 3. 프롬프트 빌드 ------------------------------------------------
-        # TODO: _render_prompt 구현 후, inputs + referenced/context 변수로 템플릿을 렌더링합니다.
-        # - 템플릿에 있는 {{var}} / context placeholder 등을 inputs로 치환
-        # - 비어있는 메시지는 제외해 LLM으로 전달
         messages = [
             {
                 "role": "system",
@@ -78,7 +88,6 @@ class LLMNode(Node[LLMNodeData]):
         messages = [m for m in messages if m["content"]]  # 비어있는 메시지 제외
 
         # STEP 4. LLM 호출 ----------------------------------------------------
-        # TODO: 준비된 클라이언트로 호출
         response = client.invoke(messages=messages, **(self.data.parameters or {}))
 
         # OpenAI 응답 포맷에서 텍스트/usage 추출 (missing 시 안전하게 빈 값)
@@ -92,30 +101,49 @@ class LLMNode(Node[LLMNodeData]):
         usage = response.get("usage", {}) if isinstance(response, dict) else {}
 
         # STEP 5. 결과 포맷팅 --------------------------------------------------
-        # TODO: downstream에서 사용할 출력 형태 확정 후 -> 수정 필요하면 수정하겠음
         return {"text": text, "usage": usage, "model": self.data.model_id}
 
     def _render_prompt(self, template: Optional[str], inputs: Dict[str, Any]) -> str:
         """
         프롬프트 템플릿을 jinja2로 렌더링합니다.
-        - referenced_variables에 명시된 변수만 컨텍스트로 사용
-        - context_variable 사용 방식은 확정 전이라 TODO로 남김
+        Template 노드와 동일한 방식으로 referenced_variables의 value_selector를 사용하여
+        이전 노드의 output에서 값을 추출합니다.
         """
         if not template:
             return ""
 
-        prompt_vars: Dict[str, Any] = {}
+        context: Dict[str, Any] = {}
 
-        # 명시된 변수만 추가, 없으면 빈 문자열로 채움
-        for var in self.data.referenced_variables:
-            prompt_vars[var] = inputs.get(var, "")
-        # TODO: context_variable을 어떻게 활용할지 확정 후 처리 로직 보완
-        # if self.data.context_variable:
-        #     prompt_vars[self.data.context_variable] = inputs.get(
-        #         self.data.context_variable, ""
-        #     )
+        # referenced_variables에서 각 변수의 값을 추출
+        for variable in self.data.referenced_variables:
+            var_name = variable.name
+            selector = variable.value_selector
 
+            # 필수값 체크
+            if not var_name or not selector or len(selector) < 1:
+                context[var_name] = ""
+                continue
+
+            target_node_id = selector[0]
+
+            # 입력 데이터에서 해당 노드의 결과 찾기
+            source_data = inputs.get(target_node_id)
+
+            if source_data is None:
+                context[var_name] = ""
+                continue
+
+            # 값 추출 (selector가 2개 이상일 경우 중첩된 값 탐색)
+            # 예: ["start-1", "username"] -> inputs["start-1"]["username"]
+            if len(selector) > 1:
+                value = _get_nested_value(source_data, selector[1:])
+                context[var_name] = value if value is not None else ""
+            else:
+                # selector가 노드 ID만 있는 경우
+                context[var_name] = source_data
+
+        # Jinja2 템플릿 렌더링
         try:
-            return _jinja_env.from_string(template).render(**prompt_vars)
+            return _jinja_env.from_string(template).render(**context)
         except Exception as e:
             raise ValueError(f"프롬프트 렌더링 실패: {e}")

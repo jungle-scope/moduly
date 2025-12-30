@@ -150,6 +150,10 @@ class WorkflowEngine:
     def _build_node_instances(self):
         """NodeSchema를 실제 Node 인스턴스로 변환 (NodeFactory 사용)"""
         for node_id, schema in self.node_schemas.items():
+            # 메모 노드는 UI 전용이므로 인스턴스 생성 스킵
+            if schema.type == "note":
+                continue
+
             try:
                 self.node_instances[node_id] = NodeFactory.create(schema)
             except NotImplementedError as e:
