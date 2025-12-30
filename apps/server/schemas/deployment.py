@@ -33,6 +33,19 @@ class DeploymentResponse(DeploymentBase):
     created_by: UUID
     created_at: datetime
     graph_snapshot: Dict[str, Any]
+    input_schema: Optional[Dict[str, Any]] = None  # StartNode 입력 스키마
+    output_schema: Optional[Dict[str, Any]] = None  # AnswerNode 출력 스키마
 
     class Config:
         from_attributes = True
+
+
+class DeploymentInfoResponse(BaseModel):
+    """공개 배포 정보 응답 (인증 불필요)"""
+
+    url_slug: str
+    version: int
+    description: Optional[str] = None
+    type: str
+    input_schema: Optional[dict] = None
+    output_schema: Optional[dict] = None

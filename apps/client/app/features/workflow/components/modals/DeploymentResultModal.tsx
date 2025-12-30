@@ -8,6 +8,7 @@ interface SuccessData {
   url_slug: string | null;
   auth_secret: string | null;
   version: number;
+  webAppUrl?: string; // 웹 앱 공유 링크
 }
 
 interface ErrorData {
@@ -99,66 +100,95 @@ export function DeploymentResultModal({ onClose, result }: Props) {
 
           {/* 바디 */}
           <div className="p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                API Endpoint URL
-              </label>
-              <div className="flex gap-2">
-                <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
-                  {API_URL}
-                </code>
-                <button
-                  onClick={() => handleCopy(API_URL)}
-                  className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
-                >
-                  복사
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                API Secret Key
-              </label>
-              <div className="flex gap-2">
-                <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
-                  {result.auth_secret || 'N/A (Public)'}
-                </code>
-                {result.auth_secret && (
+            {/* 웹 앱 공유 링크 (웹 앱 배포 시에만 표시) */}
+            {result.webAppUrl && (
+              <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                <label className="block text-sm font-semibold text-blue-900 mb-2">
+                  🌐 웹 앱 공유 링크
+                </label>
+                <p className="text-xs text-blue-700 mb-3">
+                  이 링크를 공유하면 누구나 워크플로우를 사용할 수 있습니다!
+                </p>
+                <div className="flex gap-2">
+                  <code className="flex-1 p-3 bg-white border border-blue-300 rounded text-sm text-blue-800 font-mono break-all leading-relaxed">
+                    {result.webAppUrl}
+                  </code>
                   <button
-                    onClick={() => handleCopy(result.auth_secret!)}
-                    className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
+                    onClick={() => handleCopy(result.webAppUrl!)}
+                    className="px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors whitespace-nowrap h-fit"
                   >
                     복사
                   </button>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Test Command (cURL)
-              </label>
-              <div className="relative">
-                <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
-                  {`curl -X POST "${API_URL}" \\
+            {/* API Secret Key (웹 앱이 아닐 때만 표시) */}
+            {!result.webAppUrl && (
+              <>
+                {/* API Endpoint (웹 앱이 아닐 때만 표시) */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    API Endpoint URL
+                  </label>
+                  <div className="flex gap-2">
+                    <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
+                      {API_URL}
+                    </code>
+                    <button
+                      onClick={() => handleCopy(API_URL)}
+                      className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
+                    >
+                      복사
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    API Secret Key
+                  </label>
+                  <div className="flex gap-2">
+                    <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
+                      {result.auth_secret || 'N/A (Public)'}
+                    </code>
+                    {result.auth_secret && (
+                      <button
+                        onClick={() => handleCopy(result.auth_secret!)}
+                        className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
+                      >
+                        복사
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Test Command (cURL)
+                  </label>
+                  <div className="relative">
+                    <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
+                      {`curl -X POST "${API_URL}" \\
   -H "Content-Type: application/json" \\
 ${result.auth_secret ? `  -H "Authorization: Bearer ${result.auth_secret}" \\` : ''}
   -d '{ "inputs": {} }'`}
-                </pre>
-                <button
-                  onClick={() =>
-                    handleCopy(`curl -X POST "${API_URL}" \\
+                    </pre>
+                    <button
+                      onClick={() =>
+                        handleCopy(`curl -X POST "${API_URL}" \\
   -H "Content-Type: application/json" \\
 ${result.auth_secret ? `  -H "Authorization: Bearer ${result.auth_secret}" \\` : ''}
   -d '{ "inputs": {} }'`)
-                  }
-                  className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
-                >
-                  복사
-                </button>
-              </div>
-            </div>
+                      }
+                      className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                    >
+                      복사
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* 푸터 */}

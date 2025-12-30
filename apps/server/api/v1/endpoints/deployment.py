@@ -48,3 +48,40 @@ def get_deployment(
     특정 배포 ID의 상세 정보를 조회합니다.
     """
     return DeploymentService.get_deployment(db, deployment_id)
+
+
+@router.get("/public/{url_slug}/info")
+def get_deployment_info_public(url_slug: str, db: Session = Depends(get_db)):
+    """
+    배포 정보 공개 조회 (웹 앱용, 인증 불필요)
+
+    공유 페이지에서 입력 폼을 동적으로 생성하기 위해
+    input_schema와 output_schema를 조회합니다.
+    """
+    from fastapi import HTTPException
+
+    from db.models.workflow_deployment import WorkflowDeployment
+    from schemas.deployment import DeploymentInfoResponse
+
+    # url_slug로 배포 조회
+    deployment = (
+        db.query(WorkflowDeployment)
+        .filter(WorkflowDeployment.url_slug == url_slug)
+        .first()
+    )
+
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    if not deployment.is_active:
+        raise HTTPException(status_code=404, detail="Deployment is inactive")
+
+    # 공개 정보만 반환 (auth_secret 제외)
+    return DeploymentInfoResponse(
+        url_slug=deployment.url_slug,
+        version=deployment.version,
+        description=deployment.description,
+        type=deployment.type.value,
+        input_schema=deployment.input_schema,
+        output_schema=deployment.output_schema,
+    )

@@ -1,4 +1,4 @@
-export type DeploymentType = 'api' | 'widget' | 'mcp';
+export type DeploymentType = 'api' | 'widget' | 'mcp' | 'webapp';
 
 export interface DeploymentBase {
   type: DeploymentType;

@@ -12,6 +12,7 @@ class WorkflowEngine:
         self,
         graph: Union[Dict[str, Any], tuple[List[NodeSchema], List[EdgeSchema]]],
         user_input: Dict[str, Any] = None,
+        is_deployed: bool = False,
     ):
         """
         WorkflowEngine 초기화
@@ -20,12 +21,14 @@ class WorkflowEngine:
             graph: 워크플로우 그래프 데이터
                 - Dict 형태: {"nodes": [...], "edges": [...], "viewport": ...}
             user_input: 사용자가 입력한 변수 값들
+            is_deployment: 배포 모드 여부 (True: 배포된 워크플로우, False: Draft)
         """
         # graph가 딕셔너리인 경우 nodes와 edges 추출
         if isinstance(graph, dict):
             nodes = [NodeSchema(**node) for node in graph.get("nodes", [])]
             edges = [EdgeSchema(**edge) for edge in graph.get("edges", [])]
 
+        self.is_deployed = is_deployed  # 배포 모드 플래그
         self.node_schemas = {node.id: node for node in nodes}  # Schema 보관
         self.node_instances = {}  # Node 인스턴스 저장
         self.edges = edges
@@ -33,27 +36,21 @@ class WorkflowEngine:
         self.graph = self._build_graph()
         self._build_node_instances()  # Schema → Node 변환
 
-    def _build_graph(self) -> Dict[str, List[str]]:
-        """엣지로부터 그래프 구조 생성 (인접 리스트)"""
-        graph = {}
-        for edge in self.edges:
-            if edge.source not in graph:
-                graph[edge.source] = []
-            graph[edge.source].append(edge.target)
-        return graph
-
     def execute(self) -> Dict[str, Any]:
         """
         워크플로우 전체 실행 (Wrapper)
         execute_stream을 호출하여 실행하고, 최종 결과만 반환합니다.
         """
+        if self.is_deployed:
+            return self.execute_deployed()
+
         final_context = {}
         for event in self.execute_stream():
             if event["type"] == "workflow_finish":
                 final_context = event["data"]
             elif event["type"] == "error":
                 raise ValueError(event["data"]["message"])
-        
+
         return final_context
 
     def execute_stream(self):
@@ -81,7 +78,10 @@ class WorkflowEngine:
             # node_id가 존재하는지 확인
             if node_id not in self.node_instances:
                 error_msg = f"노드 ID '{node_id}'를 찾을 수 없습니다."
-                yield {"type": "error", "data": {"node_id": node_id, "message": error_msg}}
+                yield {
+                    "type": "error",
+                    "data": {"node_id": node_id, "message": error_msg},
+                }
                 return
 
             # 이미 실행된 노드는 스킵
@@ -92,27 +92,33 @@ class WorkflowEngine:
             node_schema = self.node_schemas[node_id]
 
             # 2. 노드 시작 이벤트
-            yield {"type": "node_start", "data": {"node_id": node_id, "node_type": node_schema.type}}
+            yield {
+                "type": "node_start",
+                "data": {"node_id": node_id, "node_type": node_schema.type},
+            }
 
             # 노드 실행: 입력 데이터 준비 후 Node.execute() 호출
             try:
                 inputs = self._get_context(node_id, results)
                 result = node_instance.execute(inputs)
                 results[node_id] = result
-                
+
                 # 3. 노드 종료 이벤트
                 yield {
                     "type": "node_finish",
                     "data": {
                         "node_id": node_id,
                         "node_type": node_schema.type,
-                        "output": result
-                    }
+                        "output": result,
+                    },
                 }
 
             except Exception as e:
                 error_msg = str(e)
-                yield {"type": "error", "data": {"node_id": node_id, "message": error_msg}}
+                yield {
+                    "type": "error",
+                    "data": {"node_id": node_id, "message": error_msg},
+                }
                 # 에러 발생 시 중단 (선택 사항: 에러 무시하고 계속할지 결정 가능)
                 return
 
@@ -120,10 +126,53 @@ class WorkflowEngine:
             for next_node_id in self._get_next_nodes(node_id, result):
                 if self._is_ready(next_node_id, results):
                     ready_queue.append(next_node_id)
-        
+
         # 4. 워크플로우 종료 이벤트 (최종 컨텍스트 포함)
         final_context = self._get_context(node_id, results)
         yield {"type": "workflow_finish", "data": final_context}
+
+    def execute_deployed(self):
+        """
+        워크플로우 실행 로직
+        streaming이 필요 없는 배포된 workflow를 실행할 때 사용합니다.
+        """
+
+        start_node = self._find_start_node()
+        ready_queue = deque([start_node])
+        results = {}
+
+        while ready_queue:
+            node_id = ready_queue.popleft()
+
+            # node_id가 존재하는지 확인
+            if node_id not in self.node_instances:
+                error_msg = f"노드 ID '{node_id}'를 찾을 수 없습니다."
+                return
+
+            # 이미 실행된 노드는 스킵
+            if node_id in results:
+                continue
+
+            node_instance = self.node_instances[node_id]
+            # node_schema = self.node_schemas[node_id]
+
+            # 노드 실행: 입력 데이터 준비 후 Node.execute() 호출
+            try:
+                inputs = self._get_context(node_id, results)
+                result = node_instance.execute(inputs)
+                results[node_id] = result
+
+            except Exception as e:
+                error_msg = str(e)
+                return
+
+            # 다음 노드들을 ready_queue에 추가 (분기 노드 처리 포함)
+            for next_node_id in self._get_next_nodes(node_id, result):
+                if self._is_ready(next_node_id, results):
+                    ready_queue.append(next_node_id)
+
+        # 배포 모드에서는 항상 AnswerNode의 결과만 반환
+        return self._get_answer_node_result(results)
 
     def _find_start_node(self) -> str:
         """시작 노드 찾기 (type == "startNode"인 노드)"""
@@ -188,6 +237,15 @@ class WorkflowEngine:
         required_inputs = [edge.source for edge in self.edges if edge.target == node_id]
         return all(inp in results for inp in required_inputs)
 
+    def _build_graph(self) -> Dict[str, List[str]]:
+        """엣지로부터 그래프 구조 생성 (인접 리스트)"""
+        graph = {}
+        for edge in self.edges:
+            if edge.source not in graph:
+                graph[edge.source] = []
+            graph[edge.source].append(edge.target)
+        return graph
+
     def _build_node_instances(self):
         """NodeSchema를 실제 Node 인스턴스로 변환 (NodeFactory 사용)"""
         for node_id, schema in self.node_schemas.items():
@@ -229,3 +287,30 @@ class WorkflowEngine:
             inputs[prev_id] = output
 
         return inputs
+
+    def _get_answer_node_result(self, results: Dict) -> Dict[str, Any]:
+        """
+        배포 모드에서 AnswerNode의 결과만 추출하여 반환합니다.
+
+        Args:
+            results: 모든 노드의 실행 결과
+
+        Returns:
+            AnswerNode의 실행 결과
+
+        Raises:
+            ValueError: AnswerNode를 찾을 수 없는 경우
+        """
+        # answerNode 타입의 노드 찾기
+        for node_id, node_schema in self.node_schemas.items():
+            if node_schema.type == "answerNode":
+                # 해당 노드의 결과 반환
+                if node_id in results:
+                    return results[node_id]
+                else:
+                    raise ValueError(f"AnswerNode(id={node_id})가 실행되지 않았습니다.")
+
+        # AnswerNode가 없는 경우
+        raise ValueError(
+            "배포된 워크플로우에는 AnswerNode가 필요합니다. 워크플로우에 AnswerNode를 추가해주세요."
+        )

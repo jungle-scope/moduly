@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { toast } from 'sonner';
 import { useReactFlow } from '@xyflow/react';
@@ -23,6 +23,7 @@ import { DeploymentResultModal } from '../modals/DeploymentResultModal';
 /** SY.
  * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
  * auth_secret: 누구나 접근 가능한 Public 배포시 null
+ * webAppUrl: 웹 앱 배포 시 공유 링크
  * */
 type DeploymentResult =
   | {
@@ -30,6 +31,7 @@ type DeploymentResult =
       url_slug: string | null;
       auth_secret: string | null;
       version: number;
+      webAppUrl?: string; // 웹 앱 URL (선택적)
     }
   | { success: false; message: string }
   | null;
@@ -54,6 +56,8 @@ export default function EditorHeader() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deploymentResult, setDeploymentResult] =
     useState<DeploymentResult>(null);
+  const [showDeployDropdown, setShowDeployDropdown] = useState(false);
+  const [deploymentType, setDeploymentType] = useState<'api' | 'webapp'>('api'); // 배포 타입 추적
 
   const handleBack = useCallback(() => {
     router.push('/dashboard');
@@ -64,9 +68,16 @@ export default function EditorHeader() {
   }, []);
 
   const handlePublish = useCallback(() => {
+    setDeploymentType('api'); // REST API 배포
     setShowDeployModal(true);
   }, []);
 
+  const handlePublishAsWebApp = useCallback(() => {
+    setDeploymentType('webapp'); // 웹 앱 배포
+    setShowDeployModal(true);
+  }, []);
+
+  // rest API로 배포
   const handleDeploySubmit = useCallback(
     async (description: string) => {
       try {
@@ -97,6 +108,49 @@ export default function EditorHeader() {
             error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
         });
         // 실패 시에도 입력 모달 닫기
+        setShowDeployModal(false);
+      } finally {
+        setIsDeploying(false);
+      }
+    },
+    [workflowId],
+  );
+
+  // 웹 앱으로 배포
+  const handleDeployAsWebApp = useCallback(
+    async (description: string) => {
+      try {
+        setIsDeploying(true);
+
+        const response = await workflowApi.createDeployment({
+          workflow_id: workflowId,
+          description,
+          type: 'webapp', // 웹 앱 배포
+          is_active: true,
+        });
+        console.log('[웹 앱 배포 성공] 서버 응답:', response);
+
+        // 웹 앱 링크 생성
+        const webAppUrl = `${window.location.origin}/shared/${response.url_slug}`;
+
+        // 성공 결과 모달 표시 (공유 링크 포함)
+        setDeploymentResult({
+          success: true,
+          url_slug: response.url_slug ?? null,
+          auth_secret: null, // 웹 앱은 API 키 표시 안 함
+          version: response.version,
+          webAppUrl, // 웹 앱 URL 추가
+        });
+        setShowDeployModal(false);
+      } catch (error: any) {
+        console.error('Web app deployment failed:', error);
+
+        // 실패 결과 모달 표시
+        setDeploymentResult({
+          success: false,
+          message:
+            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
+        });
         setShowDeployModal(false);
       } finally {
         setIsDeploying(false);
@@ -288,12 +342,74 @@ export default function EditorHeader() {
             <span className="text-sm font-medium">버전 기록</span>
           </button>
 
-          <button
-            onClick={handlePublish}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm"
-          >
-            게시하기
-          </button>
+          {/* Publish Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDeployDropdown(!showDeployDropdown)}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm flex items-center gap-2"
+            >
+              게시하기
+              <svg
+                className={`w-4 h-4 transition-transform ${showDeployDropdown ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+
+            {/* Dropdown Menu */}
+            {showDeployDropdown && (
+              <>
+                {/* Backdrop to close dropdown */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowDeployDropdown(false)}
+                />
+
+                {/* Dropdown Content */}
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                  <button
+                    onClick={() => {
+                      setShowDeployDropdown(false);
+                      handlePublish();
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      REST API로 배포
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      API 키로 접근
+                    </div>
+                  </button>
+
+                  <div className="border-t border-gray-100 my-1" />
+
+                  <button
+                    onClick={() => {
+                      setShowDeployDropdown(false);
+                      handlePublishAsWebApp();
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      웹 앱으로 배포
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      링크 공유로 누구나 사용
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -317,7 +433,9 @@ export default function EditorHeader() {
       {showDeployModal && (
         <DeploymentModal
           onClose={() => setShowDeployModal(false)}
-          onSubmit={handleDeploySubmit}
+          onSubmit={
+            deploymentType === 'api' ? handleDeploySubmit : handleDeployAsWebApp
+          }
           isDeploying={isDeploying}
         />
       )}
