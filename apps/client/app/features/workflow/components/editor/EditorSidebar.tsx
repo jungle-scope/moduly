@@ -190,7 +190,6 @@ export default function EditorSidebar() {
   return (
     <>
       <aside className="w-72 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
-        {/* Node List */}
         <div className="flex-1 overflow-y-auto">
           {/* Workflow Section */}
           <SidebarSection
