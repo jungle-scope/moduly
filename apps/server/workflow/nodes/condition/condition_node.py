@@ -1,6 +1,6 @@
 """조건 분기 노드 구현 - Multi-Branch 지원"""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from workflow.core.utils import get_nested_value
 from workflow.nodes.base.node import Node
@@ -95,7 +95,7 @@ class ConditionNode(Node[ConditionNodeData]):
         """단일 조건을 평가합니다."""
         # variable_selector에서 값 추출
         if len(condition.variable_selector) < 1:
-            print(f"  경고: 빈 variable_selector")
+            print("  경고: 빈 variable_selector")
             return False
 
         node_id = condition.variable_selector[0]
@@ -117,13 +117,13 @@ class ConditionNode(Node[ConditionNodeData]):
         self, operator: ConditionOperator, actual: Any, expected: Any
     ) -> bool:
         """연산자에 따른 비교를 수행합니다."""
-        
+
         def safe_float(value: Any) -> float:
             """안전하게 float으로 변환"""
             if value is None:
                 raise ValueError("None cannot be converted to float")
             return float(value)
-        
+
         def values_equal(a: Any, b: Any) -> bool:
             """타입 변환을 지원하는 동등 비교"""
             if a == b:
@@ -132,7 +132,7 @@ class ConditionNode(Node[ConditionNodeData]):
                 return safe_float(a) == safe_float(b)
             except (ValueError, TypeError):
                 return str(a) == str(b)
-        
+
         try:
             if operator == ConditionOperator.EQUALS:
                 return values_equal(actual, expected)
@@ -147,16 +147,34 @@ class ConditionNode(Node[ConditionNodeData]):
                 return str(expected) not in str(actual) if actual is not None else True
 
             elif operator == ConditionOperator.STARTS_WITH:
-                return str(actual).startswith(str(expected)) if actual is not None else False
+                return (
+                    str(actual).startswith(str(expected))
+                    if actual is not None
+                    else False
+                )
 
             elif operator == ConditionOperator.ENDS_WITH:
-                return str(actual).endswith(str(expected)) if actual is not None else False
+                return (
+                    str(actual).endswith(str(expected)) if actual is not None else False
+                )
 
             elif operator == ConditionOperator.IS_EMPTY:
-                return actual is None or actual == "" or actual == [] or actual == {} or actual == 0
+                return (
+                    actual is None
+                    or actual == ""
+                    or actual == []
+                    or actual == {}
+                    or actual == 0
+                )
 
             elif operator == ConditionOperator.IS_NOT_EMPTY:
-                return actual is not None and actual != "" and actual != [] and actual != {} and actual != 0
+                return (
+                    actual is not None
+                    and actual != ""
+                    and actual != []
+                    and actual != {}
+                    and actual != 0
+                )
 
             elif operator == ConditionOperator.GREATER_THAN:
                 if actual is None:

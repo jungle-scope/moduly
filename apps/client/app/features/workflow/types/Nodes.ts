@@ -100,13 +100,18 @@ export interface ConditionNodeData extends BaseNodeData {
 // ============================================================================
 
 // ======================== [LLMNode] =========================================
+export interface LLMVariable {
+  name: string;
+  value_selector: string[];
+}
+
 export interface LLMNodeData extends BaseNodeData {
   provider: string;
   model_id: string;
   system_prompt?: string;
   user_prompt?: string;
   assistant_prompt?: string;
-  referenced_variables: string[];
+  referenced_variables: LLMVariable[];
   context_variable?: string;
   parameters: Record<string, unknown>;
 }
@@ -122,7 +127,6 @@ export interface TemplateNodeData extends BaseNodeData {
   variables: TemplateVariable[];
 }
 
-
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
 export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
@@ -131,7 +135,7 @@ export type HttpRequestNode = ReactFlowNode<
   'httpRequestNode'
 >;
 export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
-export type LLMNode = ReactFlowNode<LLMNodeData, 'llm'>;
+export type LLMNode = ReactFlowNode<LLMNodeData, 'llmNode'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
 export type TemplateNode = ReactFlowNode<TemplateNodeData, 'templateNode'>;
 
