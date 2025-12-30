@@ -1,15 +1,44 @@
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
 
 
-# --- Ingestion Schemas (Dev A) ---
+# --- Dev A ---
 class IngestionResponse(BaseModel):
     knowledge_base_id: UUID
     document_id: UUID
     status: str
     message: str
+
+
+class KnowledgeBaseResponse(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    document_count: Optional[int] = None
+    created_at: datetime
+    embedding_model: str
+
+
+class KnowledgeUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class DocumentResponse(BaseModel):
+    id: UUID
+    filename: str
+    status: str
+    created_at: datetime
+    error_message: Optional[str] = None
+    chunk_count: int = 0
+    token_count: int = 0  # 추후 구현
+
+
+class KnowledgeBaseDetailResponse(KnowledgeBaseResponse):
+    documents: List[DocumentResponse]
 
 
 # --- Retrieval Schemas (Dev B) ---

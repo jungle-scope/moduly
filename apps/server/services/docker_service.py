@@ -118,8 +118,8 @@ class DockerSandboxService:
         Returns:
             실행 가능한 완전한 파이썬 스크립트
         """
-        # JSON 문자열을 안전하게 이스케이프
-        inputs_json = json.dumps(inputs)
+        # inputs를 Python 딕셔너리 리터럴 문자열로 변환 (repr 사용)
+        inputs_repr = repr(inputs)
 
         wrapper = f"""
 import json
@@ -130,7 +130,8 @@ import sys
 
 # 실행 로직
 try:
-    inputs = {inputs_json}
+    # Python 딕셔너리 직접 삽입
+    inputs = {inputs_repr}
     result = main(inputs)
     
     # 리턴값 검증

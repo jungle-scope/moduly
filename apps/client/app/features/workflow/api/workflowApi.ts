@@ -63,6 +63,72 @@ export const workflowApi = {
     return response.data;
   },
 
+  // 3-1. 워크플로우 스트리밍 실행 (SSE)
+  executeWorkflowStream: async (
+    workflowId: string,
+    userInput?: Record<string, unknown>,
+    onEvent?: (event: any) => void | Promise<void>,
+  ) => {
+    const response = await fetch(
+      `${API_BASE_URL}/workflows/${workflowId}/stream`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // 쿠키 인증 포함
+        body: JSON.stringify(userInput || {}),
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Workflow execution failed');
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      buffer += chunk;
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // 마지막 불완전한 라인은 버퍼에 유지
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const jsonStr = line.slice(6);
+            const event = JSON.parse(jsonStr);
+            if (onEvent) await onEvent(event);
+          } catch (e) {
+            console.error('Failed to parse SSE event:', e);
+          }
+        }
+      }
+    }
+
+    // 남은 버퍼 처리
+    if (buffer.startsWith('data: ')) {
+      try {
+        const jsonStr = buffer.slice(6);
+        const event = JSON.parse(jsonStr);
+        if (onEvent) await onEvent(event);
+      } catch (e) {
+        console.error('Failed to parse SSE event:', e);
+      }
+    }
+  },
+
   // 4. 단일 워크플로우 상세 조회
   getWorkflow: async (workflowId: string): Promise<WorkflowResponse> => {
     const response = await api.get(`/workflows/${workflowId}`);

@@ -66,5 +66,14 @@ pymupdf==1.25.1
 python-multipart
 pymupdf4llm
 langchain-openai
+docker
+langchain==0.3.14
+langchain-community==0.3.14
+pgvector==0.3.6
+openai==1.59.5
+pymupdf==1.25.1
+python-multipart
+pymupdf4llm
+langchain-openai
 Werkzeug==3.1.4
 WTForms==3.2.1

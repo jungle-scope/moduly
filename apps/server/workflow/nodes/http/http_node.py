@@ -81,7 +81,7 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
 
                 return {
                     "status": response.status_code,
-                    "body": response_body,
+                    "data": response_body,
                     "headers": dict(response.headers),
                 }
         except httpx.RequestError as e:
@@ -102,8 +102,9 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
             return text
 
         # 정규표현식으로 {{ pattern }} 찾기
-        # 예: {{Start.query}} -> group(1): Start.query
-        pattern = re.compile(r"\{\{\s*([\w\.]+)\s*\}\}")
+        # 예: {{start-1767025047109.text}} -> group(1): start-1767025047109.text
+        # 하이픈(-)을 포함한 노드 ID 지원
+        pattern = re.compile(r"\{\{\s*([\w\.\-]+)\s*\}\}")
 
         def replace_match(match):
             variable_path = match.group(1).strip()

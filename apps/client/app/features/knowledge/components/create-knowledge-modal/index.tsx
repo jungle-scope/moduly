@@ -1,16 +1,19 @@
 'use client';
 
 import { useState, useRef, DragEvent } from 'react';
-import { X, Upload, FileText, Settings } from 'lucide-react';
+import { X, Upload, FileText, Settings, Loader2 } from 'lucide-react';
+import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
 
 interface CreateKnowledgeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  knowledgeBaseId?: string;
 }
 
 export default function CreateKnowledgeModal({
   isOpen,
   onClose,
+  knowledgeBaseId,
 }: CreateKnowledgeModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
@@ -18,10 +21,12 @@ export default function CreateKnowledgeModal({
     description: '',
     chunkSize: 500,
     chunkOverlap: 50,
-    embeddingModel: 'openai-ada-2',
+    embeddingModel: 'text-embedding-3-small',
     topK: 5,
     similarity: 0.7,
   });
+
+  const [isLoading, setIsLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,12 +47,36 @@ export default function CreateKnowledgeModal({
     }
   };
 
-  const handleSubmit = () => {
-    console.log('Creating knowledge base:', { file, ...formData });
-    // TODO: API 연결
-    // 지식 생성 모달에서 입력한 값들(useState의 file과 formdata)을 전달해야 함.
+  const handleSubmit = async () => {
+    if (!file) {
+      alert('파일을 업로드해주세요.');
+      return;
+    }
 
-    onClose();
+    try {
+      setIsLoading(true);
+      console.log('Creating knowledge base:', { file, ...formData });
+
+      await knowledgeApi.uploadKnowledgeBase({
+        file: file,
+        name: formData.name,
+        description: formData.description,
+        embeddingModel: formData.embeddingModel,
+        topK: formData.topK,
+        similarity: formData.similarity,
+        chunkSize: formData.chunkSize,
+        chunkOverlap: formData.chunkOverlap,
+        knowledgeBaseId: knowledgeBaseId,
+      });
+
+      // 성공 시 모달 닫기
+      onClose();
+    } catch (error) {
+      console.error('Failed to create/upload knowledge base:', error);
+      alert('요청 처리에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -58,7 +87,7 @@ export default function CreateKnowledgeModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            지식 베이스 생성
+            {knowledgeBaseId ? '문서 추가' : '지식 베이스 생성'}
           </h2>
           <button
             onClick={onClose}
@@ -107,42 +136,44 @@ export default function CreateKnowledgeModal({
             </div>
           </div>
 
-          {/* Basic Info */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              📝 기본 정보
-            </label>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  이름
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  placeholder="예: 제품 매뉴얼"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  설명
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="이 지식 베이스에 대한 설명을 입력하세요"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                />
+          {/* Basic Info (Only for New KB) */}
+          {!knowledgeBaseId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                📝 기본 정보
+              </label>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    이름
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    placeholder="예: 제품 매뉴얼"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    설명
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    placeholder="이 지식 베이스에 대한 설명을 입력하세요"
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Advanced Settings */}
           <div>
@@ -212,9 +243,11 @@ export default function CreateKnowledgeModal({
                     }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
-                    <option value="openai-ada-2">OpenAI Ada-2</option>
-                    <option value="openai-ada-3">OpenAI Ada-3</option>
-                    <option value="cohere-embed">Cohere Embed</option>
+                    <option value="text-embedding-3-small">
+                      text-embedding-3-small
+                    </option>
+                    <option value="TEST1">TEST1</option>
+                    <option value="TEST2">TEST2</option>
                   </select>
                 </div>
               </div>
@@ -276,9 +309,19 @@ export default function CreateKnowledgeModal({
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            disabled={isLoading}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            생성하기
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                생성 중...
+              </>
+            ) : knowledgeBaseId ? (
+              '추가하기'
+            ) : (
+              '생성하기'
+            )}
           </button>
         </div>
       </div>
