@@ -4,7 +4,6 @@ OpenAI용 LLM 클라이언트.
 실제 SDK 대신 HTTP 호출로 동작하며, 응답/에러를 단순 래핑합니다.
 """
 
-import math
 from typing import Any, Dict, List
 
 import requests
@@ -67,9 +66,7 @@ class OpenAIClient(BaseLLMClient):
 
         if resp.status_code >= 400:
             snippet = resp.text[:200] if resp.text else ""
-            raise ValueError(
-                f"OpenAI 호출 실패 (status {resp.status_code}): {snippet}"
-            )
+            raise ValueError(f"OpenAI 호출 실패 (status {resp.status_code}): {snippet}")
 
         try:
             return resp.json()
