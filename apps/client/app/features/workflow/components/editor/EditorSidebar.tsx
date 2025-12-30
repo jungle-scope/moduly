@@ -107,6 +107,8 @@ export default function EditorSidebar() {
     }
   }, [workflowId]);
 
+<<<<<<<<< Temporary merge branch 1
+  // Load workflows when app_id is available
   const hasAutoSelectedRef = useRef(false);
   useEffect(() => {
     if (currentAppId && !hasAutoSelectedRef.current) {
