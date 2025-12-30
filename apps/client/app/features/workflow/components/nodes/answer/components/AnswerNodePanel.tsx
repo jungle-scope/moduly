@@ -1,12 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { Plus, X } from 'lucide-react';
-import {
-  AnswerNodeData,
-  AnswerNodeOutput,
-  StartNodeData,
-} from '../../../../types/Nodes';
+import { AnswerNodeData, AnswerNodeOutput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 
 interface AnswerNodePanelProps {
   nodeId: string;
@@ -69,33 +66,16 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
         <div className="p-4 space-y-3">
           {data.outputs?.map((output, index) => {
             const selectedSourceNodeId = output.value_selector?.[0];
+            const selectedOutputKey = output.value_selector?.[1];
+
             const selectedSourceNode = nodes.find(
               (n) => n.id === selectedSourceNodeId,
             );
 
-            // 소스 노드에서 변수 가져오기
-            let sourceVariables: { label: string; value: string }[] = [];
-            const isStartNode =
-              selectedSourceNode &&
-              (selectedSourceNode.type as string) === 'startNode';
-
-            if (isStartNode && selectedSourceNode) {
-              const startData =
-                selectedSourceNode.data as unknown as StartNodeData;
-              /**
-               * [중요] 변수 ID를 value로 저장하는 이유:
-               * - 사용자가 변수 이름을 변경해도 참조가 깨지지 않도록 함
-               * - 예: 변수명 "name" → "username" 변경 시
-               *   - 이름 기반: "name"을 찾음 → 없음 ❌
-               *   - ID 기반: "45af2b51-..."를 찾음 → 정상 동작 ✅
-               * - ID는 변경되지 않으므로 참조 안정성 보장
-               */
-              sourceVariables = (startData.variables || []).map((v) => ({
-                label: v.name, // 드롭다운에는 이름 표시 (사용자 가독성)
-                value: v.id, // 저장할 때는 ID 사용 (참조 안정성)
-              }));
-            }
-            // 필요한 경우 다른 노드 유형 추가 (예: LLM 결과)
+            // 선택된 노드의 가능한 output 키 목록 (Template/LLM 방식)
+            const availableOutputs = selectedSourceNode
+              ? getNodeOutputs(selectedSourceNode)
+              : [];
 
             return (
               <div
@@ -144,10 +124,14 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                       ))}
                   </select>
 
-                  {/* 동적 소스 변수 입력/선택 */}
+                  {/* Output 키 선택 (Template/LLM 방식) */}
                   <select
-                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                    value={output.value_selector?.[1] || ''}
+                    className={`h-8 w-1/2 rounded border px-2 text-sm focus:border-blue-500 focus:outline-none ${
+                      !selectedSourceNodeId
+                        ? 'bg-gray-100 text-gray-400 border-gray-200'
+                        : 'border-gray-300 bg-white'
+                    }`}
+                    value={selectedOutputKey || ''}
                     onChange={(e) => {
                       const currentNode = output.value_selector?.[0] || '';
                       handleUpdateOutput(index, 'value_selector', [
@@ -155,14 +139,14 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                         e.target.value,
                       ]);
                     }}
-                    disabled={sourceVariables.length === 0}
+                    disabled={!selectedSourceNodeId}
                   >
-                    <option value="" disabled>
-                      {sourceVariables.length === 0 ? '변수 없음' : '변수 선택'}
+                    <option value="">
+                      {!selectedSourceNodeId ? '출력 선택' : '출력 키 선택'}
                     </option>
-                    {sourceVariables.map((v) => (
-                      <option key={v.value} value={v.value}>
-                        {v.label}
+                    {availableOutputs.map((outKey) => (
+                      <option key={outKey} value={outKey}>
+                        {outKey}
                       </option>
                     ))}
                   </select>

@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { NodeProps, Node } from '@xyflow/react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
-import { AnswerNodeData, StartNodeData } from '../../../../types/Nodes';
+import { AnswerNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 
 export const AnswerNode = memo(
@@ -17,28 +17,12 @@ export const AnswerNode = memo(
 
           {data.outputs?.map((output, index) => {
             const sourceNodeId = output.value_selector?.[0];
-            const variableId = output.value_selector?.[1];
+            const outputKey = output.value_selector?.[1];
             const sourceNode = nodes.find((n) => n.id === sourceNodeId);
             const sourceTitle =
               (sourceNode?.data as { title?: string })?.title ||
               sourceNode?.type ||
               'undefined';
-
-            // 변수 ID를 기반으로 현재 변수 이름 조회
-            let variableKey = 'undefined';
-            if (
-              sourceNode &&
-              (sourceNode.type as string) === 'startNode' &&
-              variableId
-            ) {
-              const startData = sourceNode.data as unknown as StartNodeData;
-              const variable = startData.variables?.find(
-                (v) => v.id === variableId,
-              );
-              variableKey = variable?.name || '(삭제된 변수)';
-            } else if (variableId) {
-              variableKey = variableId;
-            }
 
             return (
               <div
@@ -49,7 +33,7 @@ export const AnswerNode = memo(
                   {output.variable || '(이름 없음)'}
                 </div>
                 <div className="text-[10px] text-gray-500 truncate">
-                  {sourceTitle} - {variableKey}
+                  {sourceTitle} - {outputKey || '(키 없음)'}
                 </div>
               </div>
             );

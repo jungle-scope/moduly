@@ -8,6 +8,8 @@ from workflow.nodes.condition import ConditionNode, ConditionNodeData
 from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
 from workflow.nodes.llm import LLMNode, LLMNodeData
 from workflow.nodes.start import StartNode, StartNodeData
+from workflow.nodes.template.entities import TemplateNodeData
+from workflow.nodes.template.template_node import TemplateNode
 
 
 class NodeFactory:
@@ -25,6 +27,7 @@ class NodeFactory:
         "conditionNode": (ConditionNode, ConditionNodeData),
         "llmNode": (LLMNode, LLMNodeData),
         "httpRequestNode": (HttpRequestNode, HttpRequestNodeData),
+        "templateNode": (TemplateNode, TemplateNodeData),
     }
 
     @staticmethod
