@@ -161,10 +161,7 @@ export default function NodeCanvas() {
             size={1}
             color="#d1d5db"
           />
-          <Controls
-            className="shadow-lg! border! border-gray-200! rounded-lg!"
-            showInteractive={false}
-          />
+          <Controls className="shadow-lg! border! border-gray-200! rounded-lg!" />
         </ReactFlow>
 
         {/* 플로팅 하단 패널 - 사이드 패널에 따라 위치 조정 */}
