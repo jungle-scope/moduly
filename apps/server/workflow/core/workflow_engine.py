@@ -146,8 +146,7 @@ class WorkflowEngine:
 
             # node_id가 존재하는지 확인
             if node_id not in self.node_instances:
-                error_msg = f"노드 ID '{node_id}'를 찾을 수 없습니다."
-                return
+                raise ValueError(f"노드 ID '{node_id}'를 찾을 수 없습니다.")
 
             # 이미 실행된 노드는 스킵
             if node_id in results:
@@ -163,8 +162,8 @@ class WorkflowEngine:
                 results[node_id] = result
 
             except Exception as e:
-                error_msg = str(e)
-                return
+                # 에러 발생 시 명확한 예외를 raise
+                raise Exception(f"노드 '{node_id}' 실행 중 오류 발생: {str(e)}")
 
             # 다음 노드들을 ready_queue에 추가 (분기 노드 처리 포함)
             for next_node_id in self._get_next_nodes(node_id, result):
@@ -301,16 +300,18 @@ class WorkflowEngine:
         Raises:
             ValueError: AnswerNode를 찾을 수 없는 경우
         """
-        # answerNode 타입의 노드 찾기
+        # 실행된 answerNode들만 수집
+        executed_answer_nodes = []
         for node_id, node_schema in self.node_schemas.items():
-            if node_schema.type == "answerNode":
-                # 해당 노드의 결과 반환
-                if node_id in results:
-                    return results[node_id]
-                else:
-                    raise ValueError(f"AnswerNode(id={node_id})가 실행되지 않았습니다.")
+            if node_schema.type == "answerNode" and node_id in results:
+                executed_answer_nodes.append((node_id, results[node_id]))
 
-        # AnswerNode가 없는 경우
-        raise ValueError(
-            "배포된 워크플로우에는 AnswerNode가 필요합니다. 워크플로우에 AnswerNode를 추가해주세요."
-        )
+        # 실행된 AnswerNode가 없는 경우
+        if not executed_answer_nodes:
+            raise ValueError(
+                "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
+                "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
+            )
+
+        # 첫 번째로 실행된 AnswerNode의 결과 반환
+        return executed_answer_nodes[0][1]
