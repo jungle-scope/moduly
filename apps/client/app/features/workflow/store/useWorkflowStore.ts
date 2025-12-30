@@ -159,17 +159,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   onNodesChange: (changes: NodeChange[]) => {
-    const newNodes = applyNodeChanges(changes, get().nodes);
+    const currentNodes = get().nodes || [];
+    const newNodes = applyNodeChanges(changes, currentNodes);
     get().setNodes(newNodes as Node[]);
   },
 
   onEdgesChange: (changes: EdgeChange[]) => {
-    const newEdges = applyEdgeChanges(changes, get().edges);
+    const currentEdges = get().edges || [];
+    const newEdges = applyEdgeChanges(changes, currentEdges);
     get().setEdges(newEdges);
   },
 
   onConnect: (connection: Connection) => {
-    const newEdges = addEdge(connection, get().edges);
+    const currentEdges = get().edges || [];
+    const newEdges = addEdge(connection, currentEdges);
     get().setEdges(newEdges);
   },
 

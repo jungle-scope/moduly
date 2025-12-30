@@ -12,6 +12,10 @@ export const getNodeOutputs = (node: Node): string[] => {
       return ['text', 'usage', 'model'];
     case 'templateNode':
       return (node.data?.variables as any[])?.map((v) => v.name) || [];
+    case 'codeNode':
+      return ['result'];
+    case 'httpRequestNode':
+      return ['status', 'data', 'headers'];
     case 'answerNode':
       return [];
     default:
