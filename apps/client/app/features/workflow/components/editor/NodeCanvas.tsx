@@ -24,6 +24,7 @@ import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
+import { CodeNodePanel } from '../nodes/code/components/CodeNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
@@ -161,10 +162,7 @@ export default function NodeCanvas() {
             size={1}
             color="#d1d5db"
           />
-          <Controls
-            className="shadow-lg! border! border-gray-200! rounded-lg!"
-            showInteractive={false}
-          />
+          <Controls className="shadow-lg! border! border-gray-200! rounded-lg!" />
         </ReactFlow>
 
         {/* 플로팅 하단 패널 - 사이드 패널에 따라 위치 조정 */}
@@ -193,6 +191,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'httpRequestNode' && (
             <HttpRequestNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'codeNode' && (
+            <CodeNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

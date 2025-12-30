@@ -4,7 +4,9 @@ import { Node as ReactFlowNode } from '@xyflow/react';
 export interface BaseNodeData {
   title: string;
   description?: string;
-  selected?: boolean; // 노드 선택 여부 (UI용)
+  // UI 표시용 상태 필드 (실행 중 시각적 피드백)
+  selected?: boolean; // 노드 선택 여부
+  status?: 'idle' | 'running' | 'success' | 'failure'; // 실행 상태 (UI용)
   [key: string]: unknown;
 }
 
@@ -115,6 +117,7 @@ export interface LLMNodeData extends BaseNodeData {
   context_variable?: string;
   parameters: Record<string, unknown>;
 }
+// ============================================================================
 
 // [TemplateNode]
 export interface TemplateVariable {
@@ -127,6 +130,19 @@ export interface TemplateNodeData extends BaseNodeData {
   variables: TemplateVariable[];
 }
 
+// ======================== [CodeNode] ========================================
+export interface CodeNodeInput {
+  name: string; // 코드 내에서 사용할 변수 이름
+  source: string; // 소스 경로 (예: "Start.query")
+}
+
+export interface CodeNodeData extends BaseNodeData {
+  code: string; // 실행할 Python 코드
+  inputs: CodeNodeInput[]; // 입력 변수 매핑
+  timeout: number; // 타임아웃 (초)
+}
+// ============================================================================
+
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
 export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
@@ -137,6 +153,7 @@ export type HttpRequestNode = ReactFlowNode<
 export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
 export type LLMNode = ReactFlowNode<LLMNodeData, 'llmNode'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
+export type CodeNode = ReactFlowNode<CodeNodeData, 'codeNode'>;
 export type TemplateNode = ReactFlowNode<TemplateNodeData, 'templateNode'>;
 
 // 4. 전체 노드 유니온 (AppNode)
@@ -147,8 +164,9 @@ export type AppNode =
   | HttpRequestNode
   | LLMNode
   | ConditionNode
+  | CodeNode
   | TemplateNode;
 
-// 하위 호환성 (필요시)
+//하위 호환성 (필요시)
 export type NodeData = BaseNodeData;
 export type Node = AppNode;
