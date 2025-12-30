@@ -1,11 +1,4 @@
-from typing import Generator
 
-from db.session import SessionLocal
+from db.session import get_db
 
-
-def get_db() -> Generator:
-    try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
+__all__ = ["get_db"]
