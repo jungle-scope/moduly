@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { InputSchema, OutputSchema } from '../../types/Deployment';
 
@@ -65,6 +66,8 @@ ${authHeader}  -d '{
 }
 
 export function DeploymentResultModal({ onClose, result }: Props) {
+  const [showSchemas, setShowSchemas] = useState(false);
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success('클립보드에 복사되었습니다!', {
