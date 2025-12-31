@@ -11,12 +11,9 @@ export default function Home() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // JWT 토큰 검증 시도
         await authApi.me();
-        // 성공 → 로그인됨 → 대시보드로 이동
         router.push('/dashboard');
       } catch {
-        // 실패 → 로그인 안 됨 → 로그인 페이지로 이동
         router.push('/auth/login');
       } finally {
         setIsChecking(false);

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
 import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
+import { WorkflowCreateRequest, WorkflowResponse } from '../types/Api';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -22,21 +23,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
-export interface WorkflowCreateRequest {
-  app_id: string;
-  name: string;
-  description?: string;
-}
-
-export interface WorkflowResponse {
-  id: string;
-  app_id: string;
-  marked_name: string | null;
-  marked_comment: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 export const workflowApi = {
   // 1. 드래프트 워크플로우 동기화 (저장)
