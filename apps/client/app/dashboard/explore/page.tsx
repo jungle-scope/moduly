@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Copy } from 'lucide-react';
 import { appApi, App } from '@/app/features/app/api/appApi';
 
 export default function ExplorePage() {
@@ -50,7 +50,7 @@ export default function ExplorePage() {
         </p>
       </div>
 
-      {/* Search Bar */}
+      {/* 검색창 */}
       <div className="mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -64,14 +64,14 @@ export default function ExplorePage() {
         </div>
       </div>
 
-      {/* Module Cards Grid */}
+      {/* 모듈 카드 그리드 */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {filteredModules.map((app) => (
           <div
             key={app.id}
             className="group flex cursor-pointer flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700"
           >
-            {/* Module Info */}
+            {/* 모듈 정보 */}
             <div className="flex-1">
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
                 {app.icon ? (
@@ -87,11 +87,24 @@ export default function ExplorePage() {
                 {app.description || '설명이 없습니다.'}
               </p>
             </div>
+
+            {/* 작업 푸터 */}
+            <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  alert('준비 중인 기능입니다.');
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
+              >
+                <Copy className="h-4 w-4" />내 스튜디오로 복제하기
+              </button>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Empty State */}
+      {/* 빈 상태 */}
       {filteredModules.length === 0 && searchQuery && (
         <div className="mt-12 text-center">
           <p className="text-gray-500 dark:text-gray-400">
