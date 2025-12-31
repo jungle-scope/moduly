@@ -16,7 +16,7 @@ class DeploymentType(str, Enum):
 
     API = "api"  # REST API로 배포 (인증 필요)
     WEBAPP = "webapp"  # 웹 앱으로 배포 (공개)
-    EMBED = "embed"  # 웹사이트 임베딩 배포 (공개)
+    WIDGET = "widget"  # 웹 위젯 임베딩 배포 (공개)
     MCP = "mcp"  # Model Context Protocol
 
 

@@ -62,7 +62,7 @@ export default function EditorHeader() {
     useState<DeploymentResult>(null);
   const [showDeployDropdown, setShowDeployDropdown] = useState(false);
   const [deploymentType, setDeploymentType] = useState<
-    'api' | 'webapp' | 'embed'
+    'api' | 'webapp' | 'widget'
   >('api'); // 배포 타입 추적
 
   const handleBack = useCallback(() => {
@@ -83,8 +83,8 @@ export default function EditorHeader() {
     setShowDeployModal(true);
   }, []);
 
-  const handlePublishAsEmbed = useCallback(() => {
-    setDeploymentType('embed'); // 임베딩 배포
+  const handlePublishAsWidget = useCallback(() => {
+    setDeploymentType('widget'); // 위젯 배포
     setShowDeployModal(true);
   }, []);
 
@@ -174,20 +174,20 @@ export default function EditorHeader() {
     [workflowId],
   );
 
-  // 웹사이트 임베딩으로 배포
-  const handleDeployAsEmbed = useCallback(
+  // 웹사이트 위젯으로 배포
+  const handleDeployAsWidget = useCallback(
     async (description: string) => {
       try {
         setIsDeploying(true);
 
-        // 웹 앱으로 배포 (임베딩은 embed 타입 사용)
+        // 위젯으로 배포
         const response = await workflowApi.createDeployment({
           workflow_id: workflowId,
           description,
-          type: 'embed',
+          type: 'widget',
           is_active: true,
         });
-        console.log('[임베딩 배포 성공] 서버 응답:', response);
+        console.log('[위젯 배포 성공] 서버 응답:', response);
 
         // 임베딩 채팅 URL
         const embedUrl = `${window.location.origin}/embed/chat/${response.url_slug}`;
@@ -204,7 +204,7 @@ export default function EditorHeader() {
         });
         setShowDeployModal(false);
       } catch (error: any) {
-        console.error('Embed deployment failed:', error);
+        console.error('Widget deployment failed:', error);
 
         setDeploymentResult({
           success: false,
@@ -475,7 +475,7 @@ export default function EditorHeader() {
                   <button
                     onClick={() => {
                       setShowDeployDropdown(false);
-                      handlePublishAsEmbed();
+                      handlePublishAsWidget();
                     }}
                     className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                   >
@@ -518,7 +518,7 @@ export default function EditorHeader() {
               ? handleDeploySubmit
               : deploymentType === 'webapp'
                 ? handleDeployAsWebApp
-                : handleDeployAsEmbed
+                : handleDeployAsWidget
           }
           isDeploying={isDeploying}
         />

@@ -73,8 +73,8 @@ class DeploymentService:
         auth_secret = deployment_in.auth_secret
 
         # 배포 타입에 따라 auth_secret 처리
-        if deployment_in.type in [DeploymentType.WEBAPP, DeploymentType.EMBED]:
-            # 웹 앱 및 임베딩은 무조건 공개 접근 (auth_secret 없음)
+        if deployment_in.type in [DeploymentType.WEBAPP, DeploymentType.WIDGET]:
+            # 웹 앱 및 위젯은 무조건 공개 접근 (auth_secret 없음)
             auth_secret = None
         elif not auth_secret:
             # REST API 등은 자동 생성 (auth_secret이 제공되지 않은 경우)
