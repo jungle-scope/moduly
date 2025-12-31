@@ -35,6 +35,7 @@ class AppService:
             description=request.description,
             icon=request.icon,
             icon_background=request.icon_background,
+            is_public=request.is_public,
             created_by=user_id,
         )
         db.add(app)

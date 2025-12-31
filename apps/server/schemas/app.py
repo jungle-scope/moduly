@@ -12,6 +12,7 @@ class AppCreateRequest(BaseModel):
     description: Optional[str] = None
     icon: str
     icon_background: str
+    is_public: bool = False
 
 
 class AppResponse(BaseModel):

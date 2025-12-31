@@ -42,6 +42,7 @@ export const appApi = {
     description?: string;
     icon: string;
     icon_background: string;
+    is_public?: boolean;
   }): Promise<App> => {
     const response = await api.post('/apps', data);
     return response.data;
