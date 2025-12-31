@@ -2,7 +2,6 @@
 
 import { ReactFlowProvider } from '@xyflow/react';
 import EditorHeader from '@/app/features/workflow/components/editor/EditorHeader';
-// import EditorSidebar from '@/app/features/workflow/components/editor/EditorSidebar';
 import NodeCanvas from '@/app/features/workflow/components/editor/NodeCanvas';
 import { useAutoSync } from '@/app/features/workflow/hooks/useAutoSync';
 import { useWorkflowAppSync } from '@/app/features/workflow/hooks/useWorkflowAppSync';
@@ -14,15 +13,12 @@ function WorkflowEditor() {
 
   return (
     <div className="flex flex-col h-screen bg-white">
-      {/* Header */}
+      {/* 헤더 */}
       <EditorHeader />
 
-      {/* Main content area with sidebar and canvas */}
+      {/* 메인 콘텐츠 영역 */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - 임시로 비활성화하겠습니다.*/}
-        {/* <EditorSidebar /> */}
-
-        {/* Canvas Area */}
+        {/* 캔버스 영역 */}
         <NodeCanvas />
       </div>
     </div>
