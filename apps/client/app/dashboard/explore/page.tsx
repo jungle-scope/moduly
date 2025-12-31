@@ -41,7 +41,7 @@ export default function ExplorePage() {
   useEffect(() => {
     const fetchApps = async () => {
       try {
-        const data = await appApi.listApps();
+        const data = await appApi.getExploreApps();
         setApps(data);
       } catch (error) {
         console.error('Failed to fetch apps:', error);

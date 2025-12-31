@@ -101,6 +101,15 @@ class AppService:
         return db.query(App).filter(App.created_by == user_id).all()
 
     @staticmethod
+    def list_explore_apps(db: Session, user_id: str):
+        """공개된 앱 중 본인이 만든 앱을 제외하고 조회합니다."""
+        return (
+            db.query(App)
+            .filter(App.is_public == True, App.created_by != user_id)
+            .all()
+        )
+
+    @staticmethod
     def clone_app(db: Session, user_id: str, app_id: str):
         """
         앱을 복제합니다 (워크플로우 포함).

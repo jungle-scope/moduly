@@ -37,6 +37,12 @@ export const appApi = {
     return response.data;
   },
 
+  // 탐색 페이지 (공개 앱) 조회
+  getExploreApps: async (): Promise<App[]> => {
+    const response = await api.get('/apps/explore');
+    return response.data;
+  },
+
   // 앱 생성
   createApp: async (data: {
     name: string;

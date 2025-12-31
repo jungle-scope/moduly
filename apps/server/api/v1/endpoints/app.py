@@ -40,6 +40,20 @@ def create_app(
     return AppService.create_app(db, request, user_id=str(current_user.id))
 
 
+@router.get("/explore", response_model=List[AppResponse])
+def list_explore_apps(
+    db: Session = Depends(get_db),
+    # 탐색 페이지는 공개 접근을 의미하지만, 보통 사용자는 여전히 로그인 상태입니다.
+    # 로그인 없이 공개 접근을 원한다면 current_user 의존성을 제거하면 됩니다.
+    # 현재 시스템 설계상 복제/조회를 위해 로그인이 필요하다고 가정합니다.
+    current_user: User = Depends(get_current_user),
+):
+    """
+    공개된 앱 목록 조회 (커뮤니티 탐색)
+    """
+    return AppService.list_explore_apps(db, user_id=str(current_user.id))
+
+
 @router.get("", response_model=List[AppResponse])
 def list_apps(
     db: Session = Depends(get_db),
