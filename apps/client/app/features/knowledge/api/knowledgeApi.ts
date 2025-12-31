@@ -6,6 +6,14 @@ import {
   KnowledgeBaseDetailResponse,
 } from '../types/Knowledge';
 
+// 외부(page.tsx, ..)에서 이 API 모듈을 통해 타입을 직접 import 할 수 있도록 내보냅니다.
+export type {
+  IngestionResponse,
+  KnowledgeCreateRequest,
+  KnowledgeBaseResponse,
+  KnowledgeBaseDetailResponse,
+};
+
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 // Axios 인스턴스 생성 (withCredentials 설정)

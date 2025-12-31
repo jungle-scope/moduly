@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Loader2, Copy } from 'lucide-react';
 import { appApi, App } from '@/app/features/app/api/appApi';
-import { Toast } from '@/app/components/ui/toast/Toast';
+import { toast } from 'sonner';
 
 export default function ExplorePage() {
   const router = useRouter();
@@ -12,14 +12,6 @@ export default function ExplorePage() {
   const [apps, setApps] = useState<App[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cloningId, setCloningId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{
-    isVisible: boolean;
-    message: string;
-  }>({ isVisible: false, message: '' });
-
-  const showToast = (message: string) => {
-    setToast({ isVisible: true, message });
-  };
 
   const handleClone = async (e: React.MouseEvent, appId: string) => {
     e.stopPropagation();
@@ -28,11 +20,11 @@ export default function ExplorePage() {
     try {
       setCloningId(appId);
       const newApp = await appApi.cloneApp(appId);
-      showToast('앱이 성공적으로 복제되었습니다.');
+      toast.success('앱이 성공적으로 복제되었습니다.');
       router.push(`/workflows/${newApp.id}`);
     } catch (error) {
       console.error('Failed to clone app:', error);
-      showToast('앱 복제에 실패했습니다.');
+      toast.error('앱 복제에 실패했습니다.');
     } finally {
       setCloningId(null);
     }
@@ -144,12 +136,6 @@ export default function ExplorePage() {
           </p>
         </div>
       )}
-
-      <Toast
-        message={toast.message}
-        isVisible={toast.isVisible}
-        onClose={() => setToast((prev) => ({ ...prev, isVisible: false }))}
-      />
     </div>
   );
 }
