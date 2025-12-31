@@ -244,7 +244,10 @@ export default function EditorHeader() {
                 .updateNodeData(data.node_id, { status: 'running' });
 
               // 🎯 실행 중인 노드로 화면 중심 이동 및 줌인
-              const currentNode = nodes.find((n) => n.id === data.node_id);
+              const latestNodes = useWorkflowStore.getState().nodes;
+              const currentNode = latestNodes.find(
+                (n) => n.id === data.node_id,
+              );
               if (currentNode) {
                 setCenter(
                   currentNode.position.x +
