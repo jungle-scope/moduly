@@ -19,6 +19,7 @@ import { UserInputModal } from '../modals/userInputModal';
 import { ResultModal } from '../modals/ResultModal';
 import { DeploymentModal } from '../modals/DeploymentModal';
 import { DeploymentResultModal } from '../modals/DeploymentResultModal';
+import { InputSchema, OutputSchema } from '../../types/Deployment';
 
 /** SY.
  * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
@@ -32,6 +33,8 @@ type DeploymentResult =
       auth_secret: string | null;
       version: number;
       webAppUrl?: string; // 웹 앱 URL (선택적)
+      input_schema?: InputSchema | null;
+      output_schema?: OutputSchema | null;
     }
   | { success: false; message: string }
   | null;
@@ -96,6 +99,8 @@ export default function EditorHeader() {
           url_slug: response.url_slug ?? null,
           auth_secret: response.auth_secret ?? null,
           version: response.version,
+          input_schema: response.input_schema ?? null,
+          output_schema: response.output_schema ?? null,
         });
         setShowDeployModal(false);
       } catch (error: any) {
@@ -140,6 +145,8 @@ export default function EditorHeader() {
           auth_secret: null, // 웹 앱은 API 키 표시 안 함
           version: response.version,
           webAppUrl, // 웹 앱 URL 추가
+          input_schema: response.input_schema ?? null,
+          output_schema: response.output_schema ?? null,
         });
         setShowDeployModal(false);
       } catch (error: any) {

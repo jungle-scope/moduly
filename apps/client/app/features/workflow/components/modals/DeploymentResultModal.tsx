@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Toast } from '@/app/components/ui/toast/Toast';
+import { InputSchema, OutputSchema } from '../../types/Deployment';
 
 interface SuccessData {
   success: true;
@@ -9,6 +10,8 @@ interface SuccessData {
   auth_secret: string | null;
   version: number;
   webAppUrl?: string; // 웹 앱 공유 링크
+  input_schema?: InputSchema | null;
+  output_schema?: OutputSchema | null;
 }
 
 interface ErrorData {
@@ -21,8 +24,49 @@ interface Props {
   result: SuccessData | ErrorData;
 }
 
+// curl 예시 생성 함수
+function generateCurlExample(
+  apiUrl: string,
+  authSecret: string | null,
+  inputSchema?: InputSchema | null,
+): string {
+  // 입력 스키마를 기반으로 inputs 객체 생성
+  let inputsExample: Record<string, string> = {};
+
+  if (
+    inputSchema &&
+    inputSchema.variables &&
+    inputSchema.variables.length > 0
+  ) {
+    inputsExample = inputSchema.variables.reduce(
+      (acc, variable) => {
+        // 모든 타입을 빈 문자열로 설정 (사용자가 직접 입력)
+        acc[variable.name] = '';
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+  }
+
+  const inputsJson = JSON.stringify(inputsExample, null, 2)
+    .split('\n')
+    .map((line, i) => (i === 0 ? line : `    ${line}`))
+    .join('\n');
+
+  const authHeader = authSecret
+    ? `  -H "Authorization: Bearer ${authSecret}" \\\n`
+    : '';
+
+  return `curl -X POST "${apiUrl}" \\
+  -H "Content-Type: application/json" \\
+${authHeader}  -d '{
+    "inputs": ${inputsJson}
+  }'`;
+}
+
 export function DeploymentResultModal({ onClose, result }: Props) {
   const [showToast, setShowToast] = useState(false);
+  const [showSchemas, setShowSchemas] = useState(false);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -169,17 +213,21 @@ export function DeploymentResultModal({ onClose, result }: Props) {
                   </label>
                   <div className="relative">
                     <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
-                      {`curl -X POST "${API_URL}" \\
-  -H "Content-Type: application/json" \\
-${result.auth_secret ? `  -H "Authorization: Bearer ${result.auth_secret}" \\` : ''}
-  -d '{ "inputs": {} }'`}
+                      {generateCurlExample(
+                        API_URL,
+                        result.auth_secret,
+                        result.input_schema,
+                      )}
                     </pre>
                     <button
                       onClick={() =>
-                        handleCopy(`curl -X POST "${API_URL}" \\
-  -H "Content-Type: application/json" \\
-${result.auth_secret ? `  -H "Authorization: Bearer ${result.auth_secret}" \\` : ''}
-  -d '{ "inputs": {} }'`)
+                        handleCopy(
+                          generateCurlExample(
+                            API_URL,
+                            result.auth_secret,
+                            result.input_schema,
+                          ),
+                        )
                       }
                       className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
                     >
@@ -187,6 +235,116 @@ ${result.auth_secret ? `  -H "Authorization: Bearer ${result.auth_secret}" \\` :
                     </button>
                   </div>
                 </div>
+
+                {/* 스키마 정보 토글 버튼 */}
+                {((result.input_schema &&
+                  result.input_schema.variables &&
+                  result.input_schema.variables.length > 0) ||
+                  (result.output_schema &&
+                    result.output_schema.outputs &&
+                    result.output_schema.outputs.length > 0)) && (
+                  <div className="border-t border-gray-200 pt-4">
+                    <button
+                      onClick={() => setShowSchemas(!showSchemas)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-700">
+                          {showSchemas
+                            ? '📂 스키마 정보 숨기기'
+                            : '📋 스키마 정보 보기'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          (입력/출력 변수)
+                        </span>
+                      </div>
+                      <svg
+                        className={`w-5 h-5 text-gray-500 transition-transform ${showSchemas ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {/* 스키마 정보 (토글) */}
+                    {showSchemas && (
+                      <div className="mt-4 space-y-4">
+                        {/* Input Schema 정보 */}
+                        {result.input_schema &&
+                          result.input_schema.variables &&
+                          result.input_schema.variables.length > 0 && (
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                📥 입력 변수 (Input Variables)
+                              </label>
+                              <div className="bg-blue-50 rounded-lg p-3 space-y-2">
+                                {result.input_schema.variables.map(
+                                  (variable, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-center gap-2 text-xs bg-white px-3 py-2 rounded border border-blue-200"
+                                    >
+                                      <code className="font-mono text-blue-700 font-semibold">
+                                        {variable.name}
+                                      </code>
+                                      <span className="text-gray-400">:</span>
+                                      <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                                        {variable.type}
+                                      </span>
+                                      {variable.label &&
+                                        variable.label !== variable.name && (
+                                          <span className="text-gray-500 italic ml-auto">
+                                            ({variable.label})
+                                          </span>
+                                        )}
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Output Schema 정보 */}
+                        {result.output_schema &&
+                          result.output_schema.outputs &&
+                          result.output_schema.outputs.length > 0 && (
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                📤 출력 변수 (Output Variables)
+                              </label>
+                              <div className="bg-green-50 rounded-lg p-3 space-y-2">
+                                {result.output_schema.outputs.map(
+                                  (output, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-center gap-2 text-xs bg-white px-3 py-2 rounded border border-green-200"
+                                    >
+                                      <code className="font-mono text-green-700 font-semibold">
+                                        {output.variable}
+                                      </code>
+                                      {output.label &&
+                                        output.label !== output.variable && (
+                                          <span className="text-gray-500 italic ml-auto">
+                                            ({output.label})
+                                          </span>
+                                        )}
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>

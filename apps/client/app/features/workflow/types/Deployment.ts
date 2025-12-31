@@ -1,5 +1,26 @@
 export type DeploymentType = 'api' | 'widget' | 'mcp' | 'webapp';
 
+// 입력 변수 스키마 타입
+export interface InputVariable {
+  name: string;
+  type: string;
+  label: string;
+}
+
+export interface InputSchema {
+  variables: InputVariable[];
+}
+
+// 출력 변수 스키마 타입
+export interface OutputVariable {
+  variable: string;
+  label: string;
+}
+
+export interface OutputSchema {
+  outputs: OutputVariable[];
+}
+
 export interface DeploymentBase {
   type: DeploymentType;
   url_slug?: string;
@@ -22,4 +43,6 @@ export interface DeploymentResponse extends DeploymentBase {
   created_by: string;
   created_at: string;
   graph_snapshot: Record<string, any>;
+  input_schema?: InputSchema | null;
+  output_schema?: OutputSchema | null;
 }
