@@ -6,10 +6,26 @@ from sqlalchemy.orm import Session
 from auth.dependencies import get_current_user
 from db.models.user import User
 from db.session import get_db
-from schemas.app import AppCreateRequest, AppResponse
+from schemas.app import AppCreateRequest, AppResponse, AppUpdateRequest
 from services.app_service import AppService
 
 router = APIRouter()
+
+
+@router.patch("/{app_id}", response_model=AppResponse)
+def update_app(
+    app_id: str,
+    request: AppUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    앱 정보를 수정합니다. (본인 앱만)
+    """
+    app = AppService.update_app(db, app_id, request, user_id=str(current_user.id))
+    if not app:
+        raise HTTPException(status_code=404, detail="App not found or permission denied")
+    return app
 
 
 @router.post("", response_model=AppResponse)

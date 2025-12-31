@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from db.models.app import App
 from db.models.workflow import Workflow
-from schemas.app import AppCreateRequest
+from schemas.app import AppCreateRequest, AppUpdateRequest
 
 
 class AppService:
@@ -59,6 +59,35 @@ class AppService:
 
         print(f"✅ App created: {app.name} (ID: {app.id})")
 
+        return app
+
+    @staticmethod
+    def update_app(
+        db: Session,
+        app_id: str,
+        request: AppUpdateRequest,
+        user_id: str,
+    ):
+        """
+        앱 정보를 수정합니다.
+        """
+        app = db.query(App).filter(App.id == app_id).first()
+        if not app:
+            return None
+
+        # 생성자만 수정 가능
+        if app.created_by != user_id:
+            return None
+
+        # 변경된 필드만 업데이트
+        update_data = request.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(app, key, value)
+
+        db.add(app)
+        db.commit()
+        db.refresh(app)
+        
         return app
 
     @staticmethod

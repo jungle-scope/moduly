@@ -24,6 +24,7 @@ export interface App {
   description?: string;
   icon: string;
   icon_background: string;
+  is_public: boolean;
   workflow_id?: string;
   created_at: string;
   updated_at: string;
@@ -57,6 +58,21 @@ export const appApi = {
   // 앱 복제
   cloneApp: async (appId: string): Promise<App> => {
     const response = await api.post(`/apps/${appId}/clone`);
+    return response.data;
+  },
+
+  // 앱 수정
+  updateApp: async (
+    appId: string,
+    data: {
+      name?: string;
+      description?: string;
+      icon?: string;
+      icon_background?: string;
+      is_public?: boolean;
+    },
+  ): Promise<App> => {
+    const response = await api.patch(`/apps/${appId}`, data);
     return response.data;
   },
 };
