@@ -12,12 +12,12 @@ from db.base import Base
 
 
 class DeploymentType(str, Enum):
-    """배포 유형 (확장 가능)"""
+    """배포 타입"""
 
-    API = "api"  # REST API
-    WIDGET = "widget"  # 웹 위젯
+    API = "api"  # REST API로 배포 (인증 필요)
+    WEBAPP = "webapp"  # 웹 앱으로 배포 (공개)
+    EMBED = "embed"  # 웹사이트 임베딩 배포 (공개)
     MCP = "mcp"  # Model Context Protocol
-    WEBAPP = "webapp"  # 웹 앱 배포 (공개 접근)
 
 
 class WorkflowDeployment(Base):
@@ -47,7 +47,9 @@ class WorkflowDeployment(Base):
 
     # 🤖 배포 형태 (Default: API)
     type: Mapped[DeploymentType] = mapped_column(
-        SQLEnum(DeploymentType), default=DeploymentType.API, nullable=False
+        SQLEnum(DeploymentType, values_callable=lambda x: [e.value for e in x]),
+        default=DeploymentType.API,
+        nullable=False,
     )
 
     # 🔑 실행 주소 (Slug)

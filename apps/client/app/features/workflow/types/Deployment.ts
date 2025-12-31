@@ -1,4 +1,4 @@
-export type DeploymentType = 'api' | 'widget' | 'mcp' | 'webapp';
+export type DeploymentType = 'api' | 'widget' | 'mcp' | 'webapp' | 'embed';
 
 // 입력 변수 스키마 타입
 export interface InputVariable {

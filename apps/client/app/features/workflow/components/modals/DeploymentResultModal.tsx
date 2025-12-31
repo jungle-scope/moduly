@@ -10,6 +10,7 @@ interface SuccessData {
   auth_secret: string | null;
   version: number;
   webAppUrl?: string; // 웹 앱 공유 링크
+  embedUrl?: string; // 임베딩 채팅 URL
   input_schema?: InputSchema | null;
   output_schema?: OutputSchema | null;
 }
@@ -167,8 +168,63 @@ export function DeploymentResultModal({ onClose, result }: Props) {
               </div>
             )}
 
-            {/* API Secret Key (웹 앱이 아닐 때만 표시) */}
-            {!result.webAppUrl && (
+            {/* 임베딩 위젯 코드 (임베딩 배포 시에만 표시) */}
+            {result.embedUrl && (
+              <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
+                <label className="block text-sm font-semibold text-purple-900 mb-2">
+                  💬 웹사이트 임베딩 코드
+                </label>
+                <p className="text-xs text-purple-700 mb-3">
+                  아래 코드를 복사하여 웹사이트의{' '}
+                  <code className="bg-purple-200 px-1 rounded">
+                    &lt;/body&gt;
+                  </code>{' '}
+                  태그 직전에 붙여넣으세요!
+                </p>
+                <div className="relative">
+                  <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
+                    {`<script>
+  window.ModulyConfig = {
+    appId: '${result.url_slug}'
+  };
+</script>
+<script src="http://localhost:8000/static/widget.js"></script>`}
+                  </pre>
+                  <button
+                    onClick={() =>
+                      handleCopy(
+                        `<script>
+  window.ModulyConfig = {
+    appId: '${result.url_slug}'
+  };
+</script>
+<script src="http://localhost:8000/static/widget.js"></script>`,
+                      )
+                    }
+                    className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                  >
+                    복사
+                  </button>
+                </div>
+                <div className="mt-3 p-3 bg-purple-100 rounded border border-purple-200">
+                  <p className="text-xs text-purple-800">
+                    <strong>💡 미리보기:</strong> 우하단에 채팅 버튼이 나타나며,
+                    클릭하면 채팅창이 열립니다.{' '}
+                    <a
+                      href={result.embedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline font-semibold"
+                    >
+                      테스트 페이지 열기 →
+                    </a>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* API Secret Key (웹 앱이나 임베딩이 아닐 때만 표시) */}
+            {!result.webAppUrl && !result.embedUrl && (
               <>
                 {/* API Endpoint (웹 앱이 아닐 때만 표시) */}
                 <div>

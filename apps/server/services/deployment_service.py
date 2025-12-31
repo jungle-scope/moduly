@@ -73,8 +73,8 @@ class DeploymentService:
         auth_secret = deployment_in.auth_secret
 
         # 배포 타입에 따라 auth_secret 처리
-        if deployment_in.type == DeploymentType.WEBAPP:
-            # 웹 앱은 무조건 공개 접근 (auth_secret 없음)
+        if deployment_in.type in [DeploymentType.WEBAPP, DeploymentType.EMBED]:
+            # 웹 앱 및 임베딩은 무조건 공개 접근 (auth_secret 없음)
             auth_secret = None
         elif not auth_secret:
             # REST API 등은 자동 생성 (auth_secret이 제공되지 않은 경우)
@@ -206,10 +206,12 @@ class DeploymentService:
             raise HTTPException(status_code=404, detail="Deployment is inactive")
 
         # 4. 인증 검증
-        # WEBAPP 타입은 공개 접근 (인증 불필요)
-        # 나머지 타입은 require_auth 파라미터에 따라 결정
-        if deployment.type == DeploymentType.WEBAPP:
-            # 웹 앱은 항상 공개 접근
+        # 배포 타입에 따른 인증 검증
+        if (
+            deployment.type == DeploymentType.WEBAPP
+            or deployment.type == DeploymentType.EMBED
+        ):
+            # 웹 앱 및 임베딩: 공개 접근 허용 (require_auth는 이미 False)
             pass
         elif require_auth:
             # 인증이 필요한 경우 (REST API 등)

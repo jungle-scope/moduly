@@ -33,6 +33,7 @@ type DeploymentResult =
       auth_secret: string | null;
       version: number;
       webAppUrl?: string; // 웹 앱 URL (선택적)
+      embedUrl?: string; // 임베딩 URL (선택적)
       input_schema?: InputSchema | null;
       output_schema?: OutputSchema | null;
     }
@@ -60,7 +61,9 @@ export default function EditorHeader() {
   const [deploymentResult, setDeploymentResult] =
     useState<DeploymentResult>(null);
   const [showDeployDropdown, setShowDeployDropdown] = useState(false);
-  const [deploymentType, setDeploymentType] = useState<'api' | 'webapp'>('api'); // 배포 타입 추적
+  const [deploymentType, setDeploymentType] = useState<
+    'api' | 'webapp' | 'embed'
+  >('api'); // 배포 타입 추적
 
   const handleBack = useCallback(() => {
     router.push('/dashboard');
@@ -77,6 +80,11 @@ export default function EditorHeader() {
 
   const handlePublishAsWebApp = useCallback(() => {
     setDeploymentType('webapp'); // 웹 앱 배포
+    setShowDeployModal(true);
+  }, []);
+
+  const handlePublishAsEmbed = useCallback(() => {
+    setDeploymentType('embed'); // 임베딩 배포
     setShowDeployModal(true);
   }, []);
 
@@ -153,6 +161,51 @@ export default function EditorHeader() {
         console.error('Web app deployment failed:', error);
 
         // 실패 결과 모달 표시
+        setDeploymentResult({
+          success: false,
+          message:
+            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
+        });
+        setShowDeployModal(false);
+      } finally {
+        setIsDeploying(false);
+      }
+    },
+    [workflowId],
+  );
+
+  // 웹사이트 임베딩으로 배포
+  const handleDeployAsEmbed = useCallback(
+    async (description: string) => {
+      try {
+        setIsDeploying(true);
+
+        // 웹 앱으로 배포 (임베딩은 embed 타입 사용)
+        const response = await workflowApi.createDeployment({
+          workflow_id: workflowId,
+          description,
+          type: 'embed',
+          is_active: true,
+        });
+        console.log('[임베딩 배포 성공] 서버 응답:', response);
+
+        // 임베딩 채팅 URL
+        const embedUrl = `${window.location.origin}/embed/chat/${response.url_slug}`;
+
+        // 성공 결과 모달 표시 (임베딩 스니펫 포함)
+        setDeploymentResult({
+          success: true,
+          url_slug: response.url_slug ?? null,
+          auth_secret: null,
+          version: response.version,
+          embedUrl, // 임베딩 URL 추가
+          input_schema: response.input_schema ?? null,
+          output_schema: response.output_schema ?? null,
+        });
+        setShowDeployModal(false);
+      } catch (error: any) {
+        console.error('Embed deployment failed:', error);
+
         setDeploymentResult({
           success: false,
           message:
@@ -416,6 +469,23 @@ export default function EditorHeader() {
                       링크 공유로 누구나 사용
                     </div>
                   </button>
+
+                  <div className="border-t border-gray-100 my-1" />
+
+                  <button
+                    onClick={() => {
+                      setShowDeployDropdown(false);
+                      handlePublishAsEmbed();
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      웹사이트에 챗봇 추가하기
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      복사 한 번으로 위젯 연동 완료
+                    </div>
+                  </button>
                 </div>
               </>
             )}
@@ -444,7 +514,11 @@ export default function EditorHeader() {
         <DeploymentModal
           onClose={() => setShowDeployModal(false)}
           onSubmit={
-            deploymentType === 'api' ? handleDeploySubmit : handleDeployAsWebApp
+            deploymentType === 'api'
+              ? handleDeploySubmit
+              : deploymentType === 'webapp'
+                ? handleDeployAsWebApp
+                : handleDeployAsEmbed
           }
           isDeploying={isDeploying}
         />
