@@ -7,8 +7,8 @@ import {
   SelectOption,
   VariableType,
   ConditionNodeData,
+  AnswerNodeData,
 } from '../../../../types/Nodes';
-import { AnswerNodeData } from '../../answer/components/AnswerNode';
 
 export const useVariableManager = (id: string, data: StartNodeData) => {
   const { updateNodeData } = useReactFlow();
