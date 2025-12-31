@@ -22,6 +22,7 @@ def run_workflow(
     - url_slug: workflow_deployments 생성시 만들어진 고유 주소
     """
     # 인증 토큰 추출
+
     auth_token = None
     if authorization and authorization.startswith("Bearer "):
         auth_token = authorization.split(" ")[1]

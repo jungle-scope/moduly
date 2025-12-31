@@ -209,9 +209,9 @@ class DeploymentService:
         # 배포 타입에 따른 인증 검증
         if (
             deployment.type == DeploymentType.WEBAPP
-            or deployment.type == DeploymentType.EMBED
+            or deployment.type == DeploymentType.WIDGET
         ):
-            # 웹 앱 및 임베딩: 공개 접근 허용 (require_auth는 이미 False)
+            # 웹 앱 및 위젯: 공개 접근 허용 (require_auth는 이미 False)
             pass
         elif require_auth:
             # 인증이 필요한 경우 (REST API 등)
