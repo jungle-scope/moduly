@@ -370,7 +370,14 @@ export default function BottomPanel({
       window.removeEventListener('click', handleClick);
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [isAddingNode, selectedNodeDef, nodes, setNodes, screenToFlowPosition]);
+  }, [
+    isAddingNode,
+    selectedNodeDef,
+    nodes,
+    setNodes,
+    screenToFlowPosition,
+    getViewport,
+  ]);
 
   return (
     <>

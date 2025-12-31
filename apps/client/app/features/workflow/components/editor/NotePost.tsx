@@ -7,7 +7,7 @@ interface NotePostData extends Record<string, unknown> {
 }
 
 function NotePost({ id, data, selected }: NodeProps<Node<NotePostData>>) {
-  const { nodes, setNodes } = useWorkflowStore();
+  const { updateNodeData } = useWorkflowStore();
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(data.content || '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -29,20 +29,9 @@ function NotePost({ id, data, selected }: NodeProps<Node<NotePostData>>) {
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newContent = e.target.value;
       setContent(newContent);
-
-      // Update node data in store
-      const updatedNodes = nodes.map((node) => {
-        if (node.id === id) {
-          return {
-            ...node,
-            data: { ...node.data, content: newContent },
-          };
-        }
-        return node;
-      });
-      setNodes(updatedNodes);
+      updateNodeData(id, { content: newContent });
     },
-    [id, nodes, setNodes],
+    [id, updateNodeData],
   );
 
   const handleBlur = useCallback(() => {

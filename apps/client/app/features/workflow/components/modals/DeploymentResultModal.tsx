@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { Toast } from '@/app/components/ui/toast/Toast';
+import { toast } from 'sonner';
 import { InputSchema, OutputSchema } from '../../types/Deployment';
 
 interface SuccessData {
@@ -66,12 +65,11 @@ ${authHeader}  -d '{
 }
 
 export function DeploymentResultModal({ onClose, result }: Props) {
-  const [showToast, setShowToast] = useState(false);
-  const [showSchemas, setShowSchemas] = useState(false);
-
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
-    setShowToast(true);
+    toast.success('클립보드에 복사되었습니다!', {
+      duration: 1000,
+    });
   };
 
   // 실패 케이스
@@ -416,13 +414,6 @@ export function DeploymentResultModal({ onClose, result }: Props) {
           </div>
         </div>
       </div>
-
-      <Toast
-        message="Copied!"
-        isVisible={showToast}
-        onClose={() => setShowToast(false)}
-        duration={1000}
-      />
     </>
   );
 }
