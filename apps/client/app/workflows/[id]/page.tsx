@@ -2,13 +2,15 @@
 
 import { ReactFlowProvider } from '@xyflow/react';
 import EditorHeader from '@/app/features/workflow/components/editor/EditorHeader';
-import EditorSidebar from '@/app/features/workflow/components/editor/EditorSidebar';
+// import EditorSidebar from '@/app/features/workflow/components/editor/EditorSidebar';
 import NodeCanvas from '@/app/features/workflow/components/editor/NodeCanvas';
 import { useAutoSync } from '@/app/features/workflow/hooks/useAutoSync';
+import { useWorkflowAppSync } from '@/app/features/workflow/hooks/useWorkflowAppSync';
 
 // ReactFlowProvider 컨텍스트 내에서 자동 저장 로직을 관리하는 래퍼 컴포넌트
 function WorkflowEditor() {
   useAutoSync();
+  useWorkflowAppSync();
 
   return (
     <div className="flex flex-col h-screen bg-white">

@@ -11,7 +11,6 @@ import {
   PluginIcon,
   DatabaseIcon,
 } from '@/app/features/workflow/components/icons';
-import { workflowApi } from '../../api/workflowApi';
 
 interface SidebarSectionProps {
   title: string;
@@ -75,7 +74,6 @@ export default function EditorSidebar() {
     activeWorkflowId,
     setActiveWorkflow,
     addWorkflow,
-    loadWorkflowsByApp,
     sidebarCollapsed,
     toggleSidebarSection,
     activeConfigTab,
@@ -85,34 +83,10 @@ export default function EditorSidebar() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
-  const [currentAppId, setCurrentAppId] = useState<string>('');
   const modalRef = useRef<HTMLDivElement>(null);
   const modalInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const loadWorkflowAppId = async () => {
-      try {
-        const data = await workflowApi.getWorkflow(workflowId);
-        if (data.app_id) {
-          setCurrentAppId(data.app_id);
-        }
-      } catch (error) {
-        console.error('Failed to load workflow app_id:', error);
-      }
-    };
-
-    if (workflowId) {
-      loadWorkflowAppId();
-    }
-  }, [workflowId]);
-
-  useEffect(() => {
-    if (currentAppId) {
-      loadWorkflowsByApp(currentAppId);
-    }
-  }, [currentAppId, loadWorkflowsByApp]);
-
-  const appId = currentAppId || workflowId;
+  const appId = workflowId;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
