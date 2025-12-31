@@ -47,7 +47,7 @@ class WorkflowDeployment(Base):
 
     # 🤖 배포 형태 (Default: API)
     type: Mapped[DeploymentType] = mapped_column(
-        SQLEnum(DeploymentType, values_callable=lambda x: [e.value for e in x]),
+        SQLEnum(DeploymentType),
         default=DeploymentType.API,
         nullable=False,
     )
