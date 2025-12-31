@@ -53,3 +53,19 @@ def get_app(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return app
+
+
+@router.post("/{app_id}/clone", response_model=AppResponse)
+def clone_app(
+    app_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    앱을 복제합니다. (내 스튜디오로 복사)
+    """
+    app = AppService.clone_app(db, user_id=str(current_user.id), app_id=app_id)
+    if not app:
+        raise HTTPException(status_code=404, detail="App not found")
+
+    return app

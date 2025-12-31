@@ -1,13 +1,42 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search, Loader2, Copy } from 'lucide-react';
 import { appApi, App } from '@/app/features/app/api/appApi';
+import { Toast } from '@/app/components/ui/toast/Toast';
 
 export default function ExplorePage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [apps, setApps] = useState<App[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [cloningId, setCloningId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    isVisible: boolean;
+    message: string;
+  }>({ isVisible: false, message: '' });
+
+  const showToast = (message: string) => {
+    setToast({ isVisible: true, message });
+  };
+
+  const handleClone = async (e: React.MouseEvent, appId: string) => {
+    e.stopPropagation();
+    if (cloningId) return;
+
+    try {
+      setCloningId(appId);
+      const newApp = await appApi.cloneApp(appId);
+      showToast('앱이 성공적으로 복제되었습니다.');
+      router.push(`/workflows/${newApp.id}`);
+    } catch (error) {
+      console.error('Failed to clone app:', error);
+      showToast('앱 복제에 실패했습니다.');
+    } finally {
+      setCloningId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchApps = async () => {
@@ -91,13 +120,16 @@ export default function ExplorePage() {
             {/* 작업 푸터 */}
             <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  alert('준비 중인 기능입니다.');
-                }}
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
+                onClick={(e) => handleClone(e, app.id)}
+                disabled={cloningId === app.id}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
               >
-                <Copy className="h-4 w-4" />내 스튜디오로 복제하기
+                {cloningId === app.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {cloningId === app.id ? '복제 중...' : '내 스튜디오로 복제하기'}
               </button>
             </div>
           </div>
@@ -112,6 +144,12 @@ export default function ExplorePage() {
           </p>
         </div>
       )}
+
+      <Toast
+        message={toast.message}
+        isVisible={toast.isVisible}
+        onClose={() => setToast((prev) => ({ ...prev, isVisible: false }))}
+      />
     </div>
   );
 }

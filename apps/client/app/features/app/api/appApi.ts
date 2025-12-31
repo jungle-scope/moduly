@@ -52,4 +52,10 @@ export const appApi = {
     const response = await api.get(`/apps/${appId}`);
     return response.data;
   },
+
+  // 앱 복제
+  cloneApp: async (appId: string): Promise<App> => {
+    const response = await api.post(`/apps/${appId}/clone`);
+    return response.data;
+  },
 };
