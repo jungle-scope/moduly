@@ -140,23 +140,10 @@ export default function DashboardPage() {
                 {/* Large Icon */}
                 <div
                   className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 ml-4"
-                  style={{ backgroundColor: app.icon_background }}
+                  style={{ backgroundColor: app.icon?.background_color }}
                 >
-                  {app.icon}
+                  {app.icon?.content}
                 </div>
-              </div>
-
-              {/* Tag */}
-              <div className="mt-auto">
-                {app.is_public ? (
-                  <span className="inline-block px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-md dark:bg-blue-900/30 dark:text-blue-300">
-                    공개
-                  </span>
-                ) : (
-                  <span className="inline-block px-3 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-md dark:bg-gray-800 dark:text-gray-400">
-                    비공개
-                  </span>
-                )}
               </div>
 
               {/* Footer: Meta Info */}

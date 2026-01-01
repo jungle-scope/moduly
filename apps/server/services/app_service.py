@@ -1,3 +1,6 @@
+import copy
+import secrets
+
 from sqlalchemy.orm import Session
 
 from db.models.app import App
@@ -29,47 +32,107 @@ class AppService:
         if not tenant_id:
             tenant_id = user_id
 
+        # url_slug, auth_secret 생성
+        url_slug = AppService._generate_url_slug(db, request.name)
+        auth_secret = f"sk-{secrets.token_hex(24)}"
+
+        # App 생성
         app = App(
             tenant_id=tenant_id,
             name=request.name,
             description=request.description,
-            icon=request.icon,
-            icon_background=request.icon_background,
-            is_public=request.is_public,
+            icon=request.icon.model_dump(),
+            is_market=request.is_market,
             created_by=user_id,
+            url_slug=url_slug,
+            auth_secret=auth_secret,
         )
         db.add(app)
         db.flush()  # App ID 생성
 
-        # 2. 기본 워크플로우 생성
+        # 기본 워크플로우 생성
         workflow = Workflow(
             tenant_id=tenant_id,
             app_id=app.id,
             created_by=user_id,
         )
         db.add(workflow)
-        db.flush()  # Workflow ID 생성
+        db.flush()
 
-        # 3. 앱에 워크플로우 ID 연결
+        # App에 워크플로우 연결
         app.workflow_id = workflow.id
 
-        db.add(app)
         db.commit()
         db.refresh(app)
-
         print(f"✅ App created: {app.name} (ID: {app.id})")
 
         return app
 
     @staticmethod
-    def update_app(
-        db: Session,
-        app_id: str,
-        request: AppUpdateRequest,
-        user_id: str,
-    ):
+    def get_app(db: Session, app_id: str, user_id: str = None):
+        """
+        특정 앱을 조회합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            app_id: 앱 ID
+            user_id: 요청 유저 ID (선택, 비공개 앱의 경우 소유자만 접근 가능)
+
+        Returns:
+            App 객체 또는 None
+        """
+        app = db.query(App).filter(App.id == app_id).first()
+
+        if not app:
+            return None
+
+        # 소유자 체크
+        if user_id and app.created_by != user_id:
+            return None
+
+        return app
+
+    @staticmethod
+    def get_user_apps(db: Session, user_id: str):
+        """
+        특정 유저의 모든 앱을 조회합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            user_id: 유저 ID
+
+        Returns:
+            App 객체 리스트
+        """
+        return db.query(App).filter(App.created_by == user_id).all()
+
+    @staticmethod
+    def list_explore_apps(db: Session, user_id: str):
+        """
+        마켓플레이스에 공개된 앱 목록을 조회합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            user_id: 현재 유저 ID (사용되지 않지만 일관성을 위해 유지)
+
+        Returns:
+            공개된 App 객체 리스트
+        """
+        return db.query(App).filter(App.is_market == True).all()
+
+    @staticmethod
+    def update_app(db: Session, app_id: str, request: AppUpdateRequest, user_id: str):
         """
         앱 정보를 수정합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            app_id: 앱 ID
+            request: 앱 수정 요청 데이터
+            user_id: 요청 유저 ID
+
+        Returns:
+            수정된 App 객체 또는 None
         """
         app = db.query(App).filter(App.id == app_id).first()
         if not app:
@@ -79,65 +142,51 @@ class AppService:
         if app.created_by != user_id:
             return None
 
-        # 변경된 필드만 업데이트
-        update_data = request.model_dump(exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(app, key, value)
+        # 필드 업데이트
+        if request.name is not None:
+            app.name = request.name
+        if request.description is not None:
+            app.description = request.description
+        if request.icon is not None:
+            app.icon = request.icon.model_dump()
+        if request.is_market is not None:
+            app.is_market = request.is_market
 
-        db.add(app)
         db.commit()
         db.refresh(app)
-        
+
         return app
 
     @staticmethod
-    def get_app(db: Session, app_id: str):
-        """앱을 ID로 조회합니다."""
-        return db.query(App).filter(App.id == app_id).first()
-
-    @staticmethod
-    def list_apps(db: Session, user_id: str):
-        """해당 유저가 만든 앱만 조회합니다."""
-        return db.query(App).filter(App.created_by == user_id).all()
-
-    @staticmethod
-    def list_explore_apps(db: Session, user_id: str):
-        """공개된 앱 중 본인이 만든 앱을 제외하고 조회합니다."""
-        return (
-            db.query(App)
-            .filter(App.is_public == True, App.created_by != user_id)
-            .all()
-        )
-
-    @staticmethod
-    def clone_app(db: Session, user_id: str, app_id: str):
+    def clone_app(db: Session, source_app_id: str, user_id: str):
         """
-        앱을 복제합니다 (워크플로우 포함).
+        기존 앱을 복제합니다.
         """
         # 1. 원본 앱 조회
-        source_app = db.query(App).filter(App.id == app_id).first()
+        source_app = db.query(App).filter(App.id == source_app_id).first()
         if not source_app:
             return None
 
         # 2. 원본 워크플로우 조회
         source_workflow = (
-            db.query(Workflow).filter(Workflow.id == source_app.workflow_id).first()
+            db.query(Workflow).filter(Workflow.app_id == source_app_id).first()
         )
 
-        if not source_workflow:
-            # 워크플로우가 없는 경우 (예외적 상황), 기본 생성 로직 등 처리 필요하지만
-            # 여기서는 단순히 None 리턴하거나 에러 처리.
-            # 하지만 앱 생성시 무조건 워크플로우가 생성되므로 있다고 가정.
-            return None
-
         # 3. 앱 복제 (새로운 객체 생성)
-        # 이름은 "Copy of {source_name}" 등으로 할 수도 있지만, 일단 원본 이름 그대로 사용
+        new_icon = copy.deepcopy(source_app.icon)
+
+        # 마켓플레이스에서 복제할 때 url_slug와 auth_secret 생성
+        new_slug = AppService._generate_url_slug(db, f"{source_app.name} (복사본)")
+        new_secret = secrets.token_urlsafe(32)
+
         new_app = App(
             tenant_id=user_id,  # 복제하는 사람의 tenant_id (user_id와 동일 가정)
             name=f"{source_app.name} (복사본)",
             description=source_app.description,
-            icon=source_app.icon,
-            icon_background=source_app.icon_background,
+            icon=new_icon,
+            url_slug=new_slug,
+            auth_secret=new_secret,
+            forked_from=source_app_id,  # 원본 추적
             created_by=user_id,
         )
         db.add(new_app)
@@ -150,19 +199,16 @@ class AppService:
             created_by=user_id,
             # JSONB 필드 복사
             graph=source_workflow.graph,
-            _features=source_workflow._features,
-            _environment_variables=source_workflow._environment_variables,
-            _conversation_variables=source_workflow._conversation_variables,
-            _rag_pipeline_variables=source_workflow._rag_pipeline_variables,
-            # 메타데이터
-            version=source_workflow.version,
+            features=source_workflow.features,
+            env_variables=source_workflow.env_variables,
+            runtime_variables=source_workflow.runtime_variables,
         )
         db.add(new_workflow)
         db.flush()
 
-        # 5. 앱-워크플로우 연결
+        # App에 워크플로우 연결
         new_app.workflow_id = new_workflow.id
-        db.add(new_app)
+
         db.commit()
         db.refresh(new_app)
 
@@ -184,8 +230,22 @@ class AppService:
         # 연결된 워크플로우도 삭제해야 함 (여기서는 단순히 앱만 삭제, DB FK 설정에 따라 다를 수 있음)
         # 만약 워크플로우가 앱에 종속적이라면 함께 삭제하는 것이 좋음.
         # 일단은 앱만 삭제.
-        
+
         db.delete(app)
         db.commit()
-        
+
         return True
+
+    @staticmethod
+    def _generate_url_slug(db: Session, name: str) -> str:
+        """
+        앱 이름으로부터 고유한 URL slug를 생성합니다.
+        고유한 App URL Slug를 생성합니다.
+        형식: app-{random_hex_4} (예: app-a1b2c3d4)
+        """
+        while True:
+            # 8글자 Hex (4 bytes) -> 총 12글자 (app-XXXXXXXX)
+            slug = f"app-{secrets.token_hex(4)}"
+            # 중복 체크
+            if not db.query(App).filter(App.url_slug == slug).first():
+                return slug

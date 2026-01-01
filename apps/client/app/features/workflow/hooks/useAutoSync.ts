@@ -16,12 +16,8 @@ export const useAutoSync = () => {
   const nodes = useWorkflowStore((state) => state.nodes);
   const edges = useWorkflowStore((state) => state.edges);
   const features = useWorkflowStore((state) => state.features);
-  const environmentVariables = useWorkflowStore(
-    (state) => state.environmentVariables,
-  );
-  const conversationVariables = useWorkflowStore(
-    (state) => state.conversationVariables,
-  );
+  const envVariables = useWorkflowStore((state) => state.envVariables);
+  const runtimeVariables = useWorkflowStore((state) => state.runtimeVariables);
   const setWorkflowData = useWorkflowStore((state) => state.setWorkflowData);
 
   // 로딩 완료 여부 체크
@@ -87,8 +83,8 @@ export const useAutoSync = () => {
           currentNodes: typeof nodes,
           currentEdges: typeof edges,
           currentFeatures: typeof features,
-          currentEnvVars: typeof environmentVariables,
-          currentConvVars: typeof conversationVariables,
+          currentEnvVars: typeof envVariables,
+          currentRuntimeVars: typeof runtimeVariables,
         ) => {
           if (!workflowId) {
             console.warn('[AutoSync] workflowId가 없어 동기화를 건너뜁니다.');
@@ -113,8 +109,8 @@ export const useAutoSync = () => {
               edges: currentEdges,
               viewport: currentViewport,
               features: featuresToSave,
-              environmentVariables: currentEnvVars,
-              conversationVariables: currentConvVars,
+              envVariables: currentEnvVars,
+              runtimeVariables: currentRuntimeVars,
             });
 
             console.log('[AutoSync] ✅ 저장 완료');
@@ -146,8 +142,8 @@ export const useAutoSync = () => {
       nodes,
       edges,
       features,
-      environmentVariables,
-      conversationVariables,
+      envVariables,
+      runtimeVariables,
     );
-  }, [nodes, edges, features, environmentVariables, conversationVariables]);
+  }, [nodes, edges, features, envVariables, runtimeVariables]);
 };
