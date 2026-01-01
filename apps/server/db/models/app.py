@@ -21,8 +21,8 @@ class App(Base):
     __tablename__ = "apps"
 
     # === 기본 식별 필드 ===
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     tenant_id: Mapped[str] = mapped_column(String, nullable=False)
 
@@ -58,8 +58,10 @@ class App(Base):
     # 마켓플레이스 등록 여부 (탐색 페이지 노출)
     is_market: Mapped[bool] = mapped_column(Boolean, default=False)
     # 원본 앱 (마켓에서 복제한 경우)
-    forked_from: Mapped[Optional[str]] = mapped_column(
-        String, nullable=True, comment="Original app ID if cloned from marketplace"
+    forked_from: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        comment="Original app ID if cloned from marketplace",
     )
 
     # === 메타데이터 필드 ===

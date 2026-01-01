@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base
 
@@ -34,8 +34,8 @@ class WorkflowDeployment(Base):
     )
 
     # 🔗 원본 앱 (1:N 관계)
-    app_id: Mapped[str] = mapped_column(
-        String,
+    app_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey("apps.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -79,6 +79,3 @@ class WorkflowDeployment(Base):
 
     # 배포 활성화 여부
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    # App 모델과의 관계 설정
-    app = relationship("App", back_populates="deployments")

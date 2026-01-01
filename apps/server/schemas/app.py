@@ -38,7 +38,7 @@ class AppResponse(BaseModel):
     icon: AppIcon
     url_slug: Optional[str] = None  # 첫 배포 시 생성
     is_market: bool
-    forked_from: Optional[str] = None
+    forked_from: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

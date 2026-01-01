@@ -26,16 +26,16 @@ def create_deployment(
 
 @router.get("/", response_model=List[DeploymentResponse])
 def get_deployments(
-    workflow_id: str,
+    app_id: str,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    특정 워크플로우의 배포 이력을 조회합니다.
+    특정 앱의 배포 이력을 조회합니다.
     """
-    return DeploymentService.list_deployments(db, workflow_id, skip, limit)
+    return DeploymentService.list_deployments(db, app_id, skip, limit)
 
 
 @router.get("/{deployment_id}", response_model=DeploymentResponse)

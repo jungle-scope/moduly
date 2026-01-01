@@ -37,38 +37,38 @@ class DeploymentService:
         Raises:
             HTTPException: 워크플로우를 찾을 수 없거나 권한이 없는 경우
         """
-        # 1. 워크플로우 존재 확인
-        workflow = (
-            db.query(Workflow).filter(Workflow.id == deployment_in.workflow_id).first()
-        )
+        # 1. App 조회 및 권한 확인
+        app = db.query(App).filter(App.id == deployment_in.app_id).first()
+        if not app:
+            raise HTTPException(status_code=404, detail="App not found")
+
+        # 2. 권한 체크
+        if app.created_by != str(user_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to deploy this app.",
+            )
+
+        # 3. Workflow 조회 (app의 작업실)
+        workflow = db.query(Workflow).filter(Workflow.id == app.workflow_id).first()
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
 
-        # 2. 권한 체크 (내 워크플로우인지)
-        if workflow.created_by != str(user_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You do not have permission to deploy this workflow.",
-            )
+        # 4. 첫 배포 시 url_slug, auth_secret 생성
+        if not app.url_slug:
+            from services.app_service import AppService
 
-        # 2.5. App 조회 및 첫 배포 시 url_slug, auth_secret 생성
-        app = db.query(App).filter(App.id == workflow.app_id).first()
-        if app:
-            if not app.url_slug:
-                # AppService의 헬퍼 함수 사용
-                from services.app_service import AppService
+            app.url_slug = AppService._generate_url_slug(db, app.name)
 
-                app.url_slug = AppService._generate_url_slug(db, app.name)
+        if not app.auth_secret:
+            app.auth_secret = secrets.token_urlsafe(32)
 
-            if not app.auth_secret:
-                app.auth_secret = secrets.token_urlsafe(32)
+        db.flush()
 
-            db.flush()
-
-        # 3. Draft 데이터(Snapshot) 가져오기
+        # 5. Draft 데이터(Snapshot) 가져오기
         graph_snapshot = deployment_in.graph_snapshot
         if not graph_snapshot:
-            graph_snapshot = WorkflowService.get_draft(db, deployment_in.workflow_id)
+            graph_snapshot = WorkflowService.get_draft(db, str(workflow.id))
 
         if not graph_snapshot:
             raise HTTPException(
@@ -76,15 +76,15 @@ class DeploymentService:
                 detail="Cannot deploy workflow without graph data. Please save the workflow first.",
             )
 
-        # 4. 버전 번호 채번
+        # 6. 버전 번호 채번 (app_id 기준)
         max_version = (
             db.query(func.max(WorkflowDeployment.version))
-            .filter(WorkflowDeployment.workflow_id == deployment_in.workflow_id)
+            .filter(WorkflowDeployment.app_id == deployment_in.app_id)
             .scalar()
         ) or 0
         new_version = max_version + 1
 
-        # 5. API Key (auth_secret) 및 URL Slug 생성
+        # 7. API Key (auth_secret) 및 URL Slug 생성
         auth_secret = deployment_in.auth_secret
 
         # 배포 타입에 따라 auth_secret 처리
@@ -100,13 +100,13 @@ class DeploymentService:
         if not url_slug:
             url_slug = f"v{new_version}-{secrets.token_hex(4)}"
 
-        # 6. graph_snapshot에서 입출력 스키마 자동 추출
+        # graph_snapshot에서 입출력 스키마 자동 추출
         input_schema = DeploymentService._extract_input_schema(graph_snapshot)
         output_schema = DeploymentService._extract_output_schema(graph_snapshot)
 
-        # 7. 배포 모델 생성
+        # 8. 배포 모델 생성
         db_obj = WorkflowDeployment(
-            workflow_id=deployment_in.workflow_id,
+            app_id=deployment_in.app_id,
             version=new_version,
             type=deployment_in.type,
             url_slug=url_slug,
@@ -122,6 +122,11 @@ class DeploymentService:
 
         try:
             db.add(db_obj)
+            db.flush()
+
+            # 9. App의 active_deployment_id 업데이트
+            app.active_deployment_id = db_obj.id
+
             db.commit()
             db.refresh(db_obj)
         except Exception as e:
@@ -132,14 +137,14 @@ class DeploymentService:
 
     @staticmethod
     def list_deployments(
-        db: Session, workflow_id: str, skip: int = 0, limit: int = 100
+        db: Session, app_id: str, skip: int = 0, limit: int = 100
     ) -> List[WorkflowDeployment]:
         """
-        특정 워크플로우의 배포 이력을 조회합니다.
+        특정 앱의 배포 이력을 조회합니다.
 
         Args:
             db: 데이터베이스 세션
-            workflow_id: 워크플로우 ID
+            app_id: 앱 ID
             skip: 페이지네이션 시작 위치
             limit: 조회할 최대 개수
 
@@ -148,7 +153,7 @@ class DeploymentService:
         """
         deployments = (
             db.query(WorkflowDeployment)
-            .filter(WorkflowDeployment.workflow_id == workflow_id)
+            .filter(WorkflowDeployment.app_id == app_id)
             .order_by(desc(WorkflowDeployment.version))
             .offset(skip)
             .limit(limit)
