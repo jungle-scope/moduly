@@ -19,9 +19,9 @@ export default function ExplorePage() {
 
     try {
       setCloningId(appId);
-      const newApp = await appApi.cloneApp(appId);
+      await appApi.cloneApp(appId);
       toast.success('앱이 성공적으로 복제되었습니다.');
-      router.push(`/workflows/${newApp.id}`);
+      router.push('/dashboard');
     } catch (error) {
       console.error('Failed to clone app:', error);
       toast.error('앱 복제에 실패했습니다.');
