@@ -1,13 +1,14 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-load_dotenv()  # .env 파일 로드
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from api.api import api_router
 from db.base import Base
 from db.session import engine
+
+load_dotenv()  # .env 파일 로드
 
 app = FastAPI(title="Moduly API", redirect_slashes=False)
 
@@ -22,6 +23,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 정적 파일 서빙 (widget.js)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # API 라우터 등록
 app.include_router(api_router, prefix="/api/v1")

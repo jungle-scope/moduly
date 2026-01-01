@@ -228,7 +228,6 @@ class WorkflowEngine:
                     continue
 
             next_nodes.append(edge.target)
-
         return next_nodes
 
     def _is_ready(self, node_id: str, results: Dict) -> bool:
