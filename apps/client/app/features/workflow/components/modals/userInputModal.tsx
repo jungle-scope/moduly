@@ -30,6 +30,8 @@ export function UserInputModal({
         initial[v.name] = 0;
       } else if (v.type === 'checkbox') {
         initial[v.name] = false;
+      } else if (v.type === 'select') {
+        initial[v.name] = v.options?.[0]?.value || '';
       } else {
         initial[v.name] = '';
       }
@@ -66,12 +68,6 @@ export function UserInputModal({
                 <div key={variable.id}>
                   {variable.type === 'checkbox' ? (
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <span className="text-sm font-medium text-gray-700">
-                        {variable.name}
-                        {variable.required && (
-                          <span className="text-red-500 ml-1">*</span>
-                        )}
-                      </span>
                       <input
                         type="checkbox"
                         checked={inputs[variable.name] || false}
@@ -80,7 +76,36 @@ export function UserInputModal({
                         }
                         className="h-4 w-4 rounded border-gray-300"
                       />
+                      <span className="text-sm font-medium text-gray-700">
+                        {variable.name}
+                        {variable.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </span>
                     </label>
+                  ) : variable.type === 'select' ? (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {variable.name}
+                        {variable.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      <select
+                        value={inputs[variable.name] || ''}
+                        onChange={(e) =>
+                          handleChange(variable.name, e.target.value)
+                        }
+                        required={variable.required}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        {variable.options?.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </>
                   ) : (
                     <>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
