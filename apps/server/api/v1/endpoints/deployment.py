@@ -64,6 +64,7 @@ def get_deployment_info_public(
     """
     from fastapi import HTTPException
 
+    from db.models.app import App
     from db.models.workflow_deployment import WorkflowDeployment
     from schemas.deployment import DeploymentInfoResponse
 
@@ -72,22 +73,33 @@ def get_deployment_info_public(
     response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "*"
 
-    # url_slug로 배포 조회
+    # 1. url_slug로 App 조회
+    app = db.query(App).filter(App.url_slug == url_slug).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="App not found")
+
+    # 2. 활성 배포 조회
+    if not app.active_deployment_id:
+        raise HTTPException(
+            status_code=404, detail="No active deployment found for this app"
+        )
+
     deployment = (
         db.query(WorkflowDeployment)
-        .filter(WorkflowDeployment.url_slug == url_slug)
+        .filter(WorkflowDeployment.id == app.active_deployment_id)
         .first()
     )
 
     if not deployment:
-        raise HTTPException(status_code=404, detail="Deployment not found")
+        raise HTTPException(status_code=404, detail="Active deployment not found")
 
     if not deployment.is_active:
         raise HTTPException(status_code=404, detail="Deployment is inactive")
 
     # 공개 정보만 반환 (auth_secret 제외)
+    # url_slug와 version은 App 및 Deployment 정보를 조합
     return DeploymentInfoResponse(
-        url_slug=deployment.url_slug,
+        url_slug=app.url_slug,
         version=deployment.version,
         description=deployment.description,
         type=deployment.type.value,
