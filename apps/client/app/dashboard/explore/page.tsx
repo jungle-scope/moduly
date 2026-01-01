@@ -94,9 +94,14 @@ export default function ExplorePage() {
           >
             {/* 모듈 정보 */}
             <div className="flex-1">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
-                {app.icon ? (
-                  <span className="text-xl">{app.icon}</span>
+              <div
+                className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg"
+                style={{
+                  backgroundColor: app.icon?.background_color || '#f3f4f6',
+                }}
+              >
+                {app.icon?.content ? (
+                  <span className="text-xl">{app.icon.content}</span>
                 ) : (
                   <div className="h-full w-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-600" />
                 )}

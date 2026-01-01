@@ -1,3 +1,5 @@
+import copy
+
 from sqlalchemy.orm import Session
 
 from db.models.app import App
@@ -33,8 +35,7 @@ class AppService:
             tenant_id=tenant_id,
             name=request.name,
             description=request.description,
-            icon=request.icon,
-            icon_background=request.icon_background,
+            icon=request.icon.model_dump(),
             is_public=request.is_public,
             created_by=user_id,
         )
@@ -82,12 +83,16 @@ class AppService:
         # 변경된 필드만 업데이트
         update_data = request.model_dump(exclude_unset=True)
         for key, value in update_data.items():
-            setattr(app, key, value)
+            if key == "icon" and value:
+                # AppIcon 객체라면 dict로 변환
+                setattr(app, key, value.model_dump())
+            else:
+                setattr(app, key, value)
 
         db.add(app)
         db.commit()
         db.refresh(app)
-        
+
         return app
 
     @staticmethod
@@ -104,9 +109,7 @@ class AppService:
     def list_explore_apps(db: Session, user_id: str):
         """공개된 앱 중 본인이 만든 앱을 제외하고 조회합니다."""
         return (
-            db.query(App)
-            .filter(App.is_public == True, App.created_by != user_id)
-            .all()
+            db.query(App).filter(App.is_public == True, App.created_by != user_id).all()
         )
 
     @staticmethod
@@ -131,13 +134,13 @@ class AppService:
             return None
 
         # 3. 앱 복제 (새로운 객체 생성)
-        # 이름은 "Copy of {source_name}" 등으로 할 수도 있지만, 일단 원본 이름 그대로 사용
+        new_icon = copy.deepcopy(source_app.icon)
+
         new_app = App(
             tenant_id=user_id,  # 복제하는 사람의 tenant_id (user_id와 동일 가정)
             name=f"{source_app.name} (복사본)",
             description=source_app.description,
-            icon=source_app.icon,
-            icon_background=source_app.icon_background,
+            icon=new_icon,
             created_by=user_id,
         )
         db.add(new_app)

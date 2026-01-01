@@ -18,12 +18,17 @@ api.interceptors.response.use(
   },
 );
 
+export interface AppIcon {
+  type: string;
+  content: string;
+  background_color: string;
+}
+
 export interface App {
   id: string;
   name: string;
   description?: string;
-  icon: string;
-  icon_background: string;
+  icon: AppIcon;
   is_public: boolean;
   workflow_id?: string;
   created_at: string;
@@ -47,8 +52,7 @@ export const appApi = {
   createApp: async (data: {
     name: string;
     description?: string;
-    icon: string;
-    icon_background: string;
+    icon: AppIcon;
     is_public?: boolean;
   }): Promise<App> => {
     const response = await api.post('/apps', data);
@@ -73,8 +77,7 @@ export const appApi = {
     data: {
       name?: string;
       description?: string;
-      icon?: string;
-      icon_background?: string;
+      icon?: AppIcon;
       is_public?: boolean;
     },
   ): Promise<App> => {

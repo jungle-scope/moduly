@@ -62,8 +62,11 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
       const response = await appApi.createApp({
         name: name.trim(),
         description: description.trim(),
-        icon: appIcon.emoji,
-        icon_background: appIcon.bg,
+        icon: {
+          type: 'emoji',
+          content: appIcon.emoji,
+          background_color: appIcon.bg,
+        },
         is_public: isPublic,
       });
 

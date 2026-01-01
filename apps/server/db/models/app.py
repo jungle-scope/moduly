@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base
@@ -29,8 +29,7 @@ class App(Base):
     # === 앱 정보 필드 ===
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    icon: Mapped[str] = mapped_column(String(50), nullable=False)
-    icon_background: Mapped[str] = mapped_column(String(20), nullable=False)
+    icon: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
     # === 워크플로우 연결 ===
     workflow_id: Mapped[Optional[uuid.UUID]] = mapped_column(

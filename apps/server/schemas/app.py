@@ -5,13 +5,18 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class AppIcon(BaseModel):
+    type: str
+    content: str
+    background_color: str
+
+
 class AppCreateRequest(BaseModel):
     """앱 생성 요청 스키마"""
 
     name: str
     description: Optional[str] = None
-    icon: str
-    icon_background: str
+    icon: AppIcon
     is_public: bool = False
 
 
@@ -20,8 +25,7 @@ class AppUpdateRequest(BaseModel):
 
     name: Optional[str] = None
     description: Optional[str] = None
-    icon: Optional[str] = None
-    icon_background: Optional[str] = None
+    icon: Optional[AppIcon] = None
     is_public: Optional[bool] = None
 
 
@@ -31,8 +35,7 @@ class AppResponse(BaseModel):
     id: UUID
     name: str
     description: Optional[str]
-    icon: str
-    icon_background: str
+    icon: AppIcon
     is_public: bool
     workflow_id: Optional[UUID] = None
     created_at: datetime

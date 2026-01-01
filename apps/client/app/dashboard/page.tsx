@@ -140,9 +140,9 @@ export default function DashboardPage() {
                 {/* Large Icon */}
                 <div
                   className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 ml-4"
-                  style={{ backgroundColor: app.icon_background }}
+                  style={{ backgroundColor: app.icon?.background_color }}
                 >
-                  {app.icon}
+                  {app.icon?.content}
                 </div>
               </div>
 

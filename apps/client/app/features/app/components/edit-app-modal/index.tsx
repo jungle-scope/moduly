@@ -30,8 +30,8 @@ export default function EditAppModal({
 
   // 앱 아이콘 상태
   const [appIcon, setAppIcon] = useState<AppIconSelection>({
-    emoji: app.icon,
-    bg: app.icon_background,
+    emoji: app.icon.content,
+    bg: app.icon.background_color,
   });
 
   // 공개 여부 상태
@@ -62,8 +62,11 @@ export default function EditAppModal({
       await appApi.updateApp(app.id, {
         name: name.trim(),
         description: description.trim(),
-        icon: appIcon.emoji,
-        icon_background: appIcon.bg,
+        icon: {
+          type: 'emoji',
+          content: appIcon.emoji,
+          background_color: appIcon.bg,
+        },
         is_public: isPublic,
       });
 
