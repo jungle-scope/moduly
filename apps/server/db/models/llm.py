@@ -1,49 +1,43 @@
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Text, Integer, Numeric
+from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
 
-if TYPE_CHECKING:
-    from db.models.user import User
+# === Legacy Models (Mapped to renamed tables for reference/migration) ===
+class LegacyLLMProvider(Base):
+    __tablename__ = "legacy_llm_provider"
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    # ... (simplified)
 
+class LegacyLLMCredential(Base):
+    __tablename__ = "legacy_llm_credentials"
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    # ... (simplified)
+
+# === New Models ===
 
 class LLMProvider(Base):
     """
-    LLM provider metadata and default credential reference.
-
-    - 한 줄 요약: "OpenAI" 같은 제공자 정보를 저장하는 표
-    - 한 사용자가 여러 provider를 가질 수 있음
-    - credential_id로 기본 자격증명을 가리킴 (없으면 None)
+    LLM 공급사 정보 (예: OpenAI, Google)
+    시스템 전체 공통 데이터. 변경이 거의 없음.
     """
-
-    __tablename__ = "llm_provider"
+    __tablename__ = "llm_providers"
 
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    # 예: "openai", "anthropic"
-    provider_name: Mapped[str] = mapped_column(Text, nullable=False)
-    # 예: "system", "custom" 등 분류용
-    provider_type: Mapped[str] = mapped_column(Text, nullable=False, default="custom")
-    credential_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("llm_credentials.id"), nullable=True
-    )
-    # quota_type: tokens, credits, requests, none
-    quota_type: Mapped[str] = mapped_column(Text, nullable=False, default="none")
-    # quota_limit: -1 이면 무제한
-    quota_limit: Mapped[int] = mapped_column(BigInteger, nullable=False, default=-1)
-    quota_used: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    # timezone-aware 기록을 위해 utcnow 대신 now(timezone.utc) 사용, DateTime은 timezone=True
-    # lambda로 감싸 실행 시점 평가 보장
+    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # ex: openai
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    type: Mapped[str] = mapped_column(Text, nullable=False, default="system") # system, custom
+    base_url: Mapped[str] = mapped_column(Text, nullable=False)
+    auth_type: Mapped[str] = mapped_column(Text, nullable=False) # api_key, oauth, aws_sigv4
+    doc_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -53,48 +47,84 @@ class LLMProvider(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    # 한 provider는 여러 credential을 가질 수 있음 (1:N)
-    credentials: Mapped[List["LLMCredential"]] = relationship(
-        "LLMCredential",
-        back_populates="provider",
-        foreign_keys="LLMCredential.provider_id",  # 명시해서 provider_id만 사용
+    # Relations
+    models: Mapped[List["LLMModel"]] = relationship("LLMModel", back_populates="provider", cascade="all, delete-orphan")
+    credentials: Mapped[List["LLMCredential"]] = relationship("LLMCredential", back_populates="provider")
+
+
+class LLMModel(Base):
+    """
+    Provider가 제공하는 모델 목록 (예: gpt-4, claude-2)
+    시스템 전역 카탈로그.
+    """
+    __tablename__ = "llm_models"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    # 기본으로 사용할 credential (없을 수도 있음)
-    default_credential: Mapped[Optional["LLMCredential"]] = relationship(
-        "LLMCredential",
-        foreign_keys=[credential_id],
-        uselist=False,
-        post_update=True,
+    provider_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("llm_providers.id", ondelete="CASCADE"), nullable=False
     )
-    # 어떤 사용자의 provider인지 연결
-    user: Mapped["User"] = relationship("User")
+    model_id_for_api_call: Mapped[str] = mapped_column(Text, nullable=False) # ex: gpt-4o
+    name: Mapped[str] = mapped_column(Text, nullable=False) # ex: GPT-4o (Omni)
+    type: Mapped[str] = mapped_column(Text, nullable=False, default="chat") # chat, embedding
+    context_window: Mapped[int] = mapped_column(Integer, nullable=False, default=4096)
+    
+    input_price_1k: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    output_price_1k: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    model_metadata: Mapped[Optional[dict]] = mapped_column("metadata", JSONB, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relations
+    provider: Mapped["LLMProvider"] = relationship("LLMProvider", back_populates="models")
+    usage_logs: Mapped[List["LLMUsageLog"]] = relationship("LLMUsageLog", back_populates="model")
+    # M:N mapping through LLMRelCredentialModel is usually handled explicitly or via association proxy if needed
+
+    @property
+    def provider_name(self) -> str:
+        return self.provider.name if self.provider else "Unknown"
 
 
 class LLMCredential(Base):
     """
-    Encrypted credentials for an LLM provider.
-
-    - 한 줄 요약: provider와 연결된 API Key 등 민감정보를 저장
-    - encrypted_config 필드에 암호화된 설정을 텍스트로 보관
+    유저가 저장한 인증 정보 (예: API Key)
     """
-
     __tablename__ = "llm_credentials"
 
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     provider_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("llm_provider.id"), nullable=False
+        PGUUID(as_uuid=True), ForeignKey("llm_providers.id", ondelete="CASCADE"), nullable=False
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    # 사람이 구분하기 쉬운 라벨 (예: "내 OpenAI 키")
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True), nullable=True # Tenant FK would go here
+    )
     credential_name: Mapped[str] = mapped_column(Text, nullable=False)
-    encrypted_config: Mapped[str] = mapped_column(Text, nullable=False)
+    encrypted_config: Mapped[str] = mapped_column(Text, nullable=False) # Encrypted JSON or string
+    config_preview: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # sk-****
+    
     is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    # timezone-aware 기록을 위해 utcnow 대신 now(timezone.utc) 사용, DateTime은 timezone=True
-    # lambda로 감싸 실행 시점 평가 보장
+    
+    # Quota
+    quota_type: Mapped[str] = mapped_column(Text, nullable=False, default="none")
+    quota_limit: Mapped[int] = mapped_column(BigInteger, nullable=False, default=-1)
+    quota_used: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -104,12 +134,71 @@ class LLMCredential(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    # 소속 provider
-    provider: Mapped["LLMProvider"] = relationship(
-        "LLMProvider",
-        back_populates="credentials",
-        foreign_keys=[provider_id],  # 어떤 FK로 이어지는지 명시
+    # Relations
+    provider: Mapped["LLMProvider"] = relationship("LLMProvider", back_populates="credentials")
+    user: Mapped["User"] = relationship("db.models.user.User") # Avoid circular import if possible, or use string
+    usage_logs: Mapped[List["LLMUsageLog"]] = relationship("LLMUsageLog", back_populates="credential")
+
+
+class LLMRelCredentialModel(Base):
+    """
+    Credential <-> Model 매핑 (가용 모델/권한)
+    """
+    __tablename__ = "llm_rel_credential_models"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    # 어떤 사용자가 만든 credential인지 연결
-    # (현재는 역참조 back_populates를 두지 않고 단방향으로 둠)
-    user: Mapped["User"] = relationship("User")
+    credential_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("llm_credentials.id", ondelete="CASCADE"), nullable=False
+    )
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("llm_models.id", ondelete="CASCADE"), nullable=False
+    )
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class LLMUsageLog(Base):
+    """
+    LLM 사용 로그
+    """
+    __tablename__ = "llm_usage_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    
+    credential_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("llm_credentials.id", ondelete="SET NULL"), nullable=True
+    )
+    model_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("llm_models.id", ondelete="SET NULL"), nullable=True
+    )
+    
+    workflow_id: Mapped[Optional[uuid.UUID]] = mapped_column(PGUUID(as_uuid=True), nullable=True) # FK later
+    node_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_cost: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="success")
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    # Relations
+    credential: Mapped["LLMCredential"] = relationship("LLMCredential", back_populates="usage_logs")
+    model: Mapped["LLMModel"] = relationship("LLMModel", back_populates="usage_logs")

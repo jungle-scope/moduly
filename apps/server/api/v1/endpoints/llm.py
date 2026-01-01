@@ -1,64 +1,94 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from schemas.llm import LLMProviderResponse, LLMProviderSimpleCreate
+from db.models.user import User
+from auth.dependencies import get_current_user
+from schemas.llm import (
+    LLMProviderResponse,
+    LLMCredentialCreate,
+    LLMCredentialResponse,
+    LLMModelResponse
+)
 from services.llm_service import LLMService
 
 router = APIRouter()
 
+# --- Providers (System) ---
 
 @router.get("/providers", response_model=List[LLMProviderResponse])
-def list_providers(db: Session = Depends(get_db)):
+def get_system_providers(db: Session = Depends(get_db)):
     """
-    provider 전체 목록을 반환합니다. (임시 공유 모드)
-    - credential.encrypted_config는 마스킹되어 내려갑니다.
-    - TODO: 추후 로그인 사용자별 필터 필요
+    List all system-defined LLM providers and their models.
     """
     try:
-        return LLMService.list_providers(db)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        return LLMService.get_system_providers(db)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.post("/providers", response_model=LLMProviderResponse)
-def create_provider(
-    request: LLMProviderSimpleCreate,
+# --- Credentials (User) ---
+
+@router.get("/my-models", response_model=List[LLMModelResponse])
+def get_my_models(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    LLM provider + credential을 동시에 생성합니다.
-
-    - 입력: alias(=provider_name), apiKey(credential로 저장), user_id(optional)
-    - user_id가 없으면 DB 첫 사용자 → placeholder(12345678-...) 사용자 레코드 자동 생성 순으로 fallback
-    - TODO: 로그인 사용자로 고정하도록 변경 예정
+    List all models available to the current user.
     """
     try:
-        return LLMService.create_provider_with_credential(db, request)
+        return LLMService.get_my_available_models(db, current_user.id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@router.get("/credentials", response_model=List[LLMCredentialResponse])
+def get_my_credentials(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all credentials for the current user.
+    """
+    try:
+        return LLMService.get_user_credentials(db, current_user.id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/credentials", response_model=LLMCredentialResponse)
+def register_credential(
+    request: LLMCredentialCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Register a new API Key for a specific provider.
+    """
+    try:
+        return LLMService.register_credential(db, current_user.id, request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.delete("/providers/{provider_id}")
-def delete_provider(provider_id: str, db: Session = Depends(get_db)):
+@router.delete("/credentials/{credential_id}")
+def delete_credential(
+    credential_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    provider와 연결된 credential을 함께 삭제합니다. (임시 공유 모드)
-    - TODO: 로그인 사용자/권한 검증 추가 필요
+    Delete a user credential.
     """
     try:
-        provider_uuid = UUID(str(provider_id))
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid provider id")
-
-    try:
-        deleted = LLMService.delete_provider(db, provider_uuid)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Provider not found")
-
-    return {"message": "Provider deleted", "id": str(provider_uuid)}
+        deleted = LLMService.delete_credential(db, credential_id, current_user.id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Credential not found")
+        return {"message": "Credential deleted", "id": str(credential_id)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
