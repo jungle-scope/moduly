@@ -81,4 +81,9 @@ export const appApi = {
     const response = await api.patch(`/apps/${appId}`, data);
     return response.data;
   },
+
+  // 앱 삭제
+  deleteApp: async (appId: string): Promise<void> => {
+    await api.delete(`/apps/${appId}`);
+  },
 };
