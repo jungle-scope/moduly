@@ -1,77 +1,64 @@
-// 임시 탐색 페이지, 목데이터로 구성
-
 'use client';
 
-import { useState } from 'react';
-import { Search, Star, Download } from 'lucide-react';
-
-// 임시 마켓플레이스 모듈 데이터
-const mockMarketplaceModules = [
-  {
-    id: 1,
-    name: 'GPT-4 텍스트 요약기',
-    description: 'OpenAI GPT-4를 사용하여 긴 텍스트를 자동으로 요약합니다',
-    author: 'AI Team',
-    downloads: 1234,
-    rating: 4.8,
-    category: 'AI/ML',
-  },
-  {
-    id: 2,
-    name: '이메일 자동 분류',
-    description: '받은 이메일을 자동으로 카테고리별로 분류하고 라벨링합니다',
-    author: 'Productivity Labs',
-    downloads: 856,
-    rating: 4.6,
-    category: '자동화',
-  },
-  {
-    id: 3,
-    name: '데이터 시각화 대시보드',
-    description: 'CSV 데이터를 자동으로 분석하고 차트로 시각화합니다',
-    author: 'Data Viz Pro',
-    downloads: 2341,
-    rating: 4.9,
-    category: '데이터',
-  },
-  {
-    id: 4,
-    name: 'Slack 알림 봇',
-    description: '중요한 이벤트 발생 시 Slack으로 자동 알림을 보냅니다',
-    author: 'DevOps Team',
-    downloads: 1567,
-    rating: 4.7,
-    category: '알림',
-  },
-  {
-    id: 5,
-    name: '웹 스크래핑 도구',
-    description: '웹사이트에서 데이터를 자동으로 수집하고 정리합니다',
-    author: 'Web Scraper Inc',
-    downloads: 987,
-    rating: 4.5,
-    category: '데이터',
-  },
-  {
-    id: 6,
-    name: '번역 자동화',
-    description: '다국어 번역을 자동으로 처리하고 결과를 저장합니다',
-    author: 'Language AI',
-    downloads: 1876,
-    rating: 4.8,
-    category: 'AI/ML',
-  },
-];
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, Loader2, Copy } from 'lucide-react';
+import { appApi, App } from '@/app/features/app/api/appApi';
+import { toast } from 'sonner';
 
 export default function ExplorePage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [apps, setApps] = useState<App[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [cloningId, setCloningId] = useState<string | null>(null);
 
-  const filteredModules = mockMarketplaceModules.filter(
-    (module) =>
-      module.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      module.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      module.category.toLowerCase().includes(searchQuery.toLowerCase()),
+  const handleClone = async (e: React.MouseEvent, appId: string) => {
+    e.stopPropagation();
+    if (cloningId) return;
+
+    try {
+      setCloningId(appId);
+      await appApi.cloneApp(appId);
+      toast.success('앱이 성공적으로 복제되었습니다.');
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Failed to clone app:', error);
+      toast.error('앱 복제에 실패했습니다.');
+    } finally {
+      setCloningId(null);
+    }
+  };
+
+  useEffect(() => {
+    const fetchApps = async () => {
+      try {
+        const data = await appApi.getExploreApps();
+        setApps(data);
+      } catch (error) {
+        console.error('Failed to fetch apps:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchApps();
+  }, []);
+
+  const filteredModules = apps.filter(
+    (app) =>
+      app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (app.description &&
+        app.description.toLowerCase().includes(searchQuery.toLowerCase())),
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -84,7 +71,7 @@ export default function ExplorePage() {
         </p>
       </div>
 
-      {/* Search Bar */}
+      {/* 검색창 */}
       <div className="mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -98,49 +85,50 @@ export default function ExplorePage() {
         </div>
       </div>
 
-      {/* Module Cards Grid */}
+      {/* 모듈 카드 그리드 */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredModules.map((module) => (
+        {filteredModules.map((app) => (
           <div
-            key={module.id}
+            key={app.id}
             className="group flex cursor-pointer flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700"
           >
-            {/* Category Badge */}
-            <div className="mb-3">
-              <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                {module.category}
-              </span>
-            </div>
-
-            {/* Module Info */}
+            {/* 모듈 정보 */}
             <div className="flex-1">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+                {app.icon ? (
+                  <span className="text-xl">{app.icon}</span>
+                ) : (
+                  <div className="h-full w-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-600" />
+                )}
+              </div>
               <h3 className="text-lg font-semibold text-gray-900 transition-colors group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
-                {module.name}
+                {app.name}
               </h3>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                {module.description}
-              </p>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
-                by {module.author}
+              <p className="mt-2 text-sm text-gray-600 line-clamp-2 dark:text-gray-400">
+                {app.description || '설명이 없습니다.'}
               </p>
             </div>
 
-            {/* Stats */}
-            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
-              <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span>{module.rating}</span>
-              </div>
-              <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                <Download className="h-4 w-4" />
-                <span>{module.downloads.toLocaleString()}</span>
-              </div>
+            {/* 작업 푸터 */}
+            <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+              <button
+                onClick={(e) => handleClone(e, app.id)}
+                disabled={cloningId === app.id}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
+              >
+                {cloningId === app.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {cloningId === app.id ? '복제 중...' : '내 스튜디오로 복제하기'}
+              </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Empty State */}
+      {/* 빈 상태 */}
       {filteredModules.length === 0 && searchQuery && (
         <div className="mt-12 text-center">
           <p className="text-gray-500 dark:text-gray-400">

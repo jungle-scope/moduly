@@ -1,65 +1,65 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { appApi } from '../../api/appApi';
-import { AppIcon } from './app-icon';
-import { AppIconPicker } from './app-icon-picker';
-import { AppIconSelection, CreateAppProps } from './types';
+import { appApi, type App } from '../../api/appApi';
+import { AppIcon } from '../create-app-modal/app-icon';
+import { AppIconPicker } from '../create-app-modal/app-icon-picker';
+import { AppIconSelection } from '../create-app-modal/types';
 import { twMerge } from 'tailwind-merge';
 
+interface EditAppProps {
+  app: App;
+  onSuccess: () => void;
+  onClose: () => void;
+}
+
 /**
- * 앱 생성 모달 컴포넌트
- *
- * 사용자가 새로운 앱을 생성할 때 사용하는 팝업창입니다.
- * 앱 이름, 설명, 아이콘을 입력받아 생성을 요청합니다.
+ * 앱 수정 모달 컴포넌트
  */
-export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
-  const router = useRouter();
+export default function EditAppModal({
+  app,
+  onSuccess,
+  onClose,
+}: EditAppProps) {
   // --- 상태 관리 (State) ---
 
-  // 입력 필드 상태
-  const [name, setName] = useState(''); // 앱 이름
-  const [description, setDescription] = useState(''); // 앱 설명
+  // 입력 필드 상태 (초기값은 props로 받은 앱 정보)
+  const [name, setName] = useState(app.name);
+  const [description, setDescription] = useState(app.description || '');
 
-  // 앱 아이콘 상태 (이모지 및 배경색)
+  // 앱 아이콘 상태
   const [appIcon, setAppIcon] = useState<AppIconSelection>({
-    emoji: '🤖',
-    bg: '#FFEAD5',
+    emoji: app.icon,
+    bg: app.icon_background,
   });
 
   // 공개 여부 상태
-  const [isPublic, setIsPublic] = useState(false);
+  const [isPublic, setIsPublic] = useState(app.is_public ?? false);
 
   // 아이콘 선택 팝업 표시 여부
   const [showAppIconPicker, setShowAppIconPicker] = useState(false);
 
-  // 로딩 상태 (API 요청 중일 때 true)
+  // 로딩 상태
   const [loading, setLoading] = useState(false);
 
-  // 중복 생성 방지를 위한 Ref
-  const isCreatingRef = useRef(false);
+  // 중복 실행 방지 Ref
+  const isSubmittingRef = useRef(false);
 
-  // --- 생성 핸들러 (Submit Handler) ---
-  const handleCreate = useCallback(async () => {
-    // 이미 생성 요청 중이면 중복 실행 방지
-    if (isCreatingRef.current) return;
+  // --- 수정 핸들러 ---
+  const handleUpdate = useCallback(async () => {
+    if (isSubmittingRef.current) return;
 
-    // 유효성 검사
     if (!name.trim()) {
       toast.error('앱 이름을 입력해주세요.');
       return;
     }
 
-    // 생성 시작 상태 설정
-    isCreatingRef.current = true;
+    isSubmittingRef.current = true;
     setLoading(true);
 
     try {
-      // API 호출
-      const response = await appApi.createApp({
+      await appApi.updateApp(app.id, {
         name: name.trim(),
         description: description.trim(),
         icon: appIcon.emoji,
@@ -67,81 +67,59 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
         is_public: isPublic,
       });
 
-      // 성공 처리
-      toast.success('앱이 성공적으로 생성되었습니다.');
-
-      onSuccess(); // 부모 컴포넌트에 성공 알림 (목록 새로고침 등)
-      onClose(); // 모달 닫기
-
-      // 워크플로우 에디터로 리다이렉트
-      if (response.workflow_id) {
-        router.push(`/workflows/${response.workflow_id}`);
-      }
+      toast.success('앱 정보가 수정되었습니다.');
+      onSuccess();
+      onClose();
     } catch (error) {
-      console.error('앱 생성 실패:', error);
-      toast.error('앱 생성에 실패했습니다.');
+      console.error('앱 수정 실패:', error);
+      toast.error('앱 수정에 실패했습니다.');
     } finally {
-      // 상태 초기화
-      isCreatingRef.current = false;
+      isSubmittingRef.current = false;
       setLoading(false);
     }
-  }, [name, description, appIcon, isPublic, onSuccess, onClose, router]);
+  }, [app.id, name, description, appIcon, isPublic, onSuccess, onClose]);
 
-  // --- 키보드 단축키 (Keyboard Shortcuts) ---
+  // --- 키보드 단축키 ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+Enter 또는 Ctrl+Enter로 폼 제출 (빠른 생성)
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
-        handleCreate();
+        handleUpdate();
       }
-
-      // Escape(ESC) 키로 모달 닫기
       if (e.key === 'Escape') {
-        // 아이콘 선택 창이 열려있으면 그것만 닫기
         if (showAppIconPicker) {
           setShowAppIconPicker(false);
-          e.stopPropagation(); // 이벤트 전파 중단
+          e.stopPropagation();
         } else {
-          // 아니라면 모달 전체 닫기
           onClose();
         }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleCreate, onClose, showAppIconPicker]);
+  }, [handleUpdate, onClose, showAppIconPicker]);
 
-  // --- 모달 외부 클릭 처리 (Backdrop Click) ---
+  // --- 모달 외부 클릭 ---
   const handleBackdropClick = (e: React.MouseEvent) => {
-    // e.target: 사용자가 실제로 클릭한 요소 (예: 배경, 모달 내부 글자, 버튼 등)
-    // e.currentTarget: 이벤트 핸들러(onClick)가 부착된 요소 (여기서는 배경 div)
-
-    // 클릭된 요소가 배경(dimmed layer) 자체일 때만 닫기
-    // (모달 내부를 클릭했을 때는 e.target이 모달 내부 요소이므로 이 조건이 거짓이 되어 닫히지 않음)
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
 
   return (
-    // 배경 (Backdrop)
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={handleBackdropClick}
     >
-      {/* 모달 본문 */}
       <div
         role="dialog"
         aria-modal="true"
         className="w-[400px] bg-white dark:bg-zinc-900 rounded-xl shadow-2xl overflow-hidden transform transition-all animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800"
       >
         <div className="p-6">
-          {/* 헤더: 제목 및 닫기 버튼 */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-50">
-              앱 생성
+              앱 정보 수정
             </h2>
             <button
               onClick={onClose}
@@ -164,7 +142,6 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
             </button>
           </div>
 
-          {/* 입력 폼 영역 */}
           <div className="space-y-5">
             {/* 앱 이름 및 아이콘 */}
             <div>
@@ -172,7 +149,6 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                 앱 이름 <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-3">
-                {/* 아이콘 선택기 */}
                 <div className="relative">
                   <AppIcon
                     icon={appIcon}
@@ -182,15 +158,11 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                   {showAppIconPicker && (
                     <AppIconPicker
                       currentIcon={appIcon}
-                      onSelect={(newIcon) => {
-                        setAppIcon(newIcon);
-                        // 아이콘 선택 후 닫지 않고 색상도 고를 수 있게 유지
-                      }}
+                      onSelect={(newIcon) => setAppIcon(newIcon)}
                       onClose={() => setShowAppIconPicker(false)}
                     />
                   )}
                 </div>
-                {/* 이름 입력 필드 */}
                 <input
                   autoFocus
                   type="text"
@@ -206,7 +178,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
               </div>
             </div>
 
-            {/* 앱 설명 입력 */}
+            {/* 앱 설명 */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-zinc-300 mb-2">
                 앱 설명
@@ -222,6 +194,8 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                 )}
               />
             </div>
+
+            {/* 공개 범위 */}
             <div className="pt-2">
               <label className="block text-sm font-semibold text-gray-700 dark:text-zinc-300 mb-2">
                 공개 범위
@@ -238,7 +212,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                   <div className="pt-0.5">
                     <input
                       type="radio"
-                      name="visibility"
+                      name="edit-visibility"
                       className="sr-only"
                       checked={!isPublic}
                       onChange={() => setIsPublic(false)}
@@ -277,7 +251,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                   <div className="pt-0.5">
                     <input
                       type="radio"
-                      name="visibility"
+                      name="edit-visibility"
                       className="sr-only"
                       checked={isPublic}
                       onChange={() => setIsPublic(true)}
@@ -308,50 +282,76 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
             </div>
           </div>
 
-          {/* 하단 버튼 영역 (취소 / 생성) */}
-          <div className="flex items-center justify-end gap-3 mt-8">
+          <div className="flex items-center justify-between mt-8">
             <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-white/5 rounded-lg transition-colors"
-            >
-              취소
-            </button>
-            <button
-              onClick={handleCreate}
+              onClick={async () => {
+                if (
+                  window.confirm(
+                    '정말 이 앱을 삭제하시겠습니까? 삭제된 앱은 복구할 수 없습니다.',
+                  )
+                ) {
+                  try {
+                    setLoading(true);
+                    await appApi.deleteApp(app.id);
+                    toast.success('앱이 삭제되었습니다.');
+                    onSuccess();
+                    onClose();
+                  } catch (error) {
+                    console.error('앱 삭제 실패:', error);
+                    toast.error('앱 삭제에 실패했습니다.');
+                    setLoading(false);
+                  }
+                }
+              }}
               disabled={loading}
-              className={twMerge(
-                'px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-sm transition-all flex items-center gap-2',
-                loading && 'opacity-70 cursor-not-allowed',
-              )}
+              className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
-              {loading ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  생성 중...
-                </>
-              ) : (
-                '생성'
-              )}
+              앱 삭제
             </button>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-white/5 rounded-lg transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleUpdate}
+                disabled={loading}
+                className={twMerge(
+                  'px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-sm transition-all flex items-center gap-2',
+                  loading && 'opacity-70 cursor-not-allowed',
+                )}
+              >
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    저장 중...
+                  </>
+                ) : (
+                  '저장'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

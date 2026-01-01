@@ -23,7 +23,7 @@ class LLMNodeData(BaseNodeData):
     - validation 메서드 정의 (인스턴스)
     """
 
-    provider: str
+    provider: Optional[str] = None
     model_id: str
     system_prompt: Optional[str] = None
     user_prompt: Optional[str] = None
@@ -32,11 +32,10 @@ class LLMNodeData(BaseNodeData):
     context_variable: Optional[str] = None
 
     def validate(self) -> None:
-        # 모델/프로바이더는 필수
+        # 모델은 필수
         if not self.model_id or not self.model_id.strip():
             raise ValueError("모델을 선택하세요.")
-        if not self.provider or not self.provider.strip():
-            raise ValueError("provider를 선택하세요.")
+        # Provider is now inferred from model_id via LLMService
 
         prompts = [self.system_prompt, self.user_prompt, self.assistant_prompt]
         if all(not p for p in prompts):

@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+import uuid
 
 from jinja2 import Environment
 
@@ -64,7 +65,17 @@ class LLMNode(Node[LLMNodeData]):
                 temp_session = SessionLocal()
                 db_session = temp_session
             try:
-                client = LLMService.get_any_provider_client(db_session)
+                user_id_str = self.execution_context.get("user_id")
+                client = None
+                if user_id_str:
+                    try:
+                        user_id = uuid.UUID(user_id_str)
+                        client = LLMService.get_client_for_user(db_session, user_id=user_id, model_id=self.data.model_id)
+                    except Exception as e:
+                        print(f"[LLMNode] User context found but failed to get client: {e}. Fallback to legacy.")
+                
+                if not client:
+                    client = LLMService.get_client_with_any_credential(db_session, model_id=self.data.model_id)
             finally:
                 # 임시 세션은 호출 후 정리
                 if temp_session is not None:

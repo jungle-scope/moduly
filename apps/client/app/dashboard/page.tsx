@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Pencil } from 'lucide-react';
 
 import CreateAppModal from '../features/app/components/create-app-modal';
+import EditAppModal from '../features/app/components/edit-app-modal';
 import LogoutButton from '../features/auth/components/LogoutButton';
 import { appApi, type App } from '../features/app/api/appApi';
 
@@ -12,6 +13,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingApp, setEditingApp] = useState<App | null>(null);
   const [apps, setApps] = useState<App[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,6 +44,11 @@ export default function DashboardPage() {
 
   const handleCreateApp = () => {
     setIsCreateModalOpen(true);
+  };
+
+  const handleEditApp = (e: React.MouseEvent, app: App) => {
+    e.stopPropagation();
+    setEditingApp(app);
   };
 
   const filteredApps = apps.filter((app) =>
@@ -141,16 +148,29 @@ export default function DashboardPage() {
 
               {/* Tag */}
               <div className="mt-auto">
-                <span className="inline-block px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-md dark:bg-blue-900 dark:text-blue-300">
-                  App
-                </span>
+                {app.is_public ? (
+                  <span className="inline-block px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-md dark:bg-blue-900/30 dark:text-blue-300">
+                    공개
+                  </span>
+                ) : (
+                  <span className="inline-block px-3 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-md dark:bg-gray-800 dark:text-gray-400">
+                    비공개
+                  </span>
+                )}
               </div>
 
               {/* Footer: Meta Info */}
-              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center">
                 <p className="text-xs text-gray-400">
                   수정: {new Date(app.updated_at).toLocaleDateString('ko-KR')}
                 </p>
+                <button
+                  onClick={(e) => handleEditApp(e, app)}
+                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                  title="앱 정보 수정"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
@@ -172,6 +192,18 @@ export default function DashboardPage() {
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={() => {
             setIsCreateModalOpen(false);
+            loadApps(); // 목록 새로고침
+          }}
+        />
+      )}
+
+      {/* Edit App Modal */}
+      {editingApp && (
+        <EditAppModal
+          app={editingApp}
+          onClose={() => setEditingApp(null)}
+          onSuccess={() => {
+            setEditingApp(null);
             loadApps(); // 목록 새로고침
           }}
         />

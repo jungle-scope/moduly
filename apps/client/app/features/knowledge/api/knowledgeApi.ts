@@ -1,4 +1,18 @@
 import axios from 'axios';
+import {
+  IngestionResponse,
+  KnowledgeCreateRequest,
+  KnowledgeBaseResponse,
+  KnowledgeBaseDetailResponse,
+} from '../types/Knowledge';
+
+// 외부(page.tsx, ..)에서 이 API 모듈을 통해 타입을 직접 import 할 수 있도록 내보냅니다.
+export type {
+  IngestionResponse,
+  KnowledgeCreateRequest,
+  KnowledgeBaseResponse,
+  KnowledgeBaseDetailResponse,
+};
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -19,60 +33,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-export interface IngestionResponse {
-  knowledge_base_id: string;
-  document_id: string;
-  status: string;
-  message: string;
-}
-
-export interface KnowledgeCreateRequest {
-  file: File;
-  name?: string;
-  description?: string;
-  embeddingModel: string;
-  topK: number;
-  similarity: number;
-  chunkSize: number;
-  chunkOverlap: number;
-  knowledgeBaseId?: string;
-}
-
-export interface KnowledgeBaseResponse {
-  id: string;
-  name: string;
-  description?: string;
-  document_count: number;
-  created_at: string;
-  embedding_model: string;
-}
-
-export interface DocumentResponse {
-  id: string;
-  filename: string;
-  status:
-    | 'pending'
-    | 'indexing'
-    | 'completed'
-    | 'failed'
-    | 'waiting_for_approval';
-  created_at: string;
-  error_message?: string;
-  chunk_count: number;
-  token_count: number;
-  meta_info?: {
-    cost_estimate?: {
-      pages: number;
-      credits: number;
-      cost_usd: number;
-    };
-    strategy?: string;
-  };
-}
-
-export interface KnowledgeBaseDetailResponse extends KnowledgeBaseResponse {
-  documents: DocumentResponse[];
-}
 
 export const knowledgeApi = {
   // 지식 베이스 생성 및 파일 업로드

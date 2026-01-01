@@ -165,7 +165,8 @@ export type AppNode =
   | LLMNode
   | ConditionNode
   | CodeNode
-  | TemplateNode;
+  | TemplateNode
+  | NoteNode;
 
 //하위 호환성 (필요시)
 export type NodeData = BaseNodeData;

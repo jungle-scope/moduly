@@ -9,6 +9,7 @@ from typing import Any, Dict
 
 from .base import BaseLLMClient
 from .openai_client import OpenAIClient
+from .google_client import GoogleClient
 
 
 def get_llm_client(
@@ -29,6 +30,15 @@ def get_llm_client(
 
     if key == "openai":
         return OpenAIClient(model_id=model_id, credentials=credentials)
+    
+    if key == "google":
+        return GoogleClient(model_id=model_id, credentials=credentials)
+    
+    # Anthropic/Azure 등 추가 예정
+    if key == "anthropic":
+        # Anthropic is currently treated as OpenAI compatible for MVP or needs explicit client
+        # For now, if we assume proxy usage, use OpenAIClient. Ideally create AnthropicClient.
+        # But to be clean, let's keep it simple.
+        return OpenAIClient(model_id=model_id, credentials=credentials)
 
-    # TODO: 이후 "anthropic", "azure" 등 추가 분기 구현
     raise ValueError(f"Unsupported provider: {provider}")

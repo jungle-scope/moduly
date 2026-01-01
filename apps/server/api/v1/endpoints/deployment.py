@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
@@ -51,17 +51,26 @@ def get_deployment(
 
 
 @router.get("/public/{url_slug}/info")
-def get_deployment_info_public(url_slug: str, db: Session = Depends(get_db)):
+def get_deployment_info_public(
+    url_slug: str, response: Response, db: Session = Depends(get_db)
+):
     """
-    배포 정보 공개 조회 (웹 앱용, 인증 불필요)
+    배포 정보 공개 조회 (웹 앱/임베딩용, 인증 불필요)
 
     공유 페이지에서 입력 폼을 동적으로 생성하기 위해
     input_schema와 output_schema를 조회합니다.
+
+    CORS: 모든 출처 허용 (임베딩 위젯 지원)
     """
     from fastapi import HTTPException
 
     from db.models.workflow_deployment import WorkflowDeployment
     from schemas.deployment import DeploymentInfoResponse
+
+    # CORS 헤더 추가 (임베딩 위젯 지원)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
 
     # url_slug로 배포 조회
     deployment = (

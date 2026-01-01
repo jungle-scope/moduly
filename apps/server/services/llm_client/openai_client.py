@@ -59,7 +59,7 @@ class OpenAIClient(BaseLLMClient):
 
         try:
             resp = requests.post(
-                self.chat_url, headers=self._build_headers(), json=payload, timeout=10
+                self.chat_url, headers=self._build_headers(), json=payload, timeout=60
             )
         except requests.RequestException as exc:
             raise ValueError(f"OpenAI 호출 실패: {exc}") from exc
