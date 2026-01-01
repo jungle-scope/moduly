@@ -32,6 +32,9 @@ export function UserInputModal({
         initial[v.name] = false;
       } else if (v.type === 'select') {
         initial[v.name] = v.options?.[0]?.value || '';
+      } else if (v.type === 'file') {
+        // file은 별도 state에서 관리
+        initial[v.name] = null;
       } else {
         initial[v.name] = '';
       }
@@ -39,12 +42,42 @@ export function UserInputModal({
     return initial;
   });
 
+  // 파일 전용 state
+  const [files, setFiles] = useState<Record<string, File | null>>({});
+
   const handleChange = (name: string, value: any) => {
     setInputs((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = () => {
-    onSubmit(inputs);
+    // 파일이 있는지 확인
+    const hasFiles = Object.values(files).some((file) => file !== null);
+
+    if (hasFiles) {
+      // FormData 생성
+      const formData = new FormData();
+
+      // JSON 데이터 추가 (file 타입 제외)
+      const jsonInputs: Record<string, any> = {};
+      Object.entries(inputs).forEach(([key, value]) => {
+        if (value !== null) {
+          jsonInputs[key] = value;
+        }
+      });
+      formData.append('inputs', JSON.stringify(jsonInputs));
+
+      // 파일들 추가
+      Object.entries(files).forEach(([key, file]) => {
+        if (file) {
+          formData.append(`file_${key}`, file);
+        }
+      });
+
+      onSubmit(formData);
+    } else {
+      // 파일 없으면 기존 방식 (JSON)
+      onSubmit(inputs);
+    }
   };
 
   return (
@@ -105,6 +138,33 @@ export function UserInputModal({
                           </option>
                         ))}
                       </select>
+                    </>
+                  ) : variable.type === 'file' ? (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {variable.name}
+                        {variable.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setFiles((prev) => ({
+                            ...prev,
+                            [variable.name]: file,
+                          }));
+                        }}
+                        required={variable.required}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      {files[variable.name] && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          선택됨: {files[variable.name]!.name}
+                        </p>
+                      )}
                     </>
                   ) : (
                     <>

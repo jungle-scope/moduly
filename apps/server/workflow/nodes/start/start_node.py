@@ -19,7 +19,7 @@ class WorkflowVariable(BaseModel):
     id: str
     name: str = Field(..., description="변수명 (코드용, 영문/숫자/언더스코어)")
     label: str = Field(..., description="표시명 (사용자에게 보여질 이름)")
-    type: Literal["text", "number", "paragraph", "checkbox", "select"] = Field(
+    type: Literal["text", "number", "paragraph", "checkbox", "select", "file"] = Field(
         ..., description="변수 타입"
     )
     required: bool = Field(False, description="필수 입력 여부")
@@ -51,7 +51,7 @@ class StartNode(Node[StartNodeData]):
     def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         사용자 입력을 다음 노드로 전달합니다.
-        
+
         [중요] 변수 ID 매핑이 필요한 이유:
         - 프론트엔드의 Answer/Condition 노드는 value_selector에 변수 ID를 저장합니다.
           예: ["start-xxx", "45af2b51-d499-4a8d-a9bd-f18fdc9b942b"]
@@ -59,15 +59,15 @@ class StartNode(Node[StartNodeData]):
           예: {"updated": 100}
         - 따라서 ID로도 값을 조회할 수 있도록 매핑을 추가해야 합니다.
           결과: {"updated": 100, "45af2b51-...": 100}
-        
+
         이 매핑이 없으면 변수 이름이 변경되었을 때 참조가 깨집니다.
         ID 기반 참조를 사용하면 변수 이름을 변경해도 정상 동작합니다.
         """
         result = dict(inputs)
-        
+
         # 변수 이름 -> ID 매핑 추가 (ID 기반 조회 지원)
         for var in self.data.variables:
             if var.name in inputs:
                 result[var.id] = inputs[var.name]
-        
+
         return result

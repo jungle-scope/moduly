@@ -17,7 +17,8 @@ export type VariableType =
   | 'number' // 숫자
   | 'paragraph' // 장문 텍스트
   | 'checkbox' // 체크박스
-  | 'select'; // 선택
+  | 'select' // 선택
+  | 'file'; // 파일 업로드 (PDF)
 
 export type TriggerType = 'manual' | 'webhook' | 'cron';
 export interface SelectOption {
@@ -37,6 +38,7 @@ export interface WorkflowVariable {
   maxLength?: number;
   placeholder?: string;
   options?: SelectOption[];
+  maxFileSize?: number; // 파일 최대 크기 (bytes, PDF용)
 }
 
 export interface StartNodeData extends BaseNodeData {

@@ -52,20 +52,23 @@ export const workflowApi = {
   // 3-1. 워크플로우 스트리밍 실행 (SSE)
   executeWorkflowStream: async (
     workflowId: string,
-    userInput?: Record<string, unknown>,
+    userInput: Record<string, unknown> | FormData,
     onEvent?: (event: any) => void | Promise<void>,
   ) => {
-    console.log('[사용자 입력]: ', JSON.stringify(userInput || {}));
+    const isFormData = userInput instanceof FormData;
+
+    console.log(
+      '[사용자 입력]: ',
+      isFormData ? 'FormData (파일 포함)' : JSON.stringify(userInput || {}),
+    );
 
     const response = await fetch(
       `${API_BASE_URL}/workflows/${workflowId}/stream`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: isFormData ? {} : { 'Content-Type': 'application/json' },
         credentials: 'include', // 쿠키 인증 포함
-        body: JSON.stringify(userInput || {}),
+        body: isFormData ? userInput : JSON.stringify(userInput || {}),
       },
     );
 

@@ -269,7 +269,7 @@ export default function EditorHeader() {
   }, []);
 
   const handleModalSubmit = useCallback(
-    async (inputs: Record<string, any>) => {
+    async (inputs: Record<string, any> | FormData) => {
       setShowModal(false);
 
       // 워크플로우 실행
