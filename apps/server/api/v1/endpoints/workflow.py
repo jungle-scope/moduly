@@ -1,5 +1,5 @@
-from typing import List
 import json
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -37,8 +37,6 @@ def create_workflow(
     return {
         "id": str(workflow.id),
         "app_id": workflow.app_id,
-        "marked_name": workflow.marked_name,
-        "marked_comment": workflow.marked_comment,
         "created_at": workflow.created_at.isoformat(),
         "updated_at": workflow.updated_at.isoformat(),
     }
@@ -64,8 +62,6 @@ def get_workflow(
     return {
         "id": str(workflow.id),
         "app_id": workflow.app_id,
-        "marked_name": workflow.marked_name,
-        "marked_comment": workflow.marked_comment,
         "created_at": workflow.created_at.isoformat(),
         "updated_at": workflow.updated_at.isoformat(),
     }
@@ -95,8 +91,6 @@ def list_workflows_by_app(
         {
             "id": str(w.id),
             "app_id": w.app_id,
-            "marked_name": w.marked_name,
-            "marked_comment": w.marked_comment,
             "created_at": w.created_at.isoformat(),
             "updated_at": w.updated_at.isoformat(),
         }
@@ -198,6 +192,7 @@ def execute_workflow(
         # 그 외 서버 에러
         print(f"Workflow execution failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/{workflow_id}/stream")
 def stream_workflow(

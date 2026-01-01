@@ -153,12 +153,9 @@ class AppService:
             created_by=user_id,
             # JSONB 필드 복사
             graph=source_workflow.graph,
-            _features=source_workflow._features,
-            _environment_variables=source_workflow._environment_variables,
-            _conversation_variables=source_workflow._conversation_variables,
-            _rag_pipeline_variables=source_workflow._rag_pipeline_variables,
-            # 메타데이터
-            version=source_workflow.version,
+            features=source_workflow.features,
+            env_variables=source_workflow.env_variables,
+            runtime_variables=source_workflow.runtime_variables,
         )
         db.add(new_workflow)
         db.flush()
@@ -187,8 +184,8 @@ class AppService:
         # 연결된 워크플로우도 삭제해야 함 (여기서는 단순히 앱만 삭제, DB FK 설정에 따라 다를 수 있음)
         # 만약 워크플로우가 앱에 종속적이라면 함께 삭제하는 것이 좋음.
         # 일단은 앱만 삭제.
-        
+
         db.delete(app)
         db.commit()
-        
+
         return True

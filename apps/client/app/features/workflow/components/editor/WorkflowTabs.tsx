@@ -19,7 +19,7 @@ export default function WorkflowTabs() {
           }`}
         >
           <NetworkIcon className="w-4 h-4" />
-          <span>{workflow.name}</span>
+          <span>Workflow</span>
         </button>
       ))}
     </div>

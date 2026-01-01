@@ -16,14 +16,14 @@ export interface Viewport {
   zoom: number;
 }
 
-export interface EnvironmentVariable {
+export interface EnvVariable {
   id: string;
   key: string;
   value: string;
   type: 'string' | 'number' | 'secret';
 }
 
-export interface ConversationVariable {
+export interface RuntimeVariable {
   id: string;
   key: string;
   name: string;
@@ -36,6 +36,6 @@ export interface WorkflowDraftRequest {
   edges: Edge[];
   viewport: Viewport;
   features?: Features;
-  environmentVariables?: EnvironmentVariable[];
-  conversationVariables?: ConversationVariable[];
+  envVariables?: EnvVariable[];
+  runtimeVariables?: RuntimeVariable[];
 }

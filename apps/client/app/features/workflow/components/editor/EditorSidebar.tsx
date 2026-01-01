@@ -125,31 +125,21 @@ export default function EditorSidebar() {
   }, []);
 
   const handleCreateWorkflow = useCallback(async () => {
-    if (workflowName.trim()) {
-      try {
-        await addWorkflow(
-          {
-            name: workflowName,
-            description: workflowDescription,
-            icon: '🔄', // Default icon
-            nodes: [],
-            edges: [],
-          },
-          appId, // workflow ID를 app_id로 사용 (임시)
-        );
-        setWorkflowName('');
-        setWorkflowDescription('');
-        setShowCreateModal(false);
-      } catch (error) {
-        console.error('Failed to create workflow:', error);
-        // TODO: Show error message to user
-      }
+    try {
+      await addWorkflow(
+        {
+          nodes: [],
+          edges: [],
+        },
+        appId,
+      );
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Failed to create workflow:', error);
     }
-  }, [workflowName, workflowDescription, addWorkflow, appId]);
+  }, [addWorkflow, appId]);
 
   const handleCancelCreate = useCallback(() => {
-    setWorkflowName('');
-    setWorkflowDescription('');
     setShowCreateModal(false);
   }, []);
 
@@ -185,7 +175,7 @@ export default function EditorSidebar() {
                   }`}
                 >
                   <NetworkIcon className="w-4 h-4" />
-                  <span>{workflow.name}</span>
+                  <span>Workflow</span>
                 </div>
               ))}
             </div>

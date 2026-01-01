@@ -13,8 +13,8 @@ import {
 } from '@xyflow/react';
 import {
   Features,
-  EnvironmentVariable,
-  ConversationVariable,
+  EnvVariable,
+  RuntimeVariable,
   Node,
 } from '../types/Workflow';
 
@@ -31,9 +31,6 @@ interface SidebarState {
 
 export interface Workflow {
   id: string;
-  name: string;
-  description: string;
-  icon: string;
   nodes: Node[];
   edges: Edge[];
   viewport?: {
@@ -60,8 +57,8 @@ type WorkflowState = {
 
   // === Extra Fields (for API sync) ===
   features: Features;
-  environmentVariables: EnvironmentVariable[];
-  conversationVariables: ConversationVariable[];
+  envVariables: EnvVariable[];
+  runtimeVariables: RuntimeVariable[];
 
   // === ReactFlow Actions ===
   onNodesChange: OnNodesChange;
@@ -90,16 +87,16 @@ type WorkflowState = {
 
   // === API Sync Actions ===
   setFeatures: (features: Features) => void;
-  setEnvironmentVariables: (vars: EnvironmentVariable[]) => void;
-  setConversationVariables: (vars: ConversationVariable[]) => void;
+  setEnvVariables: (vars: EnvVariable[]) => void;
+  setRuntimeVariables: (vars: RuntimeVariable[]) => void;
   updateNodeData: (nodeId: string, newData: Record<string, unknown>) => void;
   setWorkflowData: (data: {
     nodes: Node[];
     edges: Edge[];
     viewport: { x: number; y: number; zoom: number };
     features?: Features;
-    environmentVariables?: EnvironmentVariable[];
-    conversationVariables?: ConversationVariable[];
+    envVariables?: EnvVariable[];
+    runtimeVariables?: RuntimeVariable[];
   }) => void;
 };
 
@@ -110,9 +107,6 @@ const initialEdges: Edge[] = [];
 const initialWorkflows: Workflow[] = [
   {
     id: 'default',
-    name: 'Main Workflow',
-    description: 'Default workflow',
-    icon: '🔥',
     nodes: initialNodes,
     edges: initialEdges,
     viewport: { x: 0, y: 0, zoom: 1 },
@@ -139,8 +133,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   nodes: initialNodes,
   edges: initialEdges,
   features: {},
-  environmentVariables: [],
-  conversationVariables: [],
+  envVariables: [],
+  runtimeVariables: [],
 
   // === ReactFlow Actions ===
   setNodes: (nodes) => {
@@ -201,16 +195,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // Backend API 호출
       const created = await workflowApi.createWorkflow({
         app_id: appId,
-        name: workflow.name,
-        description: workflow.description,
       });
 
       // Store에 추가
       const newWorkflow: Workflow = {
         id: created.id,
-        name: created.marked_name || workflow.name,
-        description: created.marked_comment || '',
-        icon: workflow.icon,
         nodes: [],
         edges: [],
         viewport: { x: 0, y: 0, zoom: 1 },
@@ -234,9 +223,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // Convert backend workflows to frontend format
       const formattedWorkflows: Workflow[] = workflows.map((w) => ({
         id: w.id,
-        name: w.marked_name || 'Untitled Workflow',
-        description: w.marked_comment || '',
-        icon: '🔄',
         nodes: [],
         edges: [],
       }));
@@ -286,10 +272,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   // === API Sync Actions ===
   setFeatures: (features) => set({ features }),
-  setEnvironmentVariables: (environmentVariables) =>
-    set({ environmentVariables }),
-  setConversationVariables: (conversationVariables) =>
-    set({ conversationVariables }),
+  setEnvVariables: (envVariables) => set({ envVariables }),
+  setRuntimeVariables: (runtimeVariables) => set({ runtimeVariables }),
 
   updateNodeData: (nodeId, newData) => {
     set({
@@ -310,8 +294,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       nodes: data.nodes || [],
       edges: data.edges || [],
       features: data.features || {},
-      environmentVariables: data.environmentVariables || [],
-      conversationVariables: data.conversationVariables || [],
+      envVariables: data.envVariables || [],
+      runtimeVariables: data.runtimeVariables || [],
     });
     // Viewport는 ReactFlow 인스턴스에서 처리해야 하므로 여기서는 무시하거나 별도 처리
     // 하지만 초기 로딩 시 Store에 저장해두면 나중에 사용할 수 있음
