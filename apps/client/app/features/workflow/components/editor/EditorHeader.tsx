@@ -375,8 +375,11 @@ export default function EditorHeader() {
           </button>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 text-lg rounded-lg bg-gradient-to-br from-orange-400 to-pink-500">
-              {projectIcon}
+            <div
+              className="flex items-center justify-center w-8 h-8 text-lg rounded-lg"
+              style={{ backgroundColor: projectIcon.background_color }}
+            >
+              {projectIcon.content}
             </div>
             <h1 className="text-lg font-semibold text-gray-800">
               {projectName}

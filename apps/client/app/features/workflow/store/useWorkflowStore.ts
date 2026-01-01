@@ -1,3 +1,4 @@
+import { AppIcon } from '../../app/api/appApi';
 import {
   Connection,
   Edge,
@@ -49,7 +50,7 @@ type WorkflowState = {
   sidebarCollapsed: SidebarState;
   activeConfigTab: 'logs' | 'monitoring';
   projectName: string;
-  projectIcon: string;
+  projectIcon: AppIcon;
   interactiveMode: 'mouse' | 'touchpad';
   isFullscreen: boolean;
 
@@ -72,7 +73,7 @@ type WorkflowState = {
   // === Editor UI Actions ===
   toggleSidebarSection: (section: keyof SidebarState) => void;
   setActiveConfigTab: (tab: 'logs' | 'monitoring') => void;
-  setProjectInfo: (name: string, icon: string) => void;
+  setProjectInfo: (name: string, icon: AppIcon) => void;
   setInteractiveMode: (mode: 'mouse' | 'touchpad') => void;
   toggleFullscreen: () => void;
   addWorkflow: (
@@ -130,7 +131,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
   activeConfigTab: 'logs',
   projectName: 'My Project',
-  projectIcon: '🔥',
+  projectIcon: { type: 'emoji', content: '🔥', background_color: '#FFE5D4' },
   interactiveMode: 'mouse',
   isFullscreen: false,
 
