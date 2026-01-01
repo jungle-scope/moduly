@@ -55,6 +55,8 @@ export const workflowApi = {
     userInput?: Record<string, unknown>,
     onEvent?: (event: any) => void | Promise<void>,
   ) => {
+    console.log('[사용자 입력]: ', JSON.stringify(userInput || {}));
+
     const response = await fetch(
       `${API_BASE_URL}/workflows/${workflowId}/stream`,
       {

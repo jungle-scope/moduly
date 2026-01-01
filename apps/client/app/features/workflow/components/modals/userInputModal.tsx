@@ -26,7 +26,13 @@ export function UserInputModal({
   const [inputs, setInputs] = useState<Record<string, any>>(() => {
     const initial: Record<string, any> = {};
     variables.forEach((v) => {
-      initial[v.name] = v.type === 'number' ? 0 : '';
+      if (v.type === 'number') {
+        initial[v.name] = 0;
+      } else if (v.type === 'checkbox') {
+        initial[v.name] = false;
+      } else {
+        initial[v.name] = '';
+      }
     });
     return initial;
   });
@@ -58,27 +64,48 @@ export function UserInputModal({
             <div className="space-y-4">
               {variables.map((variable) => (
                 <div key={variable.id}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {variable.name}
-                    {variable.required && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
-                  </label>
-                  <input
-                    type={variable.type === 'number' ? 'number' : 'text'}
-                    value={inputs[variable.name] || ''}
-                    onChange={(e) =>
-                      handleChange(
-                        variable.name,
-                        variable.type === 'number'
-                          ? Number(e.target.value)
-                          : e.target.value,
-                      )
-                    }
-                    required={variable.required}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={`${variable.name} 입력`}
-                  />
+                  {variable.type === 'checkbox' ? (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <span className="text-sm font-medium text-gray-700">
+                        {variable.name}
+                        {variable.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={inputs[variable.name] || false}
+                        onChange={(e) =>
+                          handleChange(variable.name, e.target.checked)
+                        }
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                    </label>
+                  ) : (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {variable.name}
+                        {variable.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      <input
+                        type={variable.type === 'number' ? 'number' : 'text'}
+                        value={inputs[variable.name] || ''}
+                        onChange={(e) =>
+                          handleChange(
+                            variable.name,
+                            variable.type === 'number'
+                              ? Number(e.target.value)
+                              : e.target.value,
+                          )
+                        }
+                        required={variable.required}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder={`${variable.name} 입력`}
+                      />
+                    </>
+                  )}
                 </div>
               ))}
             </div>
