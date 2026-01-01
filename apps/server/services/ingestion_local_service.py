@@ -1,3 +1,4 @@
+import json
 import os  # 폴더 만들기용
 import shutil  # 파일 복사용
 from enum import Enum
@@ -12,6 +13,7 @@ from langchain_openai import OpenAIEmbeddings
 from sqlalchemy.orm import Session
 
 from db.models.knowledge import Document, DocumentChunk
+from db.models.llm import LLMCredential
 
 
 class ParsingStrategy(str, Enum):
@@ -520,9 +522,29 @@ class IngestionService:
             encoding = tiktoken.get_encoding("cl100k_base")  # gpt-4로 가정하고 계산
 
         # DB에서 API Key 가져오기 (환경변수 의존 제거)
-        from services.llm_service import LLMService
+        # from services.llm_service import LLMService (구버전 메서드 없음)
 
-        api_key = LLMService.get_default_api_key(self.db)
+        # [Fallback] 사용 가능한 첫 번째 키 가져오기
+        # 1. 환경변수 우선 확인 (로컬 개발 편의성)
+        api_key = os.getenv("OPENAI_API_KEY")
+
+        # 2. 환경변수 없으면 DB에서 조회 (Fallback)
+        if not api_key:
+            cred = (
+                self.db.query(LLMCredential)
+                .filter(LLMCredential.is_valid == True)
+                .first()
+            )
+            if not cred:
+                raise ValueError(
+                    "No valid LLM credential found. Please register one in settings."
+                )
+
+            try:
+                cfg = json.loads(cred.encrypted_config)
+                api_key = cfg.get("apiKey")
+            except:
+                raise ValueError("Invalid credential config")
 
         # 임베딩 모델 초기화 (API Key 명시)
         embeddings_model = OpenAIEmbeddings(model=self.ai_model, openai_api_key=api_key)
