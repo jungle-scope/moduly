@@ -184,7 +184,7 @@ def execute_workflow(
         # 2. 엣지 정보를 바탕으로 노드 간의 실행 경로(Graph 구조) 빌드
         # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
         engine = WorkflowEngine(
-            graph, user_input, context={"user_id": str(current_user.id)}
+            graph, user_input, execution_context={"user_id": str(current_user.id)}
         )
         print("user_input", user_input)
 
@@ -231,7 +231,7 @@ def stream_workflow(
             )
 
         engine = WorkflowEngine(
-            graph, user_input, context={"user_id": str(current_user.id)}
+            graph, user_input, execution_context={"user_id": str(current_user.id)}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
