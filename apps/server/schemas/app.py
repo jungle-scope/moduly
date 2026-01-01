@@ -17,7 +17,7 @@ class AppCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
     icon: AppIcon
-    is_public: bool = False
+    is_market: bool = False
 
 
 class AppUpdateRequest(BaseModel):
@@ -26,7 +26,7 @@ class AppUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     icon: Optional[AppIcon] = None
-    is_public: Optional[bool] = None
+    is_market: Optional[bool] = None
 
 
 class AppResponse(BaseModel):
@@ -36,8 +36,9 @@ class AppResponse(BaseModel):
     name: str
     description: Optional[str]
     icon: AppIcon
-    is_public: bool
-    workflow_id: Optional[UUID] = None
+    url_slug: Optional[str] = None  # 첫 배포 시 생성
+    is_market: bool
+    forked_from: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

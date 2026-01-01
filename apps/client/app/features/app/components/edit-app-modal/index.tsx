@@ -35,7 +35,7 @@ export default function EditAppModal({
   });
 
   // 공개 여부 상태
-  const [isPublic, setIsPublic] = useState(app.is_public ?? false);
+  const [isMarket, setIsMarket] = useState(app.is_market ?? false);
 
   // 아이콘 선택 팝업 표시 여부
   const [showAppIconPicker, setShowAppIconPicker] = useState(false);
@@ -67,7 +67,7 @@ export default function EditAppModal({
           content: appIcon.emoji,
           background_color: appIcon.bg,
         },
-        is_public: isPublic,
+        is_market: isMarket,
       });
 
       toast.success('앱 정보가 수정되었습니다.');
@@ -80,7 +80,7 @@ export default function EditAppModal({
       isSubmittingRef.current = false;
       setLoading(false);
     }
-  }, [app.id, name, description, appIcon, isPublic, onSuccess, onClose]);
+  }, [app.id, name, description, appIcon, isMarket, onSuccess, onClose]);
 
   // --- 키보드 단축키 ---
   useEffect(() => {
@@ -207,7 +207,7 @@ export default function EditAppModal({
                 <label
                   className={twMerge(
                     'flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    !isPublic
+                    !isMarket
                       ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500'
                       : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600',
                   )}
@@ -217,18 +217,18 @@ export default function EditAppModal({
                       type="radio"
                       name="edit-visibility"
                       className="sr-only"
-                      checked={!isPublic}
-                      onChange={() => setIsPublic(false)}
+                      checked={!isMarket}
+                      onChange={() => setIsMarket(false)}
                     />
                     <div
                       className={twMerge(
                         'w-4 h-4 rounded-full border flex items-center justify-center',
-                        !isPublic
+                        !isMarket
                           ? 'border-blue-500'
                           : 'border-zinc-300 dark:border-zinc-600',
                       )}
                     >
-                      {!isPublic && (
+                      {!isMarket && (
                         <div className="w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>
@@ -246,7 +246,7 @@ export default function EditAppModal({
                 <label
                   className={twMerge(
                     'flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    isPublic
+                    isMarket
                       ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500'
                       : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600',
                   )}
@@ -256,18 +256,18 @@ export default function EditAppModal({
                       type="radio"
                       name="edit-visibility"
                       className="sr-only"
-                      checked={isPublic}
-                      onChange={() => setIsPublic(true)}
+                      checked={isMarket}
+                      onChange={() => setIsMarket(true)}
                     />
                     <div
                       className={twMerge(
                         'w-4 h-4 rounded-full border flex items-center justify-center',
-                        isPublic
+                        isMarket
                           ? 'border-blue-500'
                           : 'border-zinc-300 dark:border-zinc-600',
                       )}
                     >
-                      {isPublic && (
+                      {isMarket && (
                         <div className="w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>

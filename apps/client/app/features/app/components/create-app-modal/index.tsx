@@ -31,7 +31,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
   });
 
   // 공개 여부 상태
-  const [isPublic, setIsPublic] = useState(false);
+  const [isMarket, setIsMarket] = useState(false);
 
   // 아이콘 선택 팝업 표시 여부
   const [showAppIconPicker, setShowAppIconPicker] = useState(false);
@@ -67,7 +67,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
           content: appIcon.emoji,
           background_color: appIcon.bg,
         },
-        is_public: isPublic,
+        is_market: isMarket,
       });
 
       // 성공 처리
@@ -88,7 +88,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
       isCreatingRef.current = false;
       setLoading(false);
     }
-  }, [name, description, appIcon, isPublic, onSuccess, onClose, router]);
+  }, [name, description, appIcon, isMarket, onSuccess, onClose, router]);
 
   // --- 키보드 단축키 (Keyboard Shortcuts) ---
   useEffect(() => {
@@ -233,7 +233,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                 <label
                   className={twMerge(
                     'flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    !isPublic
+                    !isMarket
                       ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500'
                       : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600',
                   )}
@@ -243,18 +243,18 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                       type="radio"
                       name="visibility"
                       className="sr-only"
-                      checked={!isPublic}
-                      onChange={() => setIsPublic(false)}
+                      checked={!isMarket}
+                      onChange={() => setIsMarket(false)}
                     />
                     <div
                       className={twMerge(
                         'w-4 h-4 rounded-full border flex items-center justify-center',
-                        !isPublic
+                        !isMarket
                           ? 'border-blue-500'
                           : 'border-zinc-300 dark:border-zinc-600',
                       )}
                     >
-                      {!isPublic && (
+                      {!isMarket && (
                         <div className="w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>
@@ -272,7 +272,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                 <label
                   className={twMerge(
                     'flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    isPublic
+                    isMarket
                       ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500'
                       : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600',
                   )}
@@ -282,18 +282,18 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                       type="radio"
                       name="visibility"
                       className="sr-only"
-                      checked={isPublic}
-                      onChange={() => setIsPublic(true)}
+                      checked={isMarket}
+                      onChange={() => setIsMarket(true)}
                     />
                     <div
                       className={twMerge(
                         'w-4 h-4 rounded-full border flex items-center justify-center',
-                        isPublic
+                        isMarket
                           ? 'border-blue-500'
                           : 'border-zinc-300 dark:border-zinc-600',
                       )}
                     >
-                      {isPublic && (
+                      {isMarket && (
                         <div className="w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>

@@ -29,7 +29,9 @@ export interface App {
   name: string;
   description?: string;
   icon: AppIcon;
-  is_public: boolean;
+  url_slug?: string;
+  is_market: boolean;
+  forked_from?: string;
   workflow_id?: string;
   created_at: string;
   updated_at: string;
@@ -53,7 +55,7 @@ export const appApi = {
     name: string;
     description?: string;
     icon: AppIcon;
-    is_public?: boolean;
+    is_market?: boolean;
   }): Promise<App> => {
     const response = await api.post('/apps', data);
     return response.data;
@@ -78,7 +80,7 @@ export const appApi = {
       name?: string;
       description?: string;
       icon?: AppIcon;
-      is_public?: boolean;
+      is_market?: boolean;
     },
   ): Promise<App> => {
     const response = await api.patch(`/apps/${appId}`, data);

@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from db.models.app import App
 from db.models.workflow import Workflow
 from db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from schemas.deployment import DeploymentCreate
@@ -49,6 +50,20 @@ class DeploymentService:
                 status_code=403,
                 detail="You do not have permission to deploy this workflow.",
             )
+
+        # 2.5. App 조회 및 첫 배포 시 url_slug, auth_secret 생성
+        app = db.query(App).filter(App.id == workflow.app_id).first()
+        if app:
+            if not app.url_slug:
+                # AppService의 헬퍼 함수 사용
+                from services.app_service import AppService
+
+                app.url_slug = AppService._generate_url_slug(db, app.name)
+
+            if not app.auth_secret:
+                app.auth_secret = secrets.token_urlsafe(32)
+
+            db.flush()
 
         # 3. Draft 데이터(Snapshot) 가져오기
         graph_snapshot = deployment_in.graph_snapshot

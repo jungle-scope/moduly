@@ -35,22 +35,32 @@ class App(Base):
     workflow_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("workflows.id"), nullable=True
     )
+    # === 활성 배포 ===
+    active_deployment_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+
+    # === 엔드포인트 설정 (첫 배포 시 생성) ===
+    url_slug: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, nullable=True, index=True
+    )
+    auth_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # === 앱 설정 필드 ===
-    # 웹 앱 사이트 활성화 여부
-    is_site_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # API 접근 활성화 여부
     is_api_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # 분당 요청 제한 (Requests Per Minute)
-    api_requests_per_minute: Mapped[int] = mapped_column(Integer, default=60)
+    api_req_per_minute: Mapped[int] = mapped_column(Integer, default=60)
     # 시간당 요청 제한 (Requests Per Hour)
-    api_requests_per_hour: Mapped[int] = mapped_column(Integer, default=3600)
-    # 공개 앱 여부
-    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
-    # 트레이싱(추적) 설정 (JSON 형식 등)
-    tracing_config: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # 최대 활성 요청 수
-    max_active_requests: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    api_req_per_hour: Mapped[int] = mapped_column(Integer, default=3600)
+
+    # === 마켓플레이스 ===
+    # 마켓플레이스 등록 여부 (탐색 페이지 노출)
+    is_market: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 원본 앱 (마켓에서 복제한 경우)
+    forked_from: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True, comment="Original app ID if cloned from marketplace"
+    )
 
     # === 메타데이터 필드 ===
     created_by: Mapped[str] = mapped_column(String, nullable=False)
