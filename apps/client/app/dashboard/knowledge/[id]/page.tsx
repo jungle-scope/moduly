@@ -99,6 +99,13 @@ export default function KnowledgeDetailPage() {
             실패
           </span>
         );
+      case 'waiting_for_approval':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+            <Clock className="w-3.5 h-3.5" />
+            승인 대기
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
@@ -106,6 +113,19 @@ export default function KnowledgeDetailPage() {
             대기중
           </span>
         );
+    }
+  };
+
+  // 비용 승인 핸들러
+  const handleConfirmParsing = async (docId: string) => {
+    if (!confirm('추가 비용이 발생할 수 있습니다. 계속하시겠습니까?')) return;
+    try {
+      await knowledgeApi.confirmDocumentParsing(docId);
+      alert('파싱이 재개되었습니다.');
+      fetchKnowledgeBase();
+    } catch (error) {
+      console.error('Failed to confirm parsing', error);
+      alert('승인 처리에 실패했습니다.');
     }
   };
 
@@ -205,7 +225,7 @@ export default function KnowledgeDetailPage() {
             ) : (
               <p
                 onClick={() => setIsEditingDesc(true)}
-                className="text-gray-600 dark:text-gray-400 max-w-3xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors min-h-[1.5rem]"
+                className="text-gray-600 dark:text-gray-400 max-w-3xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors min-h-6"
                 title="클릭하여 설명 수정"
               >
                 {knowledgeBase.description || '설명 없음 (클릭하여 추가)'}
@@ -293,6 +313,32 @@ export default function KnowledgeDetailPage() {
                           {doc.error_message}
                         </p>
                       )}
+                      {/* 비용 승인 정보 표시 */}
+                      {doc.status === 'waiting_for_approval' &&
+                        doc.meta_info?.cost_estimate && (
+                          <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/10 rounded-md border border-yellow-200 dark:border-yellow-900/50 text-xs">
+                            <p className="font-semibold text-yellow-800 dark:text-yellow-400 mb-1">
+                              LlamaParse 파싱 필요 (비용 발생)
+                            </p>
+                            <div className="flex gap-3 text-yellow-700 dark:text-yellow-500">
+                              <span>
+                                페이지: {doc.meta_info.cost_estimate.pages}
+                              </span>
+                              <span>
+                                비용: $
+                                {doc.meta_info.cost_estimate.cost_usd.toFixed(
+                                  4,
+                                )}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleConfirmParsing(doc.id)}
+                              className="mt-2 w-full py-1 bg-yellow-400 hover:bg-yellow-500 text-white rounded font-bold transition-colors"
+                            >
+                              결제 승인 및 진행
+                            </button>
+                          </div>
+                        )}
                     </td>
                     <td className="px-6 py-4">
                       {renderStatusBadge(doc.status)}
@@ -333,7 +379,7 @@ export default function KnowledgeDetailPage() {
           fetchKnowledgeBase(); // 모달 닫히면 데이터 갱신
         }}
       />
-      
+
       {/* Search Test Modal */}
       <KnowledgeSearchModal
         isOpen={isSearchModalOpen}

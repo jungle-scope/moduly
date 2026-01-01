@@ -61,8 +61,8 @@ class Document(Base):
     filename: Mapped[str] = mapped_column(String, nullable=False)
     file_path: Mapped[str] = mapped_column(String, nullable=False)
 
-    # 상태 관리: pending -> indexing -> completed / failed
-    status: Mapped[str] = mapped_column(String(20), default="pending")
+    # 상태 관리: pending -> indexing -> completed / failed / waiting_for_approval
+    status: Mapped[str] = mapped_column(String(50), default="pending")
 
     # 실패 원인 담는 에러메세지
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

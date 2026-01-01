@@ -35,6 +35,7 @@ class DocumentResponse(BaseModel):
     error_message: Optional[str] = None
     chunk_count: int = 0
     token_count: int = 0  # 추후 구현
+    meta_info: Optional[dict] = None
 
 
 class KnowledgeBaseDetailResponse(KnowledgeBaseResponse):
