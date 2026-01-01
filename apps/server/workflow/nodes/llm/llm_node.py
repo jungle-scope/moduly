@@ -65,7 +65,7 @@ class LLMNode(Node[LLMNodeData]):
                 temp_session = SessionLocal()
                 db_session = temp_session
             try:
-                user_id_str = self.context.get("user_id")
+                user_id_str = self.execution_context.get("user_id")
                 client = None
                 if user_id_str:
                     try:
