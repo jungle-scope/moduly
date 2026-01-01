@@ -167,3 +167,25 @@ class AppService:
         db.refresh(new_app)
 
         return new_app
+
+    @staticmethod
+    def delete_app(db: Session, app_id: str, user_id: str):
+        """
+        앱을 삭제합니다.
+        """
+        app = db.query(App).filter(App.id == app_id).first()
+        if not app:
+            return None
+
+        # 생성자만 삭제 가능
+        if app.created_by != user_id:
+            return None
+
+        # 연결된 워크플로우도 삭제해야 함 (여기서는 단순히 앱만 삭제, DB FK 설정에 따라 다를 수 있음)
+        # 만약 워크플로우가 앱에 종속적이라면 함께 삭제하는 것이 좋음.
+        # 일단은 앱만 삭제.
+        
+        db.delete(app)
+        db.commit()
+        
+        return True

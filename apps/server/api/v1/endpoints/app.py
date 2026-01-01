@@ -99,3 +99,20 @@ def clone_app(
         raise HTTPException(status_code=404, detail="App not found")
 
     return app
+
+
+@router.delete("/{app_id}")
+def delete_app(
+    app_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    앱을 삭제합니다. (본인 앱만)
+    """
+    result = AppService.delete_app(db, app_id, user_id=str(current_user.id))
+    if not result:
+        # 삭제 실패 (존재하지 않거나 권한 없음)
+        raise HTTPException(status_code=404, detail="App not found or permission denied")
+    
+    return {"message": "App deleted successfully"}
