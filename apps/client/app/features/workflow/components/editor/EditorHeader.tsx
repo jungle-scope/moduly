@@ -88,15 +88,24 @@ export default function EditorHeader() {
     setShowDeployModal(true);
   }, []);
 
+  // Store에서 workflows 가져오기 (appId 조회를 위해)
+  const workflows = useWorkflowStore((state) => state.workflows);
+  const activeWorkflow = workflows.find((w) => w.id === workflowId);
+
   // rest API로 배포
   const handleDeploySubmit = useCallback(
     async (description: string) => {
       try {
+        if (!activeWorkflow?.appId) {
+          throw new Error('App ID를 찾을 수 없습니다.');
+        }
+
         setIsDeploying(true);
+
         const response = await workflowApi.createDeployment({
-          workflow_id: workflowId,
+          app_id: activeWorkflow.appId,
           description,
-          type: 'api', // 현재는 API 타입만 지원
+          type: 'api',
           is_active: true,
         });
         console.log('[배포 성공] 서버 응답:', response);
@@ -126,19 +135,23 @@ export default function EditorHeader() {
         setIsDeploying(false);
       }
     },
-    [workflowId],
+    [workflowId, activeWorkflow?.appId],
   );
 
   // 웹 앱으로 배포
   const handleDeployAsWebApp = useCallback(
     async (description: string) => {
       try {
+        if (!activeWorkflow?.appId) {
+          throw new Error('App ID를 찾을 수 없습니다.');
+        }
+
         setIsDeploying(true);
 
         const response = await workflowApi.createDeployment({
-          workflow_id: workflowId,
+          app_id: activeWorkflow.appId,
           description,
-          type: 'webapp', // 웹 앱 배포
+          type: 'webapp',
           is_active: true,
         });
         console.log('[웹 앱 배포 성공] 서버 응답:', response);
@@ -171,18 +184,22 @@ export default function EditorHeader() {
         setIsDeploying(false);
       }
     },
-    [workflowId],
+    [workflowId, activeWorkflow?.appId],
   );
 
   // 웹사이트 위젯으로 배포
   const handleDeployAsWidget = useCallback(
     async (description: string) => {
       try {
+        if (!activeWorkflow?.appId) {
+          throw new Error('App ID를 찾을 수 없습니다.');
+        }
+
         setIsDeploying(true);
 
         // 위젯으로 배포
         const response = await workflowApi.createDeployment({
-          workflow_id: workflowId,
+          app_id: activeWorkflow.appId,
           description,
           type: 'widget',
           is_active: true,
@@ -216,7 +233,7 @@ export default function EditorHeader() {
         setIsDeploying(false);
       }
     },
-    [workflowId],
+    [workflowId, activeWorkflow?.appId],
   );
 
   const handleTestRun = useCallback(async () => {

@@ -36,6 +36,7 @@ class AppResponse(BaseModel):
     name: str
     description: Optional[str]
     icon: AppIcon
+    workflow_id: Optional[UUID] = None  # App의 작업실 Workflow
     url_slug: Optional[str] = None  # 첫 배포 시 생성
     is_market: bool
     forked_from: Optional[UUID] = None

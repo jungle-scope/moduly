@@ -12,14 +12,14 @@ load_dotenv()  # .env 파일 로드
 
 
 from contextlib import asynccontextmanager
-from typing import List
 
 from db.models.llm import LLMProvider
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. Startup Logic
-    
+
     # pgvector 확장 활성화
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
@@ -28,10 +28,11 @@ async def lifespan(app: FastAPI):
     print("✅ Database tables created successfully!")
 
     # 2. Seed Default LLM Providers (Idempotent)
-    from db.session import SessionLocal
-    from db.models.user import User
     import uuid
-    
+
+    from db.models.user import User
+    from db.session import SessionLocal
+
     db = SessionLocal()
     try:
         # 2.1 Seed Placeholder User (Critical for Dev)
@@ -44,12 +45,12 @@ async def lifespan(app: FastAPI):
                 id=PLACEHOLDER_ID,
                 email="dev@moduly.app",
                 name="Dev User",
-                password="dev-password"
+                password="dev-password",
             )
             db.add(dev_user)
             db.commit()
             print("✅ Placeholder user created!")
-        
+
         # 2.2 Seed Providers
         existing_count = db.query(LLMProvider).count()
         if existing_count == 0:
@@ -61,7 +62,7 @@ async def lifespan(app: FastAPI):
                     base_url="https://api.openai.com/v1",
                     type="system",
                     auth_type="api_key",
-                    doc_url="https://platform.openai.com/api-keys"
+                    doc_url="https://platform.openai.com/api-keys",
                 ),
                 LLMProvider(
                     name="anthropic",
@@ -69,31 +70,34 @@ async def lifespan(app: FastAPI):
                     base_url="https://api.anthropic.com/v1",
                     type="system",
                     auth_type="api_key",
-                    doc_url="https://console.anthropic.com/settings/keys"
+                    doc_url="https://console.anthropic.com/settings/keys",
                 ),
                 LLMProvider(
                     name="google",
                     description="Google Gemini provider",
-                    base_url="https://generativelanguage.googleapis.com/v1beta/openai", # OpenAI compatibility endpoint
+                    base_url="https://generativelanguage.googleapis.com/v1beta/openai",  # OpenAI compatibility endpoint
                     type="system",
-                    doc_url="https://aistudio.google.com/"
-                )
+                    auth_type="api_key",  # Added missing auth_type
+                    doc_url="https://aistudio.google.com/",
+                ),
             ]
             db.add_all(default_providers)
             db.commit()
             print("✅ Default LLM providers seeded!")
         else:
             print(f"ℹ️ LLM providers already exist ({existing_count}). Skipping seed.")
-    
+
     except Exception as e:
         print(f"⚠️ Failed to seed data: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         db.close()
 
     yield
     # 3. Shutdown Logic (if any)
+
 
 app = FastAPI(title="Moduly API", redirect_slashes=False, lifespan=lifespan)
 
@@ -115,9 +119,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # API 라우터 등록
 app.include_router(api_router, prefix="/api/v1")
-
-
-
 
 
 @app.get("/")

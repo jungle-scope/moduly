@@ -24,7 +24,9 @@ def update_app(
     """
     app = AppService.update_app(db, app_id, request, user_id=str(current_user.id))
     if not app:
-        raise HTTPException(status_code=404, detail="App not found or permission denied")
+        raise HTTPException(
+            status_code=404, detail="App not found or permission denied"
+        )
     return app
 
 
@@ -62,7 +64,7 @@ def list_apps(
     """
     현재 유저의 앱 목록 조회
     """
-    apps = AppService.list_apps(db, user_id=str(current_user.id))
+    apps = AppService.get_user_apps(db, user_id=str(current_user.id))
     return apps
 
 
@@ -73,15 +75,11 @@ def get_app(
     current_user: User = Depends(get_current_user),
 ):
     """
-    앱을 ID로 조회합니다. (본인 앱만)
+    특정 앱 정보 조회
     """
-    app = AppService.get_app(db, app_id)
+    app = AppService.get_app(db, app_id, user_id=str(current_user.id))
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
-
-    if app.created_by != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Forbidden")
-
     return app
 
 
@@ -113,6 +111,8 @@ def delete_app(
     result = AppService.delete_app(db, app_id, user_id=str(current_user.id))
     if not result:
         # 삭제 실패 (존재하지 않거나 권한 없음)
-        raise HTTPException(status_code=404, detail="App not found or permission denied")
-    
+        raise HTTPException(
+            status_code=404, detail="App not found or permission denied"
+        )
+
     return {"message": "App deleted successfully"}

@@ -31,6 +31,7 @@ interface SidebarState {
 
 export interface Workflow {
   id: string;
+  appId: string;
   nodes: Node[];
   edges: Edge[];
   viewport?: {
@@ -107,6 +108,7 @@ const initialEdges: Edge[] = [];
 const initialWorkflows: Workflow[] = [
   {
     id: 'default',
+    appId: '',
     nodes: initialNodes,
     edges: initialEdges,
     viewport: { x: 0, y: 0, zoom: 1 },
@@ -200,6 +202,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // Store에 추가
       const newWorkflow: Workflow = {
         id: created.id,
+        appId: created.app_id,
         nodes: [],
         edges: [],
         viewport: { x: 0, y: 0, zoom: 1 },
@@ -223,6 +226,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // Convert backend workflows to frontend format
       const formattedWorkflows: Workflow[] = workflows.map((w) => ({
         id: w.id,
+        appId: w.app_id,
         nodes: [],
         edges: [],
       }));

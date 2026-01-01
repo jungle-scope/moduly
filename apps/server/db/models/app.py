@@ -40,11 +40,11 @@ class App(Base):
         UUID(as_uuid=True), nullable=True
     )
 
-    # === 엔드포인트 설정 (첫 배포 시 생성) ===
-    url_slug: Mapped[Optional[str]] = mapped_column(
-        String(255), unique=True, nullable=True, index=True
+    # === 엔드포인트 설정 (앱 생성 시 생성) ===
+    url_slug: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
     )
-    auth_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    auth_secret: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # === 앱 설정 필드 ===
     # API 접근 활성화 여부

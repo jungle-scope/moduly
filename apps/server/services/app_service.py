@@ -1,5 +1,4 @@
 import copy
-import re
 import secrets
 
 from sqlalchemy.orm import Session
@@ -33,7 +32,11 @@ class AppService:
         if not tenant_id:
             tenant_id = user_id
 
-        # App 생성 (url_slug, auth_secret는 첫 배포 시 생성)
+        # url_slug, auth_secret 생성
+        url_slug = AppService._generate_url_slug(db, request.name)
+        auth_secret = f"sk-{secrets.token_hex(24)}"
+
+        # App 생성
         app = App(
             tenant_id=tenant_id,
             name=request.name,
@@ -41,6 +44,8 @@ class AppService:
             icon=request.icon.model_dump(),
             is_market=request.is_market,
             created_by=user_id,
+            url_slug=url_slug,
+            auth_secret=auth_secret,
         )
         db.add(app)
         db.flush()  # App ID 생성
@@ -100,6 +105,20 @@ class AppService:
             App 객체 리스트
         """
         return db.query(App).filter(App.created_by == user_id).all()
+
+    @staticmethod
+    def list_explore_apps(db: Session, user_id: str):
+        """
+        마켓플레이스에 공개된 앱 목록을 조회합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            user_id: 현재 유저 ID (사용되지 않지만 일관성을 위해 유지)
+
+        Returns:
+            공개된 App 객체 리스트
+        """
+        return db.query(App).filter(App.is_market == True).all()
 
     @staticmethod
     def update_app(db: Session, app_id: str, request: AppUpdateRequest, user_id: str):
@@ -221,24 +240,12 @@ class AppService:
     def _generate_url_slug(db: Session, name: str) -> str:
         """
         앱 이름으로부터 고유한 URL slug를 생성합니다.
-
-        Args:
-            db: 데이터베이스 세션
-            name: 앱 이름
-
-        Returns:
-            고유한 URL slug
+        고유한 App URL Slug를 생성합니다.
+        형식: app-{random_hex_4} (예: app-a1b2c3d4)
         """
-        # 1. 기본 slug 생성 (소문자, 특수문자 제거, 공백은 하이픈)
-        slug = re.sub(r"[^a-z0-9가-힣]+", "-", name.lower())
-        slug = slug.strip("-")
-
-        # 2. 중복 확인 및 번호 추가
-        original_slug = slug
-        counter = 1
-
-        while db.query(App).filter(App.url_slug == slug).first():
-            slug = f"{original_slug}-{counter}"
-            counter += 1
-
-        return slug
+        while True:
+            # 8글자 Hex (4 bytes) -> 총 12글자 (app-XXXXXXXX)
+            slug = f"app-{secrets.token_hex(4)}"
+            # 중복 체크
+            if not db.query(App).filter(App.url_slug == slug).first():
+                return slug

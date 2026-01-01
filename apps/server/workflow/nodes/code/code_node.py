@@ -22,8 +22,10 @@ class CodeNode(Node[CodeNodeData]):
 
     node_type = "codeNode"
 
-    def __init__(self, id: str, data: CodeNodeData):
-        super().__init__(id, data)
+    def __init__(
+        self, id: str, data: CodeNodeData, execution_context: Dict[str, Any] = None
+    ):
+        super().__init__(id, data, execution_context)
         self.docker_service = DockerSandboxService()
 
     def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
