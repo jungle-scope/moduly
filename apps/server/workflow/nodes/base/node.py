@@ -16,9 +16,10 @@ class Node(ABC, Generic[NodeDataT]):
     # 자식 클래스에서 정의해야 할 타입 이름 (예: "start", "llm")
     node_type: str
 
-    def __init__(self, id: str, data: NodeDataT):
+    def __init__(self, id: str, data: NodeDataT, context: Dict[str, Any] = None):
         self.id = id
         self.data = data
+        self.context = context or {}
         self.status = NodeStatus.IDLE
 
     @final

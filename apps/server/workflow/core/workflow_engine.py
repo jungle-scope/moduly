@@ -12,6 +12,7 @@ class WorkflowEngine:
         self,
         graph: Union[Dict[str, Any], tuple[List[NodeSchema], List[EdgeSchema]]],
         user_input: Dict[str, Any] = None,
+        context: Dict[str, Any] = None,
         is_deployed: bool = False,
     ):
         """
@@ -21,7 +22,8 @@ class WorkflowEngine:
             graph: 워크플로우 그래프 데이터
                 - Dict 형태: {"nodes": [...], "edges": [...], "viewport": ...}
             user_input: 사용자가 입력한 변수 값들
-            is_deployment: 배포 모드 여부 (True: 배포된 워크플로우, False: Draft)
+            context: 실행 컨텍스트 (user_id 등)
+            is_deployed: 배포 모드 여부 (True: 배포된 워크플로우, False: Draft)
         """
         # graph가 딕셔너리인 경우 nodes와 edges 추출
         if isinstance(graph, dict):
@@ -33,6 +35,7 @@ class WorkflowEngine:
         self.node_instances = {}  # Node 인스턴스 저장
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
+        self.context = context or {}
         self.graph = self._build_graph()
         self._build_node_instances()  # Schema → Node 변환
 
@@ -252,7 +255,7 @@ class WorkflowEngine:
                 continue
 
             try:
-                self.node_instances[node_id] = NodeFactory.create(schema)
+                self.node_instances[node_id] = NodeFactory.create(schema, context=self.context)
             except NotImplementedError as e:
                 # 미구현 노드 타입에 대한 명확한 에러 메시지
                 raise NotImplementedError(

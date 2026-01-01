@@ -10,7 +10,93 @@ from db.session import engine
 
 load_dotenv()  # .env 파일 로드
 
-app = FastAPI(title="Moduly API", redirect_slashes=False)
+
+from contextlib import asynccontextmanager
+from typing import List
+
+from db.models.llm import LLMProvider
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Startup Logic
+    
+    # pgvector 확장 활성화
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables created successfully!")
+
+    # 2. Seed Default LLM Providers (Idempotent)
+    from db.session import SessionLocal
+    from db.models.user import User
+    import uuid
+    
+    db = SessionLocal()
+    try:
+        # 2.1 Seed Placeholder User (Critical for Dev)
+        # Match LLMService.PLACEHOLDER_USER_ID
+        PLACEHOLDER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        user = db.query(User).filter(User.id == PLACEHOLDER_ID).first()
+        if not user:
+            print("👤 Seeding placeholder user...")
+            dev_user = User(
+                id=PLACEHOLDER_ID,
+                email="dev@moduly.app",
+                name="Dev User",
+                password="dev-password"
+            )
+            db.add(dev_user)
+            db.commit()
+            print("✅ Placeholder user created!")
+        
+        # 2.2 Seed Providers
+        existing_count = db.query(LLMProvider).count()
+        if existing_count == 0:
+            print("🌱 Seeding default LLM providers...")
+            default_providers = [
+                LLMProvider(
+                    name="openai",
+                    description="OpenAI default provider",
+                    base_url="https://api.openai.com/v1",
+                    type="system",
+                    auth_type="api_key",
+                    doc_url="https://platform.openai.com/api-keys"
+                ),
+                LLMProvider(
+                    name="anthropic",
+                    description="Anthropic Claude provider",
+                    base_url="https://api.anthropic.com/v1",
+                    type="system",
+                    auth_type="api_key",
+                    doc_url="https://console.anthropic.com/settings/keys"
+                ),
+                LLMProvider(
+                    name="google",
+                    description="Google Gemini provider",
+                    base_url="https://generativelanguage.googleapis.com/v1beta/openai", # OpenAI compatibility endpoint
+                    type="system",
+                    doc_url="https://aistudio.google.com/"
+                )
+            ]
+            db.add_all(default_providers)
+            db.commit()
+            print("✅ Default LLM providers seeded!")
+        else:
+            print(f"ℹ️ LLM providers already exist ({existing_count}). Skipping seed.")
+    
+    except Exception as e:
+        print(f"⚠️ Failed to seed data: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
+
+    yield
+    # 3. Shutdown Logic (if any)
+
+app = FastAPI(title="Moduly API", redirect_slashes=False, lifespan=lifespan)
+
 
 # CORS 설정 (withCredentials 지원)
 app.add_middleware(
@@ -31,18 +117,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(api_router, prefix="/api/v1")
 
 
-# 앱 시작 시 테이블 자동 생성
-@app.on_event("startup")
-def on_startup():
-    """
-    앱 시작 시 데이터베이스 테이블을 자동으로 생성합니다.
-    """
-    # pgvector 확장 활성화
-    with engine.begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully!")
 
 
 @app.get("/")

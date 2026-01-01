@@ -183,7 +183,9 @@ def execute_workflow(
         # 1. 입력받은 graph(dict)를 NodeSchema/EdgeSchema 객체로 파싱 및 검증
         # 2. 엣지 정보를 바탕으로 노드 간의 실행 경로(Graph 구조) 빌드
         # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
-        engine = WorkflowEngine(graph, user_input)
+        engine = WorkflowEngine(
+            graph, user_input, context={"user_id": str(current_user.id)}
+        )
         print("user_input", user_input)
 
         # 준비된 엔진을 실행 (시작 노드 탐색 -> Queue 기반 순차 실행 -> 결과 반환)
@@ -228,7 +230,9 @@ def stream_workflow(
                 status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
             )
 
-        engine = WorkflowEngine(graph, user_input)
+        engine = WorkflowEngine(
+            graph, user_input, context={"user_id": str(current_user.id)}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

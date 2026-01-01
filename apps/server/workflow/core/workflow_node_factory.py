@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Any
 
 from schemas.workflow import NodeSchema
 from workflow.nodes.answer import AnswerNode, AnswerNodeData
@@ -31,12 +31,13 @@ class NodeFactory:
     }
 
     @staticmethod
-    def create(schema: NodeSchema) -> Node:
+    def create(schema: NodeSchema, context: Dict = None) -> Node:
         """
         NodeSchema로부터 적절한 Node 인스턴스를 생성
 
         Args:
             schema: 노드 스키마 (타입, 데이터 등 포함)
+            context: 실행 컨텍스트 (user_id 등)
 
         Returns:
             생성된 Node 인스턴스
@@ -52,4 +53,4 @@ class NodeFactory:
 
         NodeClass, DataClass = NodeFactory.NODE_REGISTRY[schema.type]
         data = DataClass(**schema.data)
-        return NodeClass(schema.id, data)
+        return NodeClass(schema.id, data, context=context)
