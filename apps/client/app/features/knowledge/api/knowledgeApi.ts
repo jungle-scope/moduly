@@ -132,4 +132,9 @@ export const knowledgeApi = {
     const response = await api.post(`/rag/document/${documentId}/confirm`);
     return response.data;
   },
+
+  deleteDocument: async (documentId: string) => {
+    const response = await api.delete(`/rag/document/${documentId}`);
+    return response.data;
+  },
 };

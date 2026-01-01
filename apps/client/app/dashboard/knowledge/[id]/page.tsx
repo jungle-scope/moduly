@@ -22,6 +22,7 @@ import {
 } from '@/app/features/knowledge/api/knowledgeApi';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
+import { toast } from 'sonner';
 
 export default function KnowledgeDetailPage() {
   const params = useParams();
@@ -126,6 +127,25 @@ export default function KnowledgeDetailPage() {
     } catch (error) {
       console.error('Failed to confirm parsing', error);
       alert('승인 처리에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    if (
+      !confirm(
+        '정말로 이 문서를 삭제하시겠습니까? 파싱된 데이터도 함께 삭제됩니다.',
+      )
+    ) {
+      return;
+    }
+    try {
+      await knowledgeApi.deleteDocument(documentId);
+      // 성공 시 목록 새로고침
+      fetchKnowledgeBase();
+      toast.success('문서가 삭제되었습니다.');
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      toast.error('문서 삭제에 실패했습니다.');
     }
   };
 
@@ -353,13 +373,10 @@ export default function KnowledgeDetailPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
-                        title="문서 삭제"
-                        onClick={() =>
-                          alert(`삭제 기능(준비중): ${doc.filename}`)
-                        }
+                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
+                        onClick={() => handleDeleteDocument(doc.id)}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
                   </tr>

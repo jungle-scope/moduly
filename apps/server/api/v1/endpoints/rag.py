@@ -177,6 +177,39 @@ async def confirm_document_parsing(
     return {"message": "Parsing resumed with LlamaParse", "status": "processing"}
 
 
+@router.delete("/document/{document_id}")
+def delete_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    문서를 삭제합니다. (연관된 청크도 자동 삭제됨)
+    """
+    # 1. 문서 조회 (권한 확인)
+    doc = (
+        db.query(Document)
+        .join(KnowledgeBase)
+        .filter(Document.id == document_id, KnowledgeBase.user_id == current_user.id)
+        .first()
+    )
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # 2. 파일 삭제 (TODO: S3파일도 지우려면 로직 추가 필요함)
+    import os
+
+    if os.path.exists(doc.file_path):
+        os.remove(doc.file_path)
+
+    # 3. DB 삭제 (Cascade로 청크도 같이 삭제됨)
+    db.delete(doc)
+    db.commit()
+
+    return {"status": "success", "message": "Document deleted successfully"}
+
+
 @router.post("/chat", response_model=RAGResponse)
 def chat_with_knowledge(query: SearchQuery, db: Session = Depends(get_db)):
     """
