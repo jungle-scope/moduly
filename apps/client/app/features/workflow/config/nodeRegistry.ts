@@ -151,6 +151,20 @@ export const nodeRegistry: NodeDefinition[] = [
     }),
   },
   {
+    id: 'file-extraction',
+    type: 'fileExtractionNode',
+    name: 'PDF 텍스트 추출',
+    category: 'logic',
+    color: 'bg-red-500',
+    icon: '📄',
+    implemented: true,
+    description: 'PDF 파일에서 텍스트를 추출합니다.',
+    defaultData: () => ({
+      title: 'PDF 텍스트 추출',
+      file_path_variable: undefined,
+    }),
+  },
+  {
     id: 'answer',
     type: 'answerNode',
     name: 'Answer',

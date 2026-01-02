@@ -286,13 +286,12 @@ export default function EditorHeader() {
   }, []);
 
   const handleModalSubmit = useCallback(
-    async (inputs: Record<string, any>) => {
+    async (inputs: Record<string, any> | FormData) => {
       setShowModal(false);
 
       // 워크플로우 실행
       try {
         setIsExecuting(true);
-        console.log('[사용자 입력]', inputs);
 
         // 1. 초기화: 모든 노드 상태 초기화
         const initialNodes = nodes.map((node) => ({

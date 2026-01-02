@@ -34,6 +34,7 @@ import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePane
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
+import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -306,6 +307,12 @@ export default function NodeCanvas() {
           {/* [WorkflowNode] 모듈 입력 매핑 패널 추가 */}
           {selectedNode && selectedNodeType === 'workflowNode' && (
             <WorkflowNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'fileExtractionNode' && (
+            <FileExtractionNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

@@ -20,6 +20,8 @@ export const getNodeOutputs = (node: Node): string[] => {
       return [];
     case 'workflowNode':
       return (node.data as any).outputs || [];
+    case 'fileExtractionNode':
+      return ['result', 'page_count'];
     default:
       return ['result'];
   }

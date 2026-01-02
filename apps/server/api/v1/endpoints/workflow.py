@@ -1,9 +1,12 @@
 import json
+import os
 from typing import List
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from starlette.requests import Request
 
 from auth.dependencies import get_current_user
 from db.models.app import App
@@ -200,15 +203,18 @@ def execute_workflow(
 
 
 @router.post("/{workflow_id}/stream")
-def stream_workflow(
+async def stream_workflow(
     workflow_id: str,
-    user_input: dict = {},
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     워크플로우를 실행하고 실행 과정을 SSE(Server-Sent Events)로 스트리밍합니다.
-    클라이언트는 이 스트림을 통해 실시간으로 노드 실행 상태('running', 'success' 등)를 시각화할 수 있습니다.
+
+    multipart/form-data 지원:
+    - inputs: JSON 문자열 (일반 입력값)
+    - file_변수명: 업로드된 파일들
     """
 
     # 1. 권한 확인
@@ -220,7 +226,54 @@ def stream_workflow(
     if workflow.created_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # 2. 데이터 조회 및 엔진 초기화
+    # 2. Request에서 FormData 파싱
+    content_type = request.headers.get("content-type", "")
+    user_input = {}
+
+    if "multipart/form-data" in content_type:
+        # FormData 파싱
+        form = await request.form()
+
+        # inputs 필드에서 JSON 파싱
+        inputs_str = form.get("inputs", "{}")
+        try:
+            user_input = json.loads(inputs_str) if isinstance(inputs_str, str) else {}
+        except json.JSONDecodeError:
+            user_input = {}
+
+        # 파일 필드 처리
+        upload_dir = "uploads/temp"
+        os.makedirs(upload_dir, exist_ok=True)
+
+        for field_name, field_value in form.items():
+            # file_로 시작하는 필드가 파일
+            if field_name.startswith("file_") and hasattr(field_value, "filename"):
+                file = field_value
+
+                if file and file.filename:
+                    # file_변수명에서 변수명 추출
+                    var_name = field_name[5:]  # "file_" 제거
+
+                    # 고유 파일명 생성
+                    unique_filename = f"{workflow_id}_{uuid4().hex[:8]}_{file.filename}"
+                    file_path = os.path.join(upload_dir, unique_filename)
+
+                    # 파일 저장
+                    with open(file_path, "wb") as buffer:
+                        content = await file.read()
+                        buffer.write(content)
+
+                    user_input[var_name] = file_path
+                    print(f"[DEBUG] 파일 저장: {var_name} -> {file_path}")
+    else:
+        # JSON 방식 (기존)
+        try:
+            body = await request.json()
+            user_input = body if isinstance(body, dict) else {}
+        except:
+            user_input = {}
+
+    # 3. 데이터 조회 및 엔진 초기화
     try:
         graph = WorkflowService.get_draft(db, workflow_id)
         if not graph:
@@ -234,7 +287,7 @@ def stream_workflow(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # 3. 제너레이터 함수 정의 (SSE 포맷팅)
+    # 4. 제너레이터 함수 정의 (SSE 포맷팅)
     def event_generator():
         try:
             for event in engine.execute_stream():
@@ -245,5 +298,5 @@ def stream_workflow(
             error_event = {"type": "error", "data": {"message": str(e)}}
             yield f"data: {json.dumps(error_event)}\n\n"
 
-    # 4. StreamingResponse 반환
+    # 5. StreamingResponse 반환
     return StreamingResponse(event_generator(), media_type="text/event-stream")
