@@ -34,17 +34,15 @@ class WorkflowEngine:
         if isinstance(graph, dict):
             nodes = [NodeSchema(**node) for node in graph.get("nodes", [])]
             edges = [EdgeSchema(**edge) for edge in graph.get("edges", [])]
-        else:  # [NEW] tuple 케이스 처리
-            nodes, edges = graph
 
-        self.is_deployed = is_deployed
-        self.node_schemas = {node.id: node for node in nodes}
-        self.node_instances = {}
+        self.is_deployed = is_deployed  # 배포 모드 플래그
+        self.node_schemas = {node.id: node for node in nodes}  # Schema 보관
+        self.node_instances = {}  # Node 인스턴스 저장
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
         self.execution_context = execution_context or {}
         self.graph = self._build_graph()
-        self._build_node_instances()
+        self._build_node_instances()  # Schema → Node 변환
         
         # ============================================================
         # [NEW SECTION] 모니터링/로깅 관련 초기화
@@ -170,6 +168,7 @@ class WorkflowEngine:
                     "type": "error",
                     "data": {"node_id": node_id, "message": error_msg},
                 }
+                # 에러 발생 시 중단 (선택 사항: 에러 무시하고 계속할지 결정 가능)
                 return
 
             # 다음 노드들을 ready_queue에 추가 (분기 노드 처리 포함)
