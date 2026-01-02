@@ -1,9 +1,22 @@
 from fastapi import APIRouter
 
-from api.v1.endpoints import app, auth, deployment, knowledge, llm, rag, run, workflow
+from api.v1.endpoints import (
+    app,
+    auth,
+    deployment,
+    health,
+    knowledge,
+    llm,
+    rag,
+    run,
+    workflow,
+)
 
 # 메인 API 라우터 생성
 api_router = APIRouter()
+
+# Health Check (독립 엔드포인트)
+api_router.include_router(health.router, tags=["health"])
 
 # 워크플로우 엔드포인트 등록
 # /workflows 경로에 workflow.router의 모든 엔드포인트 추가

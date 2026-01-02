@@ -96,8 +96,6 @@ def get_deployment_info_public(
     if not deployment.is_active:
         raise HTTPException(status_code=404, detail="Deployment is inactive")
 
-    # 공개 정보만 반환 (auth_secret 제외)
-    # url_slug와 version은 App 및 Deployment 정보를 조합
     return DeploymentInfoResponse(
         url_slug=app.url_slug,
         version=deployment.version,
@@ -106,3 +104,14 @@ def get_deployment_info_public(
         input_schema=deployment.input_schema,
         output_schema=deployment.output_schema,
     )
+
+
+@router.get("/nodes", response_model=List[dict])
+def list_workflow_nodes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    배포된 워크플로우 노드 목록을 조회합니다. (재사용 가능한 모듈)
+    """
+    return DeploymentService.list_workflow_node_deployments(db)

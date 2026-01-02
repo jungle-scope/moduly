@@ -39,6 +39,8 @@ export interface DocumentResponse {
   error_message?: string;
   chunk_count: number;
   token_count: number;
+  chunk_size?: number;
+  chunk_overlap?: number;
   meta_info?: {
     cost_estimate?: {
       pages: number;
@@ -46,6 +48,10 @@ export interface DocumentResponse {
       cost_usd: number;
     };
     strategy?: string;
+    segment_identifier?: string;
+    remove_urls_emails?: boolean;
+    remove_whitespace?: boolean;
+    [key: string]: any; // Allow other properties
   };
 }
 

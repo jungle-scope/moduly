@@ -4,7 +4,40 @@ import {
   KnowledgeCreateRequest,
   KnowledgeBaseResponse,
   KnowledgeBaseDetailResponse,
+  DocumentResponse,
 } from '../types/Knowledge';
+
+export interface DocumentPreviewRequest {
+  chunk_size: number;
+  chunk_overlap: number;
+  segment_identifier: string;
+  remove_urls_emails?: boolean;
+  remove_whitespace?: boolean;
+  strategy?: 'general' | 'llamaparse';
+}
+
+export interface DocumentSegment {
+  content: string;
+  token_count: number;
+  char_count: number;
+}
+
+export interface DocumentPreviewResponse {
+  segments: DocumentSegment[];
+  total_count: number;
+  preview_text_sample: string;
+}
+
+export interface AnalyzeResponse {
+  filename: string;
+  cost_estimate: {
+    pages: number;
+    credits: number;
+    cost_usd: number;
+  };
+  recommended_strategy: string;
+  is_cached: boolean;
+}
 
 // 외부(page.tsx, ..)에서 이 API 모듈을 통해 타입을 직접 import 할 수 있도록 내보냅니다.
 export type {
@@ -78,6 +111,17 @@ export const knowledgeApi = {
     return response.data;
   },
 
+  // 단일 문서 상세 조회
+  getDocument: async (
+    kbId: string,
+    documentId: string,
+  ): Promise<DocumentResponse> => {
+    const response = await api.get(
+      `/knowledge/${kbId}/documents/${documentId}`,
+    );
+    return response.data;
+  },
+
   // 지식 베이스 수정 (이름, 설명)
   updateKnowledgeBase: async (
     id: string,
@@ -87,14 +131,57 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 파싱 비용 승인
-  confirmDocumentParsing: async (documentId: string): Promise<any> => {
-    const response = await api.post(`/rag/document/${documentId}/confirm`);
+  // 문서 파싱 승인 (LlamaParse 비용 발생 등)
+  confirmDocumentParsing: async (
+    documentId: string,
+    strategy: 'llamaparse' | 'general' = 'llamaparse',
+  ): Promise<any> => {
+    // 쿼리 파라미터로 strategy 전달
+    const response = await api.post(
+      `/rag/document/${documentId}/confirm?strategy=${strategy}`,
+    );
+    return response.data;
+  },
+
+  // 문서 분석 (비용 예측)
+  analyzeDocument: async (documentId: string): Promise<AnalyzeResponse> => {
+    const response = await api.post(`/rag/document/${documentId}/analyze`);
     return response.data;
   },
 
   deleteDocument: async (documentId: string) => {
     const response = await api.delete(`/rag/document/${documentId}`);
     return response.data;
+  },
+
+  // 문서 청킹 미리보기
+  previewDocumentChunking: async (
+    kbId: string,
+    documentId: string,
+    data: DocumentPreviewRequest,
+  ): Promise<DocumentPreviewResponse> => {
+    const response = await api.post(
+      `/knowledge/${kbId}/documents/${documentId}/preview`,
+      data,
+    );
+    return response.data;
+  },
+
+  // 문서 처리 시작 (설정 저장 및 백그라운드 작업 트리거)
+  processDocument: async (
+    kbId: string,
+    documentId: string,
+    data: DocumentPreviewRequest,
+  ): Promise<{ status: string; message: string }> => {
+    const response = await api.post(
+      `/knowledge/${kbId}/documents/${documentId}/process`,
+      data,
+    );
+    return response.data;
+  },
+
+  // SSE 연결을 위한 URL 반환
+  getProgressUrl: (documentId: string): string => {
+    return `${API_BASE_URL}/rag/document/${documentId}/progress`;
   },
 };

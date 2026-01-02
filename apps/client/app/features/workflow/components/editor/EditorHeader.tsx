@@ -39,6 +39,7 @@ type DeploymentResult =
       version: number;
       webAppUrl?: string; // 웹 앱 URL (선택적)
       embedUrl?: string; // 임베딩 URL (선택적)
+      isWorkflowNode?: boolean; // 워크플로우 노드 배포 여부 (선택적)
       input_schema?: InputSchema | null;
       output_schema?: OutputSchema | null;
     }
@@ -69,7 +70,7 @@ export default function EditorHeader() {
     useState<DeploymentResult>(null);
   const [showDeployDropdown, setShowDeployDropdown] = useState(false);
   const [deploymentType, setDeploymentType] = useState<
-    'api' | 'webapp' | 'widget'
+    'api' | 'webapp' | 'widget' | 'workflow_node'
   >('api'); // 배포 타입 추적
 
   const handleBack = useCallback(() => {
@@ -229,6 +230,57 @@ export default function EditorHeader() {
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Widget deployment failed:', error);
+
+        setDeploymentResult({
+          success: false,
+          message:
+            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
+        });
+        setShowDeployModal(false);
+      } finally {
+        setIsDeploying(false);
+      }
+    },
+    [workflowId, activeWorkflow?.appId],
+  );
+
+  const handlePublishAsWorkflowNode = useCallback(() => {
+    setDeploymentType('workflow_node');
+    setShowDeployModal(true);
+  }, []);
+
+  // 워크플로우 노드로 배포
+  // 이 기능은 현재 워크플로우를 다른 워크플로우에서 사용할 수 있는 '커스텀 노드' 형태로 배포합니다.
+  // 배포된 노드는 '워크플로우 노드' 카테고리에서 찾을 수 있습니다.
+  const handleDeployAsWorkflowNode = useCallback(
+    async (description: string) => {
+      try {
+        if (!activeWorkflow?.appId) {
+          throw new Error('App ID를 찾을 수 없습니다.');
+        }
+
+        setIsDeploying(true);
+
+        const response = await workflowApi.createDeployment({
+          app_id: activeWorkflow.appId,
+          description,
+          type: 'workflow_node',
+          is_active: true,
+        });
+        console.log('[워크플로우 노드 배포 성공] 서버 응답:', response);
+
+        setDeploymentResult({
+          success: true,
+          url_slug: response.url_slug ?? null,
+          auth_secret: null,
+          version: response.version,
+          isWorkflowNode: true,
+          input_schema: response.input_schema ?? null,
+          output_schema: response.output_schema ?? null,
+        });
+        setShowDeployModal(false);
+      } catch (error: any) {
+        console.error('Workflow node deployment failed:', error);
 
         setDeploymentResult({
           success: false,
@@ -547,6 +599,23 @@ export default function EditorHeader() {
                       복사 한 번으로 위젯 연동 완료
                     </div>
                   </button>
+
+                  <div className="border-t border-gray-100 my-1" />
+
+                  <button
+                    onClick={() => {
+                      setShowDeployDropdown(false);
+                      handlePublishAsWorkflowNode();
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      워크플로우 노드로 배포
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      다른 워크플로우에서 재사용
+                    </div>
+                  </button>
                 </div>
               </>
             )}
@@ -579,7 +648,9 @@ export default function EditorHeader() {
               ? handleDeploySubmit
               : deploymentType === 'webapp'
                 ? handleDeployAsWebApp
-                : handleDeployAsWidget
+                : deploymentType === 'widget'
+                  ? handleDeployAsWidget
+                  : handleDeployAsWorkflowNode
           }
           isDeploying={isDeploying}
         />
