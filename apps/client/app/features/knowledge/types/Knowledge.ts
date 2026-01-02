@@ -29,11 +29,24 @@ export interface KnowledgeBaseResponse {
 export interface DocumentResponse {
   id: string;
   filename: string;
-  status: 'pending' | 'indexing' | 'completed' | 'failed';
+  status:
+    | 'pending'
+    | 'indexing'
+    | 'completed'
+    | 'failed'
+    | 'waiting_for_approval';
   created_at: string;
   error_message?: string;
   chunk_count: number;
   token_count: number;
+  meta_info?: {
+    cost_estimate?: {
+      pages: number;
+      credits: number;
+      cost_usd: number;
+    };
+    strategy?: string;
+  };
 }
 
 export interface KnowledgeBaseDetailResponse extends KnowledgeBaseResponse {
