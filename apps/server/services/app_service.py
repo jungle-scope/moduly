@@ -1,7 +1,7 @@
 import copy
 import secrets
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from db.models.app import App
 from db.models.workflow import Workflow
@@ -104,7 +104,13 @@ class AppService:
         Returns:
             App 객체 리스트
         """
-        return db.query(App).filter(App.created_by == user_id).all()
+        return (
+            db.query(App)
+            # N+1 문제 방지를 위해 active_deployment 관계를 즉시 로딩 (Joined Load)
+            .options(joinedload(App.active_deployment))
+            .filter(App.created_by == user_id)
+            .all()
+        )
 
     @staticmethod
     def list_explore_apps(db: Session, user_id: str):

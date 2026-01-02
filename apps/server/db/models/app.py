@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
 
@@ -39,6 +39,17 @@ class App(Base):
     active_deployment_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )
+    # === 활성 배포 객체 (Active Deployment Object) ===
+    active_deployment = relationship(
+        "WorkflowDeployment",
+        primaryjoin="foreign(App.active_deployment_id) == remote(WorkflowDeployment.id)",
+        viewonly=True,
+    )
+
+    @property
+    def active_deployment_type(self):
+        # 활성 배포 타입 (Active Deployment Type)
+        return self.active_deployment.type if self.active_deployment else None
 
     # === 엔드포인트 설정 (앱 생성 시 생성) ===
     url_slug: Mapped[str] = mapped_column(

@@ -37,9 +37,12 @@ export function AppSearchModal({
 
           // 필터링 로직:
           // 1. 현재 편집 중인 앱 제외 (순환 참조 방지 등)
-          // 2. 활성 배포(Active Deployment)가 존재해야 함 (실행 가능한 앱만)
+          // 2. "워크플로우 노드"로 배포된 앱만 표시
           const validApps = data.filter(
-            (app) => app.id !== excludedAppId && app.active_deployment_id,
+            (app) =>
+              app.id !== excludedAppId &&
+              app.active_deployment_id &&
+              app.active_deployment_type === 'workflow_node',
           );
 
           setApps(validApps);
