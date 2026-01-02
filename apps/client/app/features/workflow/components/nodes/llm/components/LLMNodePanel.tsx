@@ -16,7 +16,7 @@ type ModelOption = {
   is_active: boolean;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`;
 
 interface LLMNodePanelProps {
   nodeId: string;
@@ -213,56 +213,60 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">Model</label>
             {modelOptions.length > 0 ? (
-                <select
-                    value={data.model_id || ''}
-                    onChange={(e) => handleFieldChange('model_id', e.target.value)}
-                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-                >
-                    {/* Define grouped structure inline or use helper logic above */}
-                    {Object.entries(
-                        modelOptions.filter(m => {
-                            // Filter out non-chat models to declutter UI
-                            const id = m.model_id_for_api_call.toLowerCase();
-                            // Exclude embeddings, audio (tts, speech), image (imagen, veo), and obscure preview types not suitable for chat node
-                            if (id.includes('embedding')) return false;
-                            if (id.includes('bison')) return false; // Legacy PaLM text/chat separated, usually chaotic
-                            if (id.includes('gecko')) return false; // Usually embeddings
-                            if (id.includes('imagen')) return false;
-                            if (id.includes('veo')) return false;
-                            if (id.includes('tts')) return false;
-                            if (id.includes('speech')) return false;
-                            if (m.type === 'embedding') return false; 
-                            return true;
-                        }).reduce((acc, model) => {
-                            const p = model.provider_name || 'Unknown';
-                            if (!acc[p]) acc[p] = [];
-                            acc[p].push(model);
-                            return acc;
-                        }, {} as Record<string, ModelOption[]>)
-                    ).map(([provider, models]) => (
-                        <optgroup key={provider} label={provider.toUpperCase()}>
-                            {models.map((m) => (
-                                <option key={m.id} value={m.model_id_for_api_call}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </optgroup>
+              <select
+                value={data.model_id || ''}
+                onChange={(e) => handleFieldChange('model_id', e.target.value)}
+                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+              >
+                {/* Define grouped structure inline or use helper logic above */}
+                {Object.entries(
+                  modelOptions
+                    .filter((m) => {
+                      // Filter out non-chat models to declutter UI
+                      const id = m.model_id_for_api_call.toLowerCase();
+                      // Exclude embeddings, audio (tts, speech), image (imagen, veo), and obscure preview types not suitable for chat node
+                      if (id.includes('embedding')) return false;
+                      if (id.includes('bison')) return false; // Legacy PaLM text/chat separated, usually chaotic
+                      if (id.includes('gecko')) return false; // Usually embeddings
+                      if (id.includes('imagen')) return false;
+                      if (id.includes('veo')) return false;
+                      if (id.includes('tts')) return false;
+                      if (id.includes('speech')) return false;
+                      if (m.type === 'embedding') return false;
+                      return true;
+                    })
+                    .reduce(
+                      (acc, model) => {
+                        const p = model.provider_name || 'Unknown';
+                        if (!acc[p]) acc[p] = [];
+                        acc[p].push(model);
+                        return acc;
+                      },
+                      {} as Record<string, ModelOption[]>,
+                    ),
+                ).map(([provider, models]) => (
+                  <optgroup key={provider} label={provider.toUpperCase()}>
+                    {models.map((m) => (
+                      <option key={m.id} value={m.model_id_for_api_call}>
+                        {m.name}
+                      </option>
                     ))}
-                </select>
+                  </optgroup>
+                ))}
+              </select>
             ) : (
-                <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded border border-gray-200 items-center justify-center text-center">
-                    <span className="text-xs text-gray-500">
-                        사용 가능한 모델이 없습니다.
-                    </span>
-                    <button
-                        onClick={() => router.push('/settings/provider')}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
-                    >
-                        Provider 설정하러 가기 →
-                    </button>
-                </div>
+              <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded border border-gray-200 items-center justify-center text-center">
+                <span className="text-xs text-gray-500">
+                  사용 가능한 모델이 없습니다.
+                </span>
+                <button
+                  onClick={() => router.push('/settings/provider')}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
+                >
+                  Provider 설정하러 가기 →
+                </button>
+              </div>
             )}
-           
           </div>
         </div>
       </div>
