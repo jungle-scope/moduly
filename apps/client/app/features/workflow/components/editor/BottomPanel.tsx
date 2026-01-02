@@ -20,7 +20,7 @@ import {
 } from '../../config/nodeRegistry';
 import { type NoteNode, type AppNode } from '../../types/Nodes';
 
-// Category display names mapping
+// 카테고리 표시 이름 매핑
 const categoryDisplayNames: Record<string, string> = {
   trigger: 'Trigger',
   llm: 'LLM',
@@ -34,11 +34,13 @@ const categoryDisplayNames: Record<string, string> = {
 interface BottomPanelProps {
   onCenterNodes: () => void;
   isPanelOpen?: boolean;
+  onOpenAppSearch?: () => void;
 }
 
 export default function BottomPanel({
   onCenterNodes,
   isPanelOpen = false,
+  onOpenAppSearch,
 }: BottomPanelProps) {
   const {
     interactiveMode,
@@ -56,7 +58,7 @@ export default function BottomPanel({
     fitView,
   } = useReactFlow();
 
-  // Single state to track which modal is open (only one at a time)
+  // 한 번에 하나의 모달만 열리도록 관리하는 상태
   const [openModal, setOpenModal] = useState<
     'addNode' | 'interactive' | 'zoom' | null
   >(null);
@@ -64,19 +66,19 @@ export default function BottomPanel({
   const [notePosition, setNotePosition] = useState({ x: 0, y: 0 });
   const [currentZoom, setCurrentZoom] = useState(100);
 
-  // Node placement state
+  // 노드 배치 상태
   const [isAddingNode, setIsAddingNode] = useState(false);
   const [selectedNodeDef, setSelectedNodeDef] = useState<NodeDefinition | null>(
     null,
   );
   const [nodePosition, setNodePosition] = useState({ x: 0, y: 0 });
 
-  // Refs for modals to detect outside clicks
+  // 외부 클릭 감지를 위한 모달 Refs
   const addNodeModalRef = useRef<HTMLDivElement>(null);
   const interactiveModalRef = useRef<HTMLDivElement>(null);
   const zoomModalRef = useRef<HTMLDivElement>(null);
 
-  // Update zoom level when viewport changes
+  // 뷰포트 변경 시 줌 레벨 업데이트
   useEffect(() => {
     const updateZoom = () => {
       const viewport = getViewport();
@@ -84,19 +86,19 @@ export default function BottomPanel({
     };
 
     updateZoom();
-    // Update zoom periodically
+    // 주기적으로 줌 업데이트
     const interval = setInterval(updateZoom, 100);
     return () => clearInterval(interval);
   }, [getViewport]);
 
-  // Close modal when clicking outside
+  // 외부 클릭 시 모달 닫기
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!openModal) return;
 
       const target = event.target as Node;
 
-      // Check if click is inside any of the modal refs
+      // 클릭이 모달 내부인지 확인
       const isInsideAddNode =
         addNodeModalRef.current && addNodeModalRef.current.contains(target);
       const isInsideInteractive =
@@ -105,14 +107,14 @@ export default function BottomPanel({
       const isInsideZoom =
         zoomModalRef.current && zoomModalRef.current.contains(target);
 
-      // If click is not inside any modal, close the current modal
+      // 모달 내부 클릭이 아니면 현재 모달 닫기
       if (!isInsideAddNode && !isInsideInteractive && !isInsideZoom) {
         setOpenModal(null);
       }
     };
 
     if (openModal) {
-      // Use capture phase to ensure we catch all clicks
+      // 모든 클릭을 감지하기 위해 캡처 단계 사용
       document.addEventListener('mousedown', handleClickOutside, true);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside, true);
@@ -126,14 +128,14 @@ export default function BottomPanel({
 
   const handleAddNote = useCallback(() => {
     setIsAddingNote(true);
-    setOpenModal(null); // Close any open modals
+    setOpenModal(null); // 열린 모달 닫기
   }, []);
 
   useEffect(() => {
     if (!isAddingNote) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Get ReactFlow wrapper to constrain preview
+      // 미리보기를 제한하기 위해 ReactFlow 래퍼 가져오기
       const reactFlowWrapper = document.querySelector('.react-flow');
       if (!reactFlowWrapper) {
         setNotePosition({ x: e.clientX, y: e.clientY });
@@ -142,7 +144,7 @@ export default function BottomPanel({
 
       const rect = reactFlowWrapper.getBoundingClientRect();
 
-      // Constrain position to canvas boundaries
+      // 위치를 캔버스 경계로 제한
       const x = Math.max(rect.left, Math.min(e.clientX, rect.right));
       const y = Math.max(rect.top, Math.min(e.clientY, rect.bottom));
 
@@ -150,17 +152,16 @@ export default function BottomPanel({
     };
 
     const handleClick = (e: MouseEvent) => {
-      // Prevent clicking on UI elements
+      // UI 요소 클릭 방지
       const target = e.target as HTMLElement;
       if (target.closest('.pointer-events-auto')) {
         return;
       }
 
-      // Convert screen coordinates to canvas coordinates
+      // 화면 좌표를 캔버스 좌표로 변환
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
 
-      // Create note at the projected position with custom note type
-      // Create note at the projected position with custom note type
+      // 투영된 위치에 사용자 정의 노트 타입으로 노트 생성
       const newNote: NoteNode = {
         id: `note-${Date.now()}`,
         type: 'note',
@@ -195,12 +196,12 @@ export default function BottomPanel({
 
   const handleFullscreen = useCallback(() => {
     toggleFullscreen();
-    setOpenModal(null); // Close any open modals
+    setOpenModal(null); // 열린 모달 닫기
   }, [toggleFullscreen]);
 
   const handleTestRun = useCallback(() => {
-    // TODO: Implement test run functionality
-    setOpenModal(null); // Close any open modals
+    // TODO: 테스트 실행 기능 구현
+    setOpenModal(null); // 열린 모달 닫기
   }, []);
 
   const handleSelectNode = useCallback(
@@ -208,13 +209,13 @@ export default function BottomPanel({
       const nodeDef = getNodeDefinition(nodeDefId);
       if (!nodeDef) return;
 
-      // Check if node is implemented
+      // 노드 구현 여부 확인
       if (!nodeDef.implemented) {
         toast.error(`${nodeDef.name} 노드는 아직 구현되지 않았습니다.`);
         return;
       }
 
-      // Check for uniqueness constraint (e.g., StartNode)
+      // 유일성 제약 조건 확인 (예: StartNode)
       if (nodeDef.unique) {
         const existingNode = nodes.find((node) => node.type === nodeDef.type);
         if (existingNode) {
@@ -225,7 +226,14 @@ export default function BottomPanel({
         }
       }
 
-      // Calculate center of the viewport
+      // Workflow 노드에 대한 특별 처리
+      if (nodeDefId === 'workflow' && onOpenAppSearch) {
+        onOpenAppSearch();
+        setOpenModal(null);
+        return;
+      }
+
+      // 뷰포트의 중심 계산
       const viewport = getViewport();
       const reactFlowWrapper = document.querySelector('.react-flow');
       let position = { x: 0, y: 0 };
@@ -240,7 +248,7 @@ export default function BottomPanel({
         position = { x: 0, y: 0 };
       }
 
-      // Create new node directly
+      // 새 노드 직접 생성
       const newNode = {
         id: `${nodeDef.id}-${Date.now()}`,
         type: nodeDef.type,
@@ -252,7 +260,7 @@ export default function BottomPanel({
       setOpenModal(null);
       toast.success(`${nodeDef.name} 노드가 추가되었습니다.`);
     },
-    [nodes, getViewport, setNodes],
+    [nodes, getViewport, setNodes, onOpenAppSearch],
   );
 
   const selectInteractiveMode = useCallback(
@@ -293,7 +301,7 @@ export default function BottomPanel({
     setOpenModal(null);
   }, [fitView]);
 
-  // Node placement effect (similar to note placement)
+  // 노드 배치 효과 (노트 배치와 유사)
   useEffect(() => {
     if (!isAddingNode || !selectedNodeDef) return;
 
@@ -324,27 +332,28 @@ export default function BottomPanel({
 
       if (reactFlowWrapper) {
         const { width, height } = reactFlowWrapper.getBoundingClientRect();
-        // Calculate center position in the flow coordinate system
+        // 플로우 좌표계에서 중심 위치 계산
         // CenterX = (-viewport.x + width / 2) / viewport.zoom
         // CenterY = (-viewport.y + height / 2) / viewport.zoom
-        // Subtract half of standard node width/height (approx 150x80) to center properly
+        // 제대로 중앙에 맞추기 위해 표준 노드 너비/높이의 절반(약 150x80) 빼기
         position = {
           x: (-viewport.x + width / 2) / viewport.zoom - 75,
           y: (-viewport.y + height / 2) / viewport.zoom - 40,
         };
       } else {
-        // Fallback if wrapper not found
+        // 래퍼를 찾지 못한 경우 대체
+
         position = screenToFlowPosition({
           x: window.innerWidth / 2,
           y: window.innerHeight / 2,
         });
       }
 
-      // Create new node with data from registry
+      // 레지스트리의 데이터로 새 노드 생성
       const newNode: AppNode = {
         id: `${selectedNodeDef.id}-${Date.now()}`,
-        type: selectedNodeDef.type as any, // type assertion needed because selectedNodeDef.type is string
-        data: selectedNodeDef.defaultData() as any, // data might need casting
+        type: selectedNodeDef.type as any, // selectedNodeDef.type이 string이므로 타입 단언 필요
+        data: selectedNodeDef.defaultData() as any, // 데이터 캐스팅 필요할 수 있음
         position,
       };
 
@@ -381,7 +390,7 @@ export default function BottomPanel({
 
   return (
     <>
-      {/* Cursor-following node preview */}
+      {/* 커서를 따라다니는 노드 미리보기 */}
       {isAddingNode && selectedNodeDef && (
         <div
           className="fixed pointer-events-none z-50"
@@ -406,7 +415,7 @@ export default function BottomPanel({
         </div>
       )}
 
-      {/* Cursor-following note preview */}
+      {/* 커서를 따라다니는 노트 미리보기 */}
       {isAddingNote && (
         <div
           className="fixed pointer-events-none z-50"
@@ -423,7 +432,7 @@ export default function BottomPanel({
         </div>
       )}
 
-      {/* Floating Toolbar */}
+      {/* 플로팅 툴바 */}
       <div
         className="absolute bottom-6 z-10 pointer-events-auto transition-all duration-300"
         style={{
@@ -434,7 +443,7 @@ export default function BottomPanel({
         }}
       >
         <div className="flex items-center gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-2 py-1.5">
-          {/* Interactive Settings */}
+          {/* 인터랙티브 설정 */}
           <div className="relative" ref={interactiveModalRef}>
             <button
               onClick={handleInteractiveToggle}
@@ -444,7 +453,7 @@ export default function BottomPanel({
               <TouchpadIcon className="w-4 h-4 text-gray-600" />
             </button>
 
-            {/* Interactive Modal */}
+            {/* 인터랙티브 모달 */}
             {openModal === 'interactive' && (
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-auto">
                 <div className="bg-white rounded-lg shadow-2xl border border-gray-200 p-6 w-[480px]">
@@ -569,7 +578,7 @@ export default function BottomPanel({
 
           <div className="w-px h-6 bg-gray-200" />
 
-          {/* Zoom Controls */}
+          {/* 줌 컨트롤 */}
           <div className="relative" ref={zoomModalRef}>
             <button
               onClick={toggleZoomModal}
@@ -579,7 +588,7 @@ export default function BottomPanel({
               <ChevronDownIcon className="w-3 h-3" />
             </button>
 
-            {/* Zoom Modal */}
+            {/* 줌 모달 */}
             {openModal === 'zoom' && (
               <div className="absolute bottom-full left-0 mb-2 w-[180px] bg-white rounded-lg shadow-2xl border border-gray-200 py-2">
                 <button
@@ -632,7 +641,7 @@ export default function BottomPanel({
 
           <div className="w-px h-6 bg-gray-200" />
 
-          {/* Add Note */}
+          {/* 노트 추가 */}
           <button
             onClick={handleAddNote}
             className={`p-2 hover:bg-gray-100 rounded transition-colors ${
@@ -645,7 +654,7 @@ export default function BottomPanel({
 
           <div className="w-px h-6 bg-gray-200" />
 
-          {/* Layout Optimize */}
+          {/* 레이아웃 최적화 */}
           <button
             onClick={onCenterNodes}
             className="p-2 hover:bg-gray-100 rounded transition-colors"
@@ -656,7 +665,7 @@ export default function BottomPanel({
 
           <div className="w-px h-6 bg-gray-200" />
 
-          {/* Fullscreen */}
+          {/* 전체화면 */}
           <button
             onClick={handleFullscreen}
             className="p-2 hover:bg-gray-100 rounded transition-colors"
@@ -667,7 +676,7 @@ export default function BottomPanel({
 
           <div className="w-px h-6 bg-gray-200" />
 
-          {/* Add Node */}
+          {/* 노드 추가 */}
           <div className="relative" ref={addNodeModalRef}>
             <button
               onClick={toggleAddNodeModal}
@@ -677,7 +686,7 @@ export default function BottomPanel({
               <span className="text-sm font-medium">Add node</span>
             </button>
 
-            {/* Add Node Modal */}
+            {/* 노드 추가 모달 */}
             {openModal === 'addNode' && (
               <div className="absolute bottom-full left-0 mb-2 w-[320px] bg-white rounded-lg shadow-2xl border border-gray-200 p-4 max-h-[480px] overflow-y-auto">
                 <input
@@ -729,7 +738,7 @@ export default function BottomPanel({
 
           <div className="w-px h-6 bg-gray-200" />
 
-          {/* Test Run */}
+          {/* 테스트 실행 */}
           <button
             onClick={handleTestRun}
             className="px-3 py-1.5 flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded transition-colors"

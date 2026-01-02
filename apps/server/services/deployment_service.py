@@ -176,6 +176,49 @@ class DeploymentService:
         return deployment
 
     @staticmethod
+    def list_workflow_node_deployments(db: Session) -> List[Dict[str, Any]]:
+        """
+        '워크플로우 노드'로 배포된 모든 앱의 목록을 조회합니다.
+        다른 워크플로우에서 사용할 수 있는 컴포넌트 목록용입니다.
+
+        Returns:
+            [
+                {
+                    "app_id": "...",
+                    "name": "...",
+                    "description": "...",
+                    "input_schema": {...},
+                    "output_schema": {...},
+                    "version": 1
+                }, ...
+            ]
+        """
+        # 1. 활성 배포(Active Deployment)가 있고, 타입이 WORKFLOW_NODE인 App 조회
+        # (WorkflowDeployment와 App을 조인하여 최신 정보 가져옴)
+        results = (
+            db.query(App, WorkflowDeployment)
+            .join(WorkflowDeployment, App.active_deployment_id == WorkflowDeployment.id)
+            .filter(WorkflowDeployment.type == DeploymentType.WORKFLOW_NODE)
+            .filter(WorkflowDeployment.is_active == True)
+            .all()
+        )
+
+        nodes = []
+        for app, deployment in results:
+            nodes.append(
+                {
+                    "app_id": str(app.id),
+                    "name": app.name,
+                    "description": deployment.description or app.description,
+                    "input_schema": deployment.input_schema,
+                    "output_schema": deployment.output_schema,
+                    "version": deployment.version,
+                }
+            )
+
+        return nodes
+
+    @staticmethod
     def run_deployment(
         db: Session,
         url_slug: str,

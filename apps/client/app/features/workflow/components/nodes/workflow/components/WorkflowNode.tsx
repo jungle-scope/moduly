@@ -12,9 +12,12 @@ interface WorkflowNodeProps {
 // 다른 워크플로우(App)를 하나의 노드처럼 가져와서 실행할 수 있게 해줍니다.
 // 가져온 앱의 아이콘과 이름을 표시합니다.
 export const WorkflowNode = memo(({ data, selected }: WorkflowNodeProps) => {
+  // BaseNode 헤더에 설명이 중복 표시되지 않도록 description을 제외하고 전달
+  const baseNodeData = { ...data, description: undefined };
+
   return (
     <BaseNode
-      data={data}
+      data={baseNodeData}
       selected={selected}
       className="border-purple-500 bg-purple-50/50 dark:bg-purple-900/10"
     >
@@ -27,10 +30,9 @@ export const WorkflowNode = memo(({ data, selected }: WorkflowNodeProps) => {
           )}
         </div>
         <div className="flex flex-col">
-          <span className="text-sm font-medium leading-none text-foreground">
-            {data.title}
+          <span className="text-xs text-muted-foreground mt-1">
+            {data.description || '설명 없음'}
           </span>
-          <span className="text-xs text-muted-foreground mt-1">Module</span>
         </div>
       </div>
     </BaseNode>

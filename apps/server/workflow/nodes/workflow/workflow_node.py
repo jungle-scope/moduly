@@ -4,6 +4,7 @@ import uuid
 from workflow.nodes.base.node import Node
 from .entities import WorkflowNodeData
 from services.workflow_service import WorkflowService
+from db.models.app import App 
 # Note: Import WorkflowEngine inside method to avoid circular import if possible, 
 # but WorkflowEngine depends on NodeFactory which depends on Node... 
 # Circular dependency is likely.
@@ -35,13 +36,28 @@ class WorkflowNode(Node[WorkflowNodeData]):
         if not db:
             raise ValueError(f"[WorkflowNode] DB session required in execution_context for node {self.id}")
 
-        # 1. 대상 워크플로우 그래프 로드
-        # draft 모드에서도 테스트 가능하도록 get_draft 사용 (혹은 실행 모드에 따라 분기 가능)
-        # 여기서는 편의상 draft를 로드 (최신 편집본 실행)
-        # TODO: 프로덕션 배포 시에는 'published' 버전을 로드해야 함
-        graph = WorkflowService.get_draft(db, workflow_id)
+        # 1. 대상 워크플로우(App)의 Active Deployment 조회
+        # workflow_id는 사실상 App의 ID를 가리킴 (App 선택 UI에서 App ID를 저장하도록 가정)
+        # 만약 workflow_id가 실제 Workflow 테이블의 ID라면 App을 거쳐서 찾아야 함.
+        # 여기서는 프론트엔드에서 App ID를 workflowId 필드에 저장한다고 가정하겠습니다. (또는 appId 필드 사용)
+        target_app_id = self.data.appId # 엔티티 정의에 appId가 있음
+
+        app = db.query(App).filter(App.id == target_app_id).first()
+        if not app:
+             raise ValueError(f"[WorkflowNode] Target App {target_app_id} not found")
+        
+        if not app.active_deployment_id:
+             raise ValueError(f"[WorkflowNode] App {app.name} has no active deployment")
+
+        from db.models.workflow_deployment import WorkflowDeployment
+        deployment = db.query(WorkflowDeployment).filter(WorkflowDeployment.id == app.active_deployment_id).first()
+        
+        if not deployment:
+             raise ValueError(f"[WorkflowNode] Active deployment not found for app {app.name}")
+
+        graph = deployment.graph_snapshot
         if not graph:
-            raise ValueError(f"[WorkflowNode] Target workflow {workflow_id} not found")
+            raise ValueError(f"[WorkflowNode] Deployment {deployment.version} has no graph data")
 
         # 2. 입력 매핑 처리 (Inputs Mapping)
         sub_workflow_inputs = {}

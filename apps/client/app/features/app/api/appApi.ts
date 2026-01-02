@@ -34,6 +34,12 @@ export interface App {
   forked_from?: string;
   workflow_id?: string;
   active_deployment_id?: string;
+  active_deployment_type?:
+    | 'api'
+    | 'webapp'
+    | 'widget'
+    | 'mcp'
+    | 'workflow_node';
   created_at: string;
   updated_at: string;
 }

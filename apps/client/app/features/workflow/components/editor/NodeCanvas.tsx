@@ -87,6 +87,7 @@ export default function NodeCanvas() {
           workflowId: app.workflow_id || '',
           appId: app.id,
           icon: app.icon?.content || '⚡️',
+          description: app.description || '설명 없음',
           status: 'idle',
         } as WorkflowNodeData,
       };
@@ -252,6 +253,7 @@ export default function NodeCanvas() {
         <BottomPanel
           onCenterNodes={centerNodes}
           isPanelOpen={!!selectedNodeId}
+          onOpenAppSearch={() => setIsSearchModalOpen(true)}
         />
 
         {/* 노드 상세 패널 - ReactFlow 컨테이너 기준으로 위치 */}
