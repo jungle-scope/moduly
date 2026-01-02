@@ -37,8 +37,10 @@ export function AppSearchModal({
 
           // 필터링 로직:
           // 1. 현재 편집 중인 앱 제외 (순환 참조 방지 등)
-          // 2. 사용자가 접근 가능한 모든 앱 포함 (Public + Private)
-          const validApps = data.filter((app) => app.id !== excludedAppId);
+          // 2. 활성 배포(Active Deployment)가 존재해야 함 (실행 가능한 앱만)
+          const validApps = data.filter(
+            (app) => app.id !== excludedAppId && app.active_deployment_id,
+          );
 
           setApps(validApps);
         } catch (error) {
