@@ -43,3 +43,47 @@ class WorkflowRunSchema(BaseModel):
 class WorkflowRunListResponse(BaseModel):
     total: int
     items: List[WorkflowRunSchema]
+
+# [NEW] Dashboard Schemas
+class StatsSummary(BaseModel):
+    totalRuns: int
+    successRate: float
+    avgDuration: float
+    totalCost: float
+    avgTokenPerRun: float  # [NEW] Requested by user
+    avgCostPerRun: float   # [NEW] Requested by user
+
+class DailyRunStat(BaseModel):
+    date: str
+    count: int
+    total_cost: float = 0.0
+    total_tokens: int = 0
+
+class RunCostStat(BaseModel):
+    run_id: UUID
+    started_at: datetime
+    total_tokens: int
+    total_cost: float
+
+class FailureStat(BaseModel):
+    node_id: str
+    node_name: str
+    count: int
+    reason: str 
+    rate: str # e.g. "5.2%"
+
+class RecentFailure(BaseModel): # [NEW] Requested by user
+    run_id: UUID
+    failed_at: datetime
+    node_id: str
+    error_message: str
+
+class DashboardStatsResponse(BaseModel):
+    summary: StatsSummary
+    runsOverTime: List[DailyRunStat]
+    minCostRuns: List[RunCostStat]
+    maxCostRuns: List[RunCostStat]
+    failureAnalysis: List[FailureStat]
+    recentFailures: List[RecentFailure]
+
+

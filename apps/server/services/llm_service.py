@@ -50,6 +50,22 @@ class LLMService:
         "claude-3-haiku-20240307": "Claude 3 Haiku",
     }
 
+    # [NEW] Default Pricing Configuration (USD per 1M tokens -> convert to 1K)
+    # Pricing reference: https://openai.com/api/pricing/, https://anthropic.com/pricing
+    # Prices below are per 1K tokens.
+    KNOWN_MODEL_PRICES = {
+        "gpt-4o": {"input": 0.005, "output": 0.015}, # $5/1M, $15/1M
+        "gpt-4o-mini": {"input": 0.00015, "output": 0.0006}, # $0.15/1M, $0.6/1M
+        "gpt-4-turbo": {"input": 0.01, "output": 0.03},
+        "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
+        "gemini-1.5-flash": {"input": 0.00035, "output": 0.00105}, # Approx (free tier exists)
+        "gemini-1.5-pro": {"input": 0.0035, "output": 0.0105},
+        "gemini-2.0-flash-exp": {"input": 0.0, "output": 0.0}, # Experimental free?
+        "claude-3-5-sonnet-20240620": {"input": 0.003, "output": 0.015},
+        "claude-3-opus-20240229": {"input": 0.015, "output": 0.075},
+        "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
+    }
+
     @staticmethod
     def _mask_plain(value: str) -> str:
         if not value: return ""
@@ -106,6 +122,11 @@ class LLMService:
             # Apply friendly mapping if available, otherwise use capitalized ID
             display_name = LLMService.MODEL_DISPLAY_NAMES.get(clean_id, clean_id)
             
+            # [NEW] Determine Default Pricing
+            pricing = LLMService.KNOWN_MODEL_PRICES.get(clean_id)
+            input_price = pricing["input"] if pricing else None
+            output_price = pricing["output"] if pricing else None
+
             if mid in existing_models:
                 # Update metadata and name if changed
                 model = existing_models[mid]
@@ -115,6 +136,14 @@ class LLMService:
                     changed = True
                 if model.name != display_name:
                     model.name = display_name
+                    changed = True
+                
+                # Update pricing if explicitly missing and we have knowledge
+                if model.input_price_1k is None and input_price is not None:
+                    model.input_price_1k = input_price
+                    changed = True
+                if model.output_price_1k is None and output_price is not None:
+                    model.output_price_1k = output_price
                     changed = True
                 
                 if changed:
@@ -138,7 +167,9 @@ class LLMService:
                     type=m_type,
                     context_window=ctx,
                     is_active=True,
-                    model_metadata=rm
+                    model_metadata=rm,
+                    input_price_1k=input_price, # [NEW]
+                    output_price_1k=output_price # [NEW]
                 )
                 db.add(new_model)
                 synced_models.append(new_model)

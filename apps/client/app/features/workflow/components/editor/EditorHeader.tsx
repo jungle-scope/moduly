@@ -55,7 +55,10 @@ export default function EditorHeader() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false); // [NEW] 로그 뷰어 모달 상태
+  const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null); // [NEW] 로그 뷰어 초기 진입 ID
   const [isMonitoringOpen, setIsMonitoringOpen] = useState(false); // [NEW] 모니터링 모달 상태
+  const [returnToMonitoring, setReturnToMonitoring] = useState(false); // [NEW] 모니터링 복귀 상태
+  const [monitoringScrollPos, setMonitoringScrollPos] = useState(0); // [NEW] 모니터링 스크롤 위치 저장
 
   // Existing State
   const [showModal, setShowModal] = useState(false);
@@ -500,13 +503,32 @@ export default function EditorHeader() {
             <>
                 <LogViewerModal
                     isOpen={isLogViewerOpen}
-                    onClose={() => setIsLogViewerOpen(false)}
+                    onClose={() => {
+                        setIsLogViewerOpen(false);
+                        setInitialLogRunId(null);
+                        setReturnToMonitoring(false);
+                    }}
                     workflowId={workflowId as string}
+                    initialRunId={initialLogRunId}
+                    onBack={returnToMonitoring ? () => {
+                        setIsLogViewerOpen(false);
+                        setInitialLogRunId(null);
+                        setIsMonitoringOpen(true);
+                        setReturnToMonitoring(false);
+                    } : undefined}
                 />
                 <MonitoringDashboardModal
                     isOpen={isMonitoringOpen}
                     onClose={() => setIsMonitoringOpen(false)}
                     workflowId={workflowId as string}
+                    onNavigateToLog={(runId) => {
+                        setInitialLogRunId(runId);
+                        setIsMonitoringOpen(false);
+                        setIsLogViewerOpen(true);
+                        setReturnToMonitoring(true);
+                    }}
+                    initialScrollTop={monitoringScrollPos}
+                    onSaveScrollPos={setMonitoringScrollPos}
                 />
             </>
           )}

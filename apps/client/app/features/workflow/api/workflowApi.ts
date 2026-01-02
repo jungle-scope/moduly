@@ -160,41 +160,16 @@ export const workflowApi = {
     });
     return response.data as WorkflowRunListResponse;
   },
+
+  // [NEW] 단일 워크플로우 실행 이력 상세 조회
+  getWorkflowRun: async (workflowId: string, runId: string) => {
+    const response = await api.get(`/workflows/${workflowId}/runs/${runId}`);
+    return response.data as import('../types/Api').WorkflowRun;
+  },
   // [NEW] 대시보드 통계 조회
     // [NEW] 대시보드 통계 조회
   getDashboardStats: async (workflowId: string) => {
-    // 실제 백엔드 API가 아직 없으므로, 현재는 모의 데이터를 반환합니다.
-    return new Promise<import('../types/Api').DashboardStats>((resolve) => {
-        setTimeout(() => {
-            resolve({
-                summary: {
-                    totalRuns: 1245,
-                    successRate: 98.2,
-                    avgLatency: 1.8,
-                    totalCost: 12.50,
-                },
-                runsOverTime: [
-                    { name: 'Mon', runs: 40 },
-                    { name: 'Tue', runs: 30 },
-                    { name: 'Wed', runs: 20 },
-                    { name: 'Thu', runs: 27 },
-                    { name: 'Fri', runs: 18 },
-                    { name: 'Sat', runs: 23 },
-                    { name: 'Sun', runs: 34 },
-                ],
-                costAnalysis: [
-                    { name: 'GPT-4', tokens: 4000, cost: 2400 },
-                    { name: 'GPT-3.5', tokens: 3000, cost: 1398 },
-                    { name: 'Claude', tokens: 2000, cost: 9800 },
-                    { name: 'Llama', tokens: 2780, cost: 3908 },
-                ],
-                failureAnalysis: [
-                    { node: 'ResearchAgent (LLM)', count: 12, reason: 'Timeout', rate: '5%' },
-                    { node: 'GoogleSearch (Tool)', count: 8, reason: 'API Error', rate: '3.2%' },
-                    { node: 'Summarizer (LLM)', count: 5, reason: 'Rate Limit', rate: '2.1%' },
-                ],
-            });
-        }, 500);
-    });
+    const response = await api.get(`/workflows/${workflowId}/stats`);
+    return response.data as import('../types/Api').DashboardStatsResponse;
   },
 };

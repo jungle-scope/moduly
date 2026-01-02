@@ -17,10 +17,10 @@ export const FailureAnalysis = ({ failures }: Props) => {
             <table className="w-full text-sm text-left">
                 <thead className="text-xs text-gray-500 uppercase bg-gray-50">
                     <tr>
-                        <th className="px-6 py-3">Node Name</th>
-                        <th className="px-6 py-3">Failure Count</th>
-                        <th className="px-6 py-3">Primary Reason</th>
-                        <th className="px-6 py-3">Failure Rate</th>
+                        <th className="px-6 py-3">노드명</th>
+                        <th className="px-6 py-3">실패 횟수</th>
+                        <th className="px-6 py-3">주요 실패 원인</th>
+                        <th className="px-6 py-3">실패율</th>
                     </tr>
                 </thead>
                 <tbody>

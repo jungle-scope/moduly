@@ -42,29 +42,52 @@ export interface WorkflowRun {
   node_runs?: WorkflowNodeRun[];
 }
 
-// [NEW] 대시보드 통계 타입
-export interface DashboardStats {
-  summary: {
+// [NEW] Dashboard Stats Types
+export interface StatsSummary {
     totalRuns: number;
     successRate: number;
-    avgLatency: number;
+    avgDuration: number;
     totalCost: number;
-  };
-  runsOverTime: {
-    name: string;
-    runs: number;
-  }[];
-  costAnalysis: {
-    name: string;
-    tokens: number;
-    cost: number;
-  }[];
-  failureAnalysis: {
-    node: string;
+    avgTokenPerRun: number;
+    avgCostPerRun: number;
+}
+
+export interface DailyRunStat {
+    date: string;
+    count: number;
+    total_cost: number;
+    total_tokens: number;
+}
+
+export interface RunCostStat {
+    run_id: string;
+    started_at: string;
+    total_tokens: number;
+    total_cost: number;
+}
+
+export interface FailureStat {
+    node_id: string;
+    node_name: string;
     count: number;
     reason: string;
     rate: string;
-  }[];
+}
+
+export interface RecentFailure {
+    run_id: string;
+    failed_at: string; // ISO date
+    node_id: string;
+    error_message: string;
+}
+
+export interface DashboardStatsResponse {
+    summary: StatsSummary;
+    runsOverTime: DailyRunStat[];
+    minCostRuns: RunCostStat[];
+    maxCostRuns: RunCostStat[];
+    failureAnalysis: FailureStat[];
+    recentFailures: RecentFailure[];
 }
 
 export interface WorkflowRunListResponse {

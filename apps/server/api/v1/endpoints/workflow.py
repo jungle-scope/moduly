@@ -14,7 +14,7 @@ from db.models.user import User
 from db.models.workflow import Workflow
 # [NEW] 로깅 모델 및 스키마
 from db.models.workflow_run import WorkflowRun
-from schemas.log import WorkflowRunSchema, WorkflowRunListResponse
+from schemas.log import WorkflowRunSchema, WorkflowRunListResponse, DashboardStatsResponse
 from db.session import get_db
 from schemas.workflow import (
     WorkflowCreateRequest,
@@ -61,6 +61,208 @@ def get_workflow_runs(
     )
 
     return {"total": total, "items": runs}
+
+
+@router.get("/{workflow_id}/runs/{run_id}", response_model=WorkflowRunSchema)
+def get_workflow_run_detail(
+    workflow_id: str,
+    run_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    특정 워크플로우 실행 이력 상세 조회
+    """
+    # 워크플로우 접근 권한 체크
+    workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    run = db.query(WorkflowRun).filter(
+        WorkflowRun.id == run_id,
+        WorkflowRun.workflow_id == workflow_id
+    ).first()
+
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    return run
+
+
+# [NEW] 모니터링 대시보드 통계 API
+from sqlalchemy import func, cast, Date, Integer
+from datetime import timedelta, datetime
+
+@router.get("/{workflow_id}/stats", response_model=DashboardStatsResponse)
+def get_workflow_stats(
+    workflow_id: str,
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    import traceback
+    try:
+        from schemas.log import DashboardStatsResponse, StatsSummary, DailyRunStat, RunCostStat, FailureStat, RecentFailure
+        from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
+        
+        # 1. 권한 체크
+        workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+        if not workflow:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        # 기간 필터 (기본 30일)
+        cutoff_date = datetime.now() - timedelta(days=days)
+        
+        base_query = db.query(WorkflowRun).filter(
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowRun.started_at >= cutoff_date
+        )
+
+        # === 1. Summary Stats ===
+        total_runs = base_query.count()
+        success_count = base_query.filter(WorkflowRun.status == 'success').count()
+        
+        # Avg Duration
+        avg_duration = db.query(func.avg(WorkflowRun.duration)).filter(
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowRun.started_at >= cutoff_date,
+            WorkflowRun.duration.isnot(None)
+        ).scalar() or 0.0
+
+        # Total Cost & Tokens
+        total_cost_res = db.query(
+            func.sum(WorkflowRun.total_cost),
+            func.sum(WorkflowRun.total_tokens)
+        ).filter(
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowRun.started_at >= cutoff_date
+        ).first()
+        
+        total_cost = float(total_cost_res[0] or 0.0)
+        total_tokens = int(total_cost_res[1] or 0)
+
+        summary = StatsSummary(
+            totalRuns=total_runs,
+            successRate=round((success_count / total_runs * 100), 1) if total_runs > 0 else 0.0,
+            avgDuration=round(avg_duration, 2),
+            totalCost=round(total_cost, 4),
+            avgTokenPerRun=round(total_tokens / total_runs, 1) if total_runs > 0 else 0.0,
+            avgCostPerRun=round(total_cost / total_runs, 5) if total_runs > 0 else 0.0
+        )
+
+        # === 2. Runs Over Time (Extended) ===
+        runs_over_time = []
+        daily_stats = db.query(
+            cast(WorkflowRun.started_at, Date).label('date'),
+            func.count(WorkflowRun.id),
+            func.sum(WorkflowRun.total_cost),
+            func.sum(WorkflowRun.total_tokens)
+        ).filter(
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowRun.started_at >= cutoff_date
+        ).group_by(
+            cast(WorkflowRun.started_at, Date)
+        ).order_by(
+            cast(WorkflowRun.started_at, Date)
+        ).all()
+
+        for row in daily_stats:
+            runs_over_time.append(DailyRunStat(
+                date=str(row[0]), 
+                count=row[1],
+                total_cost=float(row[2] or 0.0),
+                total_tokens=int(row[3] or 0)
+            ))
+
+        # === 3. Cost Analysis (Min/Max Runs) ===
+        # Top 3 Min Cost (Success only, Cost > 0 to avoid boring zeros if wanted, but user asked for min cost. 0 is valid min.)
+        # Let's just do Success runs.
+        min_cost_runs = []
+        min_runs_query = db.query(WorkflowRun).filter(
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowRun.status == 'success',
+            WorkflowRun.started_at >= cutoff_date,
+            # WorkflowRun.total_cost > 0 # Optional
+        ).order_by(WorkflowRun.total_cost.asc()).limit(3).all()
+        
+        for run in min_runs_query:
+            min_cost_runs.append(RunCostStat(
+                run_id=run.id,
+                started_at=run.started_at,
+                total_tokens=run.total_tokens or 0,
+                total_cost=run.total_cost or 0.0
+            ))
+
+        # Top 3 Max Cost
+        max_cost_runs = []
+        max_runs_query = db.query(WorkflowRun).filter(
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowRun.status == 'success',
+            WorkflowRun.started_at >= cutoff_date
+        ).order_by(WorkflowRun.total_cost.desc()).limit(3).all()
+
+        for run in max_runs_query:
+            max_cost_runs.append(RunCostStat(
+                run_id=run.id,
+                started_at=run.started_at,
+                total_tokens=run.total_tokens or 0,
+                total_cost=run.total_cost or 0.0
+            ))
+
+        # === 4. Failure Analysis ===
+        failure_analysis = []
+        failed_nodes = db.query(
+            WorkflowNodeRun.node_id,
+            WorkflowNodeRun.node_type,
+            WorkflowNodeRun.error_message,
+            func.count(WorkflowNodeRun.id)
+        ).join(WorkflowRun).filter(
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowNodeRun.status == 'failed',
+            WorkflowRun.started_at >= cutoff_date
+        ).group_by(
+            WorkflowNodeRun.node_id, 
+            WorkflowNodeRun.node_type, 
+            WorkflowNodeRun.error_message
+        ).order_by(func.count(WorkflowNodeRun.id).desc()).limit(5).all()
+
+        for row in failed_nodes:
+            failure_analysis.append(FailureStat(
+                node_id=row[0],
+                node_name=f"{row[1]} ({row[0]})",
+                count=row[3],
+                reason=str(row[2])[:50] + "..." if row[2] else "Unknown Error",
+                rate="-" 
+            ))
+
+        # === 5. Recent Failures ===
+        recent_failures = []
+        failed_runs = db.query(WorkflowRun).filter(
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowRun.status == 'failed'
+        ).order_by(WorkflowRun.started_at.desc()).limit(5).all()
+
+        for run in failed_runs:
+            failed_node = next((n for n in run.node_runs if n.status == 'failed'), None)
+            recent_failures.append(RecentFailure(
+                run_id=str(run.id),
+                failed_at=str(run.started_at), 
+                node_id=failed_node.node_id if failed_node else "Unknown",
+                error_message=run.error_message or (failed_node.error_message if failed_node else "Unknown error")
+            ))
+
+        return DashboardStatsResponse(
+            summary=summary,
+            runsOverTime=runs_over_time,
+            minCostRuns=min_cost_runs,
+            maxCostRuns=max_cost_runs,
+            failureAnalysis=failure_analysis,
+            recentFailures=recent_failures
+        )
+    except Exception as e:
+        print(f"[ERROR] Stats API Failed:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.post("", response_model=WorkflowResponse)

@@ -2,8 +2,33 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 // const data = [ ... ]; // Remove hardcoded data
 
+// Custom Tooltip
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white p-3 border border-gray-100 shadow-lg rounded-lg text-sm">
+        <p className="font-bold text-gray-800 mb-1">{label}</p>
+        <p className="text-blue-600 font-medium">실행 수: {data.runs}</p>
+        {data.total_cost !== undefined && (
+             <p className="text-amber-600">비용: ${data.total_cost.toFixed(4)}</p>
+        )}
+        {data.total_tokens !== undefined && (
+             <p className="text-gray-500">토큰: {data.total_tokens.toLocaleString()}</p>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
 interface Props {
-  data: { name: string; runs: number }[];
+  data: { 
+      name: string; 
+      runs: number;
+      total_cost?: number;
+      total_tokens?: number;
+  }[];
 }
 
 export const RunsOverTimeChart = ({ data }: Props) => {
@@ -22,9 +47,7 @@ export const RunsOverTimeChart = ({ data }: Props) => {
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
         <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-        <Tooltip 
-            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-        />
+        <Tooltip content={<CustomTooltip />} />
         <Area type="monotone" dataKey="runs" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorRuns)" />
       </AreaChart>
     </ResponsiveContainer>
