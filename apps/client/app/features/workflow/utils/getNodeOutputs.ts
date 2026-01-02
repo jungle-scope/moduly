@@ -18,6 +18,8 @@ export const getNodeOutputs = (node: Node): string[] => {
       return ['status', 'data', 'headers'];
     case 'answerNode':
       return [];
+    case 'fileExtractionNode':
+      return ['result', 'page_count'];
     default:
       return ['result'];
   }
