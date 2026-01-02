@@ -33,6 +33,7 @@ export const TypeControls = ({ variable, onUpdate }: TypeControlsProps) => {
           <option value="number">Number</option>
           <option value="checkbox">Checkbox</option>
           <option value="select">Select</option>
+          <option value="file">File Upload</option>
         </select>
       </div>
 

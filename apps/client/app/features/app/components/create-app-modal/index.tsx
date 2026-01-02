@@ -30,9 +30,6 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
     bg: '#FFEAD5',
   });
 
-  // 공개 여부 상태
-  const [isPublic, setIsPublic] = useState(false);
-
   // 아이콘 선택 팝업 표시 여부
   const [showAppIconPicker, setShowAppIconPicker] = useState(false);
 
@@ -62,9 +59,12 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
       const response = await appApi.createApp({
         name: name.trim(),
         description: description.trim(),
-        icon: appIcon.emoji,
-        icon_background: appIcon.bg,
-        is_public: isPublic,
+        icon: {
+          type: 'emoji',
+          content: appIcon.emoji,
+          background_color: appIcon.bg,
+        },
+        is_market: false, // 기본값 false (마켓플레이스 미구현)
       });
 
       // 성공 처리
@@ -85,7 +85,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
       isCreatingRef.current = false;
       setLoading(false);
     }
-  }, [name, description, appIcon, isPublic, onSuccess, onClose, router]);
+  }, [name, description, appIcon, onSuccess, onClose, router]);
 
   // --- 키보드 단축키 (Keyboard Shortcuts) ---
   useEffect(() => {
@@ -221,90 +221,6 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                   'dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-500',
                 )}
               />
-            </div>
-            <div className="pt-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-zinc-300 mb-2">
-                공개 범위
-              </label>
-              <div className="flex gap-4">
-                <label
-                  className={twMerge(
-                    'flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    !isPublic
-                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500'
-                      : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600',
-                  )}
-                >
-                  <div className="pt-0.5">
-                    <input
-                      type="radio"
-                      name="visibility"
-                      className="sr-only"
-                      checked={!isPublic}
-                      onChange={() => setIsPublic(false)}
-                    />
-                    <div
-                      className={twMerge(
-                        'w-4 h-4 rounded-full border flex items-center justify-center',
-                        !isPublic
-                          ? 'border-blue-500'
-                          : 'border-zinc-300 dark:border-zinc-600',
-                      )}
-                    >
-                      {!isPublic && (
-                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-zinc-100">
-                      비공개 (Private)
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                      나만 볼 수 있습니다.
-                    </div>
-                  </div>
-                </label>
-
-                <label
-                  className={twMerge(
-                    'flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    isPublic
-                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500'
-                      : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600',
-                  )}
-                >
-                  <div className="pt-0.5">
-                    <input
-                      type="radio"
-                      name="visibility"
-                      className="sr-only"
-                      checked={isPublic}
-                      onChange={() => setIsPublic(true)}
-                    />
-                    <div
-                      className={twMerge(
-                        'w-4 h-4 rounded-full border flex items-center justify-center',
-                        isPublic
-                          ? 'border-blue-500'
-                          : 'border-zinc-300 dark:border-zinc-600',
-                      )}
-                    >
-                      {isPublic && (
-                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-zinc-100">
-                      공개 (Public)
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                      모든 사용자가 볼 수 있습니다.
-                    </div>
-                  </div>
-                </label>
-              </div>
             </div>
           </div>
 

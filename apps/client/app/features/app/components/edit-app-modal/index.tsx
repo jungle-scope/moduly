@@ -30,12 +30,12 @@ export default function EditAppModal({
 
   // 앱 아이콘 상태
   const [appIcon, setAppIcon] = useState<AppIconSelection>({
-    emoji: app.icon,
-    bg: app.icon_background,
+    emoji: app.icon.content,
+    bg: app.icon.background_color,
   });
 
   // 공개 여부 상태
-  const [isPublic, setIsPublic] = useState(app.is_public ?? false);
+  const [isMarket, setIsMarket] = useState(app.is_market ?? false);
 
   // 아이콘 선택 팝업 표시 여부
   const [showAppIconPicker, setShowAppIconPicker] = useState(false);
@@ -62,9 +62,12 @@ export default function EditAppModal({
       await appApi.updateApp(app.id, {
         name: name.trim(),
         description: description.trim(),
-        icon: appIcon.emoji,
-        icon_background: appIcon.bg,
-        is_public: isPublic,
+        icon: {
+          type: 'emoji',
+          content: appIcon.emoji,
+          background_color: appIcon.bg,
+        },
+        is_market: isMarket,
       });
 
       toast.success('앱 정보가 수정되었습니다.');
@@ -77,7 +80,7 @@ export default function EditAppModal({
       isSubmittingRef.current = false;
       setLoading(false);
     }
-  }, [app.id, name, description, appIcon, isPublic, onSuccess, onClose]);
+  }, [app.id, name, description, appIcon, isMarket, onSuccess, onClose]);
 
   // --- 키보드 단축키 ---
   useEffect(() => {
@@ -204,7 +207,7 @@ export default function EditAppModal({
                 <label
                   className={twMerge(
                     'flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    !isPublic
+                    !isMarket
                       ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500'
                       : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600',
                   )}
@@ -214,18 +217,18 @@ export default function EditAppModal({
                       type="radio"
                       name="edit-visibility"
                       className="sr-only"
-                      checked={!isPublic}
-                      onChange={() => setIsPublic(false)}
+                      checked={!isMarket}
+                      onChange={() => setIsMarket(false)}
                     />
                     <div
                       className={twMerge(
                         'w-4 h-4 rounded-full border flex items-center justify-center',
-                        !isPublic
+                        !isMarket
                           ? 'border-blue-500'
                           : 'border-zinc-300 dark:border-zinc-600',
                       )}
                     >
-                      {!isPublic && (
+                      {!isMarket && (
                         <div className="w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>
@@ -240,12 +243,15 @@ export default function EditAppModal({
                   </div>
                 </label>
 
+                {/* 공개 선택 옵션: 배포된 앱만 공개로 설정 가능하도록 제한 */}
                 <label
                   className={twMerge(
-                    'flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    isPublic
-                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500'
-                      : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600',
+                    'flex-1 flex items-start gap-3 p-3 rounded-lg border transition-all',
+                    isMarket
+                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10 ring-1 ring-blue-500 cursor-pointer'
+                      : app.active_deployment_id
+                        ? 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600 cursor-pointer'
+                        : 'border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50 cursor-not-allowed opacity-60', // 배포되지 않은 경우 비활성화 스타일
                   )}
                 >
                   <div className="pt-0.5">
@@ -253,18 +259,25 @@ export default function EditAppModal({
                       type="radio"
                       name="edit-visibility"
                       className="sr-only"
-                      checked={isPublic}
-                      onChange={() => setIsPublic(true)}
+                      // 배포 ID가 없으면 입력 비활성화
+                      disabled={!app.active_deployment_id}
+                      checked={isMarket}
+                      onChange={() => {
+                        // 배포된 경우에만 상태 변경 허용 (UI에서 disabled 처리되지만 이중 안전장치)
+                        if (app.active_deployment_id) {
+                          setIsMarket(true);
+                        }
+                      }}
                     />
                     <div
                       className={twMerge(
                         'w-4 h-4 rounded-full border flex items-center justify-center',
-                        isPublic
+                        isMarket
                           ? 'border-blue-500'
                           : 'border-zinc-300 dark:border-zinc-600',
                       )}
                     >
-                      {isPublic && (
+                      {isMarket && (
                         <div className="w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>
@@ -274,7 +287,14 @@ export default function EditAppModal({
                       공개 (Public)
                     </div>
                     <div className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                      모든 사용자가 볼 수 있습니다.
+                      {/* 배포 여부에 따른 안내 문구 분기 처리 */}
+                      {!app.active_deployment_id ? (
+                        <span className="text-amber-600 dark:text-amber-500">
+                          앱을 배포해야 공개로 전환할 수 있습니다.
+                        </span>
+                      ) : (
+                        '모든 사용자가 볼 수 있습니다.'
+                      )}
                     </div>
                   </div>
                 </label>

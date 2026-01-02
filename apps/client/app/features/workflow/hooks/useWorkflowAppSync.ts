@@ -8,7 +8,8 @@ export const useWorkflowAppSync = () => {
   const params = useParams();
   const workflowId = params.id as string;
   const [currentAppId, setCurrentAppId] = useState<string>('');
-  const { loadWorkflowsByApp, setProjectInfo } = useWorkflowStore();
+  const { loadWorkflowsByApp, setProjectInfo, setActiveWorkflowIdSafe } =
+    useWorkflowStore();
 
   useEffect(() => {
     const loadWorkflowAppId = async () => {
@@ -30,14 +31,21 @@ export const useWorkflowAppSync = () => {
       }
     };
 
+    // URL의 workflowId가 변경되면 현재 활성 워크플로우 ID도 업데이트
+    // 단, 여기서 직접 loadWorkflowsByApp을 호출하진 않음 (아래 effect에서 처리)
     if (workflowId) {
       loadWorkflowAppId();
     }
-  }, [workflowId, setProjectInfo]);
+  }, [workflowId, setProjectInfo, setActiveWorkflowIdSafe]);
 
   useEffect(() => {
-    if (currentAppId) {
-      loadWorkflowsByApp(currentAppId);
-    }
-  }, [currentAppId, loadWorkflowsByApp]);
+    const initWorkflows = async () => {
+      if (currentAppId) {
+        await loadWorkflowsByApp(currentAppId);
+        // 워크플로우 목록 로드 후 활성 워크플로우 식별자만 설정 (데이터 덮어쓰기 방지)
+        setActiveWorkflowIdSafe(workflowId);
+      }
+    };
+    initWorkflows();
+  }, [currentAppId, loadWorkflowsByApp, workflowId, setActiveWorkflowIdSafe]);
 };

@@ -37,8 +37,6 @@ class WorkflowService:
             tenant_id=user_id,
             app_id=request.app_id,
             created_by=user_id,
-            marked_name=request.name,
-            marked_comment=request.description,
             graph={
                 "nodes": [],
                 "edges": [],
@@ -88,18 +86,18 @@ class WorkflowService:
             "viewport": request.viewport.model_dump() if request.viewport else None,
         }
 
-        workflow._features = request.features if request.features else {}
+        workflow.features = request.features if request.features else {}
 
         # 환경 변수 처리: 요청에 환경 변수가 있으면 딕셔너리 형태로 변환하여 저장, 없으면 빈 리스트 저장
-        workflow._environment_variables = (
-            [v.model_dump() for v in request.environment_variables]
-            if request.environment_variables
+        workflow.env_variables = (
+            [v.model_dump() for v in request.env_variables]
+            if request.env_variables
             else []
         )
-        # 대화 변수 처리: 요청에 대화 변수가 있으면 딕셔너리 형태로 변환하여 저장, 없으면 빈 리스트 저장
-        workflow._conversation_variables = (
-            [v.model_dump() for v in request.conversation_variables]
-            if request.conversation_variables
+        # 런타임 변수 처리: 요청에 런타임 변수가 있으면 딕셔너리 형태로 변환하여 저장, 없으면 빈 리스트 저장
+        workflow.runtime_variables = (
+            [v.model_dump() for v in request.runtime_variables]
+            if request.runtime_variables
             else []
         )
         workflow.updated_by = user_id
@@ -131,7 +129,7 @@ class WorkflowService:
         # 이 데이터는 WorkflowEngine의 초기화 인자로 전달되어 실행에 사용됩니다.
         data = workflow.graph if workflow.graph else {}
 
-        if workflow._features:
-            data["features"] = workflow._features
+        if workflow.features:
+            data["features"] = workflow.features
 
         return data

@@ -18,7 +18,7 @@ class DeploymentBase(BaseModel):
 
 
 class DeploymentCreate(DeploymentBase):
-    workflow_id: UUID  # String ID -> UUID
+    app_id: UUID  # App ID
     # TODO: 프론트엔드에서 localStorage에 저장된 스냅샷을 보내주는 방식으로 변경
     # 현재는 백엔드에서 DB의 draft를 읽어서 저장함
     graph_snapshot: Optional[Dict[str, Any]] = None
@@ -27,7 +27,7 @@ class DeploymentCreate(DeploymentBase):
 
 class DeploymentResponse(DeploymentBase):
     id: UUID
-    workflow_id: UUID
+    app_id: UUID
     version: int
     auth_secret: Optional[str] = None  # 보안상 일부만 보여주거나 숨길 수 있음
     created_by: UUID

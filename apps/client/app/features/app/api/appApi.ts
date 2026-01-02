@@ -18,14 +18,28 @@ api.interceptors.response.use(
   },
 );
 
+export interface AppIcon {
+  type: string;
+  content: string;
+  background_color: string;
+}
+
 export interface App {
   id: string;
   name: string;
   description?: string;
-  icon: string;
-  icon_background: string;
-  is_public: boolean;
+  icon: AppIcon;
+  url_slug?: string;
+  is_market: boolean;
+  forked_from?: string;
   workflow_id?: string;
+  active_deployment_id?: string;
+  active_deployment_type?:
+    | 'api'
+    | 'webapp'
+    | 'widget'
+    | 'mcp'
+    | 'workflow_node';
   created_at: string;
   updated_at: string;
 }
@@ -47,9 +61,8 @@ export const appApi = {
   createApp: async (data: {
     name: string;
     description?: string;
-    icon: string;
-    icon_background: string;
-    is_public?: boolean;
+    icon: AppIcon;
+    is_market?: boolean;
   }): Promise<App> => {
     const response = await api.post('/apps', data);
     return response.data;
@@ -73,9 +86,8 @@ export const appApi = {
     data: {
       name?: string;
       description?: string;
-      icon?: string;
-      icon_background?: string;
-      is_public?: boolean;
+      icon?: AppIcon;
+      is_market?: boolean;
     },
   ): Promise<App> => {
     const response = await api.patch(`/apps/${appId}`, data);

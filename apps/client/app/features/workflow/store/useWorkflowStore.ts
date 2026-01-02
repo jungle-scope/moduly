@@ -1,3 +1,4 @@
+import { AppIcon } from '../../app/api/appApi';
 import {
   Connection,
   Edge,
@@ -12,8 +13,8 @@ import {
 } from '@xyflow/react';
 import {
   Features,
-  EnvironmentVariable,
-  ConversationVariable,
+  EnvVariable,
+  RuntimeVariable,
   Node,
 } from '../types/Workflow';
 
@@ -30,9 +31,7 @@ interface SidebarState {
 
 export interface Workflow {
   id: string;
-  name: string;
-  description: string;
-  icon: string;
+  appId: string;
   nodes: Node[];
   edges: Edge[];
   viewport?: {
@@ -43,36 +42,36 @@ export interface Workflow {
 }
 
 type WorkflowState = {
-  // === Editor UI State (from editorStore) ===
+  // === Editor UI 상태 (editorStore에서 유래) ===
   workflows: Workflow[];
   activeWorkflowId: string;
-  sidebarCollapsed: SidebarState;
+  sidebarCollapsed: SidebarState; // 사이드바 각 섹션의 접힘 상태
   activeConfigTab: 'logs' | 'monitoring';
   projectName: string;
-  projectIcon: string;
-  interactiveMode: 'mouse' | 'touchpad';
+  projectIcon: AppIcon;
+  interactiveMode: 'mouse' | 'touchpad'; // 입력 모드 (마우스/터치패드)
   isFullscreen: boolean;
 
-  // === Graph Data ===
+  // === 그래프 데이터 (ReactFlow) ===
   nodes: Node[];
   edges: Edge[];
 
-  // === Extra Fields (for API sync) ===
-  features: Features;
-  environmentVariables: EnvironmentVariable[];
-  conversationVariables: ConversationVariable[];
+  // === 추가 필드 (API 동기화용) ===
+  features: Features; // 워크플로우 기능 설정
+  envVariables: EnvVariable[]; // 환경 변수
+  runtimeVariables: RuntimeVariable[]; // 런타임 변수
 
-  // === ReactFlow Actions ===
+  // === ReactFlow 액션 ===
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
 
-  // === Editor UI Actions ===
+  // === Editor UI 액션 ===
   toggleSidebarSection: (section: keyof SidebarState) => void;
   setActiveConfigTab: (tab: 'logs' | 'monitoring') => void;
-  setProjectInfo: (name: string, icon: string) => void;
+  setProjectInfo: (name: string, icon: AppIcon) => void;
   setInteractiveMode: (mode: 'mouse' | 'touchpad') => void;
   toggleFullscreen: () => void;
   addWorkflow: (
@@ -81,24 +80,25 @@ type WorkflowState = {
   ) => Promise<string>;
   loadWorkflowsByApp: (appId: string) => Promise<void>;
   setActiveWorkflow: (id: string) => void;
+  setActiveWorkflowIdSafe: (id: string) => void;
   deleteWorkflow: (id: string) => void;
   updateWorkflowViewport: (
     id: string,
     viewport: { x: number; y: number; zoom: number },
   ) => void;
 
-  // === API Sync Actions ===
+  // === API 동기화 액션 ===
   setFeatures: (features: Features) => void;
-  setEnvironmentVariables: (vars: EnvironmentVariable[]) => void;
-  setConversationVariables: (vars: ConversationVariable[]) => void;
+  setEnvVariables: (vars: EnvVariable[]) => void;
+  setRuntimeVariables: (vars: RuntimeVariable[]) => void;
   updateNodeData: (nodeId: string, newData: Record<string, unknown>) => void;
   setWorkflowData: (data: {
     nodes: Node[];
     edges: Edge[];
     viewport: { x: number; y: number; zoom: number };
     features?: Features;
-    environmentVariables?: EnvironmentVariable[];
-    conversationVariables?: ConversationVariable[];
+    envVariables?: EnvVariable[];
+    runtimeVariables?: RuntimeVariable[];
   }) => void;
 };
 
@@ -109,9 +109,7 @@ const initialEdges: Edge[] = [];
 const initialWorkflows: Workflow[] = [
   {
     id: 'default',
-    name: 'Main Workflow',
-    description: 'Default workflow',
-    icon: '🔥',
+    appId: '',
     nodes: initialNodes,
     edges: initialEdges,
     viewport: { x: 0, y: 0, zoom: 1 },
@@ -119,7 +117,7 @@ const initialWorkflows: Workflow[] = [
 ];
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
-  // === Editor UI State ===
+  // === Editor UI 상태 ===
   workflows: initialWorkflows,
   activeWorkflowId: 'default',
   sidebarCollapsed: {
@@ -130,18 +128,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
   activeConfigTab: 'logs',
   projectName: 'My Project',
-  projectIcon: '🔥',
+  projectIcon: { type: 'emoji', content: '🔥', background_color: '#FFE5D4' },
   interactiveMode: 'mouse',
   isFullscreen: false,
 
-  // === Graph Data ===
+  // === 그래프 데이터 ===
   nodes: initialNodes,
   edges: initialEdges,
   features: {},
-  environmentVariables: [],
-  conversationVariables: [],
+  envVariables: [],
+  runtimeVariables: [],
 
-  // === ReactFlow Actions ===
+  // === ReactFlow 액션 ===
   setNodes: (nodes) => {
     const { workflows, activeWorkflowId } = get();
     const updatedWorkflows = workflows.map((w) =>
@@ -176,7 +174,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     get().setEdges(newEdges);
   },
 
-  // === Editor UI Actions ===
+  // === Editor UI 액션 ===
   toggleSidebarSection: (section) => {
     set((state) => ({
       sidebarCollapsed: {
@@ -200,16 +198,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // Backend API 호출
       const created = await workflowApi.createWorkflow({
         app_id: appId,
-        name: workflow.name,
-        description: workflow.description,
       });
 
       // Store에 추가
       const newWorkflow: Workflow = {
         id: created.id,
-        name: created.marked_name || workflow.name,
-        description: created.marked_comment || '',
-        icon: workflow.icon,
+        appId: created.app_id,
         nodes: [],
         edges: [],
         viewport: { x: 0, y: 0, zoom: 1 },
@@ -230,12 +224,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       const workflows = await workflowApi.listWorkflowsByApp(appId);
 
-      // Convert backend workflows to frontend format
+      // Backend 워크플로우를 프론트엔드 포맷으로 변환
       const formattedWorkflows: Workflow[] = workflows.map((w) => ({
         id: w.id,
-        name: w.marked_name || 'Untitled Workflow',
-        description: w.marked_comment || '',
-        icon: '🔄',
+        appId: w.app_id,
         nodes: [],
         edges: [],
       }));
@@ -256,6 +248,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         edges: workflow.edges,
       });
     }
+  },
+
+  // **안전한 활성 워크플로우 ID 설정**
+  // 기존 setActiveWorkflow와 달리, 노드나 엣지 데이터를 덮어쓰지 않고 ID만 변경합니다.
+  // 새로고침 시 데이터가 로드되기 전에 빈 상태로 초기화되는 것을 방지하기 위해 사용합니다.
+  setActiveWorkflowIdSafe: (id: string) => {
+    set({ activeWorkflowId: id });
   },
 
   deleteWorkflow: (id) => {
@@ -283,12 +282,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ workflows: updatedWorkflows });
   },
 
-  // === API Sync Actions ===
+  // === API 동기화 액션 ===
   setFeatures: (features) => set({ features }),
-  setEnvironmentVariables: (environmentVariables) =>
-    set({ environmentVariables }),
-  setConversationVariables: (conversationVariables) =>
-    set({ conversationVariables }),
+  setEnvVariables: (envVariables) => set({ envVariables }),
+  setRuntimeVariables: (runtimeVariables) => set({ runtimeVariables }),
 
   updateNodeData: (nodeId, newData) => {
     set({
@@ -309,8 +306,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       nodes: data.nodes || [],
       edges: data.edges || [],
       features: data.features || {},
-      environmentVariables: data.environmentVariables || [],
-      conversationVariables: data.conversationVariables || [],
+      envVariables: data.envVariables || [],
+      runtimeVariables: data.runtimeVariables || [],
     });
     // Viewport는 ReactFlow 인스턴스에서 처리해야 하므로 여기서는 무시하거나 별도 처리
     // 하지만 초기 로딩 시 Store에 저장해두면 나중에 사용할 수 있음

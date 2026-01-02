@@ -19,7 +19,7 @@ class WorkflowVariable(BaseModel):
     id: str
     name: str = Field(..., description="변수명 (코드용, 영문/숫자/언더스코어)")
     label: str = Field(..., description="표시명 (사용자에게 보여질 이름)")
-    type: Literal["text", "number", "paragraph", "checkbox", "select"] = Field(
+    type: Literal["text", "number", "paragraph", "checkbox", "select", "file"] = Field(
         ..., description="변수 타입"
     )
     required: bool = Field(False, description="필수 입력 여부")
@@ -51,23 +51,39 @@ class StartNode(Node[StartNodeData]):
     def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         사용자 입력을 다음 노드로 전달합니다.
-        
-        [중요] 변수 ID 매핑이 필요한 이유:
-        - 프론트엔드의 Answer/Condition 노드는 value_selector에 변수 ID를 저장합니다.
-          예: ["start-xxx", "45af2b51-d499-4a8d-a9bd-f18fdc9b942b"]
-        - 하지만 사용자 입력은 변수 이름을 키로 사용합니다.
-          예: {"updated": 100}
-        - 따라서 ID로도 값을 조회할 수 있도록 매핑을 추가해야 합니다.
-          결과: {"updated": 100, "45af2b51-...": 100}
-        
-        이 매핑이 없으면 변수 이름이 변경되었을 때 참조가 깨집니다.
-        ID 기반 참조를 사용하면 변수 이름을 변경해도 정상 동작합니다.
+
+        기능:
+        1. 변수 타입 자동 변환 (예: "11" -> 11)
+        2. 변수 이름 및 ID 매핑 (ID 기반 참조 지원)
         """
-        result = dict(inputs)
-        
-        # 변수 이름 -> ID 매핑 추가 (ID 기반 조회 지원)
+        result = {}
+
+        # 타입 변환 및 ID 매핑
         for var in self.data.variables:
-            if var.name in inputs:
-                result[var.id] = inputs[var.name]
-        
+            if var.name not in inputs:
+                continue
+
+            raw_val = inputs[var.name]
+            converted_val = raw_val
+
+            # Number 타입 변환
+            if var.type == "number":
+                try:
+                    # 정수/실수 판단하여 변환
+                    s_val = str(raw_val)
+                    if "." in s_val:
+                        converted_val = float(s_val)
+                    else:
+                        converted_val = int(s_val)
+                except (ValueError, TypeError):
+                    # 변환 실패 시 명시적 에러 발생
+                    raise ValueError(
+                        f"변수 '{var.name}'의 값 '{raw_val}'은(는) 유효한 숫자(Number)가 아닙니다."
+                    )
+
+            # TODO: 필요 시 Boolean 등 추가
+
+            result[var.name] = converted_val
+            result[var.id] = converted_val
+
         return result

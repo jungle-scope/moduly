@@ -1,15 +1,18 @@
-from typing import Dict, Any
+from typing import Dict
 
 from schemas.workflow import NodeSchema
 from workflow.nodes.answer import AnswerNode, AnswerNodeData
 from workflow.nodes.base.node import Node
 from workflow.nodes.code import CodeNode, CodeNodeData
 from workflow.nodes.condition import ConditionNode, ConditionNodeData
+from workflow.nodes.file_extraction import FileExtractionNode, FileExtractionNodeData
 from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
 from workflow.nodes.llm import LLMNode, LLMNodeData
 from workflow.nodes.start import StartNode, StartNodeData
 from workflow.nodes.template.entities import TemplateNodeData
 from workflow.nodes.template.template_node import TemplateNode
+from workflow.nodes.workflow.entities import WorkflowNodeData
+from workflow.nodes.workflow.workflow_node import WorkflowNode
 
 
 class NodeFactory:
@@ -28,6 +31,8 @@ class NodeFactory:
         "llmNode": (LLMNode, LLMNodeData),
         "httpRequestNode": (HttpRequestNode, HttpRequestNodeData),
         "templateNode": (TemplateNode, TemplateNodeData),
+        "workflowNode": (WorkflowNode, WorkflowNodeData),
+        "fileExtractionNode": (FileExtractionNode, FileExtractionNodeData),
     }
 
     @staticmethod
