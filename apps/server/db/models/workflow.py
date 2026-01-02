@@ -23,7 +23,7 @@ class Workflow(Base):
 
     # === 핵심 기능 필드 ===
     graph: Mapped[dict] = mapped_column(JSONB, nullable=True)
-    _features: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    features: Mapped[dict] = mapped_column(JSONB, nullable=True)
     env_variables: Mapped[dict] = mapped_column(JSONB, nullable=True)
     runtime_variables: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
@@ -36,11 +36,3 @@ class Workflow(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-
-    @property
-    def features(self):
-        return self._features
-
-    @features.setter
-    def features(self, value):
-        self._features = value
