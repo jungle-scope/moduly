@@ -1,4 +1,10 @@
 from dotenv import load_dotenv
+
+load_dotenv()  # .env 파일 로드
+
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -6,14 +12,8 @@ from sqlalchemy import text
 
 from api.api import api_router
 from db.base import Base
-from db.session import engine
-
-load_dotenv()  # .env 파일 로드
-
-
-from contextlib import asynccontextmanager
-
 from db.models.llm import LLMProvider
+from db.session import engine
 
 
 @asynccontextmanager
@@ -101,14 +101,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Moduly API", redirect_slashes=False, lifespan=lifespan)
 
+origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+origins = origins_str.split(",")
 
 # CORS 설정 (withCredentials 지원)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Frontend 개발 서버
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=origins,  # .env에서 CORS_ORIGINS로 설정 가능
     allow_credentials=True,  # 쿠키 전송 허용
     allow_methods=["*"],
     allow_headers=["*"],

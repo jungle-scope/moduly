@@ -41,7 +41,6 @@ pymongo==4.14.1
 pytest==9.0.2
 python-dotenv==1.1.1
 python-jose==3.3.0
-pywin32==311
 regex==2025.11.3
 requests==2.32.5
 rsa==4.9.1
