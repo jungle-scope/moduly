@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -105,10 +105,17 @@ export default function NodeCanvas() {
   ) as unknown as NodeTypes;
 
   // 워크플로우 전환 시 뷰포트 복원
+  const prevActiveWorkflowId = useRef(activeWorkflowId);
+
   useEffect(() => {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
-    if (activeWorkflow?.viewport) {
-      setViewport(activeWorkflow.viewport);
+
+    // 워크플로우 ID가 바뀌었을 때만 뷰포트 복원
+    if (prevActiveWorkflowId.current !== activeWorkflowId) {
+      if (activeWorkflow?.viewport) {
+        setViewport(activeWorkflow.viewport);
+      }
+      prevActiveWorkflowId.current = activeWorkflowId;
     }
   }, [activeWorkflowId, workflows, setViewport]);
 
