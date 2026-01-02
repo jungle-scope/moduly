@@ -97,11 +97,14 @@ export const nodeRegistry: NodeDefinition[] = [
     category: 'workflow',
     color: 'bg-green-500',
     icon: '🔄',
-    implemented: false,
-    description: '다른 워크플로우를 호출합니다.',
+    implemented: true,
+    description: '다른 워크플로우(App)를 모듈로 실행합니다.',
     defaultData: () => ({
-      title: 'Workflow',
+      title: 'Workflow Module',
       workflowId: '',
+      appId: '',
+      inputs: [],
+      outputs: [],
     }),
   },
 

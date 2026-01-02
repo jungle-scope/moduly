@@ -42,33 +42,33 @@ export interface Workflow {
 }
 
 type WorkflowState = {
-  // === Editor UI State (from editorStore) ===
+  // === Editor UI 상태 (editorStore에서 유래) ===
   workflows: Workflow[];
   activeWorkflowId: string;
-  sidebarCollapsed: SidebarState;
+  sidebarCollapsed: SidebarState; // 사이드바 각 섹션의 접힘 상태
   activeConfigTab: 'logs' | 'monitoring';
   projectName: string;
   projectIcon: AppIcon;
-  interactiveMode: 'mouse' | 'touchpad';
+  interactiveMode: 'mouse' | 'touchpad'; // 입력 모드 (마우스/터치패드)
   isFullscreen: boolean;
 
-  // === Graph Data ===
+  // === 그래프 데이터 (ReactFlow) ===
   nodes: Node[];
   edges: Edge[];
 
-  // === Extra Fields (for API sync) ===
-  features: Features;
-  envVariables: EnvVariable[];
-  runtimeVariables: RuntimeVariable[];
+  // === 추가 필드 (API 동기화용) ===
+  features: Features; // 워크플로우 기능 설정
+  envVariables: EnvVariable[]; // 환경 변수
+  runtimeVariables: RuntimeVariable[]; // 런타임 변수
 
-  // === ReactFlow Actions ===
+  // === ReactFlow 액션 ===
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
 
-  // === Editor UI Actions ===
+  // === Editor UI 액션 ===
   toggleSidebarSection: (section: keyof SidebarState) => void;
   setActiveConfigTab: (tab: 'logs' | 'monitoring') => void;
   setProjectInfo: (name: string, icon: AppIcon) => void;
@@ -80,13 +80,14 @@ type WorkflowState = {
   ) => Promise<string>;
   loadWorkflowsByApp: (appId: string) => Promise<void>;
   setActiveWorkflow: (id: string) => void;
+  setActiveWorkflowIdSafe: (id: string) => void;
   deleteWorkflow: (id: string) => void;
   updateWorkflowViewport: (
     id: string,
     viewport: { x: number; y: number; zoom: number },
   ) => void;
 
-  // === API Sync Actions ===
+  // === API 동기화 액션 ===
   setFeatures: (features: Features) => void;
   setEnvVariables: (vars: EnvVariable[]) => void;
   setRuntimeVariables: (vars: RuntimeVariable[]) => void;
@@ -116,7 +117,7 @@ const initialWorkflows: Workflow[] = [
 ];
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
-  // === Editor UI State ===
+  // === Editor UI 상태 ===
   workflows: initialWorkflows,
   activeWorkflowId: 'default',
   sidebarCollapsed: {
@@ -131,14 +132,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   interactiveMode: 'mouse',
   isFullscreen: false,
 
-  // === Graph Data ===
+  // === 그래프 데이터 ===
   nodes: initialNodes,
   edges: initialEdges,
   features: {},
   envVariables: [],
   runtimeVariables: [],
 
-  // === ReactFlow Actions ===
+  // === ReactFlow 액션 ===
   setNodes: (nodes) => {
     const { workflows, activeWorkflowId } = get();
     const updatedWorkflows = workflows.map((w) =>
@@ -173,7 +174,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     get().setEdges(newEdges);
   },
 
-  // === Editor UI Actions ===
+  // === Editor UI 액션 ===
   toggleSidebarSection: (section) => {
     set((state) => ({
       sidebarCollapsed: {
@@ -223,7 +224,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       const workflows = await workflowApi.listWorkflowsByApp(appId);
 
-      // Convert backend workflows to frontend format
+      // Backend 워크플로우를 프론트엔드 포맷으로 변환
       const formattedWorkflows: Workflow[] = workflows.map((w) => ({
         id: w.id,
         appId: w.app_id,
@@ -247,6 +248,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         edges: workflow.edges,
       });
     }
+  },
+
+  // **안전한 활성 워크플로우 ID 설정**
+  // 기존 setActiveWorkflow와 달리, 노드나 엣지 데이터를 덮어쓰지 않고 ID만 변경합니다.
+  // 새로고침 시 데이터가 로드되기 전에 빈 상태로 초기화되는 것을 방지하기 위해 사용합니다.
+  setActiveWorkflowIdSafe: (id: string) => {
+    set({ activeWorkflowId: id });
   },
 
   deleteWorkflow: (id) => {
@@ -274,7 +282,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ workflows: updatedWorkflows });
   },
 
-  // === API Sync Actions ===
+  // === API 동기화 액션 ===
   setFeatures: (features) => set({ features }),
   setEnvVariables: (envVariables) => set({ envVariables }),
   setRuntimeVariables: (runtimeVariables) => set({ runtimeVariables }),

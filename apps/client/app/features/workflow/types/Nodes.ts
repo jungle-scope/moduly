@@ -143,6 +143,21 @@ export interface CodeNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ======================== [WorkflowNode] ====================================
+export interface WorkflowNodeInput {
+  name: string; // 대상 변수 이름
+  value_selector: string[]; // [node_id, key]
+}
+
+export interface WorkflowNodeData extends BaseNodeData {
+  workflowId: string;
+  appId: string;
+  icon?: string;
+  inputs?: WorkflowNodeInput[];
+  outputs?: string[]; // 대상 워크플로우의 AnswerNode 출력 변수명 목록
+}
+// ============================================================================
+
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
 export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
@@ -155,6 +170,7 @@ export type LLMNode = ReactFlowNode<LLMNodeData, 'llmNode'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
 export type CodeNode = ReactFlowNode<CodeNodeData, 'codeNode'>;
 export type TemplateNode = ReactFlowNode<TemplateNodeData, 'templateNode'>;
+export type WorkflowNode = ReactFlowNode<WorkflowNodeData, 'workflowNode'>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
@@ -166,7 +182,8 @@ export type AppNode =
   | ConditionNode
   | CodeNode
   | TemplateNode
-  | NoteNode;
+  | NoteNode
+  | WorkflowNode;
 
 //하위 호환성 (필요시)
 export type NodeData = BaseNodeData;
