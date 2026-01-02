@@ -70,3 +70,6 @@ langchain-openai
 Werkzeug==3.1.4
 WTForms==3.2.1
 llama-parse
+pandas
+openpyxl
+python-docx

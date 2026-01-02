@@ -1,12 +1,15 @@
 import json
 import os  # 폴더 만들기용
+import re
 import shutil  # 파일 복사용
 from enum import Enum
 from uuid import UUID
 
 import fitz
+import pandas as pd
 import pymupdf4llm
 import tiktoken
+from docx import Document as DocxDocument
 from fastapi import UploadFile
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
@@ -45,13 +48,18 @@ class IngestionService:
     def save_temp_file(self, file: UploadFile) -> str:
         """
         설명: 메모리에 있는 업로드 파일을 디스크(uploads 폴더)에 저장합니다.
+        동일한 파일명이 업로드되어도 물리적 충돌을 방지하기 위해 UUID를 붙여서 저장합니다.
         """
+        import uuid
 
         upload_dir = "uploads"
         os.makedirs(upload_dir, exist_ok=True)
 
-        # 저장될 파일의 전체 주소 (예: "uploads/보고서.pdf")
-        file_path = os.path.join(upload_dir, file.filename)
+        # 고유한 파일명 생성 (예: a1b2c3d4..._보고서.pdf)
+        unique_filename = f"{uuid.uuid4()}_{file.filename}"
+
+        # 저장될 파일의 전체 주소 (예: "uploads/a1b2c3d4..._보고서.pdf")
+        file_path = os.path.join(upload_dir, unique_filename)
 
         with open(file_path, "wb") as buffer:
             # 메모리에 있는 파일(file.file)을 하드디스크(buffer)로 복사
@@ -94,32 +102,52 @@ class IngestionService:
         """
         try:
             self._update_status(document_id, "indexing")
+            self._update_progress(document_id, 5, "문서 처리를 시작합니다...")
 
             # 1단계: 파싱 (document_id 전달)
-            text_blocks = self._parse_pdf(file_path, document_id)
+            self._update_progress(document_id, 10, "문서 내용을 분석하고 있습니다...")
+
+            # 파일 확장자에 따른 분기 처리
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext == ".pdf":
+                text_blocks = self._parse_pdf(file_path, document_id)
+            elif ext in [".xlsx", ".xls", ".csv"]:
+                text_blocks = self._parse_excel_csv(file_path)
+            elif ext == ".docx":
+                text_blocks = self._parse_docx(file_path)
+            elif ext in [".txt", ".md"]:
+                text_blocks = self._parse_txt(file_path)
+            else:
+                # 지원하지 않는 파일 포맷 -> 텍스트로 시도 or 에러
+                print(f"[Warning] Unsupported file type: {ext}. Trying as text.")
+                text_blocks = self._parse_txt(file_path)
 
             # 파싱 결과가 비어있다면 (비용 승인 대기 등) 중단
             if not text_blocks:
                 doc = self.db.query(Document).get(document_id)
                 if doc and doc.status == "waiting_for_approval":
                     print(f"⏸️ Document {document_id} paused for approval.")
+                    self._update_progress(
+                        document_id, 0, "추가 비용 승인이 필요하여 대기 중입니다."
+                    )
                     return
                 # 진짜 내용이 없는 경우일 수도 있음 (이 경우 completed 처리됨)
 
-            # 2단계: 청킹
-            chunks = self._create_chunks(text_blocks)
+            self._update_progress(document_id, 40, "문서 내용 분석이 완료되었습니다.")
 
-            # 3 & 4단계: 임베딩 및 저장
-            self._save_chunks_to_pgvector(document_id, knowledge_base_id, chunks)
-
-            self._update_status(document_id, "completed")
+            # 2~4단계: 청킹, 임베딩, 저장 및 완료 처리
+            self._finalize_ingestion(document_id, knowledge_base_id, text_blocks)
         except Exception as e:
             print(f"Ingestion failed: {e}")
             self._update_status(document_id, "failed", error_message=str(e))
+            self._update_progress(
+                document_id, 0, f"처리 중 오류가 발생했습니다: {str(e)}"
+            )
 
-    async def resume_with_llamaparse(self, document_id: UUID):
+    async def resume_processing(self, document_id: UUID, strategy: str = "llamaparse"):
         """
-        승인된 문서에 대해 LlamaParse로 파싱을 재개하고 나머지 파이프라인 수행
+        승인된 문서에 대해 파싱을 재개합니다.
+        strategy: 'llamaparse' (유료, 고품질) or 'general' (무료, PyMuPDF)
         """
         doc = self.db.query(Document).get(document_id)
         if not doc:
@@ -127,19 +155,21 @@ class IngestionService:
             return
 
         try:
-            print(f"▶️ Resuming ingestion for {document_id} with LlamaParse...")
+            print(f"▶️ Resuming ingestion for {document_id} with strategy: {strategy}")
             self._update_status(document_id, "indexing")
 
-            # 1단계: LlamaParse 강제 실행
-            text_blocks = self._parse_with_llamaparse(doc.file_path)
+            text_blocks = []
 
-            # 2단계: 청킹
-            chunks = self._create_chunks(text_blocks)
+            # 1단계: 전략에 따른 파싱
+            if strategy == "general":
+                # LlamaParse 대신 일반 PyMuPDF 사용 (비용 절감)
+                text_blocks = self._parse_with_pymupdf(doc.file_path)
+            else:
+                # 기본값: LlamaParse (캐싱 로직 포함됨)
+                text_blocks = self._parse_with_llamaparse(doc.file_path)
 
-            # 3 & 4단계: 임베딩 및 저장
-            self._save_chunks_to_pgvector(document_id, doc.knowledge_base_id, chunks)
-
-            self._update_status(document_id, "completed")
+            # 2~4단계: 청킹, 임베딩, 저장 및 완료 처리
+            self._finalize_ingestion(document_id, doc.knowledge_base_id, text_blocks)
 
         except Exception as e:
             print(f"❌ Resumption failed: {e}")
@@ -243,8 +273,40 @@ class IngestionService:
             )
         return results
 
+    def _get_cache_path(self, file_path: str) -> str:
+        """캐시 파일 경로 생성 (원본파일_parsed.json)"""
+        return f"{file_path}_parsed.json"
+
+    def _save_cache(self, file_path: str, data: list[dict]):
+        """파싱 결과를 JSON으로 저장"""
+        try:
+            cache_path = self._get_cache_path(file_path)
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            print(f"💾 [Cache Saved] {cache_path}")
+        except Exception as e:
+            print(f"⚠️ Failed to save cache: {e}")
+
+    def _load_cache(self, file_path: str) -> list[dict]:
+        """캐시된 파싱 결과 로드"""
+        cache_path = self._get_cache_path(file_path)
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                print(f"♻️ [Cache Hit] Loaded parsing result from {cache_path}")
+                return data
+            except Exception as e:
+                print(f"⚠️ Cache load failed: {e}")
+        return None
+
     def _parse_with_llamaparse(self, file_path: str) -> list[dict]:
-        """LlamaParse API 연동"""
+        """LlamaParse API 연동 (캐싱 적용)"""
+
+        # 1. 캐시 확인
+        cached_data = self._load_cache(file_path)
+        if cached_data:
+            return cached_data
 
         # 비용 예측 로그 출력
         est = self._estimate_llamaparse_cost(file_path)
@@ -320,6 +382,10 @@ class IngestionService:
             #     print(f"⚠️ Failed to save debug file: {e}")
 
             print(f"LlamaParse 완료: 총 {len(parsed_results)} 페이지 변환됨.")
+
+            # 2. 결과 캐싱
+            self._save_cache(file_path, parsed_results)
+
             return parsed_results
 
         except Exception as e:
@@ -332,6 +398,14 @@ class IngestionService:
         기준: Standard Mode (3 credits/page), $1 = 1000 credits
         """
         try:
+            # PDF가 아닌 경우 fitz.open()이 실패할 수 있으므로 예외 처리
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext not in [".pdf", ".xps", ".epub", ".mobi", ".fb2", ".cbz", ".svg"]:
+                # 이미지 파일(png, jpg 등)은 fitz로 열 수 있지만, 엑셀/워드는 불가
+                # 일단 0으로 리턴하여 fallback 유도
+                if ext not in [".png", ".jpg", ".jpeg", ".tiff", ".bmp"]:
+                    return {"pages": 0, "credits": 0, "cost_usd": 0.0}
+
             doc = fitz.open(file_path)
             total_pages = len(doc)
             doc.close()
@@ -349,6 +423,58 @@ class IngestionService:
         except Exception as e:
             print(f"[Warning] Cost estimation failed: {e}")
             return {"pages": 0, "credits": 0, "cost_usd": 0.0}
+
+    def _parse_excel_csv(self, file_path: str) -> list[dict]:
+        """Excel/CSV 파일 파싱 (모든 시트 처리)"""
+        text_content = ""
+        ext = os.path.splitext(file_path)[1].lower()
+
+        try:
+            if ext == ".csv":
+                df = pd.read_csv(file_path)
+                text_content += f"# CSV Content\n\n{df.to_markdown(index=False)}\n"
+            else:
+                # sheet_name=None -> 모든 시트를 dict로 반환
+                xls = pd.read_excel(file_path, sheet_name=None)
+                for sheet_name, df in xls.items():
+                    text_content += f"\n# Sheet: {sheet_name}\n\n"
+                    text_content += df.to_markdown(index=False) + "\n"
+
+            # 엑셀은 페이지 개념이 모호하므로 전체를 1페이지로 취급하거나 적절히 분할
+            return [{"text": text_content, "page": 1}]
+        except Exception as e:
+            print(f"Excel/CSV parsing failed: {e}")
+            return []
+
+    def _parse_docx(self, file_path: str) -> list[dict]:
+        """Word(.docx) 파일 파싱"""
+        try:
+            doc = DocxDocument(file_path)
+            full_text = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    full_text.append(para.text)
+
+            # 간단한 표 처리
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = [cell.text for cell in row.cells]
+                    full_text.append(" | ".join(row_text))
+
+            return [{"text": "\n".join(full_text), "page": 1}]
+        except Exception as e:
+            print(f"Docx parsing failed: {e}")
+            return []
+
+    def _parse_txt(self, file_path: str) -> list[dict]:
+        """Text/Markdown 파일 파싱"""
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return [{"text": content, "page": 1}]
+        except Exception as e:
+            print(f"Text parsing failed: {e}")
+            return []
 
     def _is_mixed_quality_poor(self, results: list[dict]) -> bool:
         """MIXED 모드 품질 검사: 레이아웃이 심각하게 깨졌는지 확인"""
@@ -579,6 +705,28 @@ class IngestionService:
         self.db.add_all(chunk_objects)
         self.db.commit()
 
+    def _finalize_ingestion(
+        self, document_id: UUID, knowledge_base_id: UUID, text_blocks: list[dict]
+    ):
+        """
+        텍스트 블록을 받아 청킹 -> 임베딩 -> 저장 -> 완료 처리를 수행합니다.
+        """
+        # 2단계: 청킹
+        self._update_progress(
+            document_id, 50, "AI가 읽기 좋게 문서를 조각내고 있습니다..."
+        )
+        chunks = self._create_chunks(text_blocks)
+
+        # 3 & 4단계: 임베딩 및 저장
+        self._update_progress(
+            document_id, 70, "벡터 데이터베이스에 저장할 준비를 하고 있습니다..."
+        )
+        self._save_chunks_to_pgvector(document_id, knowledge_base_id, chunks)
+
+        # 완료 상태 업데이트
+        self._update_progress(document_id, 100, "모든 처리가 완료되었습니다.")
+        self._update_status(document_id, "completed")
+
     def _update_status(self, document_id: UUID, status: str, error_message: str = None):
         doc = self.db.query(Document).get(document_id)
         if doc:
@@ -586,3 +734,131 @@ class IngestionService:
             if error_message:
                 doc.error_message = error_message
             self.db.commit()
+
+    def _update_progress(self, document_id: UUID, progress: int, message: str):
+        """
+        문서 처리 진행률(%)과 현재 단계 메시지를 meta_info에 업데이트합니다.
+        """
+        doc = self.db.query(Document).get(document_id)
+        if doc:
+            new_meta = dict(doc.meta_info or {})
+            new_meta.update(
+                {"processing_progress": progress, "processing_current_step": message}
+            )
+            doc.meta_info = new_meta
+            self.db.commit()
+
+    async def analyze_document(self, document_id: UUID) -> dict:
+        """
+        문서 분석: 페이지 수, 비용 예측 등을 반환
+        """
+        doc = self.db.query(Document).get(document_id)
+        if not doc:
+            raise ValueError("Document not found")
+
+        # 1. 비용 예측
+        cost_info = self._estimate_llamaparse_cost(doc.file_path)
+
+        # 2. 파일 타입 분석 (선택 사항)
+        # parsing_strategy = self._analyze_pdf_type(doc.file_path)
+
+        # 3. 캐시 확인
+        cache_path = self._get_cache_path(doc.file_path)
+        is_cached = os.path.exists(cache_path)
+
+        print(
+            f"🔍 [Debug] analyze_document: filename={doc.filename}, is_cached={is_cached}, path={cache_path}"
+        )
+
+        return {
+            "cost_estimate": cost_info,
+            "filename": doc.filename,
+            "is_cached": is_cached,
+            # "recommended_strategy": parsing_strategy
+        }
+
+    def preview_chunking(
+        self,
+        file_path: str,
+        chunk_size: int,
+        chunk_overlap: int,
+        segment_identifier: str,
+        remove_urls_emails: bool = False,
+        remove_whitespace: bool = True,
+        strategy: str = "general",  # "general" or "llamaparse"
+    ) -> list[dict]:
+        """
+        DB 저장 없이 메모리 상에서 청킹 결과를 미리봅니다.
+        strategy에 따라 일반 파싱 또는 정밀 파싱(LlamaParse)을 수행합니다.
+        """
+        # 1. 텍스트 추출
+        try:
+            text_blocks = []
+            if strategy == "llamaparse":
+                # LlamaParse 사용 (캐싱 적용됨)
+                text_blocks = self._parse_with_llamaparse(file_path)
+            else:
+                # 기본: PyMuPDF 사용 (빠름, 무료)
+                text_blocks = self._parse_with_pymupdf(file_path)
+
+            full_text = "\n".join([block["text"] for block in text_blocks])
+        except Exception as e:
+            print(f"Preview parsing failed: {e}")
+            return []
+
+        # 2. 전처리
+        if remove_urls_emails:
+            # URL 제거
+            full_text = re.sub(
+                r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+                "",
+                full_text,
+            )
+            # 이메일 제거
+            full_text = re.sub(r"[\w\.-]+@[\w\.-]+", "", full_text)
+
+        if remove_whitespace:
+            # 연속된 공백, 탭을 단일 공백으로 치환
+            full_text = re.sub(r"[ \t]+", " ", full_text)
+            # 연속된 줄바꿈이 3개 이상이면 2개(\n\n)로 축소 (문단 구분 유지)
+            full_text = re.sub(r"\n{3,}", "\n\n", full_text)
+
+        # 3. 청킹 설정 오버라이드
+        # segment_identifier가 유효하면 separator 목록의 최우선 순위로 추가
+        separators = ["\n\n", "\n", ".", " ", ""]
+        if segment_identifier and segment_identifier not in separators:
+            # 특수 문자(escaped) 처리 필요할 수 있음. 일단 있는 그대로 사용.
+            # 사용자가 "\n\n"을 입력하면 문자열 그대로 들어오므로, 실제 이스케이프 시퀀스로 변환해주는 로직이 필요할 수 있음.
+            # 프론트에서 실제 줄바꿈을 보내거나, 여기서 변환해야 함.
+            # 일단은 단순 문자열 매칭으로 가정하되, \n은 특별 취급
+            processed_identifier = segment_identifier.replace("\\n", "\n")
+            if processed_identifier not in separators:
+                separators.insert(0, processed_identifier)
+
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=separators,
+            keep_separator=True,
+        )
+
+        splits = splitter.split_text(full_text)
+
+        # 4. 결과 포맷팅 & 토큰 계산
+        try:
+            encoding = tiktoken.encoding_for_model(self.ai_model)
+        except KeyError:
+            encoding = tiktoken.get_encoding("cl100k_base")
+
+        preview_segments = []
+        for split in splits:
+            token_count = len(encoding.encode(split))
+            preview_segments.append(
+                {
+                    "content": split,
+                    "token_count": token_count,
+                    "char_count": len(split),
+                }
+            )
+
+        return preview_segments

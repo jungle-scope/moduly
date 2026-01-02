@@ -35,6 +35,8 @@ class DocumentResponse(BaseModel):
     error_message: Optional[str] = None
     chunk_count: int = 0
     token_count: int = 0  # 추후 구현
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
     meta_info: Optional[dict] = None
 
 
@@ -60,3 +62,36 @@ class ChunkPreview(BaseModel):
 class RAGResponse(BaseModel):
     answer: str
     references: List[ChunkPreview]  # Metadata for UI source linking
+
+
+class DocumentPreviewRequest(BaseModel):
+    chunk_size: int = 500
+    chunk_overlap: int = 50
+    segment_identifier: str = "\n\n"
+    remove_urls_emails: bool = False
+    remove_whitespace: bool = True
+    strategy: str = "general"  # "general" or "llamaparse"
+
+
+class DocumentProcessRequest(DocumentPreviewRequest):
+    # PreviewRequest와 동일한 필드를 사용 (상속)
+    pass
+
+
+class DocumentSegment(BaseModel):
+    content: str
+    token_count: int
+    char_count: int
+
+
+class DocumentAnalyzeResponse(BaseModel):
+    filename: str
+    cost_estimate: dict  # { "pages": int, "credits": int, "cost_usd": float }
+    recommended_strategy: str = "general"
+    is_cached: bool = False
+
+
+class DocumentPreviewResponse(BaseModel):
+    segments: List[DocumentSegment]
+    total_count: int
+    preview_text_sample: str = ""

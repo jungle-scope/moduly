@@ -17,7 +17,12 @@ from api.deps import get_db
 from auth.dependencies import get_current_user
 from db.models.knowledge import Document, KnowledgeBase
 from db.models.user import User
-from schemas.rag import IngestionResponse, RAGResponse, SearchQuery
+from schemas.rag import (
+    DocumentAnalyzeResponse,
+    IngestionResponse,
+    RAGResponse,
+    SearchQuery,
+)
 from services.ingestion_local_service import IngestionService
 from services.retrieval import RetrievalService
 
@@ -120,25 +125,9 @@ async def upload_document(
         chunk_overlap=chunk_overlap,
     )
 
-    # [3] 비동기 작업 트리거 (분기 처리)
-    if ingestion_mode == "BEDROCK":
-        from services.ingestion_bedrock_service import BedrockIngestionService
-
-        bedrock_service = BedrockIngestionService()
-        background_tasks.add_task(
-            bedrock_service.process_document,
-            file_path=file_path,
-            filename=file.filename,
-            document_id=str(doc_id),
-        )
-    else:
-        # LOCAL Mode (Default)
-        background_tasks.add_task(
-            local_service.process_document_background,
-            doc_id,
-            target_kb_id,
-            file_path,
-        )
+    print(
+        f"=== [upload_document] Auto-processing skipped. Document {doc_id} is pending configuration. ==="
+    )
 
     return IngestionResponse(  # TODO: 프론트에서 응답 받아서 사용
         knowledge_base_id=target_kb_id,  # 프론트엔드 이동용
@@ -148,10 +137,28 @@ async def upload_document(
     )
 
 
+@router.post("/document/{document_id}/analyze", response_model=DocumentAnalyzeResponse)
+async def analyze_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    문서 분석 API: 페이지 수 및 LlamaParse 비용 예측 반환
+    """
+    ingestion_service = IngestionService(db)
+    try:
+        result = await ingestion_service.analyze_document(document_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/document/{document_id}/confirm")
 async def confirm_document_parsing(
     document_id: UUID,
     background_tasks: BackgroundTasks,
+    strategy: str = "llamaparse",  # "llamaparse" or "general"
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -170,11 +177,15 @@ async def confirm_document_parsing(
     ingestion_service = IngestionService(db)
 
     background_tasks.add_task(
-        ingestion_service.resume_with_llamaparse,
+        ingestion_service.resume_processing,
         document_id,
+        strategy,
     )
 
-    return {"message": "Parsing resumed with LlamaParse", "status": "processing"}
+    return {
+        "message": f"Parsing resumed with strategy: {strategy}",
+        "status": "processing",
+    }
 
 
 @router.delete("/document/{document_id}")
@@ -222,3 +233,57 @@ def chat_with_knowledge(query: SearchQuery, db: Session = Depends(get_db)):
         query.query, knowledge_base_id=kb_id_str
     )
     return response
+
+
+@router.get("/document/{document_id}/progress")
+async def get_document_progress(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    [SSE] 문서 처리 진행 상황을 실시간 스트리밍으로 반환합니다.
+    """
+    import asyncio
+    import json
+
+    from fastapi.responses import StreamingResponse
+
+    async def event_generator():
+        while True:
+            # 1. DB에서 문서 상태 조회 (Polling)
+            doc = db.query(Document).get(document_id)
+
+            if not doc:
+                yield 'data: {"error": "Document not found"}\n\n'
+                break
+
+            # 2. meta_info에서 진행 정보 가져오기
+            meta = doc.meta_info or {}
+            progress = meta.get("processing_progress", 0)
+            step_message = meta.get("processing_current_step", "대기 중...")
+            status = doc.status
+
+            # 3. 데이터 전송 포맷 (SSE 표준: "data: ...\n\n")
+            data = json.dumps(
+                {
+                    "progress": progress,
+                    "message": step_message,
+                    "status": status,
+                    "error": doc.error_message,
+                },
+                ensure_ascii=False,
+            )
+
+            yield f"data: {data}\n\n"
+
+            # 4. 종료 조건
+            if status == "completed" or progress >= 100:
+                break
+            if status == "failed":
+                break
+
+            # 1초 대기 (서버 부하 방지)
+            await asyncio.sleep(1)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

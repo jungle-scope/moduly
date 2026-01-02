@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, DragEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Upload, FileText, Settings, Loader2 } from 'lucide-react';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
 
@@ -15,6 +16,7 @@ export default function CreateKnowledgeModal({
   onClose,
   knowledgeBaseId,
 }: CreateKnowledgeModalProps) {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -30,9 +32,18 @@ export default function CreateKnowledgeModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 50MB 제한 (bytes)
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        alert('파일 크기는 50MB를 초과할 수 없습니다.');
+        e.target.value = ''; // 초기화
+        return;
+      }
+      setFile(selectedFile);
     }
   };
 
@@ -43,7 +54,12 @@ export default function CreateKnowledgeModal({
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
+      const droppedFile = e.dataTransfer.files[0];
+      if (droppedFile.size > MAX_FILE_SIZE) {
+        alert('파일 크기는 50MB를 초과할 수 없습니다.');
+        return;
+      }
+      setFile(droppedFile);
     }
   };
 
@@ -57,7 +73,7 @@ export default function CreateKnowledgeModal({
       setIsLoading(true);
       console.log('Creating knowledge base:', { file, ...formData });
 
-      await knowledgeApi.uploadKnowledgeBase({
+      const response = await knowledgeApi.uploadKnowledgeBase({
         file: file,
         name: formData.name,
         description: formData.description,
@@ -69,8 +85,11 @@ export default function CreateKnowledgeModal({
         knowledgeBaseId: knowledgeBaseId,
       });
 
-      // 성공 시 모달 닫기
+      // 성공 시 모달 닫기 및 문서 설정 페이지로 이동
       onClose();
+      router.push(
+        `/dashboard/knowledge/${response.knowledge_base_id}/document/${response.document_id}`,
+      );
     } catch (error) {
       console.error('Failed to create/upload knowledge base:', error);
       alert('요청 처리에 실패했습니다.');
@@ -122,7 +141,7 @@ export default function CreateKnowledgeModal({
                     파일을 드래그하거나 클릭하여 선택하세요
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-500">
-                    PDF, TXT, DOCX 등
+                    PDF, Excel, Word, TXT/MD 등 (최대 50MB)
                   </p>
                 </div>
               )}
@@ -131,7 +150,7 @@ export default function CreateKnowledgeModal({
                 type="file"
                 onChange={handleFileChange}
                 className="hidden"
-                accept=".pdf,.txt,.docx,.md"
+                accept=".pdf,.txt,.md,.docx,.xlsx,.xls,.csv"
               />
             </div>
           </div>
