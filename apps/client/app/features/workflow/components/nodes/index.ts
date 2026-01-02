@@ -5,6 +5,7 @@ import { CodeNode } from './code/components/CodeNode';
 import { ConditionNode } from './condition/components/ConditionNode';
 import { LLMNode } from './llm/components/LLMNode';
 import { TemplateNode } from './template/components/TemplateNode';
+import { WorkflowNode } from './workflow/components/WorkflowNode';
 import { FileExtractionNode } from './file_extraction/components/FileExtractionNode';
 
 // import EndNode from './EndNode';
@@ -18,6 +19,7 @@ export const nodeTypes = {
   conditionNode: ConditionNode,
   llmNode: LLMNode,
   templateNode: TemplateNode,
+  workflowNode: WorkflowNode,
   fileExtractionNode: FileExtractionNode,
   // endNode: EndNode,
 };

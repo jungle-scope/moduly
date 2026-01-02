@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -9,11 +9,12 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
-  type Node,
+  // type Node, // 충돌 방지를 위해 제거됨
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import { WorkflowNodeData, Node } from '../../types/Nodes';
 import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
@@ -28,6 +29,11 @@ import { CodeNodePanel } from '../nodes/code/components/CodeNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
+import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
+
+import { AppSearchModal } from '../modals/AppSearchModal';
+import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
+import { App } from '@/app/features/app/api/appApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
 
 export default function NodeCanvas() {
@@ -41,12 +47,55 @@ export default function NodeCanvas() {
     workflows,
     activeWorkflowId,
     updateWorkflowViewport,
+    setNodes,
   } = useWorkflowStore();
 
-  const { fitView, setViewport, getViewport } = useReactFlow();
+  const { fitView, setViewport, getViewport, screenToFlowPosition } =
+    useReactFlow();
   // 세부 정보 패널을 위한 선택된 노드 추적
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
+
+  // 앱 검색 모달 상태
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+  // 키보드 단축키: 검색 모달을 열기 위한 Cmd+K
+  useKeyboardShortcut(
+    ['Meta', 'k'],
+    () => {
+      setIsSearchModalOpen(true);
+    },
+    { preventDefault: true },
+  );
+
+  // 앱 선택 처리: 워크플로우 노드 추가
+  const handleSelectApp = useCallback(
+    (app: App) => {
+      // 화면 중앙 위치 계산
+      // 캔버스 컨테이너가 전체 화면이거나 그에 가깝다고 가정
+      const centerPos = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
+
+      const newNode: Node = {
+        id: `workflow-${Date.now()}`,
+        type: 'workflowNode',
+        position: centerPos,
+        data: {
+          title: app.name,
+          workflowId: app.workflow_id || '',
+          appId: app.id,
+          icon: app.icon?.content || '⚡️',
+          status: 'idle',
+        } as WorkflowNodeData,
+      };
+
+      setNodes([...nodes, newNode]);
+      setIsSearchModalOpen(false);
+    },
+    [nodes, setNodes, screenToFlowPosition],
+  );
 
   const nodeTypes = useMemo(
     () => ({
@@ -57,10 +106,17 @@ export default function NodeCanvas() {
   ) as unknown as NodeTypes;
 
   // 워크플로우 전환 시 뷰포트 복원
+  const prevActiveWorkflowId = useRef(activeWorkflowId);
+
   useEffect(() => {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
-    if (activeWorkflow?.viewport) {
-      setViewport(activeWorkflow.viewport);
+
+    // 워크플로우 ID가 바뀌었을 때만 뷰포트 복원
+    if (prevActiveWorkflowId.current !== activeWorkflowId) {
+      if (activeWorkflow?.viewport) {
+        setViewport(activeWorkflow.viewport);
+      }
+      prevActiveWorkflowId.current = activeWorkflowId;
     }
   }, [activeWorkflowId, workflows, setViewport]);
 
@@ -97,12 +153,23 @@ export default function NodeCanvas() {
   const panelHeader = useMemo(() => {
     if (!selectedNodeType) return undefined;
     const def = getNodeDefinitionByType(selectedNodeType);
+    // Workflow Node의 경우 아이콘과 제목을 동적으로 설정할 수 있음
+    if (selectedNodeType === 'workflowNode' && selectedNode) {
+      return {
+        icon: (selectedNode.data as unknown as WorkflowNodeData).icon || '🔄',
+        title:
+          (selectedNode.data as unknown as WorkflowNodeData).title ||
+          'Workflow Module',
+        description: 'Imported Workflow Module',
+      };
+    }
+
     return {
       icon: def?.icon || '⬜️',
       title: def?.name || 'Node',
       description: def?.description,
-    }; // NOTE: [LLM] 노드 정의 기반으로 패널 헤더 표시
-  }, [selectedNodeType]);
+    };
+  }, [selectedNodeType, selectedNode]);
 
   // 인터랙티브 모드에 따라 ReactFlow 구성
   const reactFlowConfig = useMemo(() => {
@@ -135,10 +202,26 @@ export default function NodeCanvas() {
     }, 300);
   }, [fitView, getViewport, activeWorkflowId, updateWorkflowViewport]);
 
+  // 현재 워크플로우의 앱 ID 찾기
+  const currentAppId = useMemo(() => {
+    const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
+    return activeWorkflow?.appId;
+  }, [workflows, activeWorkflowId]);
+
   return (
     <div className="flex-1 bg-gray-50 relative flex flex-col">
       {/* 워크플로우 탭 */}
       <WorkflowTabs />
+
+      {/* App Search Modal */}
+      <AppSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onSelect={handleSelectApp}
+        excludedAppId={currentAppId}
+      />
+
+      {/* ReactFlow 캔버스 */}
 
       {/* ReactFlow 캔버스 */}
       <div className="flex-1 relative">
@@ -171,7 +254,7 @@ export default function NodeCanvas() {
           isPanelOpen={!!selectedNodeId}
         />
 
-        {/* Node Details Panel - positioned relative to ReactFlow container */}
+        {/* 노드 상세 패널 - ReactFlow 컨테이너 기준으로 위치 */}
         <NodeDetailsPanel
           nodeId={selectedNodeId}
           onClose={handleClosePanel}
@@ -213,9 +296,17 @@ export default function NodeCanvas() {
               data={selectedNode.data as any}
             />
           )}
+
           {/* NOTE: [TemplateNode] TemplateNode 선택 시 패널 렌더링 추가 */}
           {selectedNode && selectedNodeType === 'templateNode' && (
             <TemplateNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {/* [WorkflowNode] 모듈 입력 매핑 패널 추가 */}
+          {selectedNode && selectedNodeType === 'workflowNode' && (
+            <WorkflowNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

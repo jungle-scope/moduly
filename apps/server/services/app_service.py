@@ -150,6 +150,10 @@ class AppService:
         if request.icon is not None:
             app.icon = request.icon.model_dump()
         if request.is_market is not None:
+            # 복제된 앱은 마켓에 공개 불가
+            if request.is_market and app.forked_from:
+                print(f"❌ Cannot publish cloned app {app_id} to market")
+                return None
             app.is_market = request.is_market
 
         db.commit()
@@ -188,6 +192,7 @@ class AppService:
             auth_secret=new_secret,
             forked_from=source_app_id,  # 원본 추적
             created_by=user_id,
+            is_market=False, # 복제된 앱은 기본적으로 비공개
         )
         db.add(new_app)
         db.flush()

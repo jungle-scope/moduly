@@ -33,6 +33,7 @@ export interface App {
   is_market: boolean;
   forked_from?: string;
   workflow_id?: string;
+  active_deployment_id?: string;
   created_at: string;
   updated_at: string;
 }

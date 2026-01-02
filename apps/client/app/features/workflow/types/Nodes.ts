@@ -145,6 +145,21 @@ export interface CodeNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ======================== [WorkflowNode] ====================================
+export interface WorkflowNodeInput {
+  name: string; // 대상 변수 이름
+  value_selector: string[]; // [node_id, key]
+}
+
+export interface WorkflowNodeData extends BaseNodeData {
+  workflowId: string;
+  appId: string;
+  icon?: string;
+  inputs?: WorkflowNodeInput[];
+  outputs?: string[]; // 대상 워크플로우의 AnswerNode 출력 변수명 목록
+}
+// ============================================================================
+
 // ==================== [FileExtractionNode] ==================================
 export interface FileExtractionNodeData extends BaseNodeData {
   file_path_variable?: [string, string]; // value_selector: [node_id, variable_key]
@@ -163,6 +178,7 @@ export type LLMNode = ReactFlowNode<LLMNodeData, 'llmNode'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
 export type CodeNode = ReactFlowNode<CodeNodeData, 'codeNode'>;
 export type TemplateNode = ReactFlowNode<TemplateNodeData, 'templateNode'>;
+export type WorkflowNode = ReactFlowNode<WorkflowNodeData, 'workflowNode'>;
 export type FileExtractionNode = ReactFlowNode<
   FileExtractionNodeData,
   'fileExtractionNode'
@@ -179,7 +195,8 @@ export type AppNode =
   | CodeNode
   | TemplateNode
   | FileExtractionNode
-  | NoteNode;
+  | NoteNode
+  | WorkflowNode;
 
 //하위 호환성 (필요시)
 export type NodeData = BaseNodeData;

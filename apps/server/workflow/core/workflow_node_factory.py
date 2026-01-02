@@ -11,6 +11,8 @@ from workflow.nodes.llm import LLMNode, LLMNodeData
 from workflow.nodes.start import StartNode, StartNodeData
 from workflow.nodes.template.entities import TemplateNodeData
 from workflow.nodes.template.template_node import TemplateNode
+from workflow.nodes.workflow.entities import WorkflowNodeData
+from workflow.nodes.workflow.workflow_node import WorkflowNode
 
 
 class NodeFactory:
@@ -29,6 +31,7 @@ class NodeFactory:
         "llmNode": (LLMNode, LLMNodeData),
         "httpRequestNode": (HttpRequestNode, HttpRequestNodeData),
         "templateNode": (TemplateNode, TemplateNodeData),
+        "workflowNode": (WorkflowNode, WorkflowNodeData),
         "fileExtractionNode": (FileExtractionNode, FileExtractionNodeData),
     }
 

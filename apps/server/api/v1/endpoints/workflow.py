@@ -180,8 +180,11 @@ def execute_workflow(
         # 1. 입력받은 graph(dict)를 NodeSchema/EdgeSchema 객체로 파싱 및 검증
         # 2. 엣지 정보를 바탕으로 노드 간의 실행 경로(Graph 구조) 빌드
         # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
+        # execution_context에 'db' 세션을 주입하는 이유:
+        # WorkflowNode(모듈)가 실행될 때 대상 워크플로우의 그래프 데이터를 DB에서 로드해야 하기 때문입니다.
+        # 이를 통해 하위 워크플로우를 동적으로 불러와 실행할 수 있습니다.
         engine = WorkflowEngine(
-            graph, user_input, execution_context={"user_id": str(current_user.id)}
+            graph, user_input, execution_context={"user_id": str(current_user.id), "db": db}
         )
         print("user_input", user_input)
 
@@ -279,7 +282,7 @@ async def stream_workflow(
             )
 
         engine = WorkflowEngine(
-            graph, user_input, execution_context={"user_id": str(current_user.id)}
+            graph, user_input, execution_context={"user_id": str(current_user.id), "db": db}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

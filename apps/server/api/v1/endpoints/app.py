@@ -92,7 +92,7 @@ def clone_app(
     """
     앱을 복제합니다. (내 스튜디오로 복사)
     """
-    app = AppService.clone_app(db, user_id=str(current_user.id), app_id=app_id)
+    app = AppService.clone_app(db, user_id=str(current_user.id), source_app_id=app_id)
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
 
