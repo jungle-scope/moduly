@@ -172,4 +172,10 @@ export const workflowApi = {
     const response = await api.get(`/workflows/${workflowId}/stats`);
     return response.data as import('../types/Api').DashboardStatsResponse;
   },
+  
+  // [NEW] Top 3 Models
+  getTopExpensiveModels: async () => {
+    const response = await api.get('/llm/stats/top-models'); // Note: baseURL is /api/v1
+    return response.data as import('../types/Api').TopExpensiveModel[];
+  }
 };

@@ -76,6 +76,13 @@ export const LogList = ({ logs, onSelect, selectedLogId, className = '', selecti
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center flex-wrap gap-2">
+                 {/* [NEW] Service Name (Global Log View only) */}
+                 {(log as any).workflow_name && (
+                    <span className="text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">
+                        {(log as any).workflow_name}
+                    </span>
+                 )}
+
                  <span className="font-medium text-gray-900">
                     {log.trigger_mode === 'manual' ? '테스트 실행' : '배포 실행'}
                  </span>

@@ -4,33 +4,30 @@ import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 
 interface LogFilterBarProps {
   onFilterChange: (filters: LogFilters) => void;
-  availableVersions?: string[]; // [NEW] 동적 버전 목록
+  availableVersions?: string[];
+  availableServices?: { id: string; name: string }[]; // [NEW] 서비스 목록
 }
 
 export interface LogFilters {
   status: 'all' | 'success' | 'failed';
   version: 'all' | string;
+  serviceId: 'all' | string; // [NEW]
   dateRange: {
     start: Date | null;
     end: Date | null;
   };
 }
 
-export const LogFilterBar = ({ onFilterChange, availableVersions = [] }: LogFilterBarProps) => {
+export const LogFilterBar = ({ onFilterChange, availableVersions = [], availableServices = [] }: LogFilterBarProps) => {
   const [filters, setFilters] = useState<LogFilters>({
     status: 'all',
     version: 'all',
+    serviceId: 'all',
     dateRange: { start: null, end: null },
   });
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newFilters = { ...filters, status: e.target.value as any };
-    setFilters(newFilters);
-    onFilterChange(newFilters);
-  };
-
-  const handleVersionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newFilters = { ...filters, version: e.target.value };
+  const handleFilterChange = (key: keyof LogFilters, value: any) => {
+    const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     onFilterChange(newFilters);
   };
@@ -38,33 +35,44 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [] }: LogFilt
   const handleDatePreset = (days: number) => {
     const end = endOfDay(new Date());
     const start = startOfDay(subDays(new Date(), days));
-    const newFilters = { ...filters, dateRange: { start, end } };
-    setFilters(newFilters);
-    onFilterChange(newFilters);
+    handleFilterChange('dateRange', { start, end });
   };
 
   // Date input handling (string to Date)
   const handleDateChange = (type: 'start' | 'end', value: string) => {
     const date = value ? new Date(value) : null;
     const newRange = { ...filters.dateRange, [type]: date };
-    
-    // Auto-adjust logic: if start > end, swap or warn? For simplicity, just set.
-    const newFilters = { ...filters, dateRange: newRange };
-    setFilters(newFilters);
-    onFilterChange(newFilters);
+    handleFilterChange('dateRange', newRange);
   };
 
   return (
     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 space-y-4">
-      {/* Upper Row: Status & Version & Quick Actions */}
+      {/* Upper Row: Filters & Quick Actions */}
       <div className="flex flex-wrap items-center gap-4">
         
+        {/* Service Filter (Global Only) */}
+        {availableServices.length > 0 && (
+            <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <select 
+                    value={filters.serviceId}
+                    onChange={(e) => handleFilterChange('serviceId', e.target.value)}
+                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
+                >
+                    <option value="all">모든 서비스</option>
+                    {availableServices.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                </select>
+            </div>
+        )}
+
         {/* Status Filter */}
         <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
+            {!availableServices.length && <Filter className="w-4 h-4 text-gray-500" />}
             <select 
                 value={filters.status}
-                onChange={handleStatusChange}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]"
             >
                 <option value="all">모든 상태</option>
@@ -73,13 +81,13 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [] }: LogFilt
             </select>
         </div>
 
-        {/* Version Filter (Show only if versions exist) */}
-        {availableVersions && availableVersions.length > 0 && (
+        {/* Version Filter */}
+        {availableVersions.length > 0 && (
             <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500">Version:</span>
                 <select 
                     value={filters.version}
-                    onChange={handleVersionChange}
+                    onChange={(e) => handleFilterChange('version', e.target.value)}
                     className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]"
                 >
                     <option value="all">전체 버전</option>
@@ -133,10 +141,10 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [] }: LogFilt
             />
         </div>
         
-        {/* Reset Button (Optional) */}
+        {/* Reset Button */}
         <button 
             onClick={() => {
-                const reset = { status: 'all', version: 'all', dateRange: { start: null, end: null } } as any;
+                const reset = { status: 'all', version: 'all', serviceId: 'all', dateRange: { start: null, end: null } } as any;
                 setFilters(reset);
                 onFilterChange(reset);
             }}

@@ -94,3 +94,10 @@ export interface WorkflowRunListResponse {
   total: number;
   items: WorkflowRun[];
 }
+
+export interface TopExpensiveModel {
+    model_name: string;
+    provider_name: string;
+    total_cost: number;
+    total_tokens: number;
+}
