@@ -130,6 +130,7 @@ export default function EditorSidebar() {
         {
           nodes: [],
           edges: [],
+          appId: appId,
         },
         appId,
       );
