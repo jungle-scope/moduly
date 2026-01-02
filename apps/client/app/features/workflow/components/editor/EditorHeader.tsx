@@ -562,16 +562,27 @@ export default function EditorHeader() {
 
                   <button
                     onClick={() => {
+                      if (nodes.some((node) => node.type === 'workflowNode'))
+                        return;
                       setShowDeployDropdown(false);
                       handlePublishAsWorkflowNode();
                     }}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    disabled={nodes.some(
+                      (node) => node.type === 'workflowNode',
+                    )}
+                    className={`w-full px-4 py-3 text-left transition-colors ${
+                      nodes.some((node) => node.type === 'workflowNode')
+                        ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                        : 'hover:bg-gray-50'
+                    }`}
                   >
                     <div className="font-medium text-gray-900">
                       워크플로우 노드로 배포
                     </div>
                     <div className="text-sm text-gray-500 mt-1">
-                      다른 워크플로우에서 재사용
+                      {nodes.some((node) => node.type === 'workflowNode')
+                        ? '워크플로우 노드 포함 시 배포 불가'
+                        : '다른 워크플로우에서 재사용'}
                     </div>
                   </button>
                 </div>
