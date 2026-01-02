@@ -3,8 +3,9 @@ import os
 from typing import List
 from uuid import UUID
 
+import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -205,6 +206,46 @@ def get_document_content(
     media_type, _ = mimetypes.guess_type(doc.file_path)
     if not media_type:
         media_type = "application/octet-stream"
+
+    # Excel/CSV 파일은 HTML로 변환하여 미리보기 제공
+    ext = os.path.splitext(doc.filename)[1].lower()
+    if ext in [".xlsx", ".xls", ".csv"]:
+        try:
+            if ext == ".csv":
+                df = pd.read_csv(doc.file_path, nrows=100)
+            else:
+                df = pd.read_excel(doc.file_path, nrows=100)
+
+            # HTML 스타일링
+            html_content = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #ffffff; }}
+                    table {{ border-collapse: collapse; width: 100%; font-size: 14px; border: 1px solid #e5e7eb; }}
+                    th {{ background-color: #f9fafb; color: #374151; font-weight: 600; text-align: left; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }}
+                    td {{ padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #4b5563; }}
+                    tr:last-child td {{ border-bottom: none; }}
+                    tr:hover td {{ background-color: #f9fafb; }}
+                    .info-banner {{
+                        margin-bottom: 16px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fcd34d;
+                        color: #92400e; border-radius: 6px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="info-banner">
+                    <span>⚠️</span>
+                    성능을 위해 상위 100행만 미리보기로 제공됩니다.
+                </div>
+                {df.to_html(index=False, border=0)}
+            </body>
+            </html>
+            """
+            return HTMLResponse(content=html_content)
+        except Exception as e:
+            print(f"Excel conversion failed: {e}")
+            # 변환 실패 시 다운로드로 fallback
 
     return FileResponse(
         doc.file_path,

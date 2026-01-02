@@ -6,8 +6,10 @@ from enum import Enum
 from uuid import UUID
 
 import fitz
+import pandas as pd
 import pymupdf4llm
 import tiktoken
+from docx import Document as DocxDocument
 from fastapi import UploadFile
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
@@ -104,7 +106,21 @@ class IngestionService:
 
             # 1단계: 파싱 (document_id 전달)
             self._update_progress(document_id, 10, "문서 내용을 분석하고 있습니다...")
-            text_blocks = self._parse_pdf(file_path, document_id)
+
+            # 파일 확장자에 따른 분기 처리
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext == ".pdf":
+                text_blocks = self._parse_pdf(file_path, document_id)
+            elif ext in [".xlsx", ".xls", ".csv"]:
+                text_blocks = self._parse_excel_csv(file_path)
+            elif ext == ".docx":
+                text_blocks = self._parse_docx(file_path)
+            elif ext in [".txt", ".md"]:
+                text_blocks = self._parse_txt(file_path)
+            else:
+                # 지원하지 않는 파일 포맷 -> 텍스트로 시도 or 에러
+                print(f"[Warning] Unsupported file type: {ext}. Trying as text.")
+                text_blocks = self._parse_txt(file_path)
 
             # 파싱 결과가 비어있다면 (비용 승인 대기 등) 중단
             if not text_blocks:
@@ -382,6 +398,14 @@ class IngestionService:
         기준: Standard Mode (3 credits/page), $1 = 1000 credits
         """
         try:
+            # PDF가 아닌 경우 fitz.open()이 실패할 수 있으므로 예외 처리
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext not in [".pdf", ".xps", ".epub", ".mobi", ".fb2", ".cbz", ".svg"]:
+                # 이미지 파일(png, jpg 등)은 fitz로 열 수 있지만, 엑셀/워드는 불가
+                # 일단 0으로 리턴하여 fallback 유도
+                if ext not in [".png", ".jpg", ".jpeg", ".tiff", ".bmp"]:
+                    return {"pages": 0, "credits": 0, "cost_usd": 0.0}
+
             doc = fitz.open(file_path)
             total_pages = len(doc)
             doc.close()
@@ -399,6 +423,58 @@ class IngestionService:
         except Exception as e:
             print(f"[Warning] Cost estimation failed: {e}")
             return {"pages": 0, "credits": 0, "cost_usd": 0.0}
+
+    def _parse_excel_csv(self, file_path: str) -> list[dict]:
+        """Excel/CSV 파일 파싱 (모든 시트 처리)"""
+        text_content = ""
+        ext = os.path.splitext(file_path)[1].lower()
+
+        try:
+            if ext == ".csv":
+                df = pd.read_csv(file_path)
+                text_content += f"# CSV Content\n\n{df.to_markdown(index=False)}\n"
+            else:
+                # sheet_name=None -> 모든 시트를 dict로 반환
+                xls = pd.read_excel(file_path, sheet_name=None)
+                for sheet_name, df in xls.items():
+                    text_content += f"\n# Sheet: {sheet_name}\n\n"
+                    text_content += df.to_markdown(index=False) + "\n"
+
+            # 엑셀은 페이지 개념이 모호하므로 전체를 1페이지로 취급하거나 적절히 분할
+            return [{"text": text_content, "page": 1}]
+        except Exception as e:
+            print(f"Excel/CSV parsing failed: {e}")
+            return []
+
+    def _parse_docx(self, file_path: str) -> list[dict]:
+        """Word(.docx) 파일 파싱"""
+        try:
+            doc = DocxDocument(file_path)
+            full_text = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    full_text.append(para.text)
+
+            # 간단한 표 처리
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = [cell.text for cell in row.cells]
+                    full_text.append(" | ".join(row_text))
+
+            return [{"text": "\n".join(full_text), "page": 1}]
+        except Exception as e:
+            print(f"Docx parsing failed: {e}")
+            return []
+
+    def _parse_txt(self, file_path: str) -> list[dict]:
+        """Text/Markdown 파일 파싱"""
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return [{"text": content, "page": 1}]
+        except Exception as e:
+            print(f"Text parsing failed: {e}")
+            return []
 
     def _is_mixed_quality_poor(self, results: list[dict]) -> bool:
         """MIXED 모드 품질 검사: 레이아웃이 심각하게 깨졌는지 확인"""
