@@ -37,8 +37,13 @@ export function AppSearchModal({
 
           // 필터링 로직:
           // 1. 현재 편집 중인 앱 제외 (순환 참조 방지 등)
-          // 2. 사용자가 접근 가능한 모든 앱 포함 (Public + Private)
-          const validApps = data.filter((app) => app.id !== excludedAppId);
+          // 2. "워크플로우 노드"로 배포된 앱만 표시
+          const validApps = data.filter(
+            (app) =>
+              app.id !== excludedAppId &&
+              app.active_deployment_id &&
+              app.active_deployment_type === 'workflow_node',
+          );
 
           setApps(validApps);
         } catch (error) {

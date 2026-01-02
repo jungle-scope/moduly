@@ -41,6 +41,7 @@ class AppResponse(BaseModel):
     is_market: bool
     forked_from: Optional[UUID] = None
     active_deployment_id: Optional[UUID] = None
+    active_deployment_type: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
