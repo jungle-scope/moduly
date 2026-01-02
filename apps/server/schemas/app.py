@@ -5,14 +5,19 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class AppIcon(BaseModel):
+    type: str
+    content: str
+    background_color: str
+
+
 class AppCreateRequest(BaseModel):
     """앱 생성 요청 스키마"""
 
     name: str
     description: Optional[str] = None
-    icon: str
-    icon_background: str
-    is_public: bool = False
+    icon: AppIcon
+    is_market: bool = False
 
 
 class AppUpdateRequest(BaseModel):
@@ -20,9 +25,8 @@ class AppUpdateRequest(BaseModel):
 
     name: Optional[str] = None
     description: Optional[str] = None
-    icon: Optional[str] = None
-    icon_background: Optional[str] = None
-    is_public: Optional[bool] = None
+    icon: Optional[AppIcon] = None
+    is_market: Optional[bool] = None
 
 
 class AppResponse(BaseModel):
@@ -31,10 +35,11 @@ class AppResponse(BaseModel):
     id: UUID
     name: str
     description: Optional[str]
-    icon: str
-    icon_background: str
-    is_public: bool
-    workflow_id: Optional[UUID] = None
+    icon: AppIcon
+    workflow_id: Optional[UUID] = None  # App의 작업실 Workflow
+    url_slug: Optional[str] = None  # 첫 배포 시 생성
+    is_market: bool
+    forked_from: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

@@ -1,76 +1,82 @@
 'use client';
 
 import { ChangeEvent, useEffect, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, Trash2, Key, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 
-type ProviderResponse = {
+// Types matching backend response
+type LLMModelResponse = {
   id: string;
-  provider_name: string;
-  provider_type: string;
+  name: string;
+};
+
+type LLMProviderResponse = {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  base_url: string;
+  doc_url?: string;
+  models: LLMModelResponse[];
+};
+
+type LLMCredentialResponse = {
+  id: string;
+  provider_id: string;
+  credential_name: string;
+  config_preview?: string;
   is_valid: boolean;
-  credentials: {
-    id: string;
-    credential_name: string;
-    encrypted_config: string;
-  }[];
+  created_at: string;
 };
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
 export default function SettingsProviderPage() {
+  const [providers, setProviders] = useState<LLMProviderResponse[]>([]);
+  const [credentials, setCredentials] = useState<LLMCredentialResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showProviderMenu, setShowProviderMenu] = useState(false);
-  const [providers, setProviders] = useState<ProviderResponse[]>([]);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>('');
   const [form, setForm] = useState({
     alias: '',
     apiKey: '',
-    model: 'gpt-4o-mini',
-    baseUrl: 'https://api.openai.com/v1',
-    providerType: 'openai',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [lastRequestLog, setLastRequestLog] = useState<string | null>(null);
-  const [loadingProviders, setLoadingProviders] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const fetchProviders = async () => {
-    setLoadingProviders(true);
-    setLoadError(null);
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/llm/providers`, {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setLoadError(
-          `목록 조회 실패 (status ${res.status}): ${JSON.stringify(data)}`,
-        );
-        return;
-      }
-      setProviders(data);
-      console.log('[settings/provider] fetched providers', data);
-    } catch (error) {
-      setLoadError(
-        error instanceof Error ? error.message : 'provider 목록 조회 실패',
-      );
+      // 1. Fetch System Providers
+      const provRes = await fetch(`${API_BASE_URL}/llm/providers`, { credentials: 'include' });
+      const provData = await provRes.json();
+      if (!provRes.ok) throw new Error(provData.detail || 'Failed to fetch providers');
+      setProviders(provData);
+
+      // 2. Fetch User Credentials
+      // Backend extracts user_id from auth cookie
+      const credRes = await fetch(`${API_BASE_URL}/llm/credentials`, { credentials: 'include' });
+      const credData = await credRes.json();
+      if (!credRes.ok) throw new Error(credData.detail || 'Failed to fetch credentials');
+      setCredentials(credData);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setLoadingProviders(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProviders();
+    fetchData();
   }, []);
 
-  const handleOpenModal = () => {
-    setForm({
-      alias: '',
-      apiKey: '',
-      model: 'gpt-4o-mini',
-      baseUrl: 'https://api.openai.com/v1',
-      providerType: 'openai',
-    });
+  const handleOpenModal = (providerId: string) => {
+    setSelectedProviderId(providerId);
+    setForm({ alias: '', apiKey: '' });
     setIsModalOpen(true);
   };
 
@@ -78,335 +84,225 @@ export default function SettingsProviderPage() {
     setIsModalOpen(false);
   };
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement>,
-    field: 'alias' | 'apiKey' | 'model' | 'baseUrl',
-  ) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-  };
-
   const handleSubmit = async () => {
-    const payload = {
-      alias: form.alias.trim(),
-      apiKey: form.apiKey.trim(),
-      model: form.model.trim(),
-      baseUrl: form.baseUrl.trim(),
-      providerType: form.providerType,
-    };
-
-    if (!payload.alias || !payload.apiKey) {
-      setLastRequestLog('alias와 apiKey를 모두 입력해주세요.');
+    if (!form.alias || !form.apiKey) {
+      alert('이름과 API Key를 입력해주세요.');
       return;
     }
 
-    console.log('[settings/provider] submitting payload', payload);
     setSubmitting(true);
-    setLastRequestLog(null);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/llm/providers`, {
+      const payload = {
+        provider_id: selectedProviderId,
+        credential_name: form.alias,
+        api_key: form.apiKey,
+        // Backend handles user_id from session
+      };
+
+      const res = await fetch(`${API_BASE_URL}/llm/credentials`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 쿠키 기반 인증 토큰 전달
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
-
-      const body = await response.json().catch(() => null);
-      console.log(
-        '[settings/provider] backend response',
-        response.status,
-        body,
-      );
-
-      setLastRequestLog(
-        JSON.stringify(
-          {
-            endpoint: `${API_BASE_URL}/llm/providers`,
-            status: response.status,
-            request: payload,
-            response: body,
-          },
-          null,
-          2,
-        ),
-      );
-
-      if (!response.ok) {
-        // 눈에 보이는 알림: 간결하게 안내
-        alert(
-          `등록 실패: OpenAI API Key 검증 실패\nstatus ${response.status}${
-            body?.detail ? ` / ${body.detail}` : ''
-          }`,
-        );
-        return;
+      
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.detail || 'Registration failed');
       }
 
+      alert('API Key가 성공적으로 등록되었습니다.');
       setIsModalOpen(false);
-      fetchProviders();
-    } catch (error) {
-      console.error('[settings/provider] submit failed', error);
-      setLastRequestLog(
-        JSON.stringify(
-          {
-            endpoint: `${API_BASE_URL}/llm/providers`,
-            request: payload,
-            error:
-              error instanceof Error ? error.message : '알 수 없는 에러입니다.',
-          },
-          null,
-          2,
-        ),
-      );
+      fetchData(); // Refresh list
+    } catch (err) {
+      alert(`Error: ${err instanceof Error ? err.message : err}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (credId: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/llm/providers/${id}`, {
+      // Backend handles user_id from session
+      const res = await fetch(`${API_BASE_URL}/llm/credentials/${credId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) {
-        alert(`삭제 실패 (status ${res.status}): ${JSON.stringify(body)}`);
-        return;
-      }
-      fetchProviders();
-    } catch (error) {
-      alert(
-        error instanceof Error
-          ? `삭제 중 에러: ${error.message}`
-          : '삭제 중 알 수 없는 에러',
-      );
+      if (!res.ok) throw new Error('Delete failed');
+      fetchData();
+    } catch (err) {
+      alert('삭제 실패');
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
-      <div className="mx-auto max-w-4xl space-y-6 px-4">
+      <div className="mx-auto max-w-5xl space-y-8 px-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            LLM provider 등록
-          </h1>
-          <p className="text-gray-600">
-            등록된 provider 목록을 확인하고 새 provider를 추가하세요.
+          <h1 className="text-2xl font-bold text-gray-900">LLM Provider 설정</h1>
+          <p className="text-gray-600 mt-1">
+            시스템이 지원하는 Provider에 본인의 API Key를 등록하여 사용하세요.
           </p>
-          {loadError && (
-            <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-              {loadError}
-            </p>
-          )}
         </div>
 
-        {loadingProviders ? (
-          <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-600">
-            불러오는 중...
-          </div>
-        ) : providers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-gray-600">
-            아직 등록된 provider가 없습니다.
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {providers.map((provider) => (
-              <div
-                key={provider.id}
-                className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      {provider.provider_name}
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      {provider.provider_type}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      credentials: {provider.credentials.length}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      provider.is_valid
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {provider.is_valid ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(provider.id)}
-                  className="mt-3 text-sm text-red-600 hover:text-red-700"
-                >
-                  삭제
-                </button>
-              </div>
-            ))}
-          </div>
+        {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                {error}
+            </div>
         )}
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase text-gray-500">Provider 선택</p>
-              <h3 className="text-sm font-semibold text-gray-900">
-                현재: OpenAI 등록 폼
-              </h3>
-              <p className="text-xs text-gray-500">
-                다른 provider는 준비 중이며, 선택지만 먼저 보여줍니다.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowProviderMenu((prev) => !prev)}
-              className="rounded-md border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              {showProviderMenu ? '닫기' : '다른 provider 보기'}
-            </button>
-          </div>
-          {showProviderMenu && (
-            <div className="mt-3 space-y-2">
-              <button
-                type="button"
-                className="w-full rounded-md border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600"
-                disabled
-              >
-                Anthropic (준비 중)
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-md border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600"
-                disabled
-              >
-                Azure OpenAI (준비 중)
-              </button>
-            </div>
-          )}
-        </div>
+        {loading ? (
+             <div className="text-center py-10 text-gray-500">로딩 중...</div>
+        ) : (
+            <div className="grid gap-6">
+                {providers.map(provider => {
+                    const myCreds = credentials.filter(c => c.provider_id === provider.id);
+                    
+                    return (
+                        <div key={provider.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-start">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-lg font-semibold text-gray-900 capitalize">{provider.name}</h2>
+                                        {myCreds.length > 0 && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Connected</span>}
+                                    </div>
+                                    <p className="text-sm text-gray-500 mt-1">{provider.description}</p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <div className="text-xs text-gray-400 flex gap-2">
+                                            <span>Base URL: {provider.base_url}</span>
+                                            <span>•</span>
+                                            <span>Models: {provider.models.length}개 지원 ({provider.models.slice(0,3).map(m=>m.name).join(', ')}{provider.models.length > 3 ? '...' : ''})</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                    <button
+                                        onClick={() => handleOpenModal(provider.id)}
+                                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-md hover:bg-gray-800 transition-colors whitespace-nowrap"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        API Key 등록
+                                    </button>
+                                    {provider.doc_url && (
+                                        <a 
+                                            href={provider.doc_url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 hover:underline"
+                                            title="API 키 발급 받고 오기"
+                                        >
+                                            Get API Key <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
 
-        <button
-          type="button"
-          onClick={handleOpenModal}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
-        >
-          <Plus className="h-5 w-5" />
-          Add provider
-        </button>
+                            {/* Credentials List */}
+                            <div className="bg-gray-50/50 px-6 py-3">
+                                {myCreds.length === 0 ? (
+                                    <p className="text-xs text-gray-400 italic">등록된 API Key가 없습니다.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {myCreds.map(cred => (
+                                            <div key={cred.id} className="flex items-center justify-between bg-white border border-gray-200 rounded px-3 py-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-1.5 rounded-full ${cred.is_valid ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                                        {cred.is_valid ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-800">{cred.credential_name}</p>
+                                                        <p className="text-xs text-gray-400 font-mono">{cred.config_preview}</p>
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleDelete(cred.id)}
+                                                    className="text-gray-400 hover:text-red-600 p-1"
+                                                    title="삭제"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        )}
 
+        {/* Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-4">
-            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase text-gray-500">OpenAI</p>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    OpenAI provider 추가
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    (임시) openai 규격으로 저장됩니다. 나중에 다른 provider
-                    유형으로 분리 예정.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-gray-900">API Key 등록</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                   {providers.find(p => p.id === selectedProviderId)?.name} 설정을 추가합니다.
+                </p>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    alias (provider 이름)
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    별칭 (Alias)
                   </label>
                   <input
                     type="text"
                     value={form.alias}
-                    onChange={(e) => handleChange(e, 'alias')}
-                    placeholder="예: my-openai-provider"
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    onChange={(e) => setForm(prev => ({ ...prev, alias: e.target.value }))}
+                    placeholder="예: 회사용 키, 개인용 키"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    API key
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    API Key
                   </label>
-                  <input
-                    type="password"
-                    value={form.apiKey}
-                    onChange={(e) => handleChange(e, 'apiKey')}
-                    placeholder="sk-***"
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    model
-                  </label>
-                  <input
-                    type="text"
-                    value={form.model}
-                    onChange={(e) => handleChange(e, 'model')}
-                    placeholder="예: gpt-4o, gpt-4o-mini"
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    base URL
-                  </label>
-                  <input
-                    type="text"
-                    value={form.baseUrl}
-                    onChange={(e) => handleChange(e, 'baseUrl')}
-                    placeholder="https://api.openai.com/v1"
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+                  <div className="relative">
+                    <input
+                        type="password"
+                        value={form.apiKey}
+                        onChange={(e) => setForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                        placeholder={(() => {
+                            const pName = providers.find(p => p.id === selectedProviderId)?.name.toLowerCase() || '';
+                            if (pName.includes('google')) return 'AIza...';
+                            if (pName.includes('anthropic')) return 'sk-ant-...';
+                            return 'sk-...';
+                        })()}
+                        className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                    />
+                    <Key className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    키 등록 시, 사용 가능한 모델 목록을 자동으로 가져옵니다.
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end gap-2">
+              <div className="mt-8 flex justify-end gap-3">
                 <button
-                  type="button"
                   onClick={handleCloseModal}
-                  className="rounded-md px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                  className="rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
                 >
                   취소
                 </button>
                 <button
-                  type="button"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
                 >
-                  {submitting ? '전송 중...' : '추가'}
+                  {submitting ? '등록 및 동기화 중...' : '등록하기'}
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {lastRequestLog && (
-          <div className="rounded-lg border border-gray-200 bg-gray-900 p-4 text-sm text-gray-100">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="font-semibold text-white">요청/응답 디버그 로그</p>
-              <span className="text-xs text-gray-400">
-                {new Date().toLocaleTimeString()}
-              </span>
-            </div>
-            <pre className="whitespace-pre-wrap break-words">
-              {lastRequestLog}
-            </pre>
           </div>
         )}
       </div>
     </div>
   );
 }
+

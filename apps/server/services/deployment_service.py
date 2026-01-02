@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from db.models.app import App
 from db.models.workflow import Workflow
 from db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from schemas.deployment import DeploymentCreate
@@ -36,24 +37,38 @@ class DeploymentService:
         Raises:
             HTTPException: 워크플로우를 찾을 수 없거나 권한이 없는 경우
         """
-        # 1. 워크플로우 존재 확인
-        workflow = (
-            db.query(Workflow).filter(Workflow.id == deployment_in.workflow_id).first()
-        )
+        # 1. App 조회 및 권한 확인
+        app = db.query(App).filter(App.id == deployment_in.app_id).first()
+        if not app:
+            raise HTTPException(status_code=404, detail="App not found")
+
+        # 2. 권한 체크
+        if app.created_by != str(user_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to deploy this app.",
+            )
+
+        # 3. Workflow 조회 (app의 작업실)
+        workflow = db.query(Workflow).filter(Workflow.id == app.workflow_id).first()
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
 
-        # 2. 권한 체크 (내 워크플로우인지)
-        if workflow.created_by != str(user_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You do not have permission to deploy this workflow.",
-            )
+        # 4. 첫 배포 시 url_slug, auth_secret 생성
+        if not app.url_slug:
+            from services.app_service import AppService
 
-        # 3. Draft 데이터(Snapshot) 가져오기
+            app.url_slug = AppService._generate_url_slug(db, app.name)
+
+        if not app.auth_secret:
+            app.auth_secret = secrets.token_urlsafe(32)
+
+        db.flush()
+
+        # 5. Draft 데이터(Snapshot) 가져오기
         graph_snapshot = deployment_in.graph_snapshot
         if not graph_snapshot:
-            graph_snapshot = WorkflowService.get_draft(db, deployment_in.workflow_id)
+            graph_snapshot = WorkflowService.get_draft(db, str(workflow.id))
 
         if not graph_snapshot:
             raise HTTPException(
@@ -61,45 +76,28 @@ class DeploymentService:
                 detail="Cannot deploy workflow without graph data. Please save the workflow first.",
             )
 
-        # 4. 버전 번호 채번
+        # 6. 버전 번호 채번 (app_id 기준)
         max_version = (
             db.query(func.max(WorkflowDeployment.version))
-            .filter(WorkflowDeployment.workflow_id == deployment_in.workflow_id)
+            .filter(WorkflowDeployment.app_id == deployment_in.app_id)
             .scalar()
         ) or 0
         new_version = max_version + 1
 
-        # 5. API Key (auth_secret) 및 URL Slug 생성
-        auth_secret = deployment_in.auth_secret
-
-        # 배포 타입에 따라 auth_secret 처리
-        if deployment_in.type in [DeploymentType.WEBAPP, DeploymentType.WIDGET]:
-            # 웹 앱 및 위젯은 무조건 공개 접근 (auth_secret 없음)
-            auth_secret = None
-        elif not auth_secret:
-            # REST API 등은 자동 생성 (auth_secret이 제공되지 않은 경우)
-            auth_secret = f"sk-{secrets.token_hex(24)}"
-        # else: auth_secret이 명시적으로 제공된 경우 그대로 사용
-
-        url_slug = deployment_in.url_slug
-        if not url_slug:
-            url_slug = f"v{new_version}-{secrets.token_hex(4)}"
-
-        # 6. graph_snapshot에서 입출력 스키마 자동 추출
+        # 7. 입출력 스키마 자동 추출
         input_schema = DeploymentService._extract_input_schema(graph_snapshot)
         output_schema = DeploymentService._extract_output_schema(graph_snapshot)
 
-        # 7. 배포 모델 생성
+        # 8. 배포 모델 생성
         db_obj = WorkflowDeployment(
-            workflow_id=deployment_in.workflow_id,
+            app_id=deployment_in.app_id,
             version=new_version,
             type=deployment_in.type,
-            url_slug=url_slug,
-            auth_secret=auth_secret,
+            # url_slug, auth_secret 제거 (App 모델에서 관리)
             graph_snapshot=graph_snapshot,
             config=deployment_in.config,
-            input_schema=input_schema,  # 추출된 입력 스키마
-            output_schema=output_schema,  # 추출된 출력 스키마
+            input_schema=input_schema,
+            output_schema=output_schema,
             description=deployment_in.description,
             created_by=user_id,
             is_active=deployment_in.is_active,
@@ -107,24 +105,35 @@ class DeploymentService:
 
         try:
             db.add(db_obj)
+            db.flush()
+
+            # 9. App의 active_deployment_id 업데이트
+            app.active_deployment_id = db_obj.id
+
             db.commit()
             db.refresh(db_obj)
+
+            # 응답 객체에 App의 url_slug와 auth_secret 주입 (프론트엔드 표시용)
+            # 모델에는 없지만 Pydantic response schema에는 존재함
+            db_obj.url_slug = app.url_slug
+            db_obj.auth_secret = app.auth_secret
+
+            return db_obj
+
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=400, detail=str(e))
 
-        return db_obj
-
     @staticmethod
     def list_deployments(
-        db: Session, workflow_id: str, skip: int = 0, limit: int = 100
+        db: Session, app_id: str, skip: int = 0, limit: int = 100
     ) -> List[WorkflowDeployment]:
         """
-        특정 워크플로우의 배포 이력을 조회합니다.
+        특정 앱의 배포 이력을 조회합니다.
 
         Args:
             db: 데이터베이스 세션
-            workflow_id: 워크플로우 ID
+            app_id: 앱 ID
             skip: 페이지네이션 시작 위치
             limit: 조회할 최대 개수
 
@@ -133,7 +142,7 @@ class DeploymentService:
         """
         deployments = (
             db.query(WorkflowDeployment)
-            .filter(WorkflowDeployment.workflow_id == workflow_id)
+            .filter(WorkflowDeployment.app_id == app_id)
             .order_by(desc(WorkflowDeployment.version))
             .offset(skip)
             .limit(limit)
@@ -179,9 +188,9 @@ class DeploymentService:
 
         Args:
             db: 데이터베이스 세션
-            url_slug: 배포 URL slug (예: "v3-24fb1145")
+            url_slug: 앱의 URL slug (예: "my-chat-app")
             user_inputs: 워크플로우 실행 시 사용자 입력 데이터
-            auth_token: 인증 토큰 (Bearer 토큰 또는 API secret)
+            auth_token: 인증 토큰 (Bearer 토큰 또는 API secret) - App의 auth_secret과 비교
             require_auth: 인증 검증 필요 여부 (True: REST API, False: 웹 앱)
 
         Returns:
@@ -190,22 +199,31 @@ class DeploymentService:
         Raises:
             HTTPException: 배포를 찾을 수 없거나 권한이 없거나 실행 실패 시
         """
-        # 1. url_slug와 일치하는 배포 찾기
+        # 1. url_slug와 일치하는 App 찾기 (App 중심 구조)
+        app = db.query(App).filter(App.url_slug == url_slug).first()
+        if not app:
+            raise HTTPException(status_code=404, detail="App not found.")
+
+        # 2. 활성 배포(Active Deployment) 조회
+        if not app.active_deployment_id:
+            raise HTTPException(
+                status_code=404, detail="No active deployment found for this app."
+            )
+
         deployment = (
             db.query(WorkflowDeployment)
-            .filter(WorkflowDeployment.url_slug == url_slug)
+            .filter(WorkflowDeployment.id == app.active_deployment_id)
             .first()
         )
 
-        # 2. 존재여부 체크
         if not deployment:
-            raise HTTPException(status_code=404, detail="Deployment not found.")
+            raise HTTPException(status_code=404, detail="Deployment data not found.")
 
         # 3. 활성상태 체크
         if not deployment.is_active:
             raise HTTPException(status_code=404, detail="Deployment is inactive")
 
-        # 4. 인증 검증
+        # 4. 인증 검증 (App의 auth_secret 사용)
         # 배포 타입에 따른 인증 검증
         if (
             deployment.type == DeploymentType.WEBAPP
@@ -215,12 +233,12 @@ class DeploymentService:
             pass
         elif require_auth:
             # 인증이 필요한 경우 (REST API 등)
-            if not deployment.auth_secret:
+            if not app.auth_secret:
                 raise HTTPException(
                     status_code=500,
-                    detail="Deployment has no auth_secret but requires authentication",
+                    detail="App has no auth_secret but requires authentication",
                 )
-            if not auth_token or auth_token != deployment.auth_secret:
+            if not auth_token or auth_token != app.auth_secret:
                 raise HTTPException(
                     status_code=401, detail="Invalid authentication secret"
                 )

@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base
 
@@ -33,11 +33,10 @@ class WorkflowDeployment(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
 
-    # 🔗 원본 워크플로우 (1:N 관계)
-    # Workflows ID is String (VARCHAR) in workflow.py
-    workflow_id: Mapped[uuid.UUID] = mapped_column(
+    # 🔗 원본 앱 (1:N 관계)
+    app_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("workflows.id", ondelete="CASCADE"),
+        ForeignKey("apps.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -52,16 +51,7 @@ class WorkflowDeployment(Base):
         nullable=False,
     )
 
-    # 🔑 실행 주소 (Slug)
-    # 예: /api/v1/run/{url_slug}
-    url_slug: Mapped[Optional[str]] = mapped_column(
-        String(255), unique=True, nullable=True
-    )
-
-    # API Key
-    auth_secret: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-
-    # 배포 시점의 graph 데이터를 그대로 저장
+    # 배포 시점의 workflow snapshot
     graph_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
     # 배포 설정. 예시: {"rate_limit": 100, "timeout": 30}
@@ -89,6 +79,3 @@ class WorkflowDeployment(Base):
 
     # 배포 활성화 여부
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    # Workflow 모델과의 관계 설정 (Workflow 모델에 deployments 추가 필요)
-    workflow = relationship("Workflow", back_populates="deployments")

@@ -8,6 +8,7 @@ from schemas.workflow import NodeSchema, Position
 from workflow.core.workflow_node_factory import NodeFactory
 from workflow.nodes.base.entities import NodeStatus
 from workflow.nodes.start import StartNode, StartNodeData
+from workflow.nodes.start.start_node import WorkflowVariable
 
 
 def test_factory_creates_start_node():
@@ -90,7 +91,14 @@ def test_factory_node_is_executable():
         id="node-5",
         type="startNode",
         position=Position(x=0, y=0),
-        data={"title": "실행 테스트"},
+        data={
+            "title": "실행 테스트",
+            "variables": [
+                WorkflowVariable(
+                    id="var-1", name="user_query", type="text", label="User Query"
+                )
+            ],
+        },
     )
     node = NodeFactory.create(schema)
 
@@ -100,7 +108,8 @@ def test_factory_node_is_executable():
     outputs = node.execute(test_inputs)
 
     # Then
-    assert outputs == test_inputs  # StartNode는 입력을 그대로 반환
+    assert outputs["user_query"] == test_inputs["user_query"]
+    assert outputs["var-1"] == test_inputs["user_query"]
     assert node.status == NodeStatus.COMPLETED
 
 

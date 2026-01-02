@@ -26,8 +26,3 @@ api_router.include_router(
     deployment.router, prefix="/deployments", tags=["deployments"]
 )
 api_router.include_router(run.router, tags=["run"])
-api_router.include_router(rag.router, prefix="/rag", tags=["rag"])
-api_router.include_router(
-    deployment.router, prefix="/deployments", tags=["deployments"]
-)
-api_router.include_router(run.router, tags=["run"])

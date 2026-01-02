@@ -30,14 +30,14 @@ export interface DeploymentBase {
 }
 
 export interface DeploymentCreate extends DeploymentBase {
-  workflow_id: string;
+  app_id: string;
   graph_snapshot?: Record<string, any>;
   auth_secret?: string;
 }
 
 export interface DeploymentResponse extends DeploymentBase {
   id: string;
-  workflow_id: string;
+  app_id: string;
   version: number;
   auth_secret?: string;
   created_by: string;
