@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { StartNodeData } from '../../../../types/Nodes';
 import { useVariableManager } from '../hooks/useVariableManager';
 import { VariableList } from './VariableList';
 import { TriggerSection } from './TriggerSection';
+import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { Plus } from 'lucide-react';
 
 interface StartNodePanelProps {
   nodeId: string;
@@ -23,63 +23,36 @@ export function StartNodePanel({ nodeId, data }: StartNodePanelProps) {
     moveVariable,
   } = useVariableManager(nodeId, data);
 
-  const [basicSettingsOpen, setBasicSettingsOpen] = useState(true);
-  const [inputSectionOpen, setInputSectionOpen] = useState(true);
-
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       {/* Basic Settings Section */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <button
-          onClick={() => setBasicSettingsOpen(!basicSettingsOpen)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-        >
-          <span className="text-sm font-semibold text-gray-700">
-            Basic settings
-          </span>
-          {basicSettingsOpen ? (
-            <ChevronUp className="w-4 h-4 text-gray-500" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-gray-500" />
-          )}
-        </button>
-        {basicSettingsOpen && (
-          <div className="px-4 py-3 bg-white">
-            <TriggerSection type={data.triggerType} />
-          </div>
-        )}
-      </div>
+      <CollapsibleSection title="Basic settings">
+        <TriggerSection type={data.triggerType} />
+      </CollapsibleSection>
 
       {/* Input Section */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <button
-          onClick={() => setInputSectionOpen(!inputSectionOpen)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">Input</span>
-            <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
-              ℹ️
-            </span>
-          </div>
-          {inputSectionOpen ? (
-            <ChevronUp className="w-4 h-4 text-gray-500" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-gray-500" />
-          )}
-        </button>
-        {inputSectionOpen && (
-          <div className="px-4 py-3 bg-white">
-            <VariableList
-              variables={variables}
-              onAdd={addVariable}
-              onUpdate={updateVariable}
-              onDelete={deleteVariable}
-              onMove={moveVariable}
-            />
-          </div>
-        )}
-      </div>
+      <CollapsibleSection
+        title="Input"
+        icon={
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              addVariable();
+            }}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="Add Variable"
+          >
+            <Plus className="w-4 h-4 text-gray-600" />
+          </button>
+        }
+      >
+        <VariableList
+          variables={variables}
+          onUpdate={updateVariable}
+          onDelete={deleteVariable}
+          onMove={moveVariable}
+        />
+      </CollapsibleSection>
     </div>
   );
 }
