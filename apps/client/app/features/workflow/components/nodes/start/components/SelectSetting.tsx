@@ -58,24 +58,24 @@ export const SelectSetting = ({
       {/* 옵션 리스트 */}
       <div className="flex flex-col gap-1">
         {options.map((opt, i) => (
-          <div key={i} className="flex gap-1">
+          <div key={i} className="flex gap-1 items-center">
             <input
               type="text"
               value={opt.label}
               onChange={(e) => updateOption(i, 'label', e.target.value)}
               placeholder="라벨"
-              className="h-6 flex-1 rounded border border-border bg-background px-2 focus:border-primary focus:outline-none"
+              className="h-6 flex-1 min-w-0 rounded border border-border bg-background px-2 text-xs focus:border-primary focus:outline-none"
             />
             <input
               type="text"
               value={opt.value}
               onChange={(e) => updateOption(i, 'value', e.target.value)}
               placeholder="값"
-              className="h-6 flex-1 rounded border border-border bg-background px-2 focus:border-primary focus:outline-none"
+              className="h-6 flex-1 min-w-0 rounded border border-border bg-background px-2 text-xs focus:border-primary focus:outline-none"
             />
             <button
               onClick={() => removeOption(i)}
-              className="text-muted-foreground hover:text-red-500"
+              className="flex-shrink-0 text-muted-foreground hover:text-red-500"
             >
               <IconX className="h-3 w-3" />
             </button>

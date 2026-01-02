@@ -19,7 +19,7 @@ class WorkflowVariable(BaseModel):
     id: str
     name: str = Field(..., description="변수명 (코드용, 영문/숫자/언더스코어)")
     label: str = Field(..., description="표시명 (사용자에게 보여질 이름)")
-    type: Literal["text", "number", "paragraph", "checkbox", "select"] = Field(
+    type: Literal["text", "number", "paragraph", "checkbox", "select", "file"] = Field(
         ..., description="변수 타입"
     )
     required: bool = Field(False, description="필수 입력 여부")

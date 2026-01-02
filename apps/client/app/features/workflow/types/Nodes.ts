@@ -17,7 +17,8 @@ export type VariableType =
   | 'number' // 숫자
   | 'paragraph' // 장문 텍스트
   | 'checkbox' // 체크박스
-  | 'select'; // 선택
+  | 'select' // 선택
+  | 'file'; // 파일 업로드 (PDF)
 
 export type TriggerType = 'manual' | 'webhook' | 'cron';
 export interface SelectOption {
@@ -37,6 +38,7 @@ export interface WorkflowVariable {
   maxLength?: number;
   placeholder?: string;
   options?: SelectOption[];
+  maxFileSize?: number; // 파일 최대 크기 (bytes, PDF용)
 }
 
 export interface StartNodeData extends BaseNodeData {
@@ -143,6 +145,12 @@ export interface CodeNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ==================== [FileExtractionNode] ==================================
+export interface FileExtractionNodeData extends BaseNodeData {
+  file_path_variable?: [string, string]; // value_selector: [node_id, variable_key]
+}
+// ============================================================================
+
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
 export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
@@ -155,6 +163,10 @@ export type LLMNode = ReactFlowNode<LLMNodeData, 'llmNode'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
 export type CodeNode = ReactFlowNode<CodeNodeData, 'codeNode'>;
 export type TemplateNode = ReactFlowNode<TemplateNodeData, 'templateNode'>;
+export type FileExtractionNode = ReactFlowNode<
+  FileExtractionNodeData,
+  'fileExtractionNode'
+>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
@@ -166,6 +178,7 @@ export type AppNode =
   | ConditionNode
   | CodeNode
   | TemplateNode
+  | FileExtractionNode
   | NoteNode;
 
 //하위 호환성 (필요시)

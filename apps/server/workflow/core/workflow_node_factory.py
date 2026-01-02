@@ -1,10 +1,11 @@
-from typing import Dict, Any
+from typing import Dict
 
 from schemas.workflow import NodeSchema
 from workflow.nodes.answer import AnswerNode, AnswerNodeData
 from workflow.nodes.base.node import Node
 from workflow.nodes.code import CodeNode, CodeNodeData
 from workflow.nodes.condition import ConditionNode, ConditionNodeData
+from workflow.nodes.file_extraction import FileExtractionNode, FileExtractionNodeData
 from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
 from workflow.nodes.llm import LLMNode, LLMNodeData
 from workflow.nodes.start import StartNode, StartNodeData
@@ -28,6 +29,7 @@ class NodeFactory:
         "llmNode": (LLMNode, LLMNodeData),
         "httpRequestNode": (HttpRequestNode, HttpRequestNodeData),
         "templateNode": (TemplateNode, TemplateNodeData),
+        "fileExtractionNode": (FileExtractionNode, FileExtractionNodeData),
     }
 
     @staticmethod
