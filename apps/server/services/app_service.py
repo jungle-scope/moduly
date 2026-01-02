@@ -166,17 +166,29 @@ class AppService:
         """
         기존 앱을 복제합니다.
         """
+        from db.models.workflow_deployment import WorkflowDeployment
+
         # 1. 원본 앱 조회
         source_app = db.query(App).filter(App.id == source_app_id).first()
         if not source_app:
             return None
 
-        # 2. 원본 워크플로우 조회
-        source_workflow = (
-            db.query(Workflow).filter(Workflow.app_id == source_app_id).first()
+        # 2. 활성 배포 확인 (Active Deployment)
+        if not source_app.active_deployment_id:
+            # 배포된 버전이 없으면 복제 불가 (에러 발생)
+            raise ValueError("Cannot clone app without active deployment.")
+
+        # 3. 배포 데이터 조회
+        deployment = (
+            db.query(WorkflowDeployment)
+            .filter(WorkflowDeployment.id == source_app.active_deployment_id)
+            .first()
         )
 
-        # 3. 앱 복제 (새로운 객체 생성)
+        if not deployment:
+            raise ValueError("Active deployment data not found.")
+
+        # 4. 앱 복제 (새로운 객체 생성)
         new_icon = copy.deepcopy(source_app.icon)
 
         # 마켓플레이스에서 복제할 때 url_slug와 auth_secret 생성
@@ -192,21 +204,31 @@ class AppService:
             auth_secret=new_secret,
             forked_from=source_app_id,  # 원본 추적
             created_by=user_id,
-            is_market=False, # 복제된 앱은 기본적으로 비공개
+            is_market=False,  # 복제된 앱은 기본적으로 비공개
         )
         db.add(new_app)
         db.flush()
 
-        # 4. 워크플로우 복제
+        # 5. 워크플로우 복제 (배포된 스냅샷 기반)
+        graph_snapshot = deployment.graph_snapshot
+        
+        # graph_snapshot에서 features 분리 (있다면)
+        features = graph_snapshot.get("features", {})
+        
+        # graph 데이터 (features 제외)
+        graph_data = {k: v for k, v in graph_snapshot.items() if k != "features"}
+
         new_workflow = Workflow(
             tenant_id=user_id,
             app_id=new_app.id,
             created_by=user_id,
-            # JSONB 필드 복사
-            graph=source_workflow.graph,
-            features=source_workflow.features,
-            env_variables=source_workflow.env_variables,
-            runtime_variables=source_workflow.runtime_variables,
+            # 스냅샷 기반 데이터 설정
+            graph=graph_data,
+            features=features,
+            # 배포된 버전은 환경변수/런타임변수가 스냅샷에 포함되지 않을 수 있음 (현재 스키마 기준)
+            # 따라서 초기화 또는 스냅샷에 있다면 사용
+            env_variables=graph_snapshot.get("env_variables", []),
+            runtime_variables=graph_snapshot.get("runtime_variables", []),
         )
         db.add(new_workflow)
         db.flush()
