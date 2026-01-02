@@ -39,21 +39,40 @@ export default function NodeDetailsPanel({
     ? getNodeDefinitionByType(selectedNode.type || '')
     : null;
 
-  // 노드 변경 시 편집 제목 초기화
+  // 설명 편집 상태
+  // [NEW] 설명 편집 모드(isDescEditing) 및 입력값(editDesc) 상태 관리
+  const [isDescEditing, setIsDescEditing] = useState(false);
+  const [editDesc, setEditDesc] = useState('');
+
+  // 노드 변경 시 편집 상태 초기화
   useEffect(() => {
     if (selectedNode) {
       setEditTitle(
         (selectedNode.data.title as string) || nodeDef?.name || 'Node',
       );
+      setEditDesc(
+        (selectedNode.data.description as string) ||
+          nodeDef?.description ||
+          '설명 없음', // 기본 설명 텍스트
+      );
     }
   }, [selectedNode, nodeDef]);
 
   // 편집 시작 시 입력창 포커스
+
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
       titleInputRef.current.focus();
     }
   }, [isEditing]);
+
+  // [NEW] 설명 편집 시 입력창 자동 포커스 처리
+  const descInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isDescEditing && descInputRef.current) {
+      descInputRef.current.focus();
+    }
+  }, [isDescEditing]);
 
   // 제목 저장 핸들러
   const handleSaveTitle = () => {
@@ -69,6 +88,15 @@ export default function NodeDetailsPanel({
     }
   };
 
+  // 설명 저장 핸들러
+  // [NEW] 설명 수정 사항을 노드 데이터에 반영 (updateNodeData 호출)
+  const handleSaveDesc = () => {
+    if (nodeId) {
+      updateNodeData(nodeId, { description: editDesc.trim() });
+      setIsDescEditing(false);
+    }
+  };
+
   // 키 입력 핸들러 (Enter: 저장, Escape: 취소)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -78,6 +106,21 @@ export default function NodeDetailsPanel({
         (selectedNode?.data.title as string) || nodeDef?.name || 'Node',
       );
       setIsEditing(false);
+    }
+  };
+
+  // [NEW] 설명 입력창 키보드 이벤트 핸들러 (Enter: 저장, Escape: 취소)
+  const handleDescKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveDesc();
+    } else if (e.key === 'Escape') {
+      // 취소 시 원래 값으로 복원
+      setEditDesc(
+        (selectedNode?.data.description as string) ||
+          nodeDef?.description ||
+          '설명 없음',
+      );
+      setIsDescEditing(false);
     }
   };
 
@@ -137,9 +180,9 @@ export default function NodeDetailsPanel({
             {nodeDef?.icon || '📦'}
           </div>
           <div className="flex-1 min-w-0">
+            {/* 제목 편집 영역 */}
             {isEditing ? (
-              <div className="flex items-center gap-2">
-                // 입력 필드: 제목 수정
+              <div className="flex items-center gap-2 mb-1">
                 <input
                   ref={titleInputRef}
                   type="text"
@@ -149,7 +192,6 @@ export default function NodeDetailsPanel({
                   onBlur={handleSaveTitle}
                   className="w-full text-lg font-semibold text-gray-900 border-b-2 border-primary-500 focus:outline-none px-1 py-0.5 bg-transparent"
                 />
-                // 저장 버튼
                 <button
                   onClick={handleSaveTitle}
                   className="p-1 text-green-600 hover:bg-green-50 rounded"
@@ -158,9 +200,8 @@ export default function NodeDetailsPanel({
                 </button>
               </div>
             ) : (
-              // 제목 표시 (클릭 시 편집 모드 전환)
               <div
-                className="group flex items-center gap-2 cursor-pointer"
+                className="group flex items-center gap-2 cursor-pointer mb-1"
                 onClick={() => setIsEditing(true)}
               >
                 <h2
@@ -178,9 +219,41 @@ export default function NodeDetailsPanel({
                 <Pencil className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             )}
-            <p className="text-xs text-gray-500 truncate">
-              {nodeDef?.description || 'No description available.'}
-            </p>
+
+            {/* 설명 편집 영역 */}
+            {/* [NEW] 설명 부분을 클릭하여 편집 모드로 전환하거나, 편집 중에는 입력창 표시 */}
+            {isDescEditing ? (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={descInputRef}
+                  type="text"
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  onKeyDown={handleDescKeyDown}
+                  onBlur={handleSaveDesc}
+                  className="w-full text-xs text-gray-500 border-b border-primary-500 focus:outline-none px-1 py-0.5 bg-transparent"
+                  placeholder="설명을 입력하세요"
+                />
+                <button
+                  onClick={handleSaveDesc}
+                  className="p-1 text-green-600 hover:bg-green-50 rounded"
+                >
+                  <Check className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="group flex items-center gap-2 cursor-pointer"
+                onClick={() => setIsDescEditing(true)}
+              >
+                <p className="text-xs text-gray-500 truncate max-w-[250px]">
+                  {(selectedNode.data.description as string) ||
+                    nodeDef?.description ||
+                    '설명 없음'}
+                </p>
+                <Pencil className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            )}
           </div>
         </div>
         <button

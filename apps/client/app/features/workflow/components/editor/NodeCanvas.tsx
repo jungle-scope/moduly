@@ -87,6 +87,7 @@ export default function NodeCanvas() {
           workflowId: app.workflow_id || '',
           appId: app.id,
           icon: app.icon?.content || '⚡️',
+          description: app.description || '설명 없음',
           status: 'idle',
         } as WorkflowNodeData,
       };
