@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from pgvector.sqlalchemy import Vector
@@ -32,9 +32,13 @@ class KnowledgeBase(Base):
     similarity_threshold: Mapped[float] = mapped_column(Float, default=0.7)
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Relationship
@@ -61,8 +65,8 @@ class Document(Base):
     filename: Mapped[str] = mapped_column(String, nullable=False)
     file_path: Mapped[str] = mapped_column(String, nullable=False)
 
-    # 상태 관리: pending -> indexing -> completed / failed
-    status: Mapped[str] = mapped_column(String(20), default="pending")
+    # 상태 관리: pending -> indexing -> completed / failed / waiting_for_approval
+    status: Mapped[str] = mapped_column(String(50), default="pending")
 
     # 실패 원인 담는 에러메세지
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -74,7 +78,9 @@ class Document(Base):
     # 메타 데이터 (파일 크기, 파싱 결과 요약 등)
     meta_info: Mapped[dict] = mapped_column(JSONB, default={})
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
     # Relationships
     knowledge_base: Mapped["KnowledgeBase"] = relationship(

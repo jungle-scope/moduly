@@ -84,6 +84,7 @@ def get_knowledge_base(
                 error_message=doc.error_message,
                 chunk_count=len(doc.chunks),  # N+1 발생 가능, 추후 최적화
                 token_count=0,  # 우선 0으로 반환
+                meta_info=doc.meta_info,
             )
         )
 
