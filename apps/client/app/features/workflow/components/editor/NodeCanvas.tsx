@@ -252,6 +252,7 @@ export default function NodeCanvas() {
         <BottomPanel
           onCenterNodes={centerNodes}
           isPanelOpen={!!selectedNodeId}
+          onOpenAppSearch={() => setIsSearchModalOpen(true)}
         />
 
         {/* 노드 상세 패널 - ReactFlow 컨테이너 기준으로 위치 */}
