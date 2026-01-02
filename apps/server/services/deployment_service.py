@@ -249,8 +249,16 @@ class DeploymentService:
 
         # 6. 워크플로우 실행
         try:
+            # [NEW] 로깅을 위한 컨텍스트 주입
+            execution_context = {
+                "user_id": app.created_by,  # 실행 주체 (앱 소유자에게 비용 청구 시)
+                "workflow_id": str(app.workflow_id) if app.workflow_id else None,
+                "trigger_mode": "app",      # [NEW] 실행 모드 (앱 배포 실행)
+                "deployment_id": str(deployment.id),
+                "workflow_version": deployment.version
+            }
             engine = WorkflowEngine(
-                graph=graph_data, user_input=user_inputs, is_deployed=True
+                graph=graph_data, user_input=user_inputs, is_deployed=True, execution_context=execution_context, db=db
             )
             results = engine.execute()
             return {"status": "success", "results": results}

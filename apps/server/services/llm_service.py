@@ -348,3 +348,51 @@ class LLMService:
         ).distinct().all()
         
         return [LLMModelResponse.model_validate(m) for m in models]
+    @staticmethod
+    def calculate_cost(db: Session, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
+        """
+        Calculate cost based on model pricing.
+        """
+        # 1. Find the model to get pricing
+        # Note: model_id might be "gpt-4o" (model_id_for_api_call)
+        model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
+        
+        if not model or model.input_price_1k is None or model.output_price_1k is None:
+            return 0.0
+
+        # 2. Calculate
+        input_cost = (prompt_tokens / 1000.0) * float(model.input_price_1k)
+        output_cost = (completion_tokens / 1000.0) * float(model.output_price_1k)
+        
+        return input_cost + output_cost
+
+    @staticmethod
+    def log_usage(
+        db: Session,
+        user_id: uuid.UUID,
+        model_id: str,
+        usage: Dict[str, Any],
+        cost: float,
+        workflow_run_id: Optional[uuid.UUID] = None,
+        node_id: Optional[str] = None
+    ) -> LLMUsageLog:
+        """
+        Save LLM usage to database.
+        """
+        # Find model DB ID
+        model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
+        
+        log = LLMUsageLog(
+            user_id=user_id,
+            model_id=model.id if model else None,
+            workflow_run_id=workflow_run_id,
+            node_id=node_id,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            total_cost=cost,
+            status="success"
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        return log

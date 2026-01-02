@@ -185,6 +185,10 @@ class LLMUsageLog(Base):
     )
     
     workflow_id: Mapped[Optional[uuid.UUID]] = mapped_column(PGUUID(as_uuid=True), nullable=True) # FK later
+    # [NEW] 워크플로우 실행 ID 추가 (어떤 실행에서 호출되었는지 추적)
+    workflow_run_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True
+    )
     node_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

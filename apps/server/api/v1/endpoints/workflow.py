@@ -12,6 +12,9 @@ from auth.dependencies import get_current_user
 from db.models.app import App
 from db.models.user import User
 from db.models.workflow import Workflow
+# [NEW] 로깅 모델 및 스키마
+from db.models.workflow_run import WorkflowRun
+from schemas.log import WorkflowRunSchema, WorkflowRunListResponse
 from db.session import get_db
 from schemas.workflow import (
     WorkflowCreateRequest,
@@ -22,6 +25,42 @@ from services.workflow_service import WorkflowService
 from workflow.core.workflow_engine import WorkflowEngine
 
 router = APIRouter()
+
+
+# [NEW] 로그 조회 API
+@router.get("/{workflow_id}/runs", response_model=WorkflowRunListResponse)
+def get_workflow_runs(
+    workflow_id: str,
+    page: int = 1,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    특정 워크플로우의 실행 이력 조회
+    """
+    skip = (page - 1) * limit
+    
+    # 워크플로우 접근 권한 체크 (간단히 소유자만)
+    workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    # TODO: 권한 체크 로직 강화 필요 (협업 기능 등)
+    # if workflow.created_by != str(current_user.id):
+    #     raise HTTPException(status_code=403, detail="Not authorized")
+
+    total = db.query(WorkflowRun).filter(WorkflowRun.workflow_id == workflow_id).count()
+    runs = (
+        db.query(WorkflowRun)
+        .filter(WorkflowRun.workflow_id == workflow_id)
+        .order_by(WorkflowRun.started_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    return {"total": total, "items": runs}
 
 
 @router.post("", response_model=WorkflowResponse)
@@ -182,9 +221,9 @@ def execute_workflow(
         # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
         # execution_context에 'db' 세션을 주입하는 이유:
         # WorkflowNode(모듈)가 실행될 때 대상 워크플로우의 그래프 데이터를 DB에서 로드해야 하기 때문입니다.
-        # 이를 통해 하위 워크플로우를 동적으로 불러와 실행할 수 있습니다.
+        # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
         engine = WorkflowEngine(
-            graph, user_input, execution_context={"user_id": str(current_user.id), "db": db}
+            graph, user_input, execution_context={"user_id": str(current_user.id), "workflow_id": workflow_id}, db=db
         )
         print("user_input", user_input)
 
@@ -282,7 +321,10 @@ async def stream_workflow(
             )
 
         engine = WorkflowEngine(
-            graph, user_input, execution_context={"user_id": str(current_user.id), "db": db}
+            graph, 
+            user_input, 
+            execution_context={"user_id": str(current_user.id), "workflow_id": workflow_id}, 
+            db=db
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
