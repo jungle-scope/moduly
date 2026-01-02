@@ -86,4 +86,15 @@ export const knowledgeApi = {
     const response = await api.patch(`/knowledge/${id}`, data);
     return response.data;
   },
+
+  // 파싱 비용 승인
+  confirmDocumentParsing: async (documentId: string): Promise<any> => {
+    const response = await api.post(`/rag/document/${documentId}/confirm`);
+    return response.data;
+  },
+
+  deleteDocument: async (documentId: string) => {
+    const response = await api.delete(`/rag/document/${documentId}`);
+    return response.data;
+  },
 };
