@@ -23,6 +23,7 @@ import {
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 export default function KnowledgeDetailPage() {
   const params = useParams();
@@ -114,19 +115,6 @@ export default function KnowledgeDetailPage() {
             대기중
           </span>
         );
-    }
-  };
-
-  // 비용 승인 핸들러
-  const handleConfirmParsing = async (docId: string) => {
-    if (!confirm('추가 비용이 발생할 수 있습니다. 계속하시겠습니까?')) return;
-    try {
-      await knowledgeApi.confirmDocumentParsing(docId);
-      alert('파싱이 재개되었습니다.');
-      fetchKnowledgeBase();
-    } catch (error) {
-      console.error('Failed to confirm parsing', error);
-      alert('승인 처리에 실패했습니다.');
     }
   };
 
@@ -324,7 +312,12 @@ export default function KnowledgeDetailPage() {
                     className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                      {doc.filename}
+                      <Link
+                        href={`/dashboard/knowledge/${knowledgeBase.id}/document/${doc.id}`}
+                        className="hover:text-blue-600 hover:underline"
+                      >
+                        {doc.filename}
+                      </Link>
                       {doc.error_message && (
                         <p
                           className="text-xs text-red-500 mt-1 max-w-md truncate"
@@ -333,32 +326,6 @@ export default function KnowledgeDetailPage() {
                           {doc.error_message}
                         </p>
                       )}
-                      {/* 비용 승인 정보 표시 */}
-                      {doc.status === 'waiting_for_approval' &&
-                        doc.meta_info?.cost_estimate && (
-                          <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/10 rounded-md border border-yellow-200 dark:border-yellow-900/50 text-xs">
-                            <p className="font-semibold text-yellow-800 dark:text-yellow-400 mb-1">
-                              LlamaParse 파싱 필요 (비용 발생)
-                            </p>
-                            <div className="flex gap-3 text-yellow-700 dark:text-yellow-500">
-                              <span>
-                                페이지: {doc.meta_info.cost_estimate.pages}
-                              </span>
-                              <span>
-                                비용: $
-                                {doc.meta_info.cost_estimate.cost_usd.toFixed(
-                                  4,
-                                )}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => handleConfirmParsing(doc.id)}
-                              className="mt-2 w-full py-1 bg-yellow-400 hover:bg-yellow-500 text-white rounded font-bold transition-colors"
-                            >
-                              결제 승인 및 진행
-                            </button>
-                          </div>
-                        )}
                     </td>
                     <td className="px-6 py-4">
                       {renderStatusBadge(doc.status)}

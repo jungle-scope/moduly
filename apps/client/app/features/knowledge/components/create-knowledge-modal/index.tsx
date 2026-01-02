@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, DragEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Upload, FileText, Settings, Loader2 } from 'lucide-react';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
 
@@ -15,6 +16,7 @@ export default function CreateKnowledgeModal({
   onClose,
   knowledgeBaseId,
 }: CreateKnowledgeModalProps) {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -57,7 +59,7 @@ export default function CreateKnowledgeModal({
       setIsLoading(true);
       console.log('Creating knowledge base:', { file, ...formData });
 
-      await knowledgeApi.uploadKnowledgeBase({
+      const response = await knowledgeApi.uploadKnowledgeBase({
         file: file,
         name: formData.name,
         description: formData.description,
@@ -69,8 +71,11 @@ export default function CreateKnowledgeModal({
         knowledgeBaseId: knowledgeBaseId,
       });
 
-      // 성공 시 모달 닫기
+      // 성공 시 모달 닫기 및 문서 설정 페이지로 이동
       onClose();
+      router.push(
+        `/dashboard/knowledge/${response.knowledge_base_id}/document/${response.document_id}`,
+      );
     } catch (error) {
       console.error('Failed to create/upload knowledge base:', error);
       alert('요청 처리에 실패했습니다.');
