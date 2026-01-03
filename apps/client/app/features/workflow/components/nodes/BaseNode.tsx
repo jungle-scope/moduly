@@ -14,12 +14,16 @@ interface BaseNodeProps {
 
   className?: string;
   selected?: boolean;
+
+  // [NEW] 아이콘 및 색상 설정
+  icon?: React.ReactNode;
+  iconColor?: string; // 아이콘 배경색 (예: #3b82f6)
 }
 
 /**
  * [BaseNode]
  * 모든 노드의 공통 껍데기(UI)입니다.
- * - 제목/설명 표시
+ * - 아이콘 + 제목/설명 표시 (통일된 디자인)
  * - 선택(selected) 상태 스타일링
  * - 입력/출력 핸들(점) 배치
  */
@@ -30,15 +34,16 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
   showTargetHandle = true,
   className,
   selected,
+  icon,
+  iconColor = '#3b82f6', // 기본값: 파란색
 }) => {
   return (
     <div
       className={cn(
-        'min-w-[200px] rounded-lg border bg-card px-4 py-3 shadow-md transition-all',
-        // 선택되었을 때 테두리 색상 강조
-        selected ? 'border-primary ring-2 ring-primary/20' : 'border-border',
+        'min-w-[280px] rounded-[20px] border bg-white p-5 shadow-sm transition-all', // 더 둥글고 여유로운 패딩
+        // 선택되었을 때: 파란색 테두리 (기존보다 얇고 깔끔하게)
+        selected ? 'border-blue-500 shadow-md' : 'border-gray-100', // 기본 테두리 더 연하게
         // 실행 상태(status)에 따른 테두리 색상 및 애니메이션
-        // running: 파란색 맥박(Pulse) 효과 / success: 초록색 / failure: 빨간색
         data.status === 'running' &&
           'border-blue-500 ring-2 ring-blue-500/20 animate-pulse',
         data.status === 'success' &&
@@ -47,34 +52,52 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
         className,
       )}
     >
-      {/* 1. 입력 핸들 (Target) - 위쪽 or 왼쪽 */}
+      {/* 1. 입력 핸들 (Target) */}
       {showTargetHandle && (
         <Handle
           type="target"
-          position={Position.Left} // 기본값은 왼쪽으로 설정 (취향에 따라 Top 변경)
-          className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white"
+          position={Position.Left}
+          className="!w-3 !h-3 !bg-blue-500 !border-[3px] !border-white shadow-sm -ml-1.5"
         />
       )}
 
-      {/* 2. 노드 헤더 (제목 & 설명) */}
-      <div className="mb-2 border-b pb-2">
-        <h3 className="text-sm font-semibold text-foreground">
-          {data.title || 'Untitled Node'}
-        </h3>
-        {data.description && (
-          <p className="text-xs text-muted-foreground">{data.description}</p>
+      {/* 2. 노드 헤더 (아이콘 + 제목 + 설명) */}
+      <div className="mb-4 flex items-center gap-4">
+        {/* 아이콘 박스 */}
+        {icon && (
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
+            style={{ backgroundColor: iconColor }}
+          >
+            {/* 아이콘 크기 강제 조절 */}
+            {React.isValidElement(icon) &&
+              React.cloneElement(icon as React.ReactElement<any>, {
+                className: 'w-7 h-7',
+              })}
+          </div>
         )}
+
+        <div className="flex flex-col">
+          <h3 className="text-lg font-bold text-gray-900 leading-none mb-1">
+            {data.title || 'Untitled Node'}
+          </h3>
+          {data.description && (
+            <p className="text-xs font-medium text-gray-400 leading-relaxed line-clamp-2">
+              {data.description}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* 3. 노드 본문 (Children) */}
       <div className="text-sm">{children}</div>
 
-      {/* 4. 출력 핸들 (Source) - 아래쪽 or 오른쪽 */}
+      {/* 4. 출력 핸들 (Source) */}
       {showSourceHandle && (
         <Handle
           type="source"
-          position={Position.Right} // 기본값은 오른쪽 (취향에 따라 Bottom 변경)
-          className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white"
+          position={Position.Right}
+          className="!w-3 !h-3 !bg-blue-500 !border-[3px] !border-white shadow-sm -mr-1.5"
         />
       )}
     </div>

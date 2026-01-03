@@ -1,4 +1,17 @@
 import { StartNodeData, TriggerType } from '../types/Nodes';
+import {
+  Play,
+  Bot,
+  Puzzle,
+  Code,
+  GitFork,
+  FileText,
+  MessageSquare,
+  Globe,
+  LayoutTemplate,
+  Plug,
+} from 'lucide-react';
+import React, { ReactNode } from 'react';
 
 /**
  * Node Definition Interface
@@ -16,8 +29,8 @@ export interface NodeDefinition {
     | 'logic'
     | 'database'
     | 'data';
-  color: string; // Tailwind class for color
-  icon?: string; // Emoji or icon identifier
+  color: string; // Tailwind class OR Hex color
+  icon?: ReactNode | string; // Icon component or Emoji
   implemented: boolean; // 현재 구현 여부
   unique?: boolean; // 워크플로우당 하나만 허용
   description?: string; // 노드 설명
@@ -26,10 +39,6 @@ export interface NodeDefinition {
 
 /**
  * Node Registry
- * 현재는 하드코딩되어 있지만, 향후 API를 통해 DB에서 가져올 수 있도록 설계되었습니다.
- *
- * TODO: 이 데이터를 DB에서 가져오는 API로 교체
- * Example: const nodes = await fetchNodesFromDB();
  */
 export const nodeRegistry: NodeDefinition[] = [
   // Trigger Category
@@ -38,8 +47,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'startNode',
     name: '시작',
     category: 'trigger',
-    color: 'bg-green-500',
-    icon: '▶️',
+    color: '#3b82f6', // blue-500
+    icon: <Play className="w-3.5 h-3.5 text-white fill-current" />,
     implemented: true,
     unique: true, // 워크플로우당 하나만 허용
     description: '워크플로우의 시작점. 입력 변수를 정의합니다.',
@@ -56,9 +65,9 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'llmNode',
     name: 'LLM',
     category: 'llm',
-    color: 'bg-black',
-    icon: '🤖',
-    implemented: true, // NOTE: [LLM] 프론트에서 LLM 노드를 사용 가능하게 활성화
+    color: '#9333ea', // purple-600
+    icon: <Bot className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
     description: 'LLM 모델을 호출합니다.',
     defaultData: () => ({
       title: 'LLM',
@@ -79,8 +88,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'pluginNode',
     name: '플러그인',
     category: 'plugin',
-    color: 'bg-purple-500',
-    icon: '🔌',
+    color: '#a855f7', // purple-500
+    icon: <Plug className="w-3.5 h-3.5 text-white" />,
     implemented: false,
     description: '외부 플러그인을 실행합니다.',
     defaultData: () => ({
@@ -95,8 +104,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'workflowNode',
     name: '워크플로우',
     category: 'workflow',
-    color: 'bg-green-500',
-    icon: '🔄',
+    color: '#14b8a6', // teal-500
+    icon: <Puzzle className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '다른 워크플로우(App)를 모듈로 실행합니다.',
     defaultData: () => ({
@@ -114,10 +123,10 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'codeNode',
     name: '코드 실행',
     category: 'logic',
-    color: '#10B981', // Changed from 'bg-cyan-500' to '#10B981'
-    icon: '💻',
+    color: '#3b82f6', // blue-500
+    icon: <Code className="w-3.5 h-3.5 text-white" />,
     implemented: true,
-    description: 'Python 코드를 Docker 샌드박스에서 안전하게 실행합니다', // Updated description
+    description: 'Python 코드를 Docker 샌드박스에서 안전하게 실행합니다',
     defaultData: () => ({
       title: '코드 실행',
       code: `def main(inputs):
@@ -141,8 +150,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'conditionNode',
     name: '분기',
     category: 'logic',
-    color: 'bg-blue-500',
-    icon: '🔀',
+    color: '#f97316', // orange-500
+    icon: <GitFork className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '조건에 따라 분기합니다.',
     defaultData: () => ({
@@ -155,8 +164,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'fileExtractionNode',
     name: 'PDF 텍스트 추출',
     category: 'logic',
-    color: 'bg-red-500',
-    icon: '📄',
+    color: '#4f46e5', // indigo-600
+    icon: <FileText className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: 'PDF 파일에서 텍스트를 추출합니다.',
     defaultData: () => ({
@@ -169,8 +178,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'answerNode',
     name: '응답',
     category: 'logic',
-    color: 'bg-orange-500',
-    icon: '🏁',
+    color: '#10b981', // green-500
+    icon: <MessageSquare className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '워크플로우의 최종 결과를 수집합니다.',
     defaultData: () => ({
@@ -183,8 +192,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'httpRequestNode',
     name: 'HTTP 요청',
     category: 'plugin',
-    color: 'bg-purple-500',
-    icon: '🌍',
+    color: '#0ea5e9', // sky-500
+    icon: <Globe className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '외부 API로 HTTP 요청을 보냅니다.',
     defaultData: () => ({
@@ -201,8 +210,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'templateNode',
     name: '템플릿',
     category: 'logic',
-    color: 'bg-yellow-500',
-    icon: '📝',
+    color: '#db2777', // pink-600
+    icon: <LayoutTemplate className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '여러 변수를 조합하여 텍스트를 생성합니다.',
     defaultData: () => ({

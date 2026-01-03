@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, Node, NodeProps } from '@xyflow/react';
+import { GitFork } from 'lucide-react';
 import { BaseNode } from '../../BaseNode';
 import { ConditionNodeData } from '../../../../types/Nodes';
 
@@ -8,7 +9,13 @@ export const ConditionNode = memo(
     const cases = data.cases || [];
 
     return (
-      <BaseNode data={data} selected={selected} showSourceHandle={false}>
+      <BaseNode
+        data={data}
+        selected={selected}
+        showSourceHandle={false}
+        icon={<GitFork className="text-white" />}
+        iconColor="#f97316" // orange-500
+      >
         <div className="p-4 text-sm text-gray-500 text-center">
           {/* Condition Logic Visualization */}
           <div className="mb-2">

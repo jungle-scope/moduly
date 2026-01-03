@@ -1,4 +1,5 @@
 import React from 'react';
+import { LayoutTemplate } from 'lucide-react';
 import { BaseNodeData, TemplateNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 
@@ -13,7 +14,12 @@ export const TemplateNode: React.FC<TemplateNodeProps> = ({
   selected,
 }) => {
   return (
-    <BaseNode data={data} selected={selected}>
+    <BaseNode
+      data={data}
+      selected={selected}
+      icon={<LayoutTemplate className="text-white" />}
+      iconColor="#ec4899" // pink-500
+    >
       <div className="flex flex-col gap-2 p-1">
         <div className="text-xs text-gray-500">
           <p className="text-[10px] leading-snug">

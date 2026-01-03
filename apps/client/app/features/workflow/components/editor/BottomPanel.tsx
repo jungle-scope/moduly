@@ -402,7 +402,8 @@ export default function BottomPanel({
           <div className="bg-white border-2 border-blue-500 rounded-lg shadow-xl p-3 min-w-[200px]">
             <div className="flex items-center gap-2 mb-2">
               <div
-                className={`w-4 h-4 ${selectedNodeDef.color} rounded flex items-center justify-center text-xs`}
+                className="w-4 h-4 rounded flex items-center justify-center text-xs"
+                style={{ backgroundColor: selectedNodeDef.color }}
               >
                 {selectedNodeDef.icon}
               </div>
@@ -720,7 +721,8 @@ export default function BottomPanel({
                               }
                             >
                               <div
-                                className={`w-5 h-5 ${nodeDef.color} rounded flex items-center justify-center text-xs shrink-0`}
+                                className="w-5 h-5 rounded flex items-center justify-center text-xs shrink-0"
+                                style={{ backgroundColor: nodeDef.color }}
                               >
                                 {nodeDef.icon}
                               </div>

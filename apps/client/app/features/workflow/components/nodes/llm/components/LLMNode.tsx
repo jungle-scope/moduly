@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Node, NodeProps } from '@xyflow/react';
+import { Bot } from 'lucide-react';
 
 import { BaseNode } from '../../BaseNode';
 import { LLMNodeData } from '../../../../types/Nodes';
@@ -8,20 +9,21 @@ import { LLMNodeData } from '../../../../types/Nodes';
 export const LLMNode = memo(
   ({ data, selected }: NodeProps<Node<LLMNodeData>>) => {
     return (
-      <BaseNode data={data} selected={selected}>
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded bg-gray-900 text-sm font-bold text-white">
-            🤖
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="text-xs text-gray-500">Provider</div>
-            <div className="text-sm font-semibold text-gray-900">
+      <BaseNode
+        data={data}
+        selected={selected}
+        icon={<Bot className="text-white" />}
+        iconColor="#a855f7" // purple-500
+      >
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-between items-center text-xs text-gray-500">
+            <span>Model</span>
+            <span className="font-medium text-gray-900">
               {data.provider || '미지정'}
-            </div>
-            <div className="text-xs text-gray-500">Model</div>
-            <div className="text-sm text-gray-800">
-              {data.model_id || '모델을 선택하세요'}
-            </div>
+            </span>
+          </div>
+          <div className="text-sm font-semibold text-gray-800 truncate">
+            {data.model_id || '모델을 선택하세요'}
           </div>
         </div>
       </BaseNode>
