@@ -1,9 +1,10 @@
+import enum
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -47,9 +48,14 @@ class KnowledgeBase(Base):
     )
 
 
+class SourceType(str, enum.Enum):
+    FILE = "FILE"
+    API = "API"
+
+
 class Document(Base):
     """
-    문서 모델: 업로드된 개별 파일
+    문서 모델: 업로드된 개별 파일 또는 API 소스
     """
 
     __tablename__ = "documents"
@@ -63,7 +69,15 @@ class Document(Base):
     )
 
     filename: Mapped[str] = mapped_column(String, nullable=False)
-    file_path: Mapped[str] = mapped_column(String, nullable=False)
+    file_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    # 소스 타입 (FILE/API)
+    source_type: Mapped[SourceType] = mapped_column(
+        Enum(SourceType), default=SourceType.FILE, nullable=False
+    )
+
+    # 변경 감지용 해시 (API 소스 등에서 사용)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     # 상태 관리: pending -> indexing -> completed / failed / waiting_for_approval
     status: Mapped[str] = mapped_column(String(50), default="pending")
