@@ -248,7 +248,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
       try {
         setLoadingModels(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/llm/my-models`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/llm/my-models`,
           {
             method: 'GET',
             headers: {
