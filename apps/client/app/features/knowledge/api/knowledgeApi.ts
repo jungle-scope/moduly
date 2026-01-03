@@ -80,6 +80,8 @@ export const knowledgeApi = {
     if (data.apiMethod) formData.append('apiMethod', data.apiMethod);
     if (data.apiHeaders) formData.append('apiHeaders', data.apiHeaders);
     if (data.apiBody) formData.append('apiBody', data.apiBody);
+    if (data.dbConfig)
+      formData.append('dbConfig', JSON.stringify(data.dbConfig));
     if (data.name) formData.append('name', data.name);
     if (data.description) formData.append('description', data.description);
     formData.append('embeddingModel', data.embeddingModel);

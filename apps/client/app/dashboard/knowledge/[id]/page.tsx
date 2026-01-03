@@ -143,10 +143,10 @@ export default function KnowledgeDetailPage() {
     try {
       await knowledgeApi.syncDocument(id, documentId);
       fetchKnowledgeBase();
-      toast.success('문서 동기화가 시작되었습니다.');
+      toast.success('API 동기화가 시작되었습니다.');
     } catch (error) {
       console.error('Failed to sync document:', error);
-      toast.error('문서 동기화 실패');
+      toast.error('API 동기화 실패');
     }
   };
 

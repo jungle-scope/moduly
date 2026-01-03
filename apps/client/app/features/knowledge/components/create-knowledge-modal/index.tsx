@@ -12,15 +12,24 @@ import {
   Code,
   ChevronRight,
   ChevronDown,
+  Database,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
+import DBConnectionForm from './DBConnectionForm';
+import {
+  DBConfig,
+  SUPPORTED_DB_TYPES,
+} from '@/app/features/knowledge/types/DB';
 
 interface CreateKnowledgeModalProps {
   isOpen: boolean;
   onClose: () => void;
   knowledgeBaseId?: string;
 }
+
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 export default function CreateKnowledgeModal({
   isOpen,
@@ -29,12 +38,24 @@ export default function CreateKnowledgeModal({
 }: CreateKnowledgeModalProps) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
-  const [sourceType, setSourceType] = useState<'FILE' | 'API'>('FILE');
+  const [sourceType, setSourceType] = useState<'FILE' | 'API' | 'DB'>('FILE');
   const [apiConfig, setApiConfig] = useState({
     url: '',
     method: 'GET',
     headers: '',
     body: '',
+  });
+  const [dbConfig, setDbConfig] = useState<DBConfig>({
+    connectionName: '',
+    type: SUPPORTED_DB_TYPES[0].value,
+    host: '',
+    port: 5432,
+    database: '',
+    username: '',
+    password: '',
+    ssh: {
+      enabled: false,
+    },
   });
 
   const [formData, setFormData] = useState({
@@ -71,20 +92,26 @@ export default function CreateKnowledgeModal({
     const fetchEmbeddingModels = async () => {
       try {
         setLoadingModels(true);
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/llm/my-embedding-models`,
-          {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-          },
-        );
+        const res = await fetch(`${BASE_URL}/api/v1/llm/my-embedding-models`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
         if (res.ok) {
           const json = await res.json();
           setEmbeddingModels(json);
           // 모델이 있고 현재 기본값이 목록에 없으면 첫 번째 모델로 설정
-          if (json.length > 0 && !json.find((m: EmbeddingModel) => m.model_id_for_api_call === formData.embeddingModel)) {
-            setFormData(prev => ({ ...prev, embeddingModel: json[0].model_id_for_api_call }));
+          if (
+            json.length > 0 &&
+            !json.find(
+              (m: EmbeddingModel) =>
+                m.model_id_for_api_call === formData.embeddingModel,
+            )
+          ) {
+            setFormData((prev) => ({
+              ...prev,
+              embeddingModel: json[0].model_id_for_api_call,
+            }));
           }
         } else {
           console.error('Failed to fetch embedding models');
@@ -129,6 +156,51 @@ export default function CreateKnowledgeModal({
     }
   };
 
+  // DB Connection Test
+  const handleTestDBConnection = async (config: DBConfig): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/connectors/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          connection_name: config.connectionName,
+          type: config.type,
+          host: config.host,
+          port: config.port,
+          database: config.database,
+          username: config.username,
+          password: config.password,
+          ssh: config.ssh.enabled
+            ? {
+                enabled: config.ssh.enabled,
+                host: config.ssh.host,
+                port: config.ssh.port,
+                username: config.ssh.username,
+                auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
+                password: config.ssh.password,
+                private_key: config.ssh.privateKey,
+              }
+            : null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        //HTTP status 200번대, success가 true일때
+        return true;
+      } else {
+        console.error('Connection failed:', result);
+        return false;
+      }
+    } catch (err) {
+      console.error('DB Connection Test Error', err);
+      return false;
+    }
+  };
+
   const handleSubmit = async () => {
     if (sourceType === 'FILE' && !file) {
       alert('파일을 업로드해주세요.');
@@ -136,6 +208,17 @@ export default function CreateKnowledgeModal({
     }
     if (sourceType === 'API' && !apiConfig.url) {
       alert('API URL을 입력해주세요.');
+      return;
+    }
+    if (
+      sourceType === 'DB' &&
+      (!dbConfig.host ||
+        !dbConfig.port ||
+        !dbConfig.database ||
+        !dbConfig.username ||
+        !dbConfig.password)
+    ) {
+      alert('DB 정보를 입력해주세요.');
       return;
     }
 
@@ -157,6 +240,7 @@ export default function CreateKnowledgeModal({
         chunkSize: formData.chunkSize,
         chunkOverlap: formData.chunkOverlap,
         knowledgeBaseId: knowledgeBaseId,
+        dbConfig: sourceType === 'DB' ? dbConfig : undefined,
       });
       // console.log(JSON.stringify(response));
       // 성공 시 모달 닫기 및 문서 설정 페이지로 이동
@@ -181,10 +265,6 @@ export default function CreateKnowledgeModal({
     try {
       setIsFetchingApi(true);
       setApiPreviewData(null);
-
-      // TODO: 백엔드 프록시 API를 사용하는 것이 안전하지만, 테스트를 위해 직접 호출하거나
-      // 혹은 knowledgeApi에 미리보기/테스트 엔드포인트를 추가해야 함.
-      // 현재는 간단히 fetch를 사용 (CORS 문제가 발생할 수 있음)
 
       let headers = {};
       try {
@@ -330,7 +410,7 @@ export default function CreateKnowledgeModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {knowledgeBaseId ? '문서 추가' : '지식 베이스 생성'}
+            {knowledgeBaseId ? '소스 추가' : '지식 베이스 생성'}
           </h2>
           <button
             onClick={onClose}
@@ -342,7 +422,7 @@ export default function CreateKnowledgeModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Source Type Selector */}
+          {/* 소스타입 선택 */}
           <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
             <button
               onClick={() => setSourceType('FILE')}
@@ -366,11 +446,21 @@ export default function CreateKnowledgeModal({
               <Globe className="w-5 h-5" />
               <span className="font-medium">API 연동</span>
             </button>
+            <button
+              onClick={() => setSourceType('DB')}
+              className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
+                sourceType === 'DB'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500'
+              }`}
+            >
+              <Database className="w-5 h-5" />
+              <span className="font-medium">DB 연동</span>
+            </button>
           </div>
 
-          {/* Source Content */}
           <div>
-            {sourceType === 'FILE' ? (
+            {sourceType === 'FILE' && (
               <>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   📁 파일 선택
@@ -406,7 +496,8 @@ export default function CreateKnowledgeModal({
                   />
                 </div>
               </>
-            ) : (
+            )}
+            {sourceType === 'API' && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -499,6 +590,12 @@ export default function CreateKnowledgeModal({
                   </div>
                 )}
               </div>
+            )}
+            {sourceType === 'DB' && (
+              <DBConnectionForm
+                onChange={setDbConfig}
+                onTestConnection={handleTestDBConnection}
+              />
             )}
           </div>
 
@@ -600,7 +697,9 @@ export default function CreateKnowledgeModal({
                     모델
                   </label>
                   {loadingModels ? (
-                    <div className="text-xs text-gray-400 p-2">모델 로딩 중...</div>
+                    <div className="text-xs text-gray-400 p-2">
+                      모델 로딩 중...
+                    </div>
                   ) : embeddingModels.length === 0 ? (
                     <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
                       <span>사용 가능한 임베딩 모델이 없습니다.</span>
@@ -623,8 +722,14 @@ export default function CreateKnowledgeModal({
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       {embeddingModels.map((model) => (
-                        <option key={model.id} value={model.model_id_for_api_call}>
-                          {model.name} {model.provider_name ? `(${model.provider_name})` : ''}
+                        <option
+                          key={model.id}
+                          value={model.model_id_for_api_call}
+                        >
+                          {model.name}{' '}
+                          {model.provider_name
+                            ? `(${model.provider_name})`
+                            : ''}
                         </option>
                       ))}
                     </select>

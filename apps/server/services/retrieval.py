@@ -1,11 +1,9 @@
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from langchain_openai import OpenAIEmbeddings
 
 from db.models.knowledge import Document, DocumentChunk
 from schemas.rag import ChunkPreview, RAGResponse
-from services.llm_service import LLMService
-
 
 # --- Constants ---
 QUERY_EXPANSION_SYSTEM_PROMPT = """
@@ -23,22 +21,35 @@ Term Glossary:
 - 워크플로우 -> Workflow
 """
 
+
 class RetrievalService:
     def __init__(self, db: Session):
         self.db = db
         # 1. LLM 클라이언트 확보 (API Key 획득용)
         # TODO: 실제로는 사용자 ID를 받아와서 해당 사용자의 Provider를 가져와야 함 (현재는 Shared Mode)
         try:
-            self.llm_client = LLMService.get_any_provider_client(db)
-            self.api_key = self.llm_client.api_key  # OpenAIClient인 경우 api_key 속성 존재
+            # self.llm_client = LLMService.get_any_provider_client(db)
+            # self.api_key = self.llm_client.api_key  # OpenAIClient인 경우 api_key 속성 존재
+
+            # [DEV] SY. 개발용 하드코딩 Bypass
+            self.api_key = "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"
+            self.llm_client = ChatOpenAI(model="gpt-4o", openai_api_key=self.api_key)
+            print(
+                "[Retrieval] 사용하여 ChatOpenAI 클라이언트를 강제 초기화했습니다. (Dev Mode)"
+            )
+
         except Exception as e:
             print(f"[Retrieval] Failed to load LLM Client: {e}")
             self.llm_client = None
             self.api_key = None
 
-
-
-    def search_documents(self, query: str, knowledge_base_id: str = None, top_k: int = 5, threshold: float = 0.3) -> list[ChunkPreview]:
+    def search_documents(
+        self,
+        query: str,
+        knowledge_base_id: str = None,
+        top_k: int = 5,
+        threshold: float = 0.3,
+    ) -> list[ChunkPreview]:
         """
         [Public API] 지식 베이스 검색 (Vector Search Only)
         다른 노드(예: Knowledge Node)에서 검색 결과만 필요할 때 이 함수를 직접 호출하세요.
@@ -53,13 +64,13 @@ class RetrievalService:
         try:
             expansion_prompt = [
                 {"role": "system", "content": QUERY_EXPANSION_SYSTEM_PROMPT},
-                {"role": "user", "content": query}
+                {"role": "user", "content": query},
             ]
             # LLM에게 쿼리 최적화 요청
             expanded_resp = self.llm_client.invoke(expansion_prompt)
             rewritten_query = expanded_resp["choices"][0]["message"]["content"].strip()
             print(f"[Search] 🧠 Smart Rewrite: '{query}' -> '{rewritten_query}'")
-            
+
             # 검색어를 변환된 것으로 교체
             query = rewritten_query
         except Exception as e:
@@ -68,8 +79,7 @@ class RetrievalService:
         # 1. Query Embedding (Real)
         try:
             embeddings_model = OpenAIEmbeddings(
-                model="text-embedding-3-small",
-                openai_api_key=self.api_key
+                model="text-embedding-3-small", openai_api_key=self.api_key
             )
             query_vector = embeddings_model.embed_query(query)
         except Exception as e:
@@ -78,12 +88,16 @@ class RetrievalService:
 
         # 2. Vector Search (SQLAlchemy with pgvector)
         # Select distance explicitly to filter by it
-        distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label("distance")
-        
+        distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label(
+            "distance"
+        )
+
         stmt = (
             select(DocumentChunk, Document, distance_col)
             .join(Document)
-            .where(Document.knowledge_base_id == knowledge_base_id)  # <-- Filter by Knowledge Base ID
+            .where(
+                Document.knowledge_base_id == knowledge_base_id
+            )  # <-- Filter by Knowledge Base ID
             .order_by(distance_col)
             .limit(top_k)
         )
@@ -94,7 +108,7 @@ class RetrievalService:
         for chunk, doc, distance in results:
             # Similarity = 1 - distance
             similarity = 1 - distance
-            
+
             if similarity < threshold:
                 continue
 
@@ -110,7 +124,9 @@ class RetrievalService:
 
         return previews
 
-    def retrieve_context(self, query: str, knowledge_base_id: str, top_k: int = 5) -> str:
+    def retrieve_context(
+        self, query: str, knowledge_base_id: str, top_k: int = 5
+    ) -> str:
         """
         [Public API] 검색된 문서들의 내용을 하나의 문자열로 합쳐서 반환합니다.
         LLM에게 프롬프트로 넘겨줄 Context 덩어리가 필요할 때 유용합니다.
@@ -118,7 +134,7 @@ class RetrievalService:
         chunks = self.search_documents(query, knowledge_base_id, top_k)
         if not chunks:
             return ""
-        
+
         return "\n\n".join([c.content for c in chunks])
 
     def generate_answer(self, query: str, knowledge_base_id: str) -> RAGResponse:
@@ -129,9 +145,8 @@ class RetrievalService:
         if not self.api_key:
             return RAGResponse(
                 answer="⚠️ OpenAI API Key가 설정되지 않아 실제 검색을 수행할 수 없습니다.",
-                references=[]
+                references=[],
             )
-
 
         # Step 1: Search (Reuse public method)
         relevant_chunks = self.search_documents(query, knowledge_base_id)
@@ -140,7 +155,7 @@ class RetrievalService:
         if not relevant_chunks:
             return RAGResponse(
                 answer="해당 질문에 답변할 수 있는 문서를 찾지 못했습니다.",
-                references=[]
+                references=[],
             )
 
         context_text = "\n\n".join([c.content for c in relevant_chunks])
@@ -151,10 +166,10 @@ class RetrievalService:
             "If the answer is not in the context, say you don't know.\n\n"
             f"Context:\n{context_text}"
         )
-        
+
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query}
+            {"role": "user", "content": query},
         ]
 
         try:

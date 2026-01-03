@@ -17,8 +17,8 @@ class BaseDataSource(ABC):
 
         Args:
             source_config:
-              - FILE의 경우: {'file_path': '...', 'document_id': '...'}
-              - API의 경우: {'url': '...', 'method': '...', 'headers': '...', 'body': '...'}
+            - FILE의 경우: {'file_path': '...', 'document_id': '...'}
+            - API의 경우: {'url': '...', 'method': '...', 'headers': '...', 'body': '...'}
 
         Returns:
             List[dict]: [{'text': '...', 'page': 1, ...}, ...]
