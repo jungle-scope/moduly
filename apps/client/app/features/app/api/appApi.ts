@@ -30,6 +30,7 @@ export interface App {
   description?: string;
   icon: AppIcon;
   url_slug?: string;
+  auth_secret?: string;
   is_market: boolean;
   forked_from?: string;
   workflow_id?: string;
