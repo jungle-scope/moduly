@@ -795,8 +795,13 @@ class IngestionService:
             print("❌ [Debug] 문서를 찾을 수 없음")
             raise ValueError("문서를 찾을 수 없습니다.")
 
-        user_id = doc.knowledge_base.user_id
-        print(f"🔍 [Debug] 문서 소유자 ID: {user_id}")
+        # 요청자 과금 원칙: 요청자 정보가 없으면 작업을 중단합니다.
+        if not self.user_id:
+            print("❌ [Debug] 요청자 정보(user_id) 누락")
+            raise ValueError("작업 요청자 정보를 확인할 수 없어 작업을 중단합니다.")
+
+        user_id = self.user_id
+        print(f"🔍 [Debug] API Key 조회 대상 User ID: {user_id} (요청자)")
 
         user_crd = (
             self.db.query(LLMCredential)
