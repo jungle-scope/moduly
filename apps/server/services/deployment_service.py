@@ -222,6 +222,7 @@ class DeploymentService:
         for app, deployment in results:
             nodes.append(
                 {
+                    "deployment_id": str(deployment.id),
                     "app_id": str(app.id),
                     "name": app.name,
                     "description": deployment.description or app.description,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Loader2, X } from 'lucide-react';
-import { appApi, App } from '../../../../features/app/api/appApi';
+import { App } from '../../../../features/app/api/appApi';
+import { workflowApi } from '../../api/workflowApi';
 import { cn } from '@/lib/utils';
 
 // 워크플로우 모듈로 불러올 앱을 검색하고 선택하는 모달 컴포넌트입니다.
@@ -32,20 +33,34 @@ export function AppSearchModal({
       const fetchApps = async () => {
         setIsLoading(true);
         try {
-          // Fetch "My Apps" and filter locally
-          const data = await appApi.listApps();
+          // Fetch available "Workflow Nodes" directly from backend
+          // This returns deployments with version, schema, and deployment_id
+          const validApps = await workflowApi.listWorkflowNodes();
 
-          // 필터링 로직:
-          // 1. 현재 편집 중인 앱 제외 (순환 참조 방지 등)
-          // 2. "워크플로우 노드"로 배포된 앱만 표시
-          const validApps = data.filter(
-            (app) =>
-              app.id !== excludedAppId &&
-              app.active_deployment_id &&
-              app.active_deployment_type === 'workflow_node',
+          // Filter out the current app (to prevent circular dependency)
+          // We compare app_id
+          const filtered = validApps.filter(
+            (node) => node.app_id !== excludedAppId,
           );
 
-          setApps(validApps);
+          // Map to App-like structure for the UI to render easily,
+          // or just use the node structure. Let's map to a local interface or cast.
+          // For now, we will just set it. We might need to adjust the typing of 'apps' state.
+          // But to minimize changes, let's map it to match what we need.
+          // The UI uses 'name', 'description', 'icon' (which is missing in node response? No, we might need to fetch icon or just use default).
+          // Wait, list_workflow_node_deployments in backend creates:
+          // { deployment_id, app_id, name, description, ... }
+          // It lacks 'icon'. We should probably add 'icon' to backend too.
+          // For now, we'll use a default icon if missing.
+
+          const mappedApps = filtered.map((node) => ({
+            ...node,
+            id: node.app_id, // For key
+            icon: { content: '⚡️', background_color: '#f3f4f6' }, // Default icon since backend doesn't send it yet
+            active_deployment_id: node.deployment_id, // Critical for adding node
+          }));
+
+          setApps(mappedApps as any); // Cast to any to avoid rewriting State type immediately
         } catch (error) {
           console.error('Failed to fetch apps:', error);
         } finally {

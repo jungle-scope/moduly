@@ -151,12 +151,29 @@ export interface WorkflowNodeInput {
   value_selector: string[]; // [node_id, key]
 }
 
-export interface WorkflowNodeData extends BaseNodeData {
-  workflowId: string;
+// Placeholder for InputSchema and OutputSchema if not defined elsewhere
+export interface InputSchema {
+  [key: string]: any;
+}
+export interface OutputSchema {
+  [key: string]: any;
+}
+
+export interface WorkflowNodeData extends NodeData {
   appId: string;
+  name: string;
+  description?: string;
+  version: number;
+  input_schema?: InputSchema;
+  output_schema?: OutputSchema;
   icon?: string;
-  inputs?: WorkflowNodeInput[];
+  inputs?: WorkflowNodeInput[]; // 대상 워크플로우의 StartNode 입력 변수 매핑
   outputs?: string[]; // 대상 워크플로우의 AnswerNode 출력 변수명 목록
+
+  // Expansion Data
+  deployment_id?: string;
+  graph_snapshot?: Record<string, any>; // Expanded internal graph
+  expanded?: boolean;
 }
 // ============================================================================
 

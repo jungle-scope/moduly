@@ -42,6 +42,17 @@ def get_deployments(
     )
 
 
+@router.get("/nodes", response_model=List[dict])
+def list_workflow_nodes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    배포된 워크플로우 노드 목록을 조회합니다. (재사용 가능한 모듈)
+    """
+    return DeploymentService.list_workflow_node_deployments(db)
+
+
 @router.get("/{deployment_id}", response_model=DeploymentResponse)
 def get_deployment(
     deployment_id: str,
@@ -108,14 +119,3 @@ def get_deployment_info_public(
         input_schema=deployment.input_schema,
         output_schema=deployment.output_schema,
     )
-
-
-@router.get("/nodes", response_model=List[dict])
-def list_workflow_nodes(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    배포된 워크플로우 노드 목록을 조회합니다. (재사용 가능한 모듈)
-    """
-    return DeploymentService.list_workflow_node_deployments(db)

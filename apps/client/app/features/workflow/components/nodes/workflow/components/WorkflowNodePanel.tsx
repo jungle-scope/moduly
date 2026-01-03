@@ -26,54 +26,63 @@ export const WorkflowNodePanel: React.FC<WorkflowNodePanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 1. 대상 워크플로우 정보 가져오기
+  // 1. 대상 워크플로우 정보 가져오기 (배포된 버전 기준)
   useEffect(() => {
-    const loadTargetWorkflow = async () => {
-      if (!data.workflowId) return;
+    const loadTargetDeployment = async () => {
+      // deployment_id가 있으면 우선 사용
+      const targetDeploymentId = data.deployment_id;
+
+      if (!targetDeploymentId) {
+        // deployment_id가 없으면 workflowId로 fallback 시도하지 않음 (버전 불일치 위험)
+        // 하지만 기존 데이터 호환성을 위해 경고만 표시하거나,
+        // workflowId가 있으면 최신 draft라도 보여줄지는 기획적 결정.
+        // 여기서는 배포 ID가 필수라고 가정하고 에러 처리.
+        // (단, 마이그레이션 과도기라면 workflowId로 draft 조회하는 로직을 남겨둘 수도 있음.
+        //  일단 사용자가 "불러온 노드"라고 했으므로 deployment_id가 있을 것임)
+        return;
+      }
 
       setIsLoading(true);
       setError(null);
       try {
-        // 내 앱이므로 draft 접근 가능 가정
-        const draft = await workflowApi.getDraftWorkflow(data.workflowId);
+        const deployment = await workflowApi.getDeployment(targetDeploymentId);
 
-        if (draft && draft.nodes) {
-          // Start 노드 찾기
-          const startNode = draft.nodes.find(
-            (n: any) => n.type === 'startNode' || n.type === 'start',
-          );
-
-          // Answer 노드를 찾아 출력 변수 추출
-          const answerNode = draft.nodes.find(
-            (n: any) => n.type === 'answerNode',
-          );
+        if (deployment) {
+          // 1. Output Schema 처리
           const outputKeys =
-            (answerNode?.data?.outputs as any[])?.map((o) => o.variable) || [];
+            deployment.output_schema?.outputs?.map((o) => o.variable) || [];
 
           // 변경사항이 있다면 outputs 업데이트
           if (JSON.stringify(data.outputs) !== JSON.stringify(outputKeys)) {
             updateNodeData(nodeId, { outputs: outputKeys });
           }
 
-          if (startNode && startNode.data && startNode.data.variables) {
-            setTargetVariables(startNode.data.variables);
+          // 2. Input Schema 처리 -> targetVariables
+          if (deployment.input_schema?.variables) {
+            // InputVariable -> WorkflowVariable 변환
+            const mappedVars: WorkflowVariable[] =
+              deployment.input_schema.variables.map((v, idx) => ({
+                id: v.name || `var-${idx}`,
+                name: v.name,
+                label: v.label || v.name,
+                type: (v.type as any) || 'text',
+                required: true, // 배포된 입력은 기본적으로 required라고 가정하거나, 스키마에 required 필드 추가 필요
+              }));
+            setTargetVariables(mappedVars);
           } else {
             setTargetVariables([]);
           }
         }
       } catch (err: any) {
-        console.error('Failed to load target workflow:', err);
-        setError('타겟 워크플로우 정보를 불러오지 못했습니다.');
-        if (err.response?.status === 403) {
-          setError('권한이 없습니다 (다른 사람의 비공개 앱일 수 있습니다).');
-        }
+        console.error('Failed to load target deployment:', err);
+        setError('배포 정보를 불러오지 못했습니다.');
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadTargetWorkflow();
-  }, [data.workflowId]);
+    loadTargetDeployment();
+  }, [data.deployment_id, nodeId, updateNodeData]);
 
   // 2. 매핑을 위한 상위 노드 목록 (Upstream Nodes)
   const upstreamNodes = useMemo(() => {
