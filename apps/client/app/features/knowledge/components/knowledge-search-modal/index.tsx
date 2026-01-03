@@ -89,15 +89,11 @@ export default function KnowledgeSearchModal({
     }
   }, [isOpen]);
 
-  // Clear response effect removed for persistence
-
   const handleSearch = async () => {
     if (!query.trim()) return;
 
     setIsLoading(true);
     setIsLoading(true);
-    // Don't clear previous result immediately to avoid flickering, or clear specific one?
-    // User wants persistence, but usually we clear current view when starting new search
     if (activeTab === 'chat') setChatResult(null);
     else setSearchResult(null);
 
@@ -132,7 +128,7 @@ export default function KnowledgeSearchModal({
       }
     } catch (error) {
       console.error('Search failed:', error);
-      alert('오류가 발생했습니다. 백엔드 로그를 확인해주세요.');
+      alert('오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
