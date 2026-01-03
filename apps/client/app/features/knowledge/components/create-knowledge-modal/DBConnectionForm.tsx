@@ -196,7 +196,7 @@ export default function DBConnectionForm({
       <div className="pt-2">
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-            <Shield className="w-4 h-4" /> SSH 터널링 (Bastion)
+            <Shield className="w-4 h-4" /> SSH 사용
           </label>
           <input
             type="checkbox"
