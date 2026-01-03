@@ -8,6 +8,7 @@ import {
   StartNodeData,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { CollapsibleSection } from '../../../ui/CollapsibleSection';
 
 interface ConditionNodePanelProps {
   nodeId: string;
@@ -170,22 +171,23 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <span className="text-sm font-semibold text-gray-700">
-            분기 조건 ({cases.length}개)
-          </span>
+    <div className="flex flex-col gap-2">
+      <CollapsibleSection
+        title={`분기 조건 (${cases.length}개)`}
+        icon={
           <button
-            onClick={handleAddCase}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddCase();
+            }}
+            className="p-1 hover:bg-gray-200 rounded transition-colors ml-auto"
             title="분기 추가"
           >
             <Plus className="w-4 h-4 text-gray-600" />
           </button>
-        </div>
-
-        <div className="p-4 space-y-4">
+        }
+      >
+        <div className="flex flex-col gap-4">
           <div className="text-xs text-gray-500 mb-2">
             각 분기(Case)는 순서대로 평가되며, 첫 번째로 조건이 만족되는 분기로
             진행됩니다.
@@ -441,7 +443,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
             만족하지 않으면 이 분기로 진행됩니다.
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }

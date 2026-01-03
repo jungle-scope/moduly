@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
 import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
-import { WorkflowCreateRequest, WorkflowResponse } from '../types/Api';
+import { WorkflowCreateRequest, WorkflowResponse, WorkflowRunListResponse } from '../types/Api';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+// Next.js Rewrites를 사용하므로 상대 경로 사용 (자동으로 localhost:3000 -> 127.0.0.1:8000 프록시됨)
+const API_BASE_URL = '/api/v1';
 
 // Axios 인스턴스 생성 (withCredentials 설정)
 const api = axios.create({
@@ -141,14 +142,40 @@ export const workflowApi = {
   },
 
   createDeployment: async (data: DeploymentCreate) => {
-    const response = await api.post('/deployments/', data);
+    const response = await api.post('/deployments', data);
     return response.data as DeploymentResponse;
   },
 
   getDeployments: async (workflowId: string) => {
-    const response = await api.get('/deployments/', {
+    const response = await api.get('/deployments', {
       params: { workflow_id: workflowId },
     });
     return response.data as DeploymentResponse[];
   },
+
+  // [NEW] 워크플로우 실행 이력 조회
+  getWorkflowRuns: async (workflowId: string, page = 1, limit = 20) => {
+    const response = await api.get(`/workflows/${workflowId}/runs`, {
+      params: { page, limit },
+    });
+    return response.data as WorkflowRunListResponse;
+  },
+
+  // [NEW] 단일 워크플로우 실행 이력 상세 조회
+  getWorkflowRun: async (workflowId: string, runId: string) => {
+    const response = await api.get(`/workflows/${workflowId}/runs/${runId}`);
+    return response.data as import('../types/Api').WorkflowRun;
+  },
+  // [NEW] 대시보드 통계 조회
+    // [NEW] 대시보드 통계 조회
+  getDashboardStats: async (workflowId: string) => {
+    const response = await api.get(`/workflows/${workflowId}/stats`);
+    return response.data as import('../types/Api').DashboardStatsResponse;
+  },
+  
+  // [NEW] Top 3 Models
+  getTopExpensiveModels: async () => {
+    const response = await api.get('/llm/stats/top-models'); // Note: baseURL is /api/v1
+    return response.data as import('../types/Api').TopExpensiveModel[];
+  }
 };

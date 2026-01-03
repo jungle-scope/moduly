@@ -8,6 +8,7 @@ import {
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
+import { CollapsibleSection } from '../../../ui/CollapsibleSection';
 
 interface HttpRequestNodePanelProps {
   nodeId: string;
@@ -71,8 +72,10 @@ export function HttpRequestNodePanel({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-2">
       {/* 1. Method & URL */}
+      {/* 이 부분은 항상 보여야 하므로 Collapsible에서 제외하거나 별도 섹션으로 둘 수 있음.
+          가장 중요한 정보이므로 상단에 노출. */}
       <div className="flex gap-2">
         <select
           className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium w-24"
@@ -96,233 +99,204 @@ export function HttpRequestNodePanel({
       </div>
 
       {/* 2. Authentication */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <span className="text-sm font-semibold text-gray-700">
-            Authentication
-          </span>
-          <select
-            className="h-7 rounded border border-gray-300 bg-white px-2 text-xs shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={data.authType || 'none'}
-            onChange={(e) =>
-              handleUpdateData('authType', e.target.value as AuthType)
-            }
-          >
-            <option value="none">None</option>
-            <option value="bearer">Bearer Token</option>
-            <option value="apiKey">API Key</option>
-          </select>
-        </div>
-
-        {data.authType === 'none' && (
-          <div className="p-4 text-sm text-gray-500 text-center">
-            인증 설정 X
-          </div>
-        )}
-
-        {data.authType === 'bearer' && (
-          <div className="p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Token
-            </label>
-            <input
-              className="w-full h-9 rounded border border-gray-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
-              placeholder="TODO: 전역변수 입력하게 하고, 끌어 쓰기?"
-              value={data.authConfig?.token || ''}
-              onChange={(e) =>
-                handleUpdateData('authConfig', {
-                  ...data.authConfig,
-                  token: e.target.value,
-                })
-              }
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Will be sent as:{' '}
-              <code className="bg-gray-100 px-1 rounded">
-                Authorization: Bearer {'{token}'}
-              </code>
-            </p>
-          </div>
-        )}
-
-        {data.authType === 'apiKey' && (
-          <div className="p-4 space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Header Name
-              </label>
-              <input
-                className="w-full h-9 rounded border border-gray-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
-                placeholder="X-API-Key"
-                value={data.authConfig?.apiKeyHeader || 'X-API-Key'}
-                onChange={(e) =>
-                  handleUpdateData('authConfig', {
-                    ...data.authConfig,
-                    apiKeyHeader: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                API Key
-              </label>
-              <input
-                className="w-full h-9 rounded border border-gray-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
-                placeholder="TODO: 다른 곳에서 입력, 끌어 쓰기?"
-                value={data.authConfig?.apiKeyValue || ''}
-                onChange={(e) =>
-                  handleUpdateData('authConfig', {
-                    ...data.authConfig,
-                    apiKeyValue: e.target.value,
-                  })
-                }
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 3. Headers */}
-      <div className="flex flex-col gap-2">
-        <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <span className="text-sm font-semibold text-gray-700">Headers</span>
-            <button
-              onClick={handleAddHeader}
-              className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
-              title="헤더 추가"
-            >
-              <Plus className="w-4 h-4 text-gray-600" />
-            </button>
-          </div>
-
-          <div className="p-4 space-y-3">
-            {data.headers?.map((header, index) => (
-              <div key={index} className="flex gap-2 items-center">
-                <input
-                  className="h-8 w-24 flex-shrink-0 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none font-mono placeholder:text-gray-400"
-                  placeholder="Key"
-                  value={header.key}
-                  onChange={(e) =>
-                    handleUpdateHeader(index, 'key', e.target.value)
-                  }
-                />
-                <span className="text-gray-400 flex-shrink-0">:</span>
-                <input
-                  className="h-8 flex-1 min-w-0 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none font-mono placeholder:text-gray-400"
-                  placeholder="Value"
-                  value={header.value}
-                  onChange={(e) =>
-                    handleUpdateHeader(index, 'value', e.target.value)
-                  }
-                />
-                <button
-                  className="p-1.5 flex-shrink-0 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                  onClick={() => handleRemoveHeader(index)}
-                  title="삭제"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-
-            {(!data.headers || data.headers.length === 0) && (
-              <div className="text-center text-sm text-gray-400 py-2">
-                설정된 헤더가 없습니다.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
-          💡 <code className="bg-blue-100 px-1 rounded font-mono">Header</code>
-          를 입력하지 않으면 Body가 있을 때 자동으로{' '}
-          <code className="bg-blue-100 px-1 rounded font-mono">
-            application/json
-          </code>
-          이 추가됩니다.
-        </div>
-      </div>
-
-      {/* 3. Body (POST/PUT/PATCH only) */}
-      {['POST', 'PUT', 'PATCH'].includes(data.method || '') && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-semibold text-gray-700">Body</label>
+      <CollapsibleSection title="Authentication">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
             <select
-              className="h-7 rounded border border-gray-300 bg-gray-50 px-2 text-xs text-gray-500 shadow-sm focus:outline-none cursor-not-allowed"
-              disabled
-              value="json"
+              className="h-8 w-full rounded border border-gray-300 bg-white px-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+              value={data.authType || 'none'}
+              onChange={(e) =>
+                handleUpdateData('authType', e.target.value as AuthType)
+              }
             >
-              <option value="json">JSON</option>
+              <option value="none">No Authentication</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="apiKey">API Key</option>
             </select>
           </div>
-          <div className="relative">
+
+          {data.authType === 'bearer' && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-700">Token</label>
+              <input
+                className="w-full h-8 rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
+                placeholder="Ex) eyJhbGciOiJIUzI1Ni..."
+                value={data.authConfig?.token || ''}
+                onChange={(e) =>
+                  handleUpdateData('authConfig', {
+                    ...data.authConfig,
+                    token: e.target.value,
+                  })
+                }
+              />
+              <p className="text-[10px] text-gray-400">
+                Authorization: Bearer {'{token}'}
+              </p>
+            </div>
+          )}
+
+          {data.authType === 'apiKey' && (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-700">
+                  Header Name
+                </label>
+                <input
+                  className="w-full h-8 rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
+                  placeholder="Ex) X-API-Key"
+                  value={data.authConfig?.apiKeyHeader || 'X-API-Key'}
+                  onChange={(e) =>
+                    handleUpdateData('authConfig', {
+                      ...data.authConfig,
+                      apiKeyHeader: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-700">
+                  API Key
+                </label>
+                <input
+                  className="w-full h-8 rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
+                  placeholder="Ex) my-secret-key-123"
+                  value={data.authConfig?.apiKeyValue || ''}
+                  onChange={(e) =>
+                    handleUpdateData('authConfig', {
+                      ...data.authConfig,
+                      apiKeyValue: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      {/* 3. Headers */}
+      <CollapsibleSection
+        title="Headers"
+        icon={
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddHeader();
+            }}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="Add Header"
+          >
+            <Plus className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+        }
+      >
+        <div className="flex flex-col gap-2">
+          {data.headers?.map((header, index) => (
+            <div key={index} className="flex gap-2 items-center">
+              <input
+                className="h-8 w-1/3 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"
+                placeholder="Key"
+                value={header.key}
+                onChange={(e) =>
+                  handleUpdateHeader(index, 'key', e.target.value)
+                }
+              />
+              <input
+                className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"
+                placeholder="Value"
+                value={header.value}
+                onChange={(e) =>
+                  handleUpdateHeader(index, 'value', e.target.value)
+                }
+              />
+              <button
+                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                onClick={() => handleRemoveHeader(index)}
+                title="Remove"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {(!data.headers || data.headers.length === 0) && (
+            <div className="text-center text-xs text-gray-400 py-2 border border-dashed border-gray-200 rounded">
+              No headers
+            </div>
+          )}
+
+          <div className="text-[10px] text-blue-600 bg-blue-50 p-2 rounded">
+            Header 미입력 시, Body가 있으면 자동 <code>application/json</code>{' '}
+            추가됨.
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* 4. Body (POST/PUT/PATCH only) */}
+      {['POST', 'PUT', 'PATCH'].includes(data.method || '') && (
+        <CollapsibleSection title="Body">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Content-Type: JSON</span>
+            </div>
             <textarea
-              className="w-full h-40 rounded-lg border border-gray-300 p-3 text-sm font-mono shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+              className="w-full h-32 rounded border border-gray-300 p-2 text-xs font-mono focus:outline-none focus:border-blue-500 resize-y"
               placeholder='{"key": "value"}'
               value={data.body || ''}
               onChange={(e) => handleUpdateData('body', e.target.value)}
             />
+            <div className="text-[10px] text-gray-500">
+              💡 <code>{'{{variable}}'}</code> 문법 사용 가능
+            </div>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
-            💡{' '}
-            <code className="bg-blue-100 px-1 rounded font-mono">{`{{variable}}`}</code>{' '}
-            문법으로 변수를 사용할 수 있습니다.
-          </div>
-        </div>
+        </CollapsibleSection>
       )}
 
-      {/* 4. Timeout */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-semibold text-gray-700">
-          Timeout (ms)
-        </label>
-        <input
-          type="number"
-          className="h-9 w-full rounded-md border border-gray-300 px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          placeholder="5000"
-          value={data.timeout || 5000}
-          onChange={(e) =>
-            handleUpdateData('timeout', parseInt(e.target.value) || 0)
-          }
-        />
-      </div>
+      {/* 5. Settings (Timeout) */}
+      <CollapsibleSection title="Settings" defaultOpen={false}>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-700">
+            Timeout (ms)
+          </label>
+          <input
+            type="number"
+            className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
+            placeholder="5000"
+            value={data.timeout || 5000}
+            onChange={(e) =>
+              handleUpdateData('timeout', parseInt(e.target.value) || 0)
+            }
+          />
+        </div>
+      </CollapsibleSection>
 
-      {/* 5. Variable Helper */}
+      {/* 6. Variable Helper */}
       {availableVariables.length > 0 && (
-        <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <span className="text-sm font-semibold text-gray-700">
-              사용 가능한 변수
-            </span>
-            <p className="text-xs text-gray-500 mt-1">
-              클릭하여 변수를 복사하세요.
-            </p>
-          </div>
-          <div className="p-2 grid grid-cols-1 gap-1 max-h-40 overflow-y-auto">
+        <CollapsibleSection title="Available Variables" defaultOpen={false}>
+          <div className="flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
             {availableVariables.map((v) => (
               <button
                 key={v.id}
-                className="flex items-center justify-between px-3 py-2 text-xs text-left hover:bg-blue-50 rounded border border-transparent hover:border-blue-100 transition-colors group"
+                className="flex items-center justify-between px-2 py-1.5 text-xs text-left hover:bg-gray-100 rounded border border-transparent hover:border-gray-200 transition-colors group"
                 onClick={() => {
                   navigator.clipboard.writeText(v.value);
-                  // Optional: Show toast
                 }}
-                title="클릭하여 복사"
+                title="Click to copy"
               >
-                <div className="flex flex-col">
-                  <span className="font-medium text-gray-700">{v.label}</span>
-                  <code className="text-gray-500 mt-0.5">{v.value}</code>
+                <div className="flex flex-col truncate">
+                  <span className="font-medium text-gray-700 truncate">
+                    {v.label}
+                  </span>
+                  <code className="text-gray-500 text-[10px] mt-0.5">
+                    {v.value}
+                  </code>
                 </div>
-                <span className="text-blue-500 opacity-0 group-hover:opacity-100 font-medium">
-                  복사
+                <span className="text-blue-500 text-[10px] opacity-0 group-hover:opacity-100 whitespace-nowrap ml-2">
+                  Copy
                 </span>
               </button>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
     </div>
   );

@@ -28,6 +28,11 @@ async def lifespan(app: FastAPI):
     print("✅ Database tables created successfully!")
 
     # 2. Seed Default LLM Providers (Idempotent)
+    import uuid
+
+    from db.models.user import User
+    # [NEW] 로깅 모델 등록
+    from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
     from db.session import SessionLocal
 
     db = SessionLocal()
