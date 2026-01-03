@@ -153,8 +153,8 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
       // 위치 계산
       const coords = getCaretCoordinates(target, selectionEnd);
       setSuggestionPos({
-        top: coords.top + coords.height + 10, // 조금 아래
-        left: coords.left,
+        top: target.offsetTop + coords.top + coords.height, // Line height 아래
+        left: target.offsetLeft + coords.left,
       });
       setShowSuggestions(true);
     } else {
@@ -196,14 +196,14 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
   // [VALIDATION] Check for unregistered variables
   const validationErrors = useMemo(() => {
     const template = data.template || '';
-    const registeredNames = new Set((data.variables || []).map((v) => v.name));
+    const registeredNames = new Set((data.variables || []).map((v) => v.name?.trim()).filter(Boolean));
     const errors: string[] = [];
 
-    const regex = /{{\s*([a-zA-Z0-9_]+)\s*}}/g;
+    const regex = /{{\s*([^}]+?)\s*}}/g;
     let match;
     while ((match = regex.exec(template)) !== null) {
-      const varName = match[1];
-      if (!registeredNames.has(varName)) {
+      const varName = match[1].trim();
+      if (varName && !registeredNames.has(varName)) {
         errors.push(varName);
       }
     }
@@ -361,7 +361,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
             {/* [AUTOCOMPLETE] Dropdown Overlay */}
             {showSuggestions && (
               <div
-                className="fixed bg-white border border-gray-200 shadow-lg rounded z-50 w-48 max-h-40 overflow-y-auto"
+                className="absolute bg-white border border-gray-200 shadow-lg rounded z-50 w-48 max-h-40 overflow-y-auto"
                 style={{
                   top: suggestionPos.top,
                   left: suggestionPos.left,
