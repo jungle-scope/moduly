@@ -12,7 +12,7 @@ import {
 import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
 // [NEW] 모니터링 대시보드 모달 Import
 import { MonitoringDashboardModal } from '@/app/features/workflow/components/monitoring/MonitoringDashboardModal';
-import { ScrollText, BarChart3 } from 'lucide-react'; // [NEW] 아이콘 추가
+import { ScrollText, BarChart3, Play } from 'lucide-react'; // [NEW] 아이콘 추가
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   validateVariableName,
@@ -503,15 +503,17 @@ export default function EditorHeader() {
           <button
             onClick={handleTestRun}
             disabled={isExecuting}
-            className={`px-4 py-2 font-medium rounded-lg transition-colors shadow-sm ${
+            className={`px-4 py-2 flex items-center gap-2 rounded-lg transition-colors border border-gray-200 shadow-sm ${
               isExecuting
-                ? 'bg-green-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white'
+                ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {isExecuting ? '실행 중...' : 'TEST'}
+            <Play className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              {isExecuting ? '실행 중...' : '테스트'}
+            </span>
           </button>
-
           {/* [NEW] 로그 및 모니터링 버튼 */}
           <button
             onClick={() => setIsLogViewerOpen(true)}
@@ -520,7 +522,6 @@ export default function EditorHeader() {
             <ScrollText className="w-4 h-4" />
             <span className="text-sm font-medium">로그</span>
           </button>
-
           <button
             onClick={() => setIsMonitoringOpen(true)}
             className="px-4 py-2 flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 shadow-sm"
@@ -528,41 +529,43 @@ export default function EditorHeader() {
             <BarChart3 className="w-4 h-4" />
             <span className="text-sm font-medium">모니터링</span>
           </button>
-
           <div className="w-[1px] h-6 bg-gray-200 mx-1" /> {/* 구분선 */}
-
           {/* [NEW] 로그 뷰어 모달 렌더링 */}
           {workflowId && (
             <>
-                <LogViewerModal
-                    isOpen={isLogViewerOpen}
-                    onClose={() => {
-                        setIsLogViewerOpen(false);
-                        setInitialLogRunId(null);
-                        setReturnToMonitoring(false);
-                    }}
-                    workflowId={workflowId as string}
-                    initialRunId={initialLogRunId}
-                    onBack={returnToMonitoring ? () => {
+              <LogViewerModal
+                isOpen={isLogViewerOpen}
+                onClose={() => {
+                  setIsLogViewerOpen(false);
+                  setInitialLogRunId(null);
+                  setReturnToMonitoring(false);
+                }}
+                workflowId={workflowId as string}
+                initialRunId={initialLogRunId}
+                onBack={
+                  returnToMonitoring
+                    ? () => {
                         setIsLogViewerOpen(false);
                         setInitialLogRunId(null);
                         setIsMonitoringOpen(true);
                         setReturnToMonitoring(false);
-                    } : undefined}
-                />
-                <MonitoringDashboardModal
-                    isOpen={isMonitoringOpen}
-                    onClose={() => setIsMonitoringOpen(false)}
-                    workflowId={workflowId as string}
-                    onNavigateToLog={(runId) => {
-                        setInitialLogRunId(runId);
-                        setIsMonitoringOpen(false);
-                        setIsLogViewerOpen(true);
-                        setReturnToMonitoring(true);
-                    }}
-                    initialScrollTop={monitoringScrollPos}
-                    onSaveScrollPos={setMonitoringScrollPos}
-                />
+                      }
+                    : undefined
+                }
+              />
+              <MonitoringDashboardModal
+                isOpen={isMonitoringOpen}
+                onClose={() => setIsMonitoringOpen(false)}
+                workflowId={workflowId as string}
+                onNavigateToLog={(runId) => {
+                  setInitialLogRunId(runId);
+                  setIsMonitoringOpen(false);
+                  setIsLogViewerOpen(true);
+                  setReturnToMonitoring(true);
+                }}
+                initialScrollTop={monitoringScrollPos}
+                onSaveScrollPos={setMonitoringScrollPos}
+              />
             </>
           )}
           <button
@@ -572,7 +575,6 @@ export default function EditorHeader() {
             <ClockIcon className="w-5 h-5" />
             <span className="text-sm font-medium">버전 기록</span>
           </button>
-
           {/* Publish Dropdown */}
           <div className="relative">
             <button
