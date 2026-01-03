@@ -715,8 +715,8 @@ export default function DocumentSettingsPage() {
           </div>
           <div className="flex-1 w-full h-full p-4">
             {kbId && documentId && document ? (
-              ( document?.source_type === 'API' ||
-                document?.meta_info?.api_config) ? (
+              document?.source_type === 'API' ||
+              document?.meta_info?.api_config ? (
                 <div className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 overflow-auto p-4">
                   <div className="p-4">
                     {apiOriginalData ? (
@@ -738,7 +738,7 @@ export default function DocumentSettingsPage() {
                 </div>
               ) : (
                 <iframe
-                  src={`http://localhost:8000/api/v1/knowledge/${kbId}/documents/${documentId}/content`}
+                  src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/knowledge/${kbId}/documents/${documentId}/content`}
                   className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800"
                   title="Original Document Preview"
                 />
