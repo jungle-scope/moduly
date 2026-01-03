@@ -180,7 +180,7 @@ export const WorkflowNode = memo(
         showSourceHandle={false}
         showTargetHandle={false}
       >
-        {/* Custom Handles fixed to the header area */}
+        {/* 헤더 영역에 고정된 커스텀 핸들 */}
         <Handle
           type="target"
           position={Position.Left}
@@ -204,9 +204,9 @@ export const WorkflowNode = memo(
             </div>
             <div className="flex flex-col flex-1 min-w-0 pr-6">
               <div className="flex items-center justify-between">
-                {/* Version removed as requested */}
+                {/* 요청에 따라 버전 정보 제거됨 */}
               </div>
-              {/* Toggle Button: Absolute Top Right */}
+              {/* 토글 버튼: 우측 상단 절대 위치 */}
               <button
                 onClick={handleToggle}
                 className="absolute top-0 right-0 p-1 rounded-md hover:bg-purple-100 dark:hover:bg-purple-800/30 text-purple-600 transition-colors"
@@ -229,7 +229,7 @@ export const WorkflowNode = memo(
             </div>
           </div>
 
-          {/* Expanded Content: Visual Graph */}
+          {/* 확장된 콘텐츠: 시각적 그래프 */}
           {isExpanded && (
             <div className="mt-2 pt-2 border-t border-purple-200/50 dark:border-purple-800/30 animate-in slide-in-from-top-1 fade-in duration-200">
               <div

@@ -48,6 +48,7 @@ type WorkflowState = {
   // === 버전 기록 상태 ===
   isVersionHistoryOpen: boolean;
   previewingVersion: DeploymentResponse | null;
+  lastDeployedAt: Date | null; // 배포 완료 시점 (리스트 갱신 트리거)
 
   // === 그래프 데이터 (ReactFlow) ===
   nodes: Node[];
@@ -70,6 +71,7 @@ type WorkflowState = {
   previewVersion: (version: DeploymentResponse) => void;
   exitPreview: () => void;
   restoreVersion: (version: DeploymentResponse) => Promise<void>;
+  notifyDeploymentComplete: () => void; // 배포 완료 알림
 
   // === Editor UI 액션 ===
 
@@ -131,6 +133,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   // === 버전 기록 상태 ===
   isVersionHistoryOpen: false,
   previewingVersion: null,
+  lastDeployedAt: null,
 
   // === 그래프 데이터 ===
   nodes: initialNodes,
@@ -211,6 +214,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({ previewingVersion: null });
     }
   },
+
+  notifyDeploymentComplete: () => set({ lastDeployedAt: new Date() }),
 
   restoreVersion: async (version) => {
     const { activeWorkflowId, exitPreview } = get();

@@ -140,6 +140,10 @@ export default function EditorHeader() {
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
         });
+
+        // 배포 성공 알림 (버전 기록 갱신용)
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Deployment failed:', error);
@@ -190,6 +194,9 @@ export default function EditorHeader() {
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
         });
+
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Web app deployment failed:', error);
@@ -240,6 +247,9 @@ export default function EditorHeader() {
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
         });
+
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Widget deployment failed:', error);
@@ -291,6 +301,9 @@ export default function EditorHeader() {
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
         });
+
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Workflow node deployment failed:', error);

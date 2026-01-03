@@ -33,34 +33,32 @@ export function AppSearchModal({
       const fetchApps = async () => {
         setIsLoading(true);
         try {
-          // Fetch available "Workflow Nodes" directly from backend
-          // This returns deployments with version, schema, and deployment_id
+          // 백엔드에서 사용 가능한 "Workflow Nodes"를 직접 가져옵니다.
+          // 버전, 스키마, deployment_id가 포함된 배포 정보를 반환합니다.
           const validApps = await workflowApi.listWorkflowNodes();
 
-          // Filter out the current app (to prevent circular dependency)
-          // We compare app_id
+          // 현재 앱을 제외합니다 (순환 참조 방지).
+          // app_id를 비교합니다.
           const filtered = validApps.filter(
             (node) => node.app_id !== excludedAppId,
           );
 
-          // Map to App-like structure for the UI to render easily,
-          // or just use the node structure. Let's map to a local interface or cast.
-          // For now, we will just set it. We might need to adjust the typing of 'apps' state.
-          // But to minimize changes, let's map it to match what we need.
-          // The UI uses 'name', 'description', 'icon' (which is missing in node response? No, we might need to fetch icon or just use default).
-          // Wait, list_workflow_node_deployments in backend creates:
+          // UI 렌더링에 적합한 구조로 매핑합니다.
+          // 현재는 node 구조를 그대로 사용하거나 필요한 인터페이스로 매핑합니다.
+          // 'name', 'description', 'icon' 등이 필요합니다.
+          // 백엔드의 list_workflow_node_deployments는 다음을 생성합니다:
           // { deployment_id, app_id, name, description, ... }
-          // It lacks 'icon'. We should probably add 'icon' to backend too.
-          // For now, we'll use a default icon if missing.
+          // 'icon'이 없으므로 백엔드에도 추가해야 할 수 있습니다.
+          // 현재는 누락된 경우 기본 아이콘을 사용합니다.
 
           const mappedApps = filtered.map((node) => ({
             ...node,
-            id: node.app_id, // For key
-            icon: { content: '⚡️', background_color: '#f3f4f6' }, // Default icon since backend doesn't send it yet
-            active_deployment_id: node.deployment_id, // Critical for adding node
+            id: node.app_id, // 키 값으로 사용
+            icon: { content: '⚡️', background_color: '#f3f4f6' }, // 백엔드에서 아직 아이콘을 보내지 않으므로 기본 아이콘 사용
+            active_deployment_id: node.deployment_id, // 노드 추가에 필수
           }));
 
-          setApps(mappedApps as any); // Cast to any to avoid rewriting State type immediately
+          setApps(mappedApps as any); // State 타입을 즉시 다시 작성하지 않기 위해 any로 캐스팅
         } catch (error) {
           console.error('Failed to fetch apps:', error);
         } finally {

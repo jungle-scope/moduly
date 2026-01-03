@@ -13,19 +13,20 @@ export function VersionHistorySidebar() {
     activeWorkflowId,
     previewVersion,
     previewingVersion,
+    lastDeployedAt,
   } = useWorkflowStore();
 
   const [deployments, setDeployments] = useState<DeploymentResponse[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch Version History
+  // 버전 이력 가져오기
   useEffect(() => {
     if (isVersionHistoryOpen && activeWorkflowId) {
       const fetchHistory = async () => {
         try {
           setLoading(true);
           const data = await workflowApi.getDeployments(activeWorkflowId);
-          // Sort by version descending (newest first)
+          // 버전 내림차순 정렬 (최신순)
           const sorted = data.sort((a, b) => b.version - a.version);
           setDeployments(sorted);
         } catch (error) {
@@ -36,13 +37,13 @@ export function VersionHistorySidebar() {
       };
       fetchHistory();
     }
-  }, [isVersionHistoryOpen, activeWorkflowId]);
+  }, [isVersionHistoryOpen, activeWorkflowId, lastDeployedAt]);
 
   if (!isVersionHistoryOpen) return null;
 
   return (
     <div className="absolute top-14 right-0 bottom-0 w-80 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col animate-in slide-in-from-right duration-200">
-      {/* Header */}
+      {/* 헤더 */}
       <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
         <div className="flex items-center gap-2 text-gray-800">
           <Clock className="w-5 h-5" />
@@ -61,7 +62,7 @@ export function VersionHistorySidebar() {
         </div>
       </div>
 
-      {/* Current Draft Indicator */}
+      {/* 현재 초안 표시기 */}
       <div className="p-4 bg-blue-50/50 border-b border-blue-100">
         <div
           className={`relative flex items-center gap-3 p-3 rounded-lg border-2 transition-all cursor-pointer ${
@@ -97,7 +98,7 @@ export function VersionHistorySidebar() {
         </div>
       </div>
 
-      {/* Version List */}
+      {/* 버전 목록 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (
           <div className="flex justify-center p-8">
@@ -110,7 +111,7 @@ export function VersionHistorySidebar() {
           </div>
         ) : (
           <div className="relative">
-            {/* Timeline Line */}
+            {/* 타임라인 선 */}
             <div className="absolute left-[18px] top-6 bottom-6 w-0.5 bg-gray-100 -z-10" />
 
             {deployments.map((v) => {
@@ -126,7 +127,7 @@ export function VersionHistorySidebar() {
                       : 'bg-white border-transparent hover:bg-gray-50 hover:border-gray-200'
                   }`}
                 >
-                  {/* Timeline Dot */}
+                  {/* 타임라인 점 */}
                   <div
                     className={`mt-1.5 w-3 h-3 rounded-full border-2 bg-white flex-shrink-0 z-10 ${
                       isSelected
@@ -143,7 +144,7 @@ export function VersionHistorySidebar() {
                         {v.description || '제목 없는 버전'}
                       </span>
                       {/* {isSelected && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">선택됨</span>} */}
-                      {/* Latest tag logic could go here if sort order allows */}
+                      {/* 정렬 순서가 허용하는 경우 여기에 최신 태그 로직 추가 가능 */}
                     </div>
 
                     <div className="text-xs text-gray-500 flex flex-col gap-0.5">
