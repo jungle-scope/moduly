@@ -39,7 +39,7 @@ jobs:
       run: |
         # ⭐ 중요: 빌드 컨텍스트를 ./apps/server로 지정합니다.
         # Dockerfile이 apps/server 폴더 안에 있어야 합니다.
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./apps/server
+        docker build -f ./apps/server/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
     # 5. ECS 서비스 강제 업데이트 (새 서버로 교체)
