@@ -1,7 +1,11 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
 import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
-import { WorkflowCreateRequest, WorkflowResponse } from '../types/Api';
+import {
+  WorkflowCreateRequest,
+  WorkflowResponse,
+  WorkflowRunListResponse,
+} from '../types/Api';
 
 // Next.js Rewrites를 사용하므로 상대 경로 사용 (자동으로 localhost:3000 -> 127.0.0.1:8000 프록시됨)
 const API_BASE_URL = '/api/v1';
