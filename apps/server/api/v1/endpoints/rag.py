@@ -278,7 +278,7 @@ async def proxy_api_preview(
     프론트엔드 CORS 문제 해결을 위한 API 프록시 엔드포인트
     """
     import requests
-    from requests.exceptions import ConnectionError, Timeout
+    from requests.exceptions import ConnectionError, HTTPError, Timeout
 
     print(f"[Proxy] URL: {request.url}")
     print(f"[Proxy] Headers: {request.headers}")
@@ -311,7 +311,16 @@ async def proxy_api_preview(
             "data": data,
             "headers": dict(response.headers),
         }
+    except HTTPError as e:
+        # 외부 API가 에러 응답(4xx, 5xx)을 준 경우
+        print(f"[Proxy Log] 외부 API 에러: {e}")
+        status_code = e.response.status_code if e.response else 400
+        try:
+            detail = e.response.json()
+        except:
+            detail = e.response.text if e.response else str(e)
 
+        raise HTTPException(status_code=status_code, detail=detail)
     except Timeout:
         print("[Proxy Log] 타임아웃 발생 (Timeout)")
         raise HTTPException(status_code=504, detail="External API Timeout")

@@ -115,7 +115,7 @@ class IngestionService:
         try:
             self._update_status(document_id, "indexing")
             self._update_progress(document_id, 5, "문서 처리를 시작합니다...")
-
+            print("[DEBUG] 1번")
             # 1단계: 파싱 (document_id 전달)
             self._update_progress(document_id, 10, "문서 내용을 분석하고 있습니다...")
 
@@ -126,6 +126,7 @@ class IngestionService:
                 raise ValueError(f"Document {document_id} not found")
 
             data_source = self._get_data_source(doc.source_type)
+            print("[DEBUG] 2번", data_source)
 
             # 소스 설정 구성
             source_config = {}
@@ -247,75 +248,109 @@ class IngestionService:
         텍스트 조각들을 OpenAI에 보내서 '의미 벡터'로 바꾼 뒤, DocumentChunk 테이블에 저장합니다.
         기존 청크가 있다면 삭제하고 새로 저장합니다 (Clean & Insert).
         """
+        print(f"🔍 [Debug] _save_chunks_to_pgvector 시작: doc_id={document_id}")
         # 0. 기존 청크 삭제 (Clean Step)
-        self.db.query(DocumentChunk).filter(
-            DocumentChunk.document_id == document_id
-        ).delete()
-        self.db.commit()
+        try:
+            del_count = (
+                self.db.query(DocumentChunk)
+                .filter(DocumentChunk.document_id == document_id)
+                .delete()
+            )
+            self.db.commit()
+            print(f"🗑️ [Debug] 기존 청크 {del_count}개 삭제 완료")
+        except Exception as e:
+            print(f"❌ [Debug] 기존 청크 삭제 중 에러: {e}")
 
-        # 토큰 계산을 위한 인코더 설정
+        # TODO: 토큰 계산을 위한 인코더 설정
         try:
             encoding = tiktoken.encoding_for_model(self.ai_model)
         except KeyError:
             encoding = tiktoken.get_encoding("cl100k_base")  # gpt-4로 가정하고 계산
 
         # DB에서 API Key 가져오기 (환경변수 의존 제거)
-        # from services.llm_service import LLMService (구버전 메서드 없음)
+        from db.models.llm import LLMProvider
 
-        # [Fallback] 사용 가능한 첫 번째 키 가져오기
-        # 1. 환경변수 우선 확인 (로컬 개발 편의성)
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = None
 
-        # 2. 환경변수 없으면 DB에서 조회 (Fallback)
-        if not api_key:
-            cred = (
-                self.db.query(LLMCredential)
-                .filter(LLMCredential.is_valid == True)
-                .first()
+        doc = self.db.query(Document).filter(Document.id == document_id).first()
+        if not doc:
+            print("❌ [Debug] 문서를 찾을 수 없음")
+            raise ValueError("문서를 찾을 수 없습니다.")
+
+        user_id = doc.knowledge_base.user_id
+        print(f"🔍 [Debug] 문서 소유자 ID: {user_id}")
+
+        user_crd = (
+            self.db.query(LLMCredential)
+            .join(LLMProvider)
+            .filter(
+                LLMCredential.user_id == user_id,
+                LLMCredential.is_valid,
+                LLMProvider.name == "openai",
             )
-            if not cred:
-                raise ValueError(
-                    "No valid LLM credential found. Please register one in settings."
-                )
+            .first()
+        )
 
+        if user_crd:
+            print(f"✅ [Debug] OpenAI 자격 증명 발견 (ID: {user_crd.id})")
             try:
-                cfg = json.loads(cred.encrypted_config)
-                api_key = cfg.get("apiKey")
-            except:
-                raise ValueError("Invalid credential config")
+                config = json.loads(user_crd.encrypted_config)
+                api_key = config.get("apiKey")
+            except Exception as e:
+                print(f"[Debug] Credential config 파싱 실패: {e}")
+
+        if not api_key:
+            raise ValueError(
+                "사용자의 OpenAI API Key를 찾을 수 없습니다. 등록해주세요."
+            )
+            print("⚠️ [Debug] OpenAI 자격 증명을 찾지 못함")
+        print(f"✅ [Debug] API Key 확보 완료 (Key: {api_key[:8]}...)")
 
         # 임베딩 모델 초기화 (API Key 명시)
         embeddings_model = OpenAIEmbeddings(model=self.ai_model, openai_api_key=api_key)
 
-        # 1. 텍스트 추출 (배치 처리를 위해)
+        # 1. 텍스트 추출
         texts = [chunk["content"] for chunk in chunks]
+        print(f"🔍 [Debug] 임베딩 요청 시작 (청크 개수: {len(texts)}개)")
 
         # 2. 임베딩 생성 (일괄 호출) - 실제 API 사용!
         try:
             embedded_vectors = embeddings_model.embed_documents(texts)
+            print("✅ [Debug] 임베딩 생성 완료")
         except Exception as e:
-            print(f"OpenAI Embedding Error: {e}")
+            print(f"❌ [Debug] OpenAI Embedding Error: {e}")
             raise e
 
         # 3. DB 객체 생성
-        chunk_objects = []
-        for i, chunk in enumerate(chunks):
-            content = chunk["content"]
-            token_count = len(encoding.encode(content))
+        try:
+            chunk_objects = []
+            for i, chunk in enumerate(chunks):
+                content = chunk["content"]
+                token_count = len(encoding.encode(content))
 
-            db_chunk = DocumentChunk(
-                document_id=document_id,
-                knowledge_base_id=knowledge_base_id,  # 검색 최적화용
-                content=content,
-                embedding=embedded_vectors[i],
-                chunk_index=i,
-                token_count=token_count,
-                metadata_=chunk["metadata"],
+                db_chunk = DocumentChunk(
+                    document_id=document_id,
+                    knowledge_base_id=knowledge_base_id,  # 검색 최적화용
+                    content=content,
+                    embedding=embedded_vectors[i],
+                    chunk_index=i,
+                    token_count=token_count,
+                    metadata_=chunk["metadata"],
+                )
+                chunk_objects.append(db_chunk)
+
+            print(
+                f"📦 [Debug] 저장할 객체 {len(chunk_objects)}개 생성됨. DB에 추가(add) 시도..."
             )
-            chunk_objects.append(db_chunk)
+            self.db.add_all(chunk_objects)
+            print("💾 [Debug] 커밋(Commit) 시도...")
+            self.db.commit()
+            print("🎉 [Debug] DB 저장 및 커밋 성공!")
 
-        self.db.add_all(chunk_objects)
-        self.db.commit()
+        except Exception as e:
+            print(f"❌ [Debug] DB 저장 실패 (Commit Error): {e}")
+            self.db.rollback()  # 롤백 시도
+            raise e
 
     def _create_chunks(self, text_blocks: list[dict]) -> list[dict]:
         """

@@ -383,6 +383,7 @@ export default function DocumentSettingsPage() {
         remove_urls_emails: removeUrlsEmails,
         remove_whitespace: removeWhitespace,
         strategy: strategy,
+        source_type: document?.source_type || 'FILE',
       };
 
       await knowledgeApi.processDocument(
@@ -428,10 +429,10 @@ export default function DocumentSettingsPage() {
           remove_urls_emails: removeUrlsEmails,
           remove_whitespace: removeWhitespace,
           strategy: strategy,
-          source_type: document.source_type,
+          source_type: document?.source_type || 'FILE',
         },
       );
-      console.log('[DEBUG]', response);
+      // console.log('[DEBUG]', response);
       setPreviewSegments(response.segments);
       toast.success('청킹 미리보기 완료');
     } catch (error) {
