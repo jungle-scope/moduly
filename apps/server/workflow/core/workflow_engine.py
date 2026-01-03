@@ -1,11 +1,11 @@
 from collections import deque
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy.orm import Session
 
 from schemas.workflow import EdgeSchema, NodeSchema
-from workflow.core.workflow_node_factory import NodeFactory
 from workflow.core.workflow_logger import WorkflowLogger  # [NEW] 로깅 유틸리티
+from workflow.core.workflow_node_factory import NodeFactory
 
 
 class WorkflowEngine:
@@ -41,15 +41,15 @@ class WorkflowEngine:
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
         self.execution_context = execution_context or {}
-        
+
         # [FIX] DB 세션을 execution_context에 주입 (WorkflowNode 등에서 사용)
         if db is not None:
             self.execution_context["db"] = db
-        
+
         # [PERF] 그래프 구조 사전 계산
         self.adjacency_list = {}  # source -> [targets]
-        self.reverse_graph = {}   # target -> [sources]
-        self.edge_handles = {}    # (source, handle) -> [targets]
+        self.reverse_graph = {}  # target -> [sources]
+        self.edge_handles = {}  # (source, handle) -> [targets]
         self._build_optimized_graph()
 
         # [PERF] 타입별 노드 인덱스 (answerNode 등 빠른 조회를 위해)
@@ -60,7 +60,7 @@ class WorkflowEngine:
             self.nodes_by_type[schema.type].append(node_id)
 
         self._build_node_instances()  # Schema → Node 변환
-        
+
         # ============================================================
         # [NEW SECTION] 모니터링/로깅 관련 초기화
         # ============================================================
@@ -207,7 +207,9 @@ class WorkflowEngine:
                         }
                         return
                     else:
-                        raise Exception(f"노드 '{node_id}' 실행 중 오류 발생: {error_msg}")
+                        raise Exception(
+                            f"노드 '{node_id}' 실행 중 오류 발생: {error_msg}"
+                        )
 
                 # 다음 노드들을 ready_queue에 추가
                 for next_node_id in self._get_next_nodes(node_id, result):
@@ -244,12 +246,15 @@ class WorkflowEngine:
     # ================================================================
 
     def _find_start_node(self) -> str:
-        """시작 노드 찾기 (type == "startNode"인 노드)"""
+        """시작 노드 찾기 (type == "startNode" 또는 "webhookTrigger")"""
         start_nodes = []
 
-        # 모든 노드를 순회하면서 startNode 타입 찾기
+        # Trigger 노드 타입 정의
+        TRIGGER_TYPES = ["startNode", "webhookTrigger"]
+
+        # 모든 노드를 순회하면서 Trigger 타입 찾기
         for node_id, node in self.node_schemas.items():
-            if node.type == "startNode":
+            if node.type in TRIGGER_TYPES:
                 start_nodes.append(node_id)
 
         if len(start_nodes) > 1:
@@ -258,7 +263,9 @@ class WorkflowEngine:
             )
 
         elif len(start_nodes) == 0:
-            raise ValueError("워크플로우에 시작 노드(type='startNode')가 없습니다.")
+            raise ValueError(
+                "워크플로우에 시작 노드(type='startNode' or 'webhookTrigger')가 없습니다."
+            )
 
         return start_nodes[0]
 
@@ -297,7 +304,7 @@ class WorkflowEngine:
     def _is_ready(self, node_id: str, results: Dict) -> bool:
         """
         현재 노드에 선행되는 노드가 모두 완료되었는지 확인
-        
+
         [PERF] reverse_graph 캐시를 사용하여 O(1) 조회 (기존: O(E) 순회)
         """
         required_inputs = self.reverse_graph.get(node_id, [])
@@ -330,7 +337,9 @@ class WorkflowEngine:
                 continue
 
             try:
-                self.node_instances[node_id] = NodeFactory.create(schema, context=self.execution_context)
+                self.node_instances[node_id] = NodeFactory.create(
+                    schema, context=self.execution_context
+                )
             except NotImplementedError as e:
                 # 미구현 노드 타입에 대한 명확한 에러 메시지
                 raise NotImplementedError(
