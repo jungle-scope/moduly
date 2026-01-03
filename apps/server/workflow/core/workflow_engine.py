@@ -45,8 +45,20 @@ class WorkflowEngine:
         # [FIX] DB 세션을 execution_context에 주입 (WorkflowNode 등에서 사용)
         if db is not None:
             self.execution_context["db"] = db
-        self.graph = self._build_graph()
-        self.reverse_graph = self._build_reverse_graph()  # [PERF] 역방향 그래프 캐싱 (선행 노드 조회 최적화)
+        
+        # [PERF] 그래프 구조 사전 계산
+        self.adjacency_list = {}  # source -> [targets]
+        self.reverse_graph = {}   # target -> [sources]
+        self.edge_handles = {}    # (source, handle) -> [targets]
+        self._build_optimized_graph()
+
+        # [PERF] 타입별 노드 인덱스 (answerNode 등 빠른 조회를 위해)
+        self.nodes_by_type = {}
+        for node_id, schema in self.node_schemas.items():
+            if schema.type not in self.nodes_by_type:
+                self.nodes_by_type[schema.type] = []
+            self.nodes_by_type[schema.type].append(node_id)
+
         self._build_node_instances()  # Schema → Node 변환
         
         # ============================================================
@@ -274,16 +286,13 @@ class WorkflowEngine:
         """
         selected_handle = result.get("selected_handle")
 
-        # [PERF] 분기가 없는 경우(대부분의 케이스) 미리 빌드된 그래프 사용 (O(1))
-        if selected_handle is None:
-            return self.graph.get(node_id, [])
+        # [PERF] 분기가 있는 경우 (O(1))
+        if selected_handle is not None:
+            key = (node_id, selected_handle)
+            return self.edge_handles.get(key, [])
 
-        # 분기가 있는 경우에만 엣지 필터링 수행
-        return [
-            edge.target
-            for edge in self.edges
-            if edge.source == node_id and edge.sourceHandle == selected_handle
-        ]
+        # [PERF] 분기가 없는 경우 (O(1))
+        return self.adjacency_list.get(node_id, [])
 
     def _is_ready(self, node_id: str, results: Dict) -> bool:
         """
@@ -294,27 +303,24 @@ class WorkflowEngine:
         required_inputs = self.reverse_graph.get(node_id, [])
         return all(inp in results for inp in required_inputs)
 
-    def _build_graph(self) -> Dict[str, List[str]]:
-        """엣지로부터 그래프 구조 생성 (인접 리스트: source -> [targets])"""
-        graph = {}
+    def _build_optimized_graph(self):
+        """엣지를 분석하여 효율적인 그래프 구조 생성 (O(E) 한 번만)"""
         for edge in self.edges:
-            if edge.source not in graph:
-                graph[edge.source] = []
-            graph[edge.source].append(edge.target)
-        return graph
+            # 정방향 그래프 (source -> targets)
+            if edge.source not in self.adjacency_list:
+                self.adjacency_list[edge.source] = []
+            self.adjacency_list[edge.source].append(edge.target)
 
-    def _build_reverse_graph(self) -> Dict[str, List[str]]:
-        """
-        [PERF] 역방향 그래프 구조 생성 (인접 리스트: target -> [sources])
-        
-        _is_ready() 등에서 선행 노드를 조회할 때 O(1) 성능을 제공합니다.
-        """
-        reverse_graph = {}
-        for edge in self.edges:
-            if edge.target not in reverse_graph:
-                reverse_graph[edge.target] = []
-            reverse_graph[edge.target].append(edge.source)
-        return reverse_graph
+            # 역방향 그래프 (target -> sources) - _is_ready 최적화용
+            if edge.target not in self.reverse_graph:
+                self.reverse_graph[edge.target] = []
+            self.reverse_graph[edge.target].append(edge.source)
+
+            # 핸들별 엣지 매핑 (분기 처리 최적화)
+            key = (edge.source, edge.sourceHandle)
+            if key not in self.edge_handles:
+                self.edge_handles[key] = []
+            self.edge_handles[key].append(edge.target)
 
     def _build_node_instances(self):
         """NodeSchema를 실제 Node 인스턴스로 변환 (NodeFactory 사용)"""
@@ -367,18 +373,16 @@ class WorkflowEngine:
         Raises:
             ValueError: AnswerNode를 찾을 수 없는 경우
         """
-        # 실행된 answerNode들만 수집
-        executed_answer_nodes = []
-        for node_id, node_schema in self.node_schemas.items():
-            if node_schema.type == "answerNode" and node_id in results:
-                executed_answer_nodes.append((node_id, results[node_id]))
+        # [PERF] O(N) → O(1) 개선: 타입별 인덱스 활용
+        answer_nodes = self.nodes_by_type.get("answerNode", [])
+
+        # 실행된 첫 번째 answerNode 찾기
+        for node_id in answer_nodes:
+            if node_id in results:
+                return results[node_id]
 
         # 실행된 AnswerNode가 없는 경우
-        if not executed_answer_nodes:
-            raise ValueError(
-                "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
-                "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
-            )
-
-        # 첫 번째로 실행된 AnswerNode의 결과 반환
-        return executed_answer_nodes[0][1]
+        raise ValueError(
+            "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
+            "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
+        )
