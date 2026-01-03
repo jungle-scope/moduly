@@ -42,6 +42,7 @@ class WorkflowEngine:
         self.user_input = user_input if user_input is not None else {}
         self.execution_context = execution_context or {}
         self.graph = self._build_graph()
+        self.reverse_graph = self._build_reverse_graph()  # [PERF] 역방향 그래프 캐싱 (선행 노드 조회 최적화)
         self._build_node_instances()  # Schema → Node 변환
         
         # ============================================================
@@ -324,18 +325,35 @@ class WorkflowEngine:
         return next_nodes
 
     def _is_ready(self, node_id: str, results: Dict) -> bool:
-        """현재 노드에 선행되는 노드가 모두 완료되었는지 확인"""
-        required_inputs = [edge.source for edge in self.edges if edge.target == node_id]
+        """
+        현재 노드에 선행되는 노드가 모두 완료되었는지 확인
+        
+        [PERF] reverse_graph 캐시를 사용하여 O(1) 조회 (기존: O(E) 순회)
+        """
+        required_inputs = self.reverse_graph.get(node_id, [])
         return all(inp in results for inp in required_inputs)
 
     def _build_graph(self) -> Dict[str, List[str]]:
-        """엣지로부터 그래프 구조 생성 (인접 리스트)"""
+        """엣지로부터 그래프 구조 생성 (인접 리스트: source -> [targets])"""
         graph = {}
         for edge in self.edges:
             if edge.source not in graph:
                 graph[edge.source] = []
             graph[edge.source].append(edge.target)
         return graph
+
+    def _build_reverse_graph(self) -> Dict[str, List[str]]:
+        """
+        [PERF] 역방향 그래프 구조 생성 (인접 리스트: target -> [sources])
+        
+        _is_ready() 등에서 선행 노드를 조회할 때 O(1) 성능을 제공합니다.
+        """
+        reverse_graph = {}
+        for edge in self.edges:
+            if edge.target not in reverse_graph:
+                reverse_graph[edge.target] = []
+            reverse_graph[edge.target].append(edge.source)
+        return reverse_graph
 
     def _build_node_instances(self):
         """NodeSchema를 실제 Node 인스턴스로 변환 (NodeFactory 사용)"""
