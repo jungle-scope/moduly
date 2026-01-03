@@ -389,13 +389,9 @@ class WorkflowEngine:
         if node_schema and node_schema.type == "startNode":
             return self.user_input
 
-        # 다른 노드들은 이전 노드 결과만 받음
-        inputs = {}
-        for prev_id, output in results.items():
-            # node_id로 감싸서 추가 (명확성/충돌 해결)
-            inputs[prev_id] = output
-
-        return inputs
+        # [PERF] 연결된 선행 노드의 결과만 추출 (기존: 모든 결과 복사)
+        required_inputs = self.reverse_graph.get(node_id, [])
+        return {prev_id: results[prev_id] for prev_id in required_inputs if prev_id in results}
 
     def _get_answer_node_result(self, results: Dict) -> Dict[str, Any]:
         """
