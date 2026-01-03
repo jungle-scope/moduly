@@ -17,6 +17,7 @@ import {
   RuntimeVariable,
   Node,
 } from '../types/Workflow';
+import { DeploymentResponse } from '../types/Deployment';
 
 import { create } from 'zustand';
 import { DEFAULT_NODES } from '../constants';
@@ -44,6 +45,11 @@ type WorkflowState = {
   interactiveMode: 'mouse' | 'touchpad'; // 입력 모드 (마우스/터치패드)
   isFullscreen: boolean;
 
+  // === 버전 기록 상태 ===
+  isVersionHistoryOpen: boolean;
+  previewingVersion: DeploymentResponse | null;
+  lastDeployedAt: Date | null; // 배포 완료 시점 (리스트 갱신 트리거)
+
   // === 그래프 데이터 (ReactFlow) ===
   nodes: Node[];
   edges: Edge[];
@@ -59,6 +65,13 @@ type WorkflowState = {
   onConnect: OnConnect;
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
+
+  // === Editor UI 액션 ===
+  toggleVersionHistory: () => void;
+  previewVersion: (version: DeploymentResponse) => void;
+  exitPreview: () => void;
+  restoreVersion: (version: DeploymentResponse) => Promise<void>;
+  notifyDeploymentComplete: () => void; // 배포 완료 알림
 
   // === Editor UI 액션 ===
 
@@ -117,6 +130,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   interactiveMode: 'mouse',
   isFullscreen: false,
 
+  // === 버전 기록 상태 ===
+  isVersionHistoryOpen: false,
+  previewingVersion: null,
+  lastDeployedAt: null,
+
   // === 그래프 데이터 ===
   nodes: initialNodes,
   edges: initialEdges,
@@ -165,6 +183,71 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   toggleFullscreen: () =>
     set((state) => ({ isFullscreen: !state.isFullscreen })),
+
+  // === 버전 기록 액션 ===
+  toggleVersionHistory: () =>
+    set((state) => ({ isVersionHistoryOpen: !state.isVersionHistoryOpen })),
+
+  previewVersion: (version) => {
+    // 현재 스냅샷을 노드/엣지에 적용 (미리보기)
+    const snapshot = version.graph_snapshot;
+    set({
+      previewingVersion: version,
+      nodes: snapshot.nodes || [],
+      edges: snapshot.edges || [],
+    });
+  },
+
+  exitPreview: () => {
+    // 미리보기 종료 시 현재 드래프트 상태로 복구
+    // activeWorkflowId에 해당하는 데이터를 다시 로드
+    const { workflows, activeWorkflowId } = get();
+    const currentWorkflow = workflows.find((w) => w.id === activeWorkflowId);
+
+    if (currentWorkflow) {
+      set({
+        previewingVersion: null,
+        nodes: currentWorkflow.nodes,
+        edges: currentWorkflow.edges,
+      });
+    } else {
+      set({ previewingVersion: null });
+    }
+  },
+
+  notifyDeploymentComplete: () => set({ lastDeployedAt: new Date() }),
+
+  restoreVersion: async (version) => {
+    const { activeWorkflowId, exitPreview } = get();
+
+    try {
+      // 1. 스냅샷 데이터로 현재 드래프트 업데이트 API 호출
+      const snapshot = version.graph_snapshot;
+      await workflowApi.syncDraftWorkflow(activeWorkflowId, {
+        nodes: snapshot.nodes || [],
+        edges: snapshot.edges || [],
+        viewport: { x: 0, y: 0, zoom: 1 }, // 뷰포트는 초기화하거나 스냅샷에서 가져옴
+      });
+
+      // 2. Store, local state 업데이트
+      const { workflows } = get();
+      const updatedWorkflows = workflows.map((w) =>
+        w.id === activeWorkflowId
+          ? { ...w, nodes: snapshot.nodes || [], edges: snapshot.edges || [] }
+          : w,
+      );
+
+      set({
+        workflows: updatedWorkflows,
+        nodes: snapshot.nodes || [],
+        edges: snapshot.edges || [],
+        previewingVersion: null, // 미리보기 종료
+      });
+    } catch (error) {
+      console.error('Failed to restore version:', error);
+      throw error;
+    }
+  },
 
   addWorkflow: async (workflow, appId) => {
     try {
