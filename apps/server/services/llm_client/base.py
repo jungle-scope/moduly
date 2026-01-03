@@ -47,3 +47,29 @@ class BaseLLMClient(ABC):
             예상 토큰 수
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def embed(self, text: str) -> List[float]:
+        """
+        단일 텍스트에 대한 임베딩 벡터를 반환합니다.
+        
+        Args:
+            text: 임베딩할 텍스트
+            
+        Returns:
+            float 리스트 형태의 벡터
+        """
+        raise NotImplementedError
+
+    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        """
+        (선택 구현) 다수 텍스트에 대한 임베딩 벡터 리스트를 반환합니다.
+        기본 구현은 embed를 반복 호출합니다.
+        
+        Args:
+            texts: 임베딩할 텍스트 리스트
+            
+        Returns:
+            벡터 리스트의 리스트
+        """
+        return [self.embed(t) for t in texts]
