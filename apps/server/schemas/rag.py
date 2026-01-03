@@ -49,6 +49,7 @@ class SearchQuery(BaseModel):
     query: str
     top_k: int = 5
     knowledge_base_id: Optional[UUID] = None  # 특정 KB 검색 시 사용
+    generation_model: Optional[str] = "gpt-4o"  # 답변 생성에 사용할 모델 ID
 
 
 class ChunkPreview(BaseModel):

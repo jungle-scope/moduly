@@ -31,7 +31,7 @@ export default function SearchPlayground({ knowledgeBaseId }: SearchPlaygroundPr
 
     try {
       // Call Backend API
-      const res = await axios.post<RAGResponse>('http://localhost:8000/api/v1/rag/chat', {
+      const res = await axios.post<RAGResponse>('http://localhost:8000/api/v1/rag/search-test/chat', {
         query: query,
         knowledge_base_id: knowledgeBaseId,
       });
