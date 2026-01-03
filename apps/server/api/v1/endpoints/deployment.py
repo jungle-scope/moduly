@@ -26,7 +26,8 @@ def create_deployment(
 
 @router.get("/", response_model=List[DeploymentResponse])
 def get_deployments(
-    app_id: str,
+    app_id: str = None,
+    workflow_id: str = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -34,8 +35,11 @@ def get_deployments(
 ):
     """
     특정 앱의 배포 이력을 조회합니다.
+    app_id 또는 workflow_id 중 하나는 필수입니다.
     """
-    return DeploymentService.list_deployments(db, app_id, skip, limit)
+    return DeploymentService.list_deployments(
+        db, app_id=app_id, workflow_id=workflow_id, skip=skip, limit=limit
+    )
 
 
 @router.get("/{deployment_id}", response_model=DeploymentResponse)

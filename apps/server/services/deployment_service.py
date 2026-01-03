@@ -126,20 +126,35 @@ class DeploymentService:
 
     @staticmethod
     def list_deployments(
-        db: Session, app_id: str, skip: int = 0, limit: int = 100
+        db: Session,
+        app_id: str = None,
+        workflow_id: str = None,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[WorkflowDeployment]:
         """
         특정 앱의 배포 이력을 조회합니다.
 
         Args:
             db: 데이터베이스 세션
-            app_id: 앱 ID
+            app_id: 앱 ID (Optional)
+            workflow_id: 워크플로우 ID (Optional)
             skip: 페이지네이션 시작 위치
             limit: 조회할 최대 개수
 
         Returns:
             WorkflowDeployment 객체 리스트
         """
+        if workflow_id and not app_id:
+            # workflow_id로 app_id 찾기
+            # App 테이블에 workflow_id 컬럼이 있다고 가정 (App.workflow_id)
+            app = db.query(App).filter(App.workflow_id == workflow_id).first()
+            if app:
+                app_id = str(app.id)
+
+        if not app_id:
+            return []
+
         deployments = (
             db.query(WorkflowDeployment)
             .filter(WorkflowDeployment.app_id == app_id)
