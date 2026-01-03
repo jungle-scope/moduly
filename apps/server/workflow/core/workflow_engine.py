@@ -82,121 +82,27 @@ class WorkflowEngine:
         - workflow_finish: 전체 워크플로우 완료
         - error: 실행 중 오류 발생
         """
-        # ============================================================
-        # [NEW] 실행 로그 시작
-        # ============================================================
-        workflow_run_id = self.logger.create_run_log(
-            workflow_id=self.execution_context.get("workflow_id"),
-            user_id=self.execution_context.get("user_id"),
-            user_input=self.user_input,
-            is_deployed=self.is_deployed,
-            execution_context=self.execution_context
-        )
-        if workflow_run_id:
-            self.execution_context["workflow_run_id"] = str(workflow_run_id)
-        # ============================================================
-
-        start_node = self._find_start_node()
-        ready_queue = deque([start_node])
-        results = {}
-
-        # 1. 워크플로우 시작 이벤트
-        yield {"type": "workflow_start", "data": {}}
-
-        while ready_queue:
-            node_id = ready_queue.popleft()
-
-            # node_id가 존재하는지 확인
-            if node_id not in self.node_instances:
-                error_msg = f"노드 ID '{node_id}'를 찾을 수 없습니다."
-                # [NEW] 에러 로깅
-                self.logger.update_run_log_error(error_msg)
-                yield {
-                    "type": "error",
-                    "data": {"node_id": node_id, "message": error_msg},
-                }
-                return
-
-            # 이미 실행된 노드는 스킵
-            if node_id in results:
-                continue
-
-            node_instance = self.node_instances[node_id]
-            node_schema = self.node_schemas[node_id]
-
-            # 2. 노드 시작 이벤트
-            yield {
-                "type": "node_start",
-                "data": {"node_id": node_id, "node_type": node_schema.type},
-            }
-
-            # 노드 실행: 입력 데이터 준비 후 Node.execute() 호출
-            try:
-                inputs = self._get_context(node_id, results)
-                
-                # ============================================================
-                # [NEW] 노드 실행 로그
-                # ============================================================
-                self.logger.create_node_log(node_id, node_schema.type, inputs)
-                # ============================================================
-                
-                result = node_instance.execute(inputs)
-                results[node_id] = result
-
-                # ============================================================
-                # [NEW] 노드 완료 로깅
-                # ============================================================
-                self.logger.update_node_log_finish(node_id, result)
-                # ============================================================
-
-                # 3. 노드 종료 이벤트
-                yield {
-                    "type": "node_finish",
-                    "data": {
-                        "node_id": node_id,
-                        "node_type": node_schema.type,
-                        "output": result,
-                    },
-                }
-
-            except Exception as e:
-                error_msg = str(e)
-                
-                # ============================================================
-                # [NEW] 에러 로깅
-                # ============================================================
-                self.logger.update_node_log_error(node_id, error_msg)
-                self.logger.update_run_log_error(error_msg)
-                # ============================================================
-                
-                yield {
-                    "type": "error",
-                    "data": {"node_id": node_id, "message": error_msg},
-                }
-                # 에러 발생 시 중단 (선택 사항: 에러 무시하고 계속할지 결정 가능)
-                return
-
-            # 다음 노드들을 ready_queue에 추가 (분기 노드 처리 포함)
-            for next_node_id in self._get_next_nodes(node_id, result):
-                if self._is_ready(next_node_id, results):
-                    ready_queue.append(next_node_id)
-
-        # 4. 워크플로우 종료 이벤트 (최종 컨텍스트 포함)
-        final_context = self._get_context(node_id, results)
-        
-        # ============================================================
-        # [NEW] 실행 완료 로깅
-        # ============================================================
-        self.logger.update_run_log_finish(final_context)
-        # ============================================================
-        
-        yield {"type": "workflow_finish", "data": final_context}
+        yield from self._execute_core(stream_mode=True)
 
     def execute_deployed(self):
         """
         워크플로우 실행 로직
         streaming이 필요 없는 배포된 workflow를 실행할 때 사용합니다.
         """
+        # _execute_core는 제너레이터이므로, 값을 반환받으려면 StopIteration의 value를 가져와야 함
+        gen = self._execute_core(stream_mode=False)
+        try:
+            while True:
+                next(gen)
+        except StopIteration as e:
+            return e.value
+
+    def _execute_core(self, stream_mode: bool = False):
+        """
+        핵심 실행 로직 - 스트리밍/배포 모드 공용
+        Args:
+            stream_mode: True면 이벤트를 yield, False면 결과만 반환
+        """
         # ============================================================
         # [NEW] 실행 로그 시작
         # ============================================================
@@ -205,7 +111,7 @@ class WorkflowEngine:
             user_id=self.execution_context.get("user_id"),
             user_input=self.user_input,
             is_deployed=self.is_deployed,
-            execution_context=self.execution_context
+            execution_context=self.execution_context,
         )
         if workflow_run_id:
             self.execution_context["workflow_run_id"] = str(workflow_run_id)
@@ -215,13 +121,28 @@ class WorkflowEngine:
         ready_queue = deque([start_node])
         results = {}
 
+        # 1. 워크플로우 시작 이벤트 (스트림 모드만)
+        if stream_mode:
+            yield {"type": "workflow_start", "data": {}}
+
         try:
+            node_id = start_node  # 초기화 (finally 블록에서 참조 위함)
+
             while ready_queue:
                 node_id = ready_queue.popleft()
 
                 # node_id가 존재하는지 확인
                 if node_id not in self.node_instances:
-                    raise ValueError(f"노드 ID '{node_id}'를 찾을 수 없습니다.")
+                    error_msg = f"노드 ID '{node_id}'를 찾을 수 없습니다."
+                    if stream_mode:
+                        self.logger.update_run_log_error(error_msg)
+                        yield {
+                            "type": "error",
+                            "data": {"node_id": node_id, "message": error_msg},
+                        }
+                        return
+                    else:
+                        raise ValueError(error_msg)
 
                 # 이미 실행된 노드는 스킵
                 if node_id in results:
@@ -230,42 +151,81 @@ class WorkflowEngine:
                 node_instance = self.node_instances[node_id]
                 node_schema = self.node_schemas[node_id]
 
-                # 노드 실행: 입력 데이터 준비 후 Node.execute() 호출
+                # 2. 노드 시작 이벤트 (스트림 모드만)
+                if stream_mode:
+                    yield {
+                        "type": "node_start",
+                        "data": {"node_id": node_id, "node_type": node_schema.type},
+                    }
+
+                # 노드 실행
                 try:
                     inputs = self._get_context(node_id, results)
-                    
+
                     # [NEW] 노드 로깅
                     self.logger.create_node_log(node_id, node_schema.type, inputs)
 
                     result = node_instance.execute(inputs)
                     results[node_id] = result
-                    
+
                     # [NEW] 노드 완료 로깅
                     self.logger.update_node_log_finish(node_id, result)
 
-                except Exception as e:
-                    # [NEW] 노드 에러 로깅
-                    self.logger.update_node_log_error(node_id, str(e))
-                    # 에러 발생 시 명확한 예외를 raise
-                    raise Exception(f"노드 '{node_id}' 실행 중 오류 발생: {str(e)}")
+                    # 3. 노드 종료 이벤트 (스트림 모드만)
+                    if stream_mode:
+                        yield {
+                            "type": "node_finish",
+                            "data": {
+                                "node_id": node_id,
+                                "node_type": node_schema.type,
+                                "output": result,
+                            },
+                        }
 
-                # 다음 노드들을 ready_queue에 추가 (분기 노드 처리 포함)
+                except Exception as e:
+                    error_msg = str(e)
+                    # [NEW] 노드 에러 로깅
+                    self.logger.update_node_log_error(node_id, error_msg)
+
+                    if stream_mode:
+                        self.logger.update_run_log_error(error_msg)
+                        yield {
+                            "type": "error",
+                            "data": {"node_id": node_id, "message": error_msg},
+                        }
+                        return
+                    else:
+                        raise Exception(f"노드 '{node_id}' 실행 중 오류 발생: {error_msg}")
+
+                # 다음 노드들을 ready_queue에 추가
                 for next_node_id in self._get_next_nodes(node_id, result):
                     if self._is_ready(next_node_id, results):
                         ready_queue.append(next_node_id)
 
-            # 배포 모드에서는 항상 AnswerNode의 결과만 반환
-            final_result = self._get_answer_node_result(results)
-            
-            # [NEW] 실행 완료 로깅
-            self.logger.update_run_log_finish(final_result)
-            
-            return final_result
+            # 4. 워크플로우 종료
+            if stream_mode:
+                final_context = self._get_context(node_id, results)
+                # [NEW] 실행 완료 로깅
+                self.logger.update_run_log_finish(final_context)
+                yield {"type": "workflow_finish", "data": final_context}
+            else:
+                # 배포 모드에서는 AnswerNode 결과 반환
+                final_result = self._get_answer_node_result(results)
+                # [NEW] 실행 완료 로깅
+                self.logger.update_run_log_finish(final_result)
+                return final_result
 
         except Exception as e:
-            # [NEW] 실행 실패 로깅
-            self.logger.update_run_log_error(str(e))
-            raise e
+            # 외부 루프 에러 처리 (execute_deployed에서 발생한 예외 or 기타 예외)
+            if not stream_mode:
+                # 배포 모드: 이미 throw된 예외가 많겠지만, 여기서 run log error 한번 더 챙김
+                self.logger.update_run_log_error(str(e))
+                raise e
+            else:
+                # 스트림 모드: 혹시 놓친 에러가 있다면
+                error_msg = str(e)
+                self.logger.update_run_log_error(error_msg)
+                yield {"type": "error", "data": {"message": error_msg}}
 
     # ================================================================
     # 기존 헬퍼 메서드들 (변경 없음)
