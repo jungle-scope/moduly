@@ -4,6 +4,7 @@ import { Plus, X } from 'lucide-react';
 import { AnswerNodeData, AnswerNodeOutput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
+import { CollapsibleSection } from '../../../ui/CollapsibleSection';
 
 interface AnswerNodePanelProps {
   nodeId: string;
@@ -50,20 +51,22 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <span className="text-sm font-semibold text-gray-700">
-            출력 변수 설정
-          </span>
+      <CollapsibleSection
+        title="Output Variables"
+        icon={
           <button
-            onClick={handleAddOutput}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddOutput();
+            }}
             className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="변수 추가"
           >
             <Plus className="w-4 h-4 text-gray-600" />
           </button>
-        </div>
-
-        <div className="p-4 space-y-3">
+        }
+      >
+        <div className="flex flex-col gap-3">
           {data.outputs?.map((output, index) => {
             const selectedSourceNodeId = output.value_selector?.[0];
             const selectedOutputKey = output.value_selector?.[1];
@@ -80,12 +83,12 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
             return (
               <div
                 key={index}
-                className="flex flex-col gap-2 rounded border border-gray-200 p-3 bg-gray-50"
+                className="flex flex-col gap-2 rounded border border-gray-200 p-2.5 bg-gray-50"
               >
                 <div className="flex items-center gap-2">
                   <input
-                    className="h-8 flex-1 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none"
-                    placeholder="출력 키 (예: result)"
+                    className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none placeholder:text-gray-400"
+                    placeholder="Output Key (e.g. result)"
                     value={output.variable}
                     onChange={(e) =>
                       handleUpdateOutput(index, 'variable', e.target.value)
@@ -94,6 +97,7 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                   <button
                     className="flex items-center justify-center h-8 w-8 text-red-500 hover:bg-red-50 rounded"
                     onClick={() => handleRemoveOutput(index)}
+                    title="Remove"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -102,7 +106,7 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
                 {/* 값 선택기 */}
                 <div className="flex gap-2">
                   <select
-                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                    className="h-8 w-1/2 rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none bg-white truncate"
                     value={output.value_selector?.[0] || ''}
                     onChange={(e) => {
                       const currentKey = ''; // 노드 변경 시 키 재설정
@@ -126,7 +130,7 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
 
                   {/* Output 키 선택 (Template/LLM 방식) */}
                   <select
-                    className={`h-8 w-1/2 rounded border px-2 text-sm focus:border-blue-500 focus:outline-none ${
+                    className={`h-8 w-1/2 rounded border px-2 text-xs focus:border-blue-500 focus:outline-none truncate ${
                       !selectedSourceNodeId
                         ? 'bg-gray-100 text-gray-400 border-gray-200'
                         : 'border-gray-300 bg-white'
@@ -156,12 +160,12 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
           })}
 
           {(!data.outputs || data.outputs.length === 0) && (
-            <div className="text-center text-sm text-gray-400 py-4">
-              출력 변수가 없습니다. <br />+ 버튼을 눌러 추가하세요.
+            <div className="text-center text-xs text-gray-400 py-4 border border-dashed border-gray-200 rounded">
+              No outputs defined.
             </div>
           )}
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }

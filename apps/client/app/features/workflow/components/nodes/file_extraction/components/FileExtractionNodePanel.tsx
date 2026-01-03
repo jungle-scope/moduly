@@ -3,6 +3,7 @@ import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore
 import { FileExtractionNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
+import { CollapsibleSection } from '../../../ui/CollapsibleSection';
 
 interface FileExtractionNodePanelProps {
   nodeId: string;
@@ -45,13 +46,8 @@ export const FileExtractionNodePanel: React.FC<
   return (
     <div className="flex flex-col gap-4">
       {/* File Path Variable Selector */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-4 py-3 bg-gray-50 border-b">
-          <span className="text-sm font-semibold text-gray-700">
-            파일 경로 변수
-          </span>
-        </div>
-        <div className="px-4 py-3 bg-white flex flex-col gap-3">
+      <CollapsibleSection title="File Path Variable">
+        <div className="flex flex-col gap-3">
           <p className="text-xs text-gray-500 mb-1">
             추출할 PDF 파일의 경로를 가져올 변수를 선택하세요.
           </p>
@@ -60,10 +56,10 @@ export const FileExtractionNodePanel: React.FC<
             {/* Node Selection */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">
-                노드 선택
+                Source Node
               </label>
               <select
-                className="w-full rounded border border-gray-300 p-2 text-sm truncate"
+                className="w-full rounded border border-gray-300 p-2 text-sm truncate focus:outline-none focus:border-blue-500"
                 value={selectedNodeId}
                 onChange={(e) => handleSelectorUpdate(0, e.target.value)}
               >
@@ -79,10 +75,10 @@ export const FileExtractionNodePanel: React.FC<
             {/* Variable Selection */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">
-                변수 선택
+                Variable
               </label>
               <select
-                className={`w-full rounded border p-2 text-sm truncate ${
+                className={`w-full rounded border p-2 text-sm truncate focus:outline-none focus:border-blue-500 ${
                   !selectedNodeId
                     ? 'bg-gray-100 text-gray-400 border-gray-200'
                     : 'border-gray-300 bg-white'
@@ -105,13 +101,13 @@ export const FileExtractionNodePanel: React.FC<
 
           {/* Info Box */}
           {selectedNodeId && selectedVarKey && (
-            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-              ✓ 선택됨: <span className="font-mono">{selectedNodeId}</span> →{' '}
+            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+              ✓ Selected: <span className="font-mono">{selectedNodeId}</span> →{' '}
               <span className="font-mono">{selectedVarKey}</span>
             </div>
           )}
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 };
