@@ -318,6 +318,7 @@ async def process_document(
     # 3. 백그라운드 작업 시작
     ingestion_service = IngestionService(
         db,
+        user_id=current_user.id,
         chunk_size=request.chunk_size,
         chunk_overlap=request.chunk_overlap,
         ai_model=doc.knowledge_base.embedding_model,
@@ -363,7 +364,7 @@ def preview_document_chunking(
         )
 
     # 2. 서비스 호출
-    service = IngestionService(db)
+    service = IngestionService(db, user_id=current_user.id)
     try:
         segments = service.preview_chunking(
             file_path=doc.file_path,

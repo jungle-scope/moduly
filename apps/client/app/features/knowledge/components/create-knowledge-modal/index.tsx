@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, DragEvent } from 'react';
+import { useState, useRef, useEffect, DragEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   X,
@@ -51,10 +51,55 @@ export default function CreateKnowledgeModal({
   const [isFetchingApi, setIsFetchingApi] = useState(false);
   const [apiPreviewData, setApiPreviewData] = useState<any>(null);
 
+  // API에서 가져온 임베딩 모델 옵션
+  type EmbeddingModel = {
+    id: string;
+    model_id_for_api_call: string;
+    name: string;
+    provider_name?: string;
+  };
+  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 50MB 제한 (bytes)
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+  // 사용 가능한 임베딩 모델 가져오기
+  useEffect(() => {
+    const fetchEmbeddingModels = async () => {
+      try {
+        setLoadingModels(true);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/llm/my-embedding-models`,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+          },
+        );
+        if (res.ok) {
+          const json = await res.json();
+          setEmbeddingModels(json);
+          // 모델이 있고 현재 기본값이 목록에 없으면 첫 번째 모델로 설정
+          if (json.length > 0 && !json.find((m: EmbeddingModel) => m.model_id_for_api_call === formData.embeddingModel)) {
+            setFormData(prev => ({ ...prev, embeddingModel: json[0].model_id_for_api_call }));
+          }
+        } else {
+          console.error('Failed to fetch embedding models');
+        }
+      } catch (err) {
+        console.error('Error fetching embedding models', err);
+      } finally {
+        setLoadingModels(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchEmbeddingModels();
+    }
+  }, [isOpen]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -554,22 +599,36 @@ export default function CreateKnowledgeModal({
                   <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
                     모델
                   </label>
-                  <select
-                    value={formData.embeddingModel}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        embeddingModel: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="text-embedding-3-small">
-                      text-embedding-3-small
-                    </option>
-                    <option value="TEST1">TEST1</option>
-                    <option value="TEST2">TEST2</option>
-                  </select>
+                  {loadingModels ? (
+                    <div className="text-xs text-gray-400 p-2">모델 로딩 중...</div>
+                  ) : embeddingModels.length === 0 ? (
+                    <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
+                      <span>사용 가능한 임베딩 모델이 없습니다.</span>
+                      <a
+                        href="/settings/provider"
+                        className="ml-2 underline hover:text-amber-700 dark:hover:text-amber-300"
+                      >
+                        API 키 등록하기
+                      </a>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.embeddingModel}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          embeddingModel: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      {embeddingModels.map((model) => (
+                        <option key={model.id} value={model.model_id_for_api_call}>
+                          {model.name} {model.provider_name ? `(${model.provider_name})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -630,7 +689,7 @@ export default function CreateKnowledgeModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isLoading || embeddingModels.length === 0}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (

@@ -4,16 +4,21 @@ import os  # 폴더 만들기용
 import re
 import shutil  # 파일 복사용
 from enum import Enum
+from typing import Optional
 from uuid import UUID
 
+import fitz  # PyMuPDF
+import pandas as pd
+import pymupdf4llm
 import tiktoken
+from docx import Document as DocxDocument
 from fastapi import UploadFile
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy.orm import Session
 
 from db.models.knowledge import Document, DocumentChunk, SourceType
-from db.models.llm import LLMCredential
+from db.models.llm import LLMCredential, LLMProvider
 from services.data_sources import ApiDataSource, BaseDataSource, FileDataSource
 
 
@@ -27,11 +32,13 @@ class IngestionService:
     def __init__(
         self,
         db: Session,
+        user_id: Optional[UUID] = None,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
         ai_model: str = "text-embedding-3-small",
     ):
         self.db = db
+        self.user_id = user_id
         self.ai_model = ai_model
 
         # 청킹 전략 설정
@@ -240,6 +247,517 @@ class IngestionService:
         except Exception as e:
             print(f"❌ Resumption failed: {e}")
             self._update_status(document_id, "failed", error_message=str(e))
+
+    def _analyze_pdf_type(self, file_path: str) -> str:
+        """
+        PDF 파일의 성격을 파악하여 적절한 파싱 전략을 반환합니다.
+
+        Sampling Strategy:
+        - 앞 3페이지 + 중간 1페이지 + 뒤 2페이지 (총 최대 6페이지)
+
+        Returns:
+            - 'special': 전체가 이미지거나 텍스트가 거의 없는 경우 (LlamaParse 등 필요) -> OCR 필요
+            - 'fast': 텍스트 위주의 일반적인 문서 (PyMuPDF4LLM 사용)
+            - 'precise': 텍스트와 이미지가 섞여있어 정밀한 레이아웃 분석이 필요한 경우
+        """
+        doc = fitz.open(file_path)
+        total_pages = len(doc)
+
+        # 1. 너무 큰 파일 예외 처리 (예: 500페이지 이상은 일단 경고)
+        if total_pages > 500:
+            print(f"[Warn] Large file detected: {total_pages} pages.")
+
+        # 2. 샘플링 페이지 인덱스 선정
+        sample_indices = set()
+
+        # 앞 3페이지
+        for i in range(min(3, total_pages)):
+            sample_indices.add(i)
+
+        # 중간 1페이지
+        if total_pages > 3:
+            sample_indices.add(total_pages // 2)
+
+        # 뒤 2페이지
+        if total_pages > 1:
+            sample_indices.add(total_pages - 1)
+        if total_pages > 2:
+            sample_indices.add(total_pages - 2)
+
+        sorted_indices = sorted(list(sample_indices))
+
+        # 3. 샘플링 분석
+        image_count = 0
+        text_length = 0
+        page_count = 0
+
+        for idx in sorted_indices:
+            if idx >= total_pages:
+                continue
+
+            page = doc[idx]
+            page_count += 1
+
+            # 텍스트 추출
+            text = page.get_text()
+            text_length += len(text.strip())
+
+            # 이미지 객체 카운트
+            images = page.get_images(full=True)
+            image_count += len(images)
+
+        doc.close()
+
+        # 4. 분석 결과에 따른 전략 결정
+
+        # 평균 텍스트 길이 (페이지당)
+        avg_text_per_page = text_length / page_count if page_count > 0 else 0
+
+        # 평균 이미지 수 (페이지당)
+        avg_images_per_page = image_count / page_count if page_count > 0 else 0
+
+        print(
+            f"[PDF Analysis] Avg Text: {avg_text_per_page:.1f}, Avg Images: {avg_images_per_page:.1f}"
+        )
+
+        # Case A: 텍스트가 거의 없음 (OCR 필요)
+        if avg_text_per_page < 50:
+            return ParsingStrategy.IMAGE
+
+        # Case B: 이미지가 많고 텍스트도 어느정도 있음 (복잡한 레이아웃 가능성)
+        elif avg_images_per_page > 2:
+            return ParsingStrategy.MIXED
+
+        # Case C: 텍스트 위주
+        else:
+            return ParsingStrategy.TEXT
+
+    def _parse_with_pymupdf(self, file_path: str) -> list[dict]:
+        """기존 PyMuPDF4LLM 기반 파싱 로직"""
+        md_text_chunks = pymupdf4llm.to_markdown(file_path, page_chunks=True)
+
+        results = []
+        for chunk in md_text_chunks:
+            results.append(
+                {
+                    "text": chunk["text"],
+                    "page": chunk["metadata"]["page"] + 1,
+                }
+            )
+        return results
+
+    def _get_cache_path(self, file_path: str) -> str:
+        """캐시 파일 경로 생성 (원본파일_parsed.json)"""
+        return f"{file_path}_parsed.json"
+
+    def _save_cache(self, file_path: str, data: list[dict]):
+        """파싱 결과를 JSON으로 저장"""
+        try:
+            cache_path = self._get_cache_path(file_path)
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            print(f"💾 [Cache Saved] {cache_path}")
+        except Exception as e:
+            print(f"⚠️ Failed to save cache: {e}")
+
+    def _load_cache(self, file_path: str) -> list[dict]:
+        """캐시된 파싱 결과 로드"""
+        cache_path = self._get_cache_path(file_path)
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                print(f"♻️ [Cache Hit] Loaded parsing result from {cache_path}")
+                return data
+            except Exception as e:
+                print(f"⚠️ Cache load failed: {e}")
+        return None
+
+    def _get_llamaparse_api_key(self) -> Optional[str]:
+        """
+        LlamaParse API 키를 가져옵니다.
+        1) 환경변수 우선
+        2) 현재 사용자(user_id)의 LlamaParse 자격증명
+        3) 사용자 미지정 시 시스템 내 첫 번째 유효 자격증명
+        """
+        env_key = os.getenv("LLAMA_CLOUD_API_KEY")
+        if env_key:
+            return env_key
+
+        provider = (
+            self.db.query(LLMProvider).filter(LLMProvider.name == "llamaparse").first()
+        )
+        if not provider:
+            return None
+
+        query = self.db.query(LLMCredential).filter(
+            LLMCredential.provider_id == provider.id,
+            LLMCredential.is_valid == True,
+        )
+        if self.user_id:
+            query = query.filter(LLMCredential.user_id == self.user_id)
+
+        cred = query.order_by(LLMCredential.created_at.desc()).first()
+
+        # 사용자별 키가 없으면 시스템 내 아무 유효 키나 사용 (환경변수 접근과 동일 레벨)
+        if not cred:
+            cred = (
+                self.db.query(LLMCredential)
+                .filter(
+                    LLMCredential.provider_id == provider.id,
+                    LLMCredential.is_valid == True,
+                )
+                .order_by(LLMCredential.created_at.desc())
+                .first()
+            )
+
+        if not cred:
+            return None
+
+        try:
+            cfg = json.loads(cred.encrypted_config)
+            return cfg.get("apiKey")
+        except Exception as e:
+            print(f"[Warning] Failed to parse LlamaParse credential: {e}")
+            return None
+
+    def _parse_with_llamaparse(self, file_path: str) -> list[dict]:
+        """LlamaParse API 연동 (캐싱 적용)"""
+
+        # 1. 캐시 확인
+        cached_data = self._load_cache(file_path)
+        if cached_data:
+            return cached_data
+
+        # 비용 예측 로그 출력
+        est = self._estimate_llamaparse_cost(file_path)
+        print(
+            f"💰 [비용 예측] 페이지 수: {est['pages']}, 크레딧: {est['credits']}, 비용: ${est['cost_usd']:.4f}"
+        )
+
+        try:
+            from llama_parse import LlamaParse
+        except ImportError:
+            print(
+                "❌ LlamaParse 라이브러리를 찾을 수 없습니다. 'pip install llama-parse'를 실행해주세요."
+            )
+            return []
+
+        api_key = self._get_llamaparse_api_key()
+        if not api_key:
+            print(
+                "❌ LlamaParse API Key가 설정되지 않았습니다. "
+                "환경변수 LLAMA_CLOUD_API_KEY를 설정하거나 설정 > LLM Provider에서 키를 등록해주세요."
+            )
+            return []
+
+        print("🚀 LlamaParse 클라우드 처리 시작...")
+
+        try:
+            # 파서 초기화
+            # result_type="markdown"이 기본값이지만 명시적으로 설정
+            # language="ko"를 설정하여 한국어 인식률 향상
+            parser = LlamaParse(
+                api_key=api_key,
+                result_type="markdown",
+                verbose=True,
+                language="ko",
+                fast_mode=True,
+            )
+
+            # JSON 결과를 받아야 페이지별 텍스트와 메타데이터를 확실하게 구분할 수 있음
+            # get_json_result는 파일당 하나의 결과 객체를 리스트로 반환함
+            json_results = parser.get_json_result(file_path)
+
+            # [Debug] 구조 확인
+            # print(f"🔍 [LlamaParse Raw Result]: {json_results}")
+
+            parsed_results = []
+            full_text_for_debug = ""
+
+            if json_results and isinstance(json_results, list):
+                first_result = json_results[0]
+                # 'pages' 키에 각 페이지별 파싱 결과가 담겨있음
+                pages = first_result.get("pages", [])
+
+                for p in pages:
+                    # 'md' 키가 없을 경우를 대비해 키 확인
+                    # 'md' 키가 없으면 'text' 키를 사용 (fast_mode 등에서 발생)
+                    md_text = p.get("md") or p.get("text") or ""
+                    parsed_results.append(
+                        {
+                            "text": md_text,  # 마크다운 변환 텍스트
+                            "page": p["page"],  # 페이지 번호
+                        }
+                    )
+                    full_text_for_debug += f"\n--- Page {p['page']} ---\n{md_text}\n"
+
+            # [Debug] 파싱된 결과를 파일로 저장
+            # try:
+            #     base_dir = os.path.dirname(file_path)
+            #     file_name = os.path.basename(file_path)
+            #     debug_file_name = f"{os.path.splitext(file_name)[0]}_parsed.md"
+            #     debug_file_path = os.path.join(base_dir, debug_file_name)
+
+            #     with open(debug_file_path, "w", encoding="utf-8") as f:
+            #         f.write(full_text_for_debug)
+            #     print(f"💾 [Debug] Parsed content saved to: {debug_file_path}")
+            # except Exception as e:
+            #     print(f"⚠️ Failed to save debug file: {e}")
+
+            print(f"LlamaParse 완료: 총 {len(parsed_results)} 페이지 변환됨.")
+
+            # 2. 결과 캐싱
+            self._save_cache(file_path, parsed_results)
+
+            return parsed_results
+
+        except Exception as e:
+            print(f"LlamaParse 처리 실패: {e}")
+            return []
+
+    def _estimate_llamaparse_cost(self, file_path: str) -> dict:
+        """
+        LlamaParse 예측 비용 계산
+        기준: Standard Mode (3 credits/page), $1 = 1000 credits
+        """
+        try:
+            # PDF가 아닌 경우 fitz.open()이 실패할 수 있으므로 예외 처리
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext not in [".pdf", ".xps", ".epub", ".mobi", ".fb2", ".cbz", ".svg"]:
+                # 이미지 파일(png, jpg 등)은 fitz로 열 수 있지만, 엑셀/워드는 불가
+                # 일단 0으로 리턴하여 fallback 유도
+                if ext not in [".png", ".jpg", ".jpeg", ".tiff", ".bmp"]:
+                    return {"pages": 0, "credits": 0, "cost_usd": 0.0}
+
+            doc = fitz.open(file_path)
+            total_pages = len(doc)
+            doc.close()
+
+            # Standard Mode 기준 (페이지당 3 크레딧)
+            credits_per_page = 3
+            total_credits = total_pages * credits_per_page
+            cost_usd = total_credits / 1000.0
+
+            return {
+                "pages": total_pages,
+                "credits": total_credits,
+                "cost_usd": cost_usd,
+            }
+        except Exception as e:
+            print(f"[Warning] Cost estimation failed: {e}")
+            return {"pages": 0, "credits": 0, "cost_usd": 0.0}
+
+    def _parse_excel_csv(self, file_path: str) -> list[dict]:
+        """Excel/CSV 파일 파싱 (모든 시트 처리)"""
+        text_content = ""
+        ext = os.path.splitext(file_path)[1].lower()
+
+        try:
+            if ext == ".csv":
+                df = pd.read_csv(file_path)
+                text_content += f"# CSV Content\n\n{df.to_markdown(index=False)}\n"
+            else:
+                # sheet_name=None -> 모든 시트를 dict로 반환
+                xls = pd.read_excel(file_path, sheet_name=None)
+                for sheet_name, df in xls.items():
+                    text_content += f"\n# Sheet: {sheet_name}\n\n"
+                    text_content += df.to_markdown(index=False) + "\n"
+
+            # 엑셀은 페이지 개념이 모호하므로 전체를 1페이지로 취급하거나 적절히 분할
+            return [{"text": text_content, "page": 1}]
+        except Exception as e:
+            print(f"Excel/CSV parsing failed: {e}")
+            return []
+
+    def _parse_docx(self, file_path: str) -> list[dict]:
+        """Word(.docx) 파일 파싱"""
+        try:
+            doc = DocxDocument(file_path)
+            full_text = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    full_text.append(para.text)
+
+            # 간단한 표 처리
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = [cell.text for cell in row.cells]
+                    full_text.append(" | ".join(row_text))
+
+            return [{"text": "\n".join(full_text), "page": 1}]
+        except Exception as e:
+            print(f"Docx parsing failed: {e}")
+            return []
+
+    def _parse_txt(self, file_path: str) -> list[dict]:
+        """Text/Markdown 파일 파싱"""
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return [{"text": content, "page": 1}]
+        except Exception as e:
+            print(f"Text parsing failed: {e}")
+            return []
+
+    def _is_mixed_quality_poor(self, results: list[dict]) -> bool:
+        """MIXED 모드 품질 검사: 레이아웃이 심각하게 깨졌는지 확인"""
+        total_text = "".join([r["text"] for r in results])
+
+        # 휴리스틱 1: 알 수 없는 특수문자나 공백 패턴이 너무 많은 경우
+        if len(total_text) > 0:
+            broken_char_count = total_text.count("\ufffd")
+            if (broken_char_count / len(total_text)) > 0.05:  # 5% 이상 깨짐
+                print("Reason: High broken character rate in MIXED mode.")
+                return True
+
+        # 휴리스틱 2: 마크다운 구조가 거의 없음 (헤더 #이 너무 적음)
+        # 일반적인 문서라면 페이지당 적어도 1~2개의 헤더는 있어야 함
+        page_count = len(results)
+        header_count = total_text.count("\n#")
+        if (
+            page_count > 0 and (header_count / page_count) < 0.2
+        ):  # 5페이지당 헤더 1개 미만
+            print("Reason: Too few markdown headers found.")
+            return True
+
+        return False
+
+    def _is_text_quality_poor(self, file_path: str, results: list[dict]) -> bool:
+        """TEXT 모드 품질 검사"""
+        total_text = "".join([r["text"] for r in results])
+
+        # 1. 글자 수가 너무 적음 (50자 미만)
+        if len(total_text.strip()) < 50:
+            print("Reason: Too few characters extracted.")
+            return True
+
+        # 2. 깨진 문자(replacement character ) 비율 확인
+        broken_char_count = total_text.count("\ufffd")  # or other garbage chars
+        if len(total_text) > 0 and (
+            broken_char_count / len(total_text) > 0.05
+        ):  # 5% 이상
+            print("Reason: Too many broken characters.")
+            return True
+
+        # 3. (고급) PyMuPDF로 표(Table)는 감지되는데, 추출된 텍스트에는 마크다운 표 문법(|---|)이 없는 경우
+        try:
+            doc = fitz.open(file_path)
+            has_table_but_no_markdown = False
+
+            # 성능을 위해 앞부분 5페이지만 검사
+            for i in range(min(5, len(doc))):
+                page = doc[i]
+                tables = page.find_tables()
+                if tables and len(tables.tables) > 0:
+                    # 해당 페이지의 추출된 텍스트 찾기
+                    page_text = results[i]["text"] if i < len(results) else ""
+                    # 표는 있는데 마크다운 표 구문('|')이 전혀 없다면 파싱 실패로 간주
+                    if "|" not in page_text:
+                        print(
+                            f"Reason: Table detected on page {i + 1} but no markdown table found."
+                        )
+                        has_table_but_no_markdown = True
+                        break
+
+            doc.close()
+            if has_table_but_no_markdown:
+                return True
+
+        except Exception as e:
+            print(f"[Warning] Table check failed: {e}")
+            # 에러 나면 안전하게 False 반환 (Flow 중단 안 함)
+            return False
+
+        return False
+
+    def _request_llamaparse_approval(
+        self, file_path: str, document_id: UUID
+    ) -> list[dict]:
+        """
+        LlamaParse 호출 전 비용 계산 후 '승인 대기' 상태로 변경하고 중단함.
+        """
+        if not document_id:
+            # document_id가 없으면(디버그/테스트 모드) 그냥 진행
+            print("No document_id provided. Skipping approval and running LlamaParse.")
+            return self._parse_with_llamaparse(file_path)
+
+        # 1. 비용 계산
+        est = self._estimate_llamaparse_cost(file_path)
+
+        # 2. DB 업데이트 (상태: waiting_for_approval)
+        doc = self.db.query(Document).get(document_id)
+        if doc:
+            doc.status = "waiting_for_approval"
+            # 기존 메타데이터에 비용 정보 병합
+            new_meta = dict(doc.meta_info or {})
+            new_meta.update({"cost_estimate": est, "strategy": "llamaparse_fallback"})
+            doc.meta_info = new_meta
+            self.db.commit()
+
+        print(
+            f"⏸️ [Approval Required] Document {document_id} paused for LlamaParse cost approval."
+        )
+
+        # 3. 빈 리스트 반환하여 파이프라인 중단
+        return []
+
+    def _parse_pdf(self, file_path: str, document_id: UUID = None) -> list[dict]:
+        """
+        PDF 파싱 메인 진입점.
+        적절한 파서(PyMuPDF / LlamaParse)를 선택하고,
+        품질 저하 시 Fallback 로직을 수행 (비용 승인 프로세스 포함)
+        """
+        # 1. 파일 성격 파악
+        parsing_strategy = self._analyze_pdf_type(file_path)
+        print(f"[{file_path}] Parsing Strategy: {parsing_strategy.value}")
+
+        # Case 1: 이미지 위주 (OCR 필수) -> 승인 요청
+        if parsing_strategy == ParsingStrategy.IMAGE:
+            print("Strategy is IMAGE. Requesting approval for LlamaParse.")
+            return self._request_llamaparse_approval(file_path, document_id)
+
+        # Case 2: 혼합형 (텍스트 + 이미지)
+        elif parsing_strategy == ParsingStrategy.MIXED:
+            # 1차 시도: PyMuPDF (빠름)
+            results = self._parse_with_pymupdf(file_path)
+
+            # 품질 검사: 결과물이 '난잡'한지 확인
+            if self._is_mixed_quality_poor(results):
+                print(
+                    "Mixed parsing quality is poor. Requesting approval for LlamaParse."
+                )
+                return self._request_llamaparse_approval(file_path, document_id)
+
+            return results
+
+        # Case 3: 텍스트 위주
+        else:  # ParsingStrategy.TEXT
+            # 1차 시도: PyMuPDF
+            results = self._parse_with_pymupdf(file_path)
+
+            # 품질 검사: 텍스트 누락, 깨짐, 표 구조 이상 확인
+            if self._is_text_quality_poor(file_path, results):
+                print(
+                    "Text parsing quality is poor. Requesting approval for LlamaParse."
+                )
+                return self._request_llamaparse_approval(file_path, document_id)
+
+            return results
+
+    def _create_chunks(self, text_blocks: list[dict]) -> list[dict]:
+        """
+        파싱된 텍스트를 더 작은 조각(Chunk)으로 나눕니다.
+        """
+        final_chunks = []
+
+        for block in text_blocks:
+            splits = self.text_splitter.split_text(block["text"])
+            for split in splits:
+                final_chunks.append(
+                    {"content": split, "metadata": {"page": block["page"]}}
+                )
+        return final_chunks
 
     def _save_chunks_to_pgvector(
         self, document_id: UUID, knowledge_base_id: UUID, chunks: list[dict]

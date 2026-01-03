@@ -13,7 +13,7 @@ load_dotenv()  # .env 파일 로드
 
 from contextlib import asynccontextmanager
 
-from db.models.llm import LLMProvider
+from db.seed import seed_default_llm_providers, seed_placeholder_user
 
 
 @asynccontextmanager
@@ -31,61 +31,17 @@ async def lifespan(app: FastAPI):
     import uuid
 
     from db.models.user import User
+    # [NEW] 로깅 모델 등록
+    from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
     from db.session import SessionLocal
 
     db = SessionLocal()
     try:
         # 2.1 Seed Placeholder User (Critical for Dev)
-        # Match LLMService.PLACEHOLDER_USER_ID
-        PLACEHOLDER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
-        user = db.query(User).filter(User.id == PLACEHOLDER_ID).first()
-        if not user:
-            print("👤 Seeding placeholder user...")
-            dev_user = User(
-                id=PLACEHOLDER_ID,
-                email="dev@moduly.app",
-                name="Dev User",
-                password="dev-password",
-            )
-            db.add(dev_user)
-            db.commit()
-            print("✅ Placeholder user created!")
+        seed_placeholder_user(db)
 
         # 2.2 Seed Providers
-        existing_count = db.query(LLMProvider).count()
-        if existing_count == 0:
-            print("🌱 Seeding default LLM providers...")
-            default_providers = [
-                LLMProvider(
-                    name="openai",
-                    description="OpenAI default provider",
-                    base_url="https://api.openai.com/v1",
-                    type="system",
-                    auth_type="api_key",
-                    doc_url="https://platform.openai.com/api-keys",
-                ),
-                LLMProvider(
-                    name="anthropic",
-                    description="Anthropic Claude provider",
-                    base_url="https://api.anthropic.com/v1",
-                    type="system",
-                    auth_type="api_key",
-                    doc_url="https://console.anthropic.com/settings/keys",
-                ),
-                LLMProvider(
-                    name="google",
-                    description="Google Gemini provider",
-                    base_url="https://generativelanguage.googleapis.com/v1beta/openai",  # OpenAI compatibility endpoint
-                    type="system",
-                    auth_type="api_key",  # Added missing auth_type
-                    doc_url="https://aistudio.google.com/",
-                ),
-            ]
-            db.add_all(default_providers)
-            db.commit()
-            print("✅ Default LLM providers seeded!")
-        else:
-            print(f"ℹ️ LLM providers already exist ({existing_count}). Skipping seed.")
+        seed_default_llm_providers(db)
 
     except Exception as e:
         print(f"⚠️ Failed to seed data: {e}")

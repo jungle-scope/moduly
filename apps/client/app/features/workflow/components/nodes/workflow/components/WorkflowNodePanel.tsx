@@ -8,7 +8,7 @@ import {
 import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
-import { toast } from 'sonner';
+import { CollapsibleSection } from '../../../ui/CollapsibleSection';
 
 interface WorkflowNodePanelProps {
   nodeId: string;
@@ -139,112 +139,111 @@ export const WorkflowNodePanel: React.FC<WorkflowNodePanelProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-semibold text-gray-700">
-          Input Parameters
-        </label>
-        <p className="text-xs text-gray-500 mb-2">
-          대상 워크플로우의 <b>Start Node</b>에 정의된 변수에 값을 전달합니다.
-        </p>
+      <CollapsibleSection title="Input Parameters">
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-gray-500 mb-2">
+            대상 워크플로우의 <b>Start Node</b>에 정의된 변수에 값을 전달합니다.
+          </p>
 
-        {targetVariables.length === 0 ? (
-          <div className="text-center text-xs text-gray-400 py-4 border border-dashed border-gray-300 rounded">
-            입력 변수가 없는 워크플로우입니다.
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {targetVariables.map((targetVar) => {
-              // 현재 매핑 찾기
-              const mapping = data.inputs?.find(
-                (i) => i.name === targetVar.name,
-              );
-              const selectedNodeId = mapping?.value_selector?.[0] || '';
-              const selectedOutputKey = mapping?.value_selector?.[1] || '';
+          {targetVariables.length === 0 ? (
+            <div className="text-center text-xs text-gray-400 py-4 border border-dashed border-gray-300 rounded">
+              입력 변수가 없는 워크플로우입니다.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {targetVariables.map((targetVar) => {
+                // 현재 매핑 찾기
+                const mapping = data.inputs?.find(
+                  (i) => i.name === targetVar.name,
+                );
+                const selectedNodeId = mapping?.value_selector?.[0] || '';
+                const selectedOutputKey = mapping?.value_selector?.[1] || '';
 
-              const selectedNode = nodes.find((n) => n.id === selectedNodeId);
-              const availableOutputs = selectedNode
-                ? getNodeOutputs(selectedNode)
-                : [];
+                const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+                const availableOutputs = selectedNode
+                  ? getNodeOutputs(selectedNode)
+                  : [];
 
-              return (
-                <div
-                  key={targetVar.id}
-                  className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-gray-700">
-                        {targetVar.name}
-                      </span>
-                      <span className="text-[10px] text-gray-500 px-1.5 py-0.5 bg-gray-200 rounded-full">
-                        {targetVar.type}
-                      </span>
+                return (
+                  <div
+                    key={targetVar.id}
+                    className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-700">
+                          {targetVar.name}
+                        </span>
+                        <span className="text-[10px] text-gray-500 px-1.5 py-0.5 bg-gray-200 rounded-full">
+                          {targetVar.type}
+                        </span>
+                      </div>
+                      {targetVar.required && (
+                        <span className="text-[10px] text-red-500">
+                          *Required
+                        </span>
+                      )}
                     </div>
-                    {targetVar.required && (
-                      <span className="text-[10px] text-red-500">
-                        *Required
-                      </span>
-                    )}
-                  </div>
 
-                  <div className="flex flex-row gap-2 items-center">
-                    {/* 노드 선택 */}
-                    <div className="flex-[1]">
-                      <select
-                        className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
-                        value={selectedNodeId}
-                        onChange={(e) =>
-                          handleSelectorUpdate(
-                            targetVar.name,
-                            0,
-                            e.target.value,
-                          )
-                        }
-                      >
-                        <option value="">노드 선택</option>
-                        {upstreamNodes.map((n) => (
-                          <option key={n.id} value={n.id}>
-                            {(n.data.title as string) || n.type}
+                    <div className="flex flex-row gap-2 items-center">
+                      {/* 노드 선택 */}
+                      <div className="flex-[1]">
+                        <select
+                          className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
+                          value={selectedNodeId}
+                          onChange={(e) =>
+                            handleSelectorUpdate(
+                              targetVar.name,
+                              0,
+                              e.target.value,
+                            )
+                          }
+                        >
+                          <option value="">노드 선택</option>
+                          {upstreamNodes.map((n) => (
+                            <option key={n.id} value={n.id}>
+                              {(n.data.title as string) || n.type}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* 출력 선택 */}
+                      <div className="flex-[1] relative">
+                        <select
+                          className={`w-full rounded border p-1.5 text-xs truncate ${
+                            !selectedNodeId
+                              ? 'bg-gray-100 text-gray-400 border-gray-200'
+                              : 'border-gray-300 bg-white'
+                          }`}
+                          value={selectedOutputKey}
+                          onChange={(e) =>
+                            handleSelectorUpdate(
+                              targetVar.name,
+                              1,
+                              e.target.value,
+                            )
+                          }
+                          disabled={!selectedNodeId}
+                        >
+                          <option value="">
+                            {!selectedNodeId ? '변수 선택' : '출력 선택'}
                           </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* 출력 선택 */}
-                    <div className="flex-[1] relative">
-                      <select
-                        className={`w-full rounded border p-1.5 text-xs truncate ${
-                          !selectedNodeId
-                            ? 'bg-gray-100 text-gray-400 border-gray-200'
-                            : 'border-gray-300 bg-white'
-                        }`}
-                        value={selectedOutputKey}
-                        onChange={(e) =>
-                          handleSelectorUpdate(
-                            targetVar.name,
-                            1,
-                            e.target.value,
-                          )
-                        }
-                        disabled={!selectedNodeId}
-                      >
-                        <option value="">
-                          {!selectedNodeId ? '변수 선택' : '출력 선택'}
-                        </option>
-                        {availableOutputs.map((outKey) => (
-                          <option key={outKey} value={outKey}>
-                            {outKey}
-                          </option>
-                        ))}
-                      </select>
+                          {availableOutputs.map((outKey) => (
+                            <option key={outKey} value={outKey}>
+                              {outKey}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
     </div>
   );
 };
