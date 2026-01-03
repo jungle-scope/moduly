@@ -18,8 +18,6 @@ import { WorkflowNodeData, Node } from '../../types/Nodes';
 import { nodeTypes as coreNodeTypes } from '../nodes';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
-import WorkflowTabs from './WorkflowTabs';
-
 import NodeDetailsPanel from './NodeDetailsPanel';
 import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
@@ -211,9 +209,6 @@ export default function NodeCanvas() {
 
   return (
     <div className="flex-1 bg-gray-50 relative flex flex-col">
-      {/* 워크플로우 탭 */}
-      <WorkflowTabs />
-
       {/* App Search Modal */}
       <AppSearchModal
         isOpen={isSearchModalOpen}

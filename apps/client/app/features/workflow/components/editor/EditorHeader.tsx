@@ -8,6 +8,11 @@ import {
   ArrowLeftIcon,
   ClockIcon,
 } from '@/app/features/workflow/components/icons';
+// [NEW] 로그 뷰어 모달 Import
+import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
+// [NEW] 모니터링 대시보드 모달 Import
+import { MonitoringDashboardModal } from '@/app/features/workflow/components/monitoring/MonitoringDashboardModal';
+import { ScrollText, BarChart3 } from 'lucide-react'; // [NEW] 아이콘 추가
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   validateVariableName,
@@ -49,6 +54,11 @@ export default function EditorHeader() {
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isLogViewerOpen, setIsLogViewerOpen] = useState(false); // [NEW] 로그 뷰어 모달 상태
+  const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null); // [NEW] 로그 뷰어 초기 진입 ID
+  const [isMonitoringOpen, setIsMonitoringOpen] = useState(false); // [NEW] 모니터링 모달 상태
+  const [returnToMonitoring, setReturnToMonitoring] = useState(false); // [NEW] 모니터링 복귀 상태
+  const [monitoringScrollPos, setMonitoringScrollPos] = useState(0); // [NEW] 모니터링 스크롤 위치 저장
 
   // Existing State
   const [showModal, setShowModal] = useState(false);
@@ -468,6 +478,60 @@ export default function EditorHeader() {
           >
             {isExecuting ? '실행 중...' : 'TEST'}
           </button>
+
+          {/* [NEW] 로그 및 모니터링 버튼 */}
+          <button
+            onClick={() => setIsLogViewerOpen(true)}
+            className="px-4 py-2 flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 shadow-sm"
+          >
+            <ScrollText className="w-4 h-4" />
+            <span className="text-sm font-medium">로그</span>
+          </button>
+
+          <button
+            onClick={() => setIsMonitoringOpen(true)}
+            className="px-4 py-2 flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 shadow-sm"
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span className="text-sm font-medium">모니터링</span>
+          </button>
+
+          <div className="w-[1px] h-6 bg-gray-200 mx-1" /> {/* 구분선 */}
+
+          {/* [NEW] 로그 뷰어 모달 렌더링 */}
+          {workflowId && (
+            <>
+                <LogViewerModal
+                    isOpen={isLogViewerOpen}
+                    onClose={() => {
+                        setIsLogViewerOpen(false);
+                        setInitialLogRunId(null);
+                        setReturnToMonitoring(false);
+                    }}
+                    workflowId={workflowId as string}
+                    initialRunId={initialLogRunId}
+                    onBack={returnToMonitoring ? () => {
+                        setIsLogViewerOpen(false);
+                        setInitialLogRunId(null);
+                        setIsMonitoringOpen(true);
+                        setReturnToMonitoring(false);
+                    } : undefined}
+                />
+                <MonitoringDashboardModal
+                    isOpen={isMonitoringOpen}
+                    onClose={() => setIsMonitoringOpen(false)}
+                    workflowId={workflowId as string}
+                    onNavigateToLog={(runId) => {
+                        setInitialLogRunId(runId);
+                        setIsMonitoringOpen(false);
+                        setIsLogViewerOpen(true);
+                        setReturnToMonitoring(true);
+                    }}
+                    initialScrollTop={monitoringScrollPos}
+                    onSaveScrollPos={setMonitoringScrollPos}
+                />
+            </>
+          )}
           <button
             onClick={handleVersionHistory}
             className="px-4 py-2 flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
