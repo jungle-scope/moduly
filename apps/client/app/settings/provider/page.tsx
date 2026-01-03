@@ -270,6 +270,7 @@ export default function SettingsProviderPage() {
                             const pName = providers.find(p => p.id === selectedProviderId)?.name.toLowerCase() || '';
                             if (pName.includes('google')) return 'AIza...';
                             if (pName.includes('anthropic')) return 'sk-ant-...';
+                            if (pName.includes('llama')) return 'llx-...';
                             return 'sk-...';
                         })()}
                         className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
@@ -305,4 +306,3 @@ export default function SettingsProviderPage() {
     </div>
   );
 }
-

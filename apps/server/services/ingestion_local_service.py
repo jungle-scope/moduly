@@ -3,6 +3,7 @@ import os  # 폴더 만들기용
 import re
 import shutil  # 파일 복사용
 from enum import Enum
+from typing import Optional
 from uuid import UUID
 
 import fitz
@@ -16,7 +17,7 @@ from langchain_openai import OpenAIEmbeddings
 from sqlalchemy.orm import Session
 
 from db.models.knowledge import Document, DocumentChunk
-from db.models.llm import LLMCredential
+from db.models.llm import LLMCredential, LLMProvider
 
 
 class ParsingStrategy(str, Enum):
@@ -29,11 +30,13 @@ class IngestionService:
     def __init__(
         self,
         db: Session,
+        user_id: Optional[UUID] = None,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
         ai_model: str = "text-embedding-3-small",
     ):
         self.db = db
+        self.user_id = user_id
         self.ai_model = ai_model
 
         # 청킹 전략 설정
@@ -300,6 +303,56 @@ class IngestionService:
                 print(f"⚠️ Cache load failed: {e}")
         return None
 
+    def _get_llamaparse_api_key(self) -> Optional[str]:
+        """
+        LlamaParse API 키를 가져옵니다.
+        1) 환경변수 우선
+        2) 현재 사용자(user_id)의 LlamaParse 자격증명
+        3) 사용자 미지정 시 시스템 내 첫 번째 유효 자격증명
+        """
+        env_key = os.getenv("LLAMA_CLOUD_API_KEY")
+        if env_key:
+            return env_key
+
+        provider = (
+            self.db.query(LLMProvider)
+            .filter(LLMProvider.name == "llamaparse")
+            .first()
+        )
+        if not provider:
+            return None
+
+        query = self.db.query(LLMCredential).filter(
+            LLMCredential.provider_id == provider.id,
+            LLMCredential.is_valid == True,
+        )
+        if self.user_id:
+            query = query.filter(LLMCredential.user_id == self.user_id)
+
+        cred = query.order_by(LLMCredential.created_at.desc()).first()
+
+        # 사용자별 키가 없으면 시스템 내 아무 유효 키나 사용 (환경변수 접근과 동일 레벨)
+        if not cred:
+            cred = (
+                self.db.query(LLMCredential)
+                .filter(
+                    LLMCredential.provider_id == provider.id,
+                    LLMCredential.is_valid == True,
+                )
+                .order_by(LLMCredential.created_at.desc())
+                .first()
+            )
+
+        if not cred:
+            return None
+
+        try:
+            cfg = json.loads(cred.encrypted_config)
+            return cfg.get("apiKey")
+        except Exception as e:
+            print(f"[Warning] Failed to parse LlamaParse credential: {e}")
+            return None
+
     def _parse_with_llamaparse(self, file_path: str) -> list[dict]:
         """LlamaParse API 연동 (캐싱 적용)"""
 
@@ -322,9 +375,12 @@ class IngestionService:
             )
             return []
 
-        api_key = os.getenv("LLAMA_CLOUD_API_KEY")
+        api_key = self._get_llamaparse_api_key()
         if not api_key:
-            print("❌ LLAMA_CLOUD_API_KEY 환경변수가 설정되지 않았습니다.")
+            print(
+                "❌ LlamaParse API Key가 설정되지 않았습니다. "
+                "환경변수 LLAMA_CLOUD_API_KEY를 설정하거나 설정 > LLM Provider에서 키를 등록해주세요."
+            )
             return []
 
         print("🚀 LlamaParse 클라우드 처리 시작...")
@@ -654,11 +710,13 @@ class IngestionService:
         # 1. 환경변수 우선 확인 (로컬 개발 편의성)
         api_key = os.getenv("OPENAI_API_KEY")
 
-        # 2. 환경변수 없으면 DB에서 조회 (Fallback)
+        # 2. 환경변수 없으면 DB에서 조회 (Fallback) - OpenAI provider만 필터
         if not api_key:
             cred = (
                 self.db.query(LLMCredential)
-                .filter(LLMCredential.is_valid == True)
+                .join(LLMProvider, LLMCredential.provider_id == LLMProvider.id)
+                .filter(LLMCredential.is_valid == True, LLMProvider.name == "openai")
+                .order_by(LLMCredential.created_at.desc())
                 .first()
             )
             if not cred:
