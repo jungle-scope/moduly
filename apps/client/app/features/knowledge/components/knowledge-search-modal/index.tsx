@@ -37,10 +37,16 @@ export default function KnowledgeSearchModal({
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [response, setResponse] = useState<RAGResponse | null>(null);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'search' | 'chat'>('search');
+
+  // Separate states for persistence
+  const [searchResult, setSearchResult] = useState<RAGResponse | null>(null);
+  const [chatResult, setChatResult] = useState<RAGResponse | null>(null);
+
+  // Derived state for current view
+  const response = activeTab === 'chat' ? chatResult : searchResult;
 
   // Model Selection State
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
@@ -83,11 +89,17 @@ export default function KnowledgeSearchModal({
     }
   }, [isOpen]);
 
+  // Clear response effect removed for persistence
+
   const handleSearch = async () => {
     if (!query.trim()) return;
 
     setIsLoading(true);
-    setResponse(null);
+    setIsLoading(true);
+    // Don't clear previous result immediately to avoid flickering, or clear specific one?
+    // User wants persistence, but usually we clear current view when starting new search
+    if (activeTab === 'chat') setChatResult(null);
+    else setSearchResult(null);
 
     try {
       const endpoint = activeTab === 'chat' ? '/api/v1/rag/search-test/chat' : '/api/v1/rag/search-test/pure';
@@ -110,10 +122,10 @@ export default function KnowledgeSearchModal({
 
       // Response Handling
       if (activeTab === 'chat') {
-        setResponse(res.data as RAGResponse);
+        setChatResult(res.data as RAGResponse);
       } else {
         // Search 모드는 List[ChunkPreview]가 옴 -> RAGResponse 형태로 래핑해서 표시
-        setResponse({
+        setSearchResult({
           answer: "", // 답변 없음
           references: res.data as any // 문서 목록만 있음 (Type Casting)
         });
@@ -235,21 +247,23 @@ export default function KnowledgeSearchModal({
 
           {response && (
             <div className="space-y-6 max-w-3xl mx-auto">
-              {/* Answer Section */}
-              <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 mt-1">
-                  <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">AI 답변</p>
-                  <div className="text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                    {response.answer}
+              {/* Answer Section - Only visible in Chat mode */}
+              {activeTab === 'chat' && (
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 mt-1">
+                    <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">AI 답변</p>
+                    <div className="text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                      {response.answer}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* References Section */}
-              <div className={activeTab === 'chat' ? "pl-12" : ""}>
+              {/* References Section - Fixed padding for layout stability */}
+              <div className="pl-12">
                 <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                   <Search className="w-4 h-4" />
                   참조 문서 ({response.references.length})
