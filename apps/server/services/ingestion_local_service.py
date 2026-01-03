@@ -710,11 +710,13 @@ class IngestionService:
         # 1. 환경변수 우선 확인 (로컬 개발 편의성)
         api_key = os.getenv("OPENAI_API_KEY")
 
-        # 2. 환경변수 없으면 DB에서 조회 (Fallback)
+        # 2. 환경변수 없으면 DB에서 조회 (Fallback) - OpenAI provider만 필터
         if not api_key:
             cred = (
                 self.db.query(LLMCredential)
-                .filter(LLMCredential.is_valid == True)
+                .join(LLMProvider, LLMCredential.provider_id == LLMProvider.id)
+                .filter(LLMCredential.is_valid == True, LLMProvider.name == "openai")
+                .order_by(LLMCredential.created_at.desc())
                 .first()
             )
             if not cred:

@@ -51,6 +51,21 @@ def get_my_models(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
+
+@router.get("/my-embedding-models", response_model=List[LLMModelResponse])
+def get_my_embedding_models(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List embedding models available to the current user.
+    """
+    try:
+        return LLMService.get_my_embedding_models(db, current_user.id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.get("/credentials", response_model=List[LLMCredentialResponse])
 def get_my_credentials(
     db: Session = Depends(get_db),
