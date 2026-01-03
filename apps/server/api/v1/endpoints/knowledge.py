@@ -168,7 +168,8 @@ def get_document(
         created_at=doc.created_at,
         error_message=doc.error_message,
         chunk_count=len(doc.chunks),
-        token_count=0,  # TODO: 실제 토큰 수 계산 필요
+        # token_count=doc.token_count,
+        source_type=doc.source_type,
         meta_info=doc.meta_info,
     )
 
@@ -372,6 +373,8 @@ def preview_document_chunking(
             remove_urls_emails=request.remove_urls_emails,
             remove_whitespace=request.remove_whitespace,
             strategy=request.strategy,
+            source_type=request.source_type,
+            meta_info=doc.meta_info,
         )
     except Exception as e:
         import traceback

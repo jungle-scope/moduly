@@ -277,7 +277,7 @@ export default function KnowledgeDetailPage() {
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5 mr-1.5" />
-            문서 추가
+            추가
           </button>
         </div>
       </div>

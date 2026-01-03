@@ -48,7 +48,7 @@ export interface DocumentResponse {
   chunk_size?: number;
 
   chunk_overlap?: number;
-  source_type?: string;
+  source_type?: 'FILE' | 'API';
   meta_info?: {
     cost_estimate?: {
       pages: number;

@@ -98,7 +98,7 @@ export default function CreateKnowledgeModal({
       setIsLoading(true);
 
       const response = await knowledgeApi.uploadKnowledgeBase({
-        sourceType,
+        sourceType: sourceType,
         file: sourceType === 'FILE' && file ? file : undefined,
         apiUrl: sourceType === 'API' ? apiConfig.url : undefined,
         apiMethod: sourceType === 'API' ? apiConfig.method : undefined,
@@ -113,7 +113,7 @@ export default function CreateKnowledgeModal({
         chunkOverlap: formData.chunkOverlap,
         knowledgeBaseId: knowledgeBaseId,
       });
-
+      // console.log(JSON.stringify(response));
       // 성공 시 모달 닫기 및 문서 설정 페이지로 이동
       onClose();
       router.push(

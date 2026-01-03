@@ -72,6 +72,7 @@ class DocumentPreviewRequest(BaseModel):
     remove_urls_emails: bool = False
     remove_whitespace: bool = True
     strategy: str = "general"  # "general" or "llamaparse"
+    source_type: str = "FILE"  # FILE or API
 
 
 class DocumentProcessRequest(DocumentPreviewRequest):

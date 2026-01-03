@@ -45,6 +45,7 @@ export default function DocumentSettingsPage() {
   const [segmentIdentifier, setSegmentIdentifier] = useState<string>('\\n\\n');
   const [removeUrlsEmails, setRemoveUrlsEmails] = useState<boolean>(false);
   const [removeWhitespace, setRemoveWhitespace] = useState<boolean>(true);
+  // const [sourceType, setSourceType] = useState<string>('');
 
   const [parsingStrategy, setParsingStrategy] = useState<
     'general' | 'llamaparse'
@@ -427,9 +428,10 @@ export default function DocumentSettingsPage() {
           remove_urls_emails: removeUrlsEmails,
           remove_whitespace: removeWhitespace,
           strategy: strategy,
+          source_type: document.source_type,
         },
       );
-
+      console.log('[DEBUG]', response);
       setPreviewSegments(response.segments);
       toast.success('청킹 미리보기 완료');
     } catch (error) {
@@ -712,8 +714,7 @@ export default function DocumentSettingsPage() {
           </div>
           <div className="flex-1 w-full h-full p-4">
             {kbId && documentId && document ? (
-              (console.log('DEBUG DOC:', document),
-              document?.source_type === 'API' ||
+              ( document?.source_type === 'API' ||
                 document?.meta_info?.api_config) ? (
                 <div className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 overflow-auto p-4">
                   <div className="p-4">

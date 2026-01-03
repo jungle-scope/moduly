@@ -446,7 +446,9 @@ class IngestionService:
         segment_identifier: str,
         remove_urls_emails: bool = False,
         remove_whitespace: bool = True,
-        strategy: str = "general",  # "general" or "llamaparse"
+        strategy: str = "general",  # "general" or "llamaparse",
+        source_type: SourceType = SourceType.FILE,
+        meta_info: dict = None,
     ) -> list[dict]:
         """
         DB 저장 없이 메모리 상에서 청킹 결과를 미리봅니다.
@@ -454,12 +456,28 @@ class IngestionService:
         """
         # 1. 텍스트 추출
         try:
-            # Preview용 임시 DataSource 사용 (FileDataSource 가정)
-            data_source = FileDataSource()
-            source_config = {
-                "file_path": file_path,
-                "strategy": strategy,  # "general" or "llamaparse"
-            }
+            if source_type == SourceType.API:
+                # API 반환값 처리, 헤더 복호화
+                api_config = meta_info.get("api_config", {})
+                headers = api_config.get("headers")
+                if headers and isinstance(headers, str):
+                    try:
+                        from core.security import security_service
+
+                        decrypted_json = security_service.decrypt(headers)
+                        api_config["headers"] = json.loads(decrypted_json)
+                    except Exception as e:
+                        print(f"Failed to decrypt headers: {e}")
+                        api_config["headers"] = {}
+
+                data_source = ApiDataSource()
+                source_config = api_config
+            else:
+                data_source = FileDataSource()
+                source_config = {
+                    "file_path": file_path,
+                    "strategy": strategy,  # "general" or "llamaparse"
+                }
 
             text_blocks = data_source.fetch_text(source_config)
             full_text = "\n".join([block["text"] for block in text_blocks])

@@ -256,7 +256,7 @@ class ApiDataSource(BaseDataSource):
         body = source_config.get("body")
 
         try:
-            with httpx.Client() as client:
+            with httpx.Client(timeout=60.0) as client:
                 response = client.request(method, url, headers=headers, json=body)
                 response.raise_for_status()
 

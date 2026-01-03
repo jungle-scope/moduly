@@ -13,6 +13,7 @@ export interface DocumentPreviewRequest {
   segment_identifier: string;
   remove_urls_emails?: boolean;
   remove_whitespace?: boolean;
+  source_type: 'FILE' | 'API';
   strategy?: 'general' | 'llamaparse';
 }
 
@@ -172,6 +173,7 @@ export const knowledgeApi = {
       `/knowledge/${kbId}/documents/${documentId}/preview`,
       data,
     );
+    console.log('[previewDocumentChunking] ', response.data);
     return response.data;
   },
 
