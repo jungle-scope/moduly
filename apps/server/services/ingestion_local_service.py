@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os  # 폴더 만들기용
 import re
@@ -6,7 +7,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 
-import fitz
+import fitz  # PyMuPDF
 import pandas as pd
 import pymupdf4llm
 import tiktoken
@@ -16,8 +17,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy.orm import Session
 
-from db.models.knowledge import Document, DocumentChunk
+from db.models.knowledge import Document, DocumentChunk, SourceType
 from db.models.llm import LLMCredential, LLMProvider
+from services.data_sources import ApiDataSource, BaseDataSource, FileDataSource
 
 
 class ParsingStrategy(str, Enum):
@@ -48,6 +50,16 @@ class IngestionService:
             keep_separator=True,
         )
 
+    def _get_data_source(self, source_type: str) -> BaseDataSource:
+        if source_type == SourceType.FILE:
+            return FileDataSource()
+        elif source_type == SourceType.API:
+            return ApiDataSource()
+        # Default fallback for legacy data or if source_type is string "FILE"
+        if str(source_type) == "FILE":
+            return FileDataSource()
+        raise ValueError(f"Unknown source type: {source_type}")
+
     def save_temp_file(self, file: UploadFile) -> str:
         """
         설명: 메모리에 있는 업로드 파일을 디스크(uploads 폴더)에 저장합니다.
@@ -74,9 +86,11 @@ class IngestionService:
         self,
         knowledge_base_id: UUID,
         filename: str,
-        file_path: str,
+        file_path: str | None,
         chunk_size: int,
         chunk_overlap: int,
+        source_type: SourceType = SourceType.FILE,
+        meta_info: dict = None,
     ) -> UUID:
         """
         파일 업로드 시점에 'Pending' 상태의 Document 레코드를 먼저 생성합니다.
@@ -90,6 +104,8 @@ class IngestionService:
             status="pending",
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
+            source_type=source_type,
+            meta_info=meta_info or {},
         )
         self.db.add(new_doc)
         self.db.commit()
@@ -106,24 +122,48 @@ class IngestionService:
         try:
             self._update_status(document_id, "indexing")
             self._update_progress(document_id, 5, "문서 처리를 시작합니다...")
-
+            print("[DEBUG] 1번")
             # 1단계: 파싱 (document_id 전달)
             self._update_progress(document_id, 10, "문서 내용을 분석하고 있습니다...")
 
-            # 파일 확장자에 따른 분기 처리
-            ext = os.path.splitext(file_path)[1].lower()
-            if ext == ".pdf":
-                text_blocks = self._parse_pdf(file_path, document_id)
-            elif ext in [".xlsx", ".xls", ".csv"]:
-                text_blocks = self._parse_excel_csv(file_path)
-            elif ext == ".docx":
-                text_blocks = self._parse_docx(file_path)
-            elif ext in [".txt", ".md"]:
-                text_blocks = self._parse_txt(file_path)
-            else:
-                # 지원하지 않는 파일 포맷 -> 텍스트로 시도 or 에러
-                print(f"[Warning] Unsupported file type: {ext}. Trying as text.")
-                text_blocks = self._parse_txt(file_path)
+            # 1.3 DataSource를 통한 텍스트 추출
+            # DB에서 Document 객체 조회
+            doc = self.db.query(Document).get(document_id)
+            if not doc:
+                raise ValueError(f"Document {document_id} not found")
+
+            data_source = self._get_data_source(doc.source_type)
+            print("[DEBUG] 2번", data_source)
+
+            # 소스 설정 구성
+            source_config = {}
+            if doc.source_type == SourceType.FILE or str(doc.source_type) == "FILE":
+                source_config = {
+                    "file_path": file_path,
+                    "document_id": str(document_id),
+                }
+            elif doc.source_type == SourceType.API:
+                # meta_info에서 API 설정 가져오기
+                api_config = doc.meta_info.get("api_config", {})
+
+                # 헤더 복호화 로직
+                import json
+
+                from core.security import security_service
+
+                headers = api_config.get("headers")
+                if headers and isinstance(headers, str):
+                    try:
+                        decrypted_json = security_service.decrypt(headers)
+                        api_config["headers"] = json.loads(decrypted_json)
+                    except Exception as e:
+                        print(f"Failed to decrypt headers: {e}")
+                        # 복호화 실패 시 빈 딕셔너리 사용하거나 에러 처리
+                        api_config["headers"] = {}
+
+                source_config = api_config
+
+            text_blocks = data_source.fetch_text(source_config)
 
             # 파싱 결과가 비어있다면 (비용 승인 대기 등) 중단
             if not text_blocks:
@@ -135,6 +175,28 @@ class IngestionService:
                     )
                     return
                 # 진짜 내용이 없는 경우일 수도 있음 (이 경우 completed 처리됨)
+                print(f"⚠️ No text extracted from document {document_id}")
+                self._update_status(document_id, "completed")
+                return
+
+            # 1.5 Content Hash Check (변경 감지)
+            # 모든 텍스트를 합쳐서 해시 생성
+            full_text = "".join([b["text"] for b in text_blocks])
+            new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
+
+            if doc.content_hash == new_hash:
+                print(f"⏭️ Content unchanged for {document_id}. Skipping processing.")
+                self._update_progress(
+                    document_id, 100, "변경된 내용이 없어 처리를 건너뜁니다."
+                )
+                self._update_status(document_id, "completed")
+                return
+
+            # 해시 업데이트
+            doc = self.db.query(Document).get(document_id)
+            if doc:
+                doc.content_hash = new_hash
+                self.db.commit()
 
             self._update_progress(document_id, 40, "문서 내용 분석이 완료되었습니다.")
 
@@ -163,13 +225,21 @@ class IngestionService:
 
             text_blocks = []
 
-            # 1단계: 전략에 따른 파싱
-            if strategy == "general":
-                # LlamaParse 대신 일반 PyMuPDF 사용 (비용 절감)
-                text_blocks = self._parse_with_pymupdf(doc.file_path)
-            else:
-                # 기본값: LlamaParse (캐싱 로직 포함됨)
-                text_blocks = self._parse_with_llamaparse(doc.file_path)
+            # 1단계: 전략에 따른 파싱 (DataSource 사용)
+            data_source = self._get_data_source(doc.source_type)
+
+            source_config = {}
+            if doc.source_type == SourceType.FILE:
+                source_config = {
+                    "file_path": doc.file_path,
+                    "document_id": str(document_id),
+                    "strategy": strategy,  # "general" or "llamaparse" passed from arg
+                }
+            elif doc.source_type == SourceType.API:
+                api_config = doc.meta_info.get("api_config", {})
+                source_config = api_config
+
+            text_blocks = data_source.fetch_text(source_config)
 
             # 2~4단계: 청킹, 임베딩, 저장 및 완료 처리
             self._finalize_ingestion(document_id, doc.knowledge_base_id, text_blocks)
@@ -315,9 +385,7 @@ class IngestionService:
             return env_key
 
         provider = (
-            self.db.query(LLMProvider)
-            .filter(LLMProvider.name == "llamaparse")
-            .first()
+            self.db.query(LLMProvider).filter(LLMProvider.name == "llamaparse").first()
         )
         if not provider:
             return None
@@ -696,72 +764,137 @@ class IngestionService:
     ):
         """
         텍스트 조각들을 OpenAI에 보내서 '의미 벡터'로 바꾼 뒤, DocumentChunk 테이블에 저장합니다.
+        기존 청크가 있다면 삭제하고 새로 저장합니다 (Clean & Insert).
         """
-        # 토큰 계산을 위한 인코더 설정
+        print(f"🔍 [Debug] _save_chunks_to_pgvector 시작: doc_id={document_id}")
+        # 0. 기존 청크 삭제 (Clean Step)
+        try:
+            del_count = (
+                self.db.query(DocumentChunk)
+                .filter(DocumentChunk.document_id == document_id)
+                .delete()
+            )
+            self.db.commit()
+            print(f"🗑️ [Debug] 기존 청크 {del_count}개 삭제 완료")
+        except Exception as e:
+            print(f"❌ [Debug] 기존 청크 삭제 중 에러: {e}")
+
+        # TODO: 토큰 계산을 위한 인코더 설정
         try:
             encoding = tiktoken.encoding_for_model(self.ai_model)
         except KeyError:
             encoding = tiktoken.get_encoding("cl100k_base")  # gpt-4로 가정하고 계산
 
         # DB에서 API Key 가져오기 (환경변수 의존 제거)
-        # from services.llm_service import LLMService (구버전 메서드 없음)
+        from db.models.llm import LLMProvider
 
-        # [Fallback] 사용 가능한 첫 번째 키 가져오기
-        # 1. 환경변수 우선 확인 (로컬 개발 편의성)
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = None
 
-        # 2. 환경변수 없으면 DB에서 조회 (Fallback) - OpenAI provider만 필터
-        if not api_key:
-            cred = (
-                self.db.query(LLMCredential)
-                .join(LLMProvider, LLMCredential.provider_id == LLMProvider.id)
-                .filter(LLMCredential.is_valid == True, LLMProvider.name == "openai")
-                .order_by(LLMCredential.created_at.desc())
-                .first()
+        doc = self.db.query(Document).filter(Document.id == document_id).first()
+        if not doc:
+            print("❌ [Debug] 문서를 찾을 수 없음")
+            raise ValueError("문서를 찾을 수 없습니다.")
+
+        user_id = doc.knowledge_base.user_id
+        print(f"🔍 [Debug] 문서 소유자 ID: {user_id}")
+
+        user_crd = (
+            self.db.query(LLMCredential)
+            .join(LLMProvider)
+            .filter(
+                LLMCredential.user_id == user_id,
+                LLMCredential.is_valid,
+                LLMProvider.name == "openai",
             )
-            if not cred:
-                raise ValueError(
-                    "No valid LLM credential found. Please register one in settings."
-                )
+            .first()
+        )
 
+        if user_crd:
+            print(f"✅ [Debug] OpenAI 자격 증명 발견 (ID: {user_crd.id})")
             try:
-                cfg = json.loads(cred.encrypted_config)
-                api_key = cfg.get("apiKey")
-            except:
-                raise ValueError("Invalid credential config")
+                config = json.loads(user_crd.encrypted_config)
+                api_key = config.get("apiKey")
+            except Exception as e:
+                print(f"[Debug] Credential config 파싱 실패: {e}")
+
+        if not api_key:
+            raise ValueError(
+                "사용자의 OpenAI API Key를 찾을 수 없습니다. 등록해주세요."
+            )
+            print("⚠️ [Debug] OpenAI 자격 증명을 찾지 못함")
+        print(f"✅ [Debug] API Key 확보 완료 (Key: {api_key[:8]}...)")
 
         # 임베딩 모델 초기화 (API Key 명시)
         embeddings_model = OpenAIEmbeddings(model=self.ai_model, openai_api_key=api_key)
 
-        # 1. 텍스트 추출 (배치 처리를 위해)
+        # 1. 텍스트 추출
         texts = [chunk["content"] for chunk in chunks]
+        print(f"🔍 [Debug] 임베딩 요청 시작 (청크 개수: {len(texts)}개)")
 
         # 2. 임베딩 생성 (일괄 호출) - 실제 API 사용!
         try:
             embedded_vectors = embeddings_model.embed_documents(texts)
+            print("✅ [Debug] 임베딩 생성 완료")
         except Exception as e:
-            print(f"OpenAI Embedding Error: {e}")
+            print(f"❌ [Debug] OpenAI Embedding Error: {e}")
             raise e
 
         # 3. DB 객체 생성
-        chunk_objects = []
-        for i, chunk in enumerate(chunks):
-            content = chunk["content"]
-            token_count = len(encoding.encode(content))
+        try:
+            chunk_objects = []
+            for i, chunk in enumerate(chunks):
+                content = chunk["content"]
+                token_count = len(encoding.encode(content))
 
-            db_chunk = DocumentChunk(
-                document_id=document_id,
-                knowledge_base_id=knowledge_base_id,  # 검색 최적화용
-                content=content,
-                embedding=embedded_vectors[i],
-                chunk_index=i,
-                token_count=token_count,
-                metadata_=chunk["metadata"],
+                db_chunk = DocumentChunk(
+                    document_id=document_id,
+                    knowledge_base_id=knowledge_base_id,  # 검색 최적화용
+                    content=content,
+                    embedding=embedded_vectors[i],
+                    chunk_index=i,
+                    token_count=token_count,
+                    metadata_=chunk["metadata"],
+                )
+                chunk_objects.append(db_chunk)
+
+            print(
+                f"📦 [Debug] 저장할 객체 {len(chunk_objects)}개 생성됨. DB에 추가(add) 시도..."
             )
-            chunk_objects.append(db_chunk)
+            self.db.add_all(chunk_objects)
+            print("💾 [Debug] 커밋(Commit) 시도...")
+            self.db.commit()
+            print("🎉 [Debug] DB 저장 및 커밋 성공!")
 
-        self.db.add_all(chunk_objects)
-        self.db.commit()
+        except Exception as e:
+            print(f"❌ [Debug] DB 저장 실패 (Commit Error): {e}")
+            self.db.rollback()  # 롤백 시도
+            raise e
+
+    def _create_chunks(self, text_blocks: list[dict]) -> list[dict]:
+        """
+        텍스트 블록 리스트를 받아, 설정된 chunk_size와 chunk_overlap에 따라 청킹합니다.
+        각 청크는 원본 텍스트 블록의 메타데이터를 유지하거나 병합할 수 있습니다.
+        """
+        chunks = []
+        for block in text_blocks:
+            text = block["text"]
+            metadata = block.get("metadata", {})
+
+            # 텍스트가 너무 짧으면 스킵할 수도 있음 (선택사항)
+            if not text.strip():
+                continue
+
+            splits = self.text_splitter.split_text(text)
+
+            for split in splits:
+                chunks.append(
+                    {
+                        "content": split,
+                        "metadata": metadata,  # 페이지 번호 등 원본 메타데이터 보존
+                    }
+                )
+
+        return chunks
 
     def _finalize_ingestion(
         self, document_id: UUID, knowledge_base_id: UUID, text_blocks: list[dict]
@@ -814,15 +947,29 @@ class IngestionService:
         if not doc:
             raise ValueError("Document not found")
 
-        # 1. 비용 예측
-        cost_info = self._estimate_llamaparse_cost(doc.file_path)
+        # 1. 비용 예측 (FileDataSource 사용)
+        try:
+            # 임시로 FILE 타입 가정 (API 등은 0 반환)
+            data_source = self._get_data_source(doc.source_type)
+            source_config = {}
+            if doc.source_type == SourceType.FILE:
+                source_config = {"file_path": doc.file_path}
+
+            cost_info = data_source.estimate_cost(source_config)
+        except Exception as e:
+            print(f"Cost estimation failed: {e}")
+            cost_info = {"pages": 0, "credits": 0, "cost_usd": 0.0}
 
         # 2. 파일 타입 분석 (선택 사항)
         # parsing_strategy = self._analyze_pdf_type(doc.file_path)
 
-        # 3. 캐시 확인
-        cache_path = self._get_cache_path(doc.file_path)
-        is_cached = os.path.exists(cache_path)
+        # 3. 캐시 확인 (파일인 경우에만)
+        is_cached = False
+        cache_path = ""
+
+        if doc.source_type == SourceType.FILE and doc.file_path:
+            cache_path = self._get_cache_path(doc.file_path)
+            is_cached = os.path.exists(cache_path)
 
         print(
             f"🔍 [Debug] analyze_document: filename={doc.filename}, is_cached={is_cached}, path={cache_path}"
@@ -835,6 +982,15 @@ class IngestionService:
             # "recommended_strategy": parsing_strategy
         }
 
+    def _get_cache_path(self, file_path: str) -> str:
+        """
+        LlamaParse 결과 캐시 파일 경로를 반환합니다.
+        (예: uploads/file.pdf -> uploads/file.pdf.md)
+        """
+        if not file_path:
+            return ""
+        return f"{file_path}.md"
+
     def preview_chunking(
         self,
         file_path: str,
@@ -843,7 +999,9 @@ class IngestionService:
         segment_identifier: str,
         remove_urls_emails: bool = False,
         remove_whitespace: bool = True,
-        strategy: str = "general",  # "general" or "llamaparse"
+        strategy: str = "general",  # "general" or "llamaparse",
+        source_type: SourceType = SourceType.FILE,
+        meta_info: dict = None,
     ) -> list[dict]:
         """
         DB 저장 없이 메모리 상에서 청킹 결과를 미리봅니다.
@@ -851,14 +1009,30 @@ class IngestionService:
         """
         # 1. 텍스트 추출
         try:
-            text_blocks = []
-            if strategy == "llamaparse":
-                # LlamaParse 사용 (캐싱 적용됨)
-                text_blocks = self._parse_with_llamaparse(file_path)
-            else:
-                # 기본: PyMuPDF 사용 (빠름, 무료)
-                text_blocks = self._parse_with_pymupdf(file_path)
+            if source_type == SourceType.API:
+                # API 반환값 처리, 헤더 복호화
+                api_config = meta_info.get("api_config", {})
+                headers = api_config.get("headers")
+                if headers and isinstance(headers, str):
+                    try:
+                        from core.security import security_service
 
+                        decrypted_json = security_service.decrypt(headers)
+                        api_config["headers"] = json.loads(decrypted_json)
+                    except Exception as e:
+                        print(f"Failed to decrypt headers: {e}")
+                        api_config["headers"] = {}
+
+                data_source = ApiDataSource()
+                source_config = api_config
+            else:
+                data_source = FileDataSource()
+                source_config = {
+                    "file_path": file_path,
+                    "strategy": strategy,  # "general" or "llamaparse"
+                }
+
+            text_blocks = data_source.fetch_text(source_config)
             full_text = "\n".join([block["text"] for block in text_blocks])
         except Exception as e:
             print(f"Preview parsing failed: {e}")
