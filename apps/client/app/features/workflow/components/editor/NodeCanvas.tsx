@@ -68,9 +68,8 @@ export default function NodeCanvas() {
 
   // 앱 선택 처리: 워크플로우 노드 추가
   const handleSelectApp = useCallback(
-    (app: App) => {
+    (app: App & { active_deployment_id?: string; version?: number }) => {
       // 화면 중앙 위치 계산
-      // 캔버스 컨테이너가 전체 화면이거나 그에 가깝다고 가정
       const centerPos = screenToFlowPosition({
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
@@ -82,11 +81,15 @@ export default function NodeCanvas() {
         position: centerPos,
         data: {
           title: app.name,
+          name: app.name,
           workflowId: app.workflow_id || '',
           appId: app.id,
           icon: app.icon?.content || '⚡️',
           description: app.description || '설명 없음',
           status: 'idle',
+          version: app.version || 0,
+          deployment_id: app.active_deployment_id,
+          expanded: false,
         } as WorkflowNodeData,
       };
 

@@ -151,12 +151,29 @@ export interface WorkflowNodeInput {
   value_selector: string[]; // [node_id, key]
 }
 
-export interface WorkflowNodeData extends BaseNodeData {
-  workflowId: string;
+// 다른 곳에 정의되지 않은 경우 InputSchema 및 OutputSchema를 위한 자리 표시자
+export interface InputSchema {
+  [key: string]: any;
+}
+export interface OutputSchema {
+  [key: string]: any;
+}
+
+export interface WorkflowNodeData extends NodeData {
   appId: string;
+  name: string;
+  description?: string;
+  version: number;
+  input_schema?: InputSchema;
+  output_schema?: OutputSchema;
   icon?: string;
-  inputs?: WorkflowNodeInput[];
+  inputs?: WorkflowNodeInput[]; // 대상 워크플로우의 StartNode 입력 변수 매핑
   outputs?: string[]; // 대상 워크플로우의 AnswerNode 출력 변수명 목록
+
+  // 확장 데이터
+  deployment_id?: string;
+  graph_snapshot?: Record<string, any>; // 확장된 내부 그래프
+  expanded?: boolean;
 }
 // ============================================================================
 
@@ -198,6 +215,6 @@ export type AppNode =
   | NoteNode
   | WorkflowNode;
 
-//하위 호환성 (필요시)
+// 하위 호환성 (필요시)
 export type NodeData = BaseNodeData;
 export type Node = AppNode;
