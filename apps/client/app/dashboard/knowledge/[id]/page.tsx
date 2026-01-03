@@ -14,7 +14,9 @@ import {
   Clock,
   Settings,
   Trash2,
+  RefreshCw,
   Bot,
+  Globe,
 } from 'lucide-react';
 import {
   knowledgeApi,
@@ -134,6 +136,17 @@ export default function KnowledgeDetailPage() {
     } catch (error) {
       console.error('Failed to delete document:', error);
       toast.error('문서 삭제에 실패했습니다.');
+    }
+  };
+
+  const handleSyncDocument = async (documentId: string) => {
+    try {
+      await knowledgeApi.syncDocument(id, documentId);
+      fetchKnowledgeBase();
+      toast.success('문서 동기화가 시작되었습니다.');
+    } catch (error) {
+      console.error('Failed to sync document:', error);
+      toast.error('문서 동기화 실패');
     }
   };
 
@@ -273,8 +286,8 @@ export default function KnowledgeDetailPage() {
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/50">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <FileText className="w-5 h-5 text-gray-500" />
-            문서 목록
+            <Database className="w-5 h-5 text-gray-500" />
+            데이터 소스 목록
             <span className="ml-2 text-sm font-normal text-gray-500 bg-white dark:bg-gray-600 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-500">
               {knowledgeBase.documents.length}개
             </span>
@@ -285,7 +298,8 @@ export default function KnowledgeDetailPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800/50">
-                <th className="px-6 py-4">파일명</th>
+                <th className="px-6 py-4 w-24">종류</th>
+                <th className="px-6 py-4">파일명 / 소스명</th>
                 <th className="px-6 py-4">상태</th>
                 <th className="px-6 py-4">청크 수</th>
                 <th className="px-6 py-4">업로드 일시</th>
@@ -296,7 +310,7 @@ export default function KnowledgeDetailPage() {
               {knowledgeBase.documents.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
                   >
                     <div className="flex flex-col items-center gap-2">
@@ -311,13 +325,28 @@ export default function KnowledgeDetailPage() {
                     key={doc.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                      <Link
-                        href={`/dashboard/knowledge/${knowledgeBase.id}/document/${doc.id}`}
-                        className="hover:text-blue-600 hover:underline"
-                      >
-                        {doc.filename}
-                      </Link>
+                    <td className="px-6 py-4">
+                      {doc.source_type === 'API' ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-xs font-semibold">
+                          <Globe className="w-3.5 h-3.5" />
+                          API
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-semibold">
+                          <FileText className="w-3.5 h-3.5" />
+                          FILE
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white max-w-xs">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/dashboard/knowledge/${knowledgeBase.id}/document/${doc.id}`}
+                          className="hover:text-blue-600 hover:underline truncate"
+                        >
+                          {doc.filename}
+                        </Link>
+                      </div>
                       {doc.error_message && (
                         <p
                           className="text-xs text-red-500 mt-1 max-w-md truncate"
@@ -339,6 +368,15 @@ export default function KnowledgeDetailPage() {
                       {formatDate(doc.created_at)}
                     </td>
                     <td className="px-6 py-4 text-right">
+                      {doc.source_type === 'API' && (
+                        <button
+                          className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-colors mr-2"
+                          onClick={() => handleSyncDocument(doc.id)}
+                          title="API 데이터 동기화"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
                         onClick={() => handleDeleteDocument(doc.id)}

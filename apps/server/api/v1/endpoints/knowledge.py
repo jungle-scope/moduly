@@ -198,6 +198,15 @@ def get_document_content(
             status_code=400, detail="Document does not belong to this Knowledge Base"
         )
 
+    # API 소스는 파일이 없으므로 미리보기 불가 처리
+    if doc.source_type == "API" or not doc.file_path:
+        # 204 No Content를 주면 브라우저가 아무것도 안할 수 있으니
+        # 명확하게 파일이 없음을 알리는게 낫습니다.
+        raise HTTPException(
+            status_code=400,
+            detail="API로 받은 응답은 원문 보기를 제공하지 않습니다.",
+        )
+
     # 파일 존재 확인
     if not os.path.exists(doc.file_path):
         raise HTTPException(status_code=404, detail="File not found on server")
@@ -300,7 +309,9 @@ async def process_document(
     doc.meta_info = new_meta
 
     # 상태 업데이트 (처리 시작 전)
-    doc.status = "pending"  # IngestionService가 indexing으로 바꿈
+    doc.status = (
+        "indexing"  # IngestionService가 실행되기 전부터 UI에서 처리중으로 표시하기 위함
+    )
     db.commit()
 
     # 3. 백그라운드 작업 시작
@@ -374,3 +385,62 @@ def preview_document_chunking(
         total_count=len(segments),
         preview_text_sample="",  # 필요시 원본 텍스트 일부 반환 가능
     )
+
+
+@router.post(
+    "/{kb_id}/documents/{document_id}/sync", status_code=status.HTTP_202_ACCEPTED
+)
+async def sync_document(
+    kb_id: UUID,
+    document_id: UUID,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    문서를 동기화합니다. (API 소스 등 재위)
+    기존 설정을 유지하면서 처리를 다시 시작합니다.
+    """
+    # 1. 문서 조회
+    doc = (
+        db.query(Document)
+        .join(KnowledgeBase)
+        .filter(
+            Document.id == document_id,
+            KnowledgeBase.id == kb_id,
+            KnowledgeBase.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # 상태 업데이트
+    doc.status = "indexing"
+    db.commit()
+
+    # 2. 백그라운드 작업 시작
+    ingestion_service = IngestionService(
+        db,
+        chunk_size=doc.chunk_size,
+        chunk_overlap=doc.chunk_overlap,
+        ai_model=doc.knowledge_base.embedding_model,
+    )
+
+    # process_document_background는 file_path를 인자로 받지만,
+    # 내부적으로 doc_id로 다시 조회하여 source_type이 API면 file_path를 무시하거나 설정값 사용함.
+    # API 소스인 경우 file_path는 None일 수 있음. 처리 로직에서 확인 필요.
+    # IngestionService.process_document_background: file_path argument exists.
+    # We pass doc.file_path (which might be None or url).
+
+    file_path = doc.file_path or ""
+
+    background_tasks.add_task(
+        ingestion_service.process_document_background,
+        document_id,
+        kb_id,
+        file_path,
+    )
+
+    return {"status": "processing", "message": "Document sync started"}

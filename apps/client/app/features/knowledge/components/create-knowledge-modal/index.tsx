@@ -2,7 +2,18 @@
 
 import { useState, useRef, DragEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Upload, FileText, Settings, Loader2 } from 'lucide-react';
+import {
+  X,
+  Upload,
+  FileText,
+  Settings,
+  Loader2,
+  Globe,
+  Code,
+  ChevronRight,
+  ChevronDown,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
 
 interface CreateKnowledgeModalProps {
@@ -18,6 +29,14 @@ export default function CreateKnowledgeModal({
 }: CreateKnowledgeModalProps) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
+  const [sourceType, setSourceType] = useState<'FILE' | 'API'>('FILE');
+  const [apiConfig, setApiConfig] = useState({
+    url: '',
+    method: 'GET',
+    headers: '',
+    body: '',
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -29,6 +48,8 @@ export default function CreateKnowledgeModal({
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingApi, setIsFetchingApi] = useState(false);
+  const [apiPreviewData, setApiPreviewData] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,17 +85,25 @@ export default function CreateKnowledgeModal({
   };
 
   const handleSubmit = async () => {
-    if (!file) {
+    if (sourceType === 'FILE' && !file) {
       alert('파일을 업로드해주세요.');
+      return;
+    }
+    if (sourceType === 'API' && !apiConfig.url) {
+      alert('API URL을 입력해주세요.');
       return;
     }
 
     try {
       setIsLoading(true);
-      console.log('Creating knowledge base:', { file, ...formData });
 
       const response = await knowledgeApi.uploadKnowledgeBase({
-        file: file,
+        sourceType,
+        file: sourceType === 'FILE' && file ? file : undefined,
+        apiUrl: sourceType === 'API' ? apiConfig.url : undefined,
+        apiMethod: sourceType === 'API' ? apiConfig.method : undefined,
+        apiHeaders: sourceType === 'API' ? apiConfig.headers : undefined,
+        apiBody: sourceType === 'API' ? apiConfig.body : undefined,
         name: formData.name,
         description: formData.description,
         embeddingModel: formData.embeddingModel,
@@ -98,6 +127,156 @@ export default function CreateKnowledgeModal({
     }
   };
 
+  const fetchApiData = async () => {
+    if (!apiConfig.url) {
+      toast.error('API URL을 입력해주세요.');
+      return;
+    }
+
+    try {
+      setIsFetchingApi(true);
+      setApiPreviewData(null);
+
+      // TODO: 백엔드 프록시 API를 사용하는 것이 안전하지만, 테스트를 위해 직접 호출하거나
+      // 혹은 knowledgeApi에 미리보기/테스트 엔드포인트를 추가해야 함.
+      // 현재는 간단히 fetch를 사용 (CORS 문제가 발생할 수 있음)
+
+      let headers = {};
+      try {
+        if (apiConfig.headers) {
+          headers = JSON.parse(apiConfig.headers);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        toast.error('Headers 형식이 올바르지 않습니다.');
+        return;
+      }
+
+      let body = null;
+      try {
+        if (apiConfig.body) {
+          body = JSON.parse(apiConfig.body);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        toast.error('Body 형식이 올바르지 않습니다.');
+        return;
+      }
+
+      // 백엔드 프록시 사용 (CORS 해결)
+      const data = await knowledgeApi.proxyApiPreview({
+        url: apiConfig.url,
+        method: apiConfig.method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: apiConfig.method !== 'GET' ? body : undefined,
+      });
+
+      // 프록시 응답 구조: { status, data, headers }
+      if (data.status >= 400) {
+        throw new Error(`API Request failed: ${data.status}`);
+      }
+
+      sessionStorage.setItem(
+        'api_preview' + apiConfig.url,
+        JSON.stringify(data.data),
+      );
+      setApiPreviewData(data.data);
+      toast.success('데이터를 성공적으로 불러왔습니다.');
+    } catch (error: any) {
+      console.error('API Fetch Error:', error);
+      toast.error(`API 호출 실패: ${error.message || '알 수 없는 오류'}`);
+    } finally {
+      setIsFetchingApi(false);
+    }
+  };
+
+  // Simple recursive JSON Tree Viewer
+  const JsonTreeViewer = ({
+    data,
+    level = 0,
+  }: {
+    data: any;
+    level?: number;
+  }) => {
+    const [isExpanded, setIsExpanded] = useState(true);
+
+    if (data === null) return <span className="text-gray-400">null</span>;
+    if (typeof data !== 'object') {
+      const isString = typeof data === 'string';
+      return (
+        <span
+          className={
+            isString
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-blue-600 dark:text-blue-400'
+          }
+        >
+          {isString ? `"${data}"` : String(data)}
+        </span>
+      );
+    }
+
+    const isArray = Array.isArray(data);
+    const keys = Object.keys(data);
+    const isEmpty = keys.length === 0;
+
+    if (isEmpty)
+      return <span className="text-gray-500">{isArray ? '[]' : '{}'}</span>;
+
+    return (
+      <div className="font-mono text-xs">
+        <div
+          className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded px-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-3 h-3 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-3 h-3 text-gray-400" />
+          )}
+          <span className="text-gray-500">{isArray ? '[' : '{'}</span>
+          {!isExpanded && <span className="text-gray-400 m-1">...</span>}
+          {!isExpanded && (
+            <span className="text-gray-500">{isArray ? ']' : '}'}</span>
+          )}
+          {!isExpanded && (
+            <span className="text-gray-400 ml-2 text-[10px]">
+              {keys.length} items
+            </span>
+          )}
+        </div>
+
+        {isExpanded && (
+          <div className="pl-4 border-l border-gray-200 dark:border-gray-700 ml-1.5 my-1">
+            {keys.map((key, idx) => (
+              <div key={key} className="my-0.5">
+                {!isArray && (
+                  <span className="text-purple-600 dark:text-purple-400 mr-1">
+                    "{key}":
+                  </span>
+                )}
+                <JsonTreeViewer data={data[key]} level={level + 1} />
+                {idx < keys.length - 1 && (
+                  <span className="text-gray-400">,</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isExpanded && (
+          <div className="text-gray-500 pl-1">{isArray ? ']' : '}'}</div>
+        )}
+      </div>
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -118,41 +297,164 @@ export default function CreateKnowledgeModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* File Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              📁 파일 업로드
-            </label>
-            <div
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
-              onClick={() => fileInputRef.current?.click()}
+          {/* Source Type Selector */}
+          <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+            <button
+              onClick={() => setSourceType('FILE')}
+              className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
+                sourceType === 'FILE'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500'
+              }`}
             >
-              <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              {file ? (
-                <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
-                  <FileText className="w-5 h-5" />
-                  <span className="font-medium">{file.name}</span>
+              <FileText className="w-5 h-5" />
+              <span className="font-medium">파일 업로드</span>
+            </button>
+            <button
+              onClick={() => setSourceType('API')}
+              className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
+                sourceType === 'API'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500'
+              }`}
+            >
+              <Globe className="w-5 h-5" />
+              <span className="font-medium">API 연동</span>
+            </button>
+          </div>
+
+          {/* Source Content */}
+          <div>
+            {sourceType === 'FILE' ? (
+              <>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  📁 파일 선택
+                </label>
+                <div
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  {file ? (
+                    <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
+                      <FileText className="w-5 h-5" />
+                      <span className="font-medium">{file.name}</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-gray-600 dark:text-gray-400 mb-1">
+                        파일을 드래그하거나 클릭하여 선택하세요
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-500">
+                        PDF, Excel, Word, TXT/MD 등 (최대 50MB)
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept=".pdf,.txt,.md,.docx,.xlsx,.xls,.csv"
+                  />
                 </div>
-              ) : (
+              </>
+            ) : (
+              <div className="space-y-4">
                 <div>
-                  <p className="text-gray-600 dark:text-gray-400 mb-1">
-                    파일을 드래그하거나 클릭하여 선택하세요
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-500">
-                    PDF, Excel, Word, TXT/MD 등 (최대 50MB)
-                  </p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    🔗 API 설정
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <select
+                      value={apiConfig.method}
+                      onChange={(e) =>
+                        setApiConfig({ ...apiConfig, method: e.target.value })
+                      }
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-24"
+                    >
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={apiConfig.url}
+                      onChange={(e) =>
+                        setApiConfig({ ...apiConfig, url: e.target.value })
+                      }
+                      placeholder="https://api.example.com/data"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
                 </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                onChange={handleFileChange}
-                className="hidden"
-                accept=".pdf,.txt,.md,.docx,.xlsx,.xls,.csv"
-              />
-            </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      Headers (JSON)
+                    </label>
+                    <textarea
+                      value={apiConfig.headers}
+                      onChange={(e) =>
+                        setApiConfig({ ...apiConfig, headers: e.target.value })
+                      }
+                      placeholder='{"Authorization": "Bearer token"}'
+                      rows={5}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      Body (JSON)
+                    </label>
+                    <textarea
+                      value={apiConfig.body}
+                      onChange={(e) =>
+                        setApiConfig({ ...apiConfig, body: e.target.value })
+                      }
+                      placeholder='{"query": "example"}'
+                      rows={5}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    onClick={fetchApiData}
+                    disabled={isFetchingApi || !apiConfig.url}
+                    className="w-full py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isFetchingApi ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Code className="w-4 h-4" />
+                    )}
+                    데이터 불러오기 (Preview)
+                  </button>
+                </div>
+
+                {/* API Response Preview */}
+                {apiPreviewData && (
+                  <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Response Preview
+                      </h4>
+                      <button
+                        onClick={() => setApiPreviewData(null)}
+                        className="text-xs text-gray-400 hover:text-gray-600"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <JsonTreeViewer data={apiPreviewData} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Basic Info (Only for New KB) */}

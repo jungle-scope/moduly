@@ -73,7 +73,12 @@ export const knowledgeApi = {
     data: KnowledgeCreateRequest,
   ): Promise<IngestionResponse> => {
     const formData = new FormData();
-    formData.append('file', data.file);
+    if (data.file) formData.append('file', data.file);
+    if (data.sourceType) formData.append('sourceType', data.sourceType);
+    if (data.apiUrl) formData.append('apiUrl', data.apiUrl);
+    if (data.apiMethod) formData.append('apiMethod', data.apiMethod);
+    if (data.apiHeaders) formData.append('apiHeaders', data.apiHeaders);
+    if (data.apiBody) formData.append('apiBody', data.apiBody);
     if (data.name) formData.append('name', data.name);
     if (data.description) formData.append('description', data.description);
     formData.append('embeddingModel', data.embeddingModel);
@@ -83,7 +88,10 @@ export const knowledgeApi = {
     formData.append('chunkOverlap', data.chunkOverlap.toString());
     if (data.knowledgeBaseId)
       formData.append('knowledgeBaseId', data.knowledgeBaseId);
-
+    // [DEBUG] FormData 내용 확인
+    // for (const [key, value] of formData.entries()) {
+    //   console.log(`[DEBUG] ${key}:`, value);
+    // }
     // Content-Type은 axios가 자동으로 multipart/form-data로 설정함
     const response = await api.post('/rag/upload', formData);
     return response.data;
@@ -180,8 +188,29 @@ export const knowledgeApi = {
     return response.data;
   },
 
+  syncDocument: async (
+    kbId: string,
+    documentId: string,
+  ): Promise<{ status: string; message: string }> => {
+    const response = await api.post(
+      `/knowledge/${kbId}/documents/${documentId}/sync`,
+    );
+    return response.data;
+  },
+
   // SSE 연결을 위한 URL 반환
   getProgressUrl: (documentId: string): string => {
     return `${API_BASE_URL}/rag/document/${documentId}/progress`;
+  },
+
+  // API Proxy Preview
+  proxyApiPreview: async (data: {
+    url: string;
+    method: string;
+    headers?: any;
+    body?: any;
+  }): Promise<any> => {
+    const response = await api.post('/rag/proxy/preview', data);
+    return response.data;
   },
 };

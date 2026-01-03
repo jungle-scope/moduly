@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -37,6 +37,7 @@ class DocumentResponse(BaseModel):
     token_count: int = 0  # 추후 구현
     chunk_size: int = 1000
     chunk_overlap: int = 200
+    source_type: str = "FILE"
     meta_info: Optional[dict] = None
 
 
@@ -95,3 +96,11 @@ class DocumentPreviewResponse(BaseModel):
     segments: List[DocumentSegment]
     total_count: int
     preview_text_sample: str = ""
+
+
+# --- API Proxy Schema ---
+class ApiPreviewRequest(BaseModel):
+    url: str
+    method: str = "GET"
+    headers: Optional[Dict[str, Any]] = None
+    body: Optional[Dict[str, Any]] = None
