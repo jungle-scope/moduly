@@ -11,7 +11,7 @@ import {
   SUPPORTED_DB_TYPES,
   SupportedDbType,
   DBConfig,
-} from '@/app/features/knowledge/types/DB';
+} from '@/app/features/knowledge/types/db';
 
 // 타입 정의
 
@@ -50,17 +50,18 @@ export default function DBConnectionForm({
 
   // 입력 핸들러 (중첩 객체 업데이트 유틸리티 필요)
   const handleChange = (field: string, value: any, isSsh = false) => {
-    setConfig((prev) => {
-      const newConfig = { ...prev };
-      if (isSsh) {
-        newConfig.ssh = { ...prev.ssh, [field]: value };
-      } else {
-        (newConfig as any)[field] = value;
-      }
-      onChange(newConfig); // 부모에게 변경 사항 알림
-      setTestStatus('idle'); // 수정 시 테스트 상태 초기화
-      return newConfig;
-    });
+    const newConfig = { ...config };
+
+    if (isSsh) {
+      newConfig.ssh = { ...config.ssh, [field]: value };
+    } else {
+      (newConfig as any)[field] = value;
+    }
+
+    setConfig(newConfig); // 로컬 상태 업데이트
+    onChange(newConfig); // 부모 상태 업데이트
+    setTestStatus('idle'); // 수정 시 테스트 상태 초기화
+    return newConfig;
   };
 
   // 키 파일 읽기 핸들러

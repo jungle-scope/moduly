@@ -20,7 +20,8 @@ import DBConnectionForm from './DBConnectionForm';
 import {
   DBConfig,
   SUPPORTED_DB_TYPES,
-} from '@/app/features/knowledge/types/DB';
+} from '@/app/features/knowledge/types/db';
+import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 
 interface CreateKnowledgeModalProps {
   isOpen: boolean;
@@ -225,6 +226,27 @@ export default function CreateKnowledgeModal({
     try {
       setIsLoading(true);
 
+      let connectionId = undefined;
+
+      // DB 타입이면, 커넥터 생성 API 호출하여 ID 발급 받습니다
+      if (sourceType === 'DB') {
+        try {
+          const connectorRes = await connectorApi.createConnector(dbConfig);
+          if (connectorRes.success && connectorRes.id) {
+            connectionId = connectorRes.id;
+            console.log('Connector created: ', connectionId);
+          } else {
+            throw new Error('커넥터 생성에 실패했습니다. ID 반환 안 됨');
+          }
+        } catch (err) {
+          console.error('Connector creation failed:', err);
+          toast.error('DB 연결 정보 저장에 실패했습니다.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 지식 베이스 생성
       const response = await knowledgeApi.uploadKnowledgeBase({
         sourceType: sourceType,
         file: sourceType === 'FILE' && file ? file : undefined,
@@ -240,8 +262,9 @@ export default function CreateKnowledgeModal({
         chunkSize: formData.chunkSize,
         chunkOverlap: formData.chunkOverlap,
         knowledgeBaseId: knowledgeBaseId,
-        dbConfig: sourceType === 'DB' ? dbConfig : undefined,
+        connectionId: connectionId,
       });
+
       // console.log(JSON.stringify(response));
       // 성공 시 모달 닫기 및 문서 설정 페이지로 이동
       onClose();

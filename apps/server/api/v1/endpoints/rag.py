@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from auth.dependencies import get_current_user
+from db.models.connection import Connection
 from db.models.knowledge import Document, KnowledgeBase, SourceType
 from db.models.user import User
 from schemas.rag import (
@@ -41,6 +42,7 @@ async def upload_document(
     api_method: str = Form("GET", alias="apiMethod"),
     api_headers: Optional[str] = Form(None, alias="apiHeaders"),
     api_body: Optional[str] = Form(None, alias="apiBody"),
+    connection_id: Optional[UUID] = Form(None, alias="connectionId"),
     # 지식베이스 신규 생성일 때만 필요한 정보들
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
@@ -94,6 +96,10 @@ async def upload_document(
         file_path, filename, meta_info = _prepare_api_source(
             api_url, api_method, api_headers, api_body
         )
+    elif source_enum == SourceType.DB:  # [NEW] DB 타입 처리
+        file_path, filename, meta_info = _prepare_db_source(
+            db, current_user, connection_id
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid source type")
 
@@ -116,6 +122,31 @@ async def upload_document(
         status="pending",
         message="문서가 등록되었습니다. 설정을 확인하고 처리를 시작해주세요.",
     )
+
+
+def _prepare_db_source(db: Session, user: User, connection_id: Optional[UUID]):
+    """DB 소스처리를 위한 데이터 준비"""
+    if not connection_id:
+        raise HTTPException(
+            status_code=400, detail="Connection ID is required for DB source."
+        )
+
+    # 연결 정보 조회 및 권한 확인
+    conn = (
+        db.query(Connection)
+        .filter(Connection.id == connection_id, Connection.user_id == user.id)
+        .first()
+    )
+    if not conn:
+        raise HTTPException(status_code=404, detail="Connection not found.")
+
+    meta_info = {
+        "connection_id": str(conn.id),
+        "db_type": conn.type,
+        "connection_name": conn.name,
+    }
+
+    return None, f"DB: {conn.name}", meta_info
 
 
 @router.post("/document/{document_id}/analyze", response_model=DocumentAnalyzeResponse)

@@ -5,8 +5,6 @@ export interface IngestionResponse {
   message: string;
 }
 
-import { DBConfig } from './DB';
-
 export interface KnowledgeCreateRequest {
   sourceType?: 'FILE' | 'API' | 'DB';
   file?: File;
@@ -14,7 +12,7 @@ export interface KnowledgeCreateRequest {
   apiMethod?: string;
   apiHeaders?: string;
   apiBody?: string;
-  dbConfig?: DBConfig;
+  connectionId?: string;
 
   name?: string;
   description?: string;
