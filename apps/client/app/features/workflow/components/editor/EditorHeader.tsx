@@ -12,7 +12,7 @@ import {
 import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
 // [NEW] 모니터링 대시보드 모달 Import
 import { MonitoringDashboardModal } from '@/app/features/workflow/components/monitoring/MonitoringDashboardModal';
-import { ScrollText, BarChart3 } from 'lucide-react'; // [NEW] 아이콘 추가
+import { ScrollText, BarChart3, Play } from 'lucide-react'; // [NEW] 아이콘 추가
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   validateVariableName,
@@ -470,13 +470,16 @@ export default function EditorHeader() {
           <button
             onClick={handleTestRun}
             disabled={isExecuting}
-            className={`px-4 py-2 font-medium rounded-lg transition-colors shadow-sm ${
+            className={`px-4 py-2 flex items-center gap-2 rounded-lg transition-colors border border-gray-200 shadow-sm ${
               isExecuting
-                ? 'bg-green-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white'
+                ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {isExecuting ? '실행 중...' : 'TEST'}
+            <Play className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              {isExecuting ? '실행 중...' : '테스트'}
+            </span>
           </button>
           {/* [NEW] 로그 및 모니터링 버튼 */}
           <button
