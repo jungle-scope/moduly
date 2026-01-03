@@ -13,7 +13,7 @@ export interface DocumentPreviewRequest {
   segment_identifier: string;
   remove_urls_emails?: boolean;
   remove_whitespace?: boolean;
-  source_type: 'FILE' | 'API';
+  source_type: 'FILE' | 'API' | 'DB';
   strategy?: 'general' | 'llamaparse';
 }
 

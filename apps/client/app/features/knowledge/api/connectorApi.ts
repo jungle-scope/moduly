@@ -57,4 +57,9 @@ export const connectorApi = {
     const response = await api.post('/connectors', payload);
     return response.data;
   },
+
+  getSchema: async (connectionId: string): Promise<any> => {
+    const response = await api.get(`/connectors/${connectionId}/schema`);
+    return response.data;
+  },
 };

@@ -24,6 +24,7 @@ import {
   DocumentPreviewRequest,
 } from '@/app/features/knowledge/api/knowledgeApi';
 import { DocumentResponse } from '@/app/features/knowledge/types/Knowledge';
+import DBSchemaSelector from '@/app/features/knowledge/components/document-settings/DBSchemaSelector';
 
 export default function DocumentSettingsPage() {
   const params = useParams();
@@ -35,9 +36,11 @@ export default function DocumentSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<string>(''); // 문서 상태
   // const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [document, setDocument] = useState<DocumentResponse | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [selectedDbItems, setSelectedDbItems] = useState<
+    Record<string, string[]>
+  >({});
 
   // 설정 상태
   const [chunkSize, setChunkSize] = useState<number>(1000);
@@ -63,7 +66,7 @@ export default function DocumentSettingsPage() {
 
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
-  const [progressMessage, setProgressMessage] = useState('');
+  // const [progressMessage, setProgressMessage] = useState('');
 
   // SSE 연결 (Indexing 상태일 때)
   useEffect(() => {
@@ -85,7 +88,7 @@ export default function DocumentSettingsPage() {
 
         // 진행 상황 업데이트
         setProgress(data.progress);
-        setProgressMessage(data.message);
+        // setProgressMessage(data.message);
 
         // 완료 처리
         if (data.status === 'completed' || data.progress >= 100) {
@@ -141,6 +144,11 @@ export default function DocumentSettingsPage() {
             }
             if (targetDoc.meta_info.remove_whitespace !== undefined) {
               setRemoveWhitespace(targetDoc.meta_info.remove_whitespace);
+            }
+
+            // [NEW] DB 선택값 복원
+            if (targetDoc.meta_info.db_config?.selected_items) {
+              setSelectedDbItems(targetDoc.meta_info.db_config.selected_items);
             }
           }
         } else {
@@ -297,7 +305,7 @@ export default function DocumentSettingsPage() {
               setProgress(doc.meta_info.processing_progress);
             }
             if (doc.meta_info.processing_current_step) {
-              setProgressMessage(doc.meta_info.processing_current_step);
+              // setProgressMessage(doc.meta_info.processing_current_step);
             }
           }
         } catch (e) {
@@ -709,14 +717,25 @@ export default function DocumentSettingsPage() {
               <FileText className="w-4 h-4" />
               {document?.source_type === 'API'
                 ? 'Extracted Text Preview'
-                : 'Original Document'}
+                : document?.source_type === 'DB'
+                  ? 'Select Tables & Columns'
+                  : 'Original Document'}
             </h3>
-            <span className="text-xs text-gray-500">Read-only</span>
+            {document?.source_type !== 'DB' && (
+              <span className="text-xs text-gray-500">Read-only</span>
+            )}
           </div>
           <div className="flex-1 w-full h-full p-4">
             {kbId && documentId && document ? (
-              ( document?.source_type === 'API' ||
-                document?.meta_info?.api_config) ? (
+              document.source_type === 'DB' ? (
+                // [NEW] DB 스키마 선택기
+                <DBSchemaSelector
+                  connectionId={document.meta_info?.connection_id}
+                  value={selectedDbItems}
+                  onChange={setSelectedDbItems}
+                />
+              ) : document?.source_type === 'API' ||
+                document?.meta_info?.api_config ? (
                 <div className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 overflow-auto p-4">
                   <div className="p-4">
                     {apiOriginalData ? (
@@ -802,130 +821,44 @@ export default function DocumentSettingsPage() {
           </div>
         </div>
       </div>
-      {/* Processing & Success Modal */}
-      {(status === 'indexing' ||
-        (status === 'completed' && progress >= 100)) && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8 border border-gray-100 dark:border-gray-700 relative overflow-hidden">
-            {/* 장식용 배경 효과 */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
 
-            <div className="text-center space-y-6">
-              {/* 아이콘 및 애니메이션 */}
-              <div className="relative w-24 h-24 mx-auto">
-                {status === 'completed' ? (
-                  // 성공 아이콘
-                  <div className="w-full h-full bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 animate-in zoom-in duration-300">
-                    <Check className="w-12 h-12" />
-                  </div>
-                ) : (
-                  // 로딩 스피너
-                  <>
-                    <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center font-bold text-blue-600 text-lg">
-                      {progress}%
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* 텍스트 메시지 */}
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {status === 'completed' ? '처리 완료!' : '문서 처리 중...'}
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mt-2 min-h-[1.5em]">
-                  {status === 'completed'
-                    ? '잠시 후 지식 베이스로 이동합니다...'
-                    : progressMessage || '작업을 준비하고 있습니다.'}
-                </p>
-              </div>
-
-              {/* 프로그래스 바 */}
-              <div className="w-full bg-gray-100 rounded-full h-2 dark:bg-gray-900 overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-500 ease-out ${
-                    status === 'completed' ? 'bg-green-500' : 'bg-blue-600'
-                  }`}
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-
-              {/* 성공 메시지 (하단) */}
-              {status === 'completed' && (
-                <div className="animate-in slide-in-from-bottom-2 fade-in duration-500 pt-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium border border-green-100 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800">
-                    <Check className="w-3.5 h-3.5" />
-                    성공적으로 저장되었습니다
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cost Confirmation Modal */}
+      {/* 비용 승인 모달 */}
       {showCostConfirm && analyzeResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center gap-3 mb-4 text-yellow-600 dark:text-yellow-400">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                비용 승인 확인
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4 text-amber-600 dark:text-amber-500">
+              <AlertTriangle className="w-8 h-8" />
+              <h3 className="text-lg font-bold">비용 승인 필요</h3>
             </div>
 
-            <p className="text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
-              선택하신 <strong>정밀 파싱(LlamaParse)</strong> 기능을
-              사용하시겠습니까?
-              <br />이 작업은 외부 API를 사용하며 비용이 발생합니다.
+            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              선택하신{' '}
+              <span className="font-bold text-gray-900 dark:text-white">
+                정밀 파싱(LlamaParse)
+              </span>
+              은 유료 기능입니다.
+              <br />
+              <span className="block mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm">
+                파일: <strong>{analyzeResult.filename}</strong>
+                <br />
+                예상 결제 포인트:{' '}
+                <strong className="text-amber-600">
+                  {analyzeResult.cost_estimate.credits} P
+                </strong>
+              </span>
             </p>
-
-            <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg mb-6 border border-gray-100 dark:border-gray-700">
-              <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                <li className="flex justify-between">
-                  <span className="text-gray-500">파일명</span>
-                  <span className="font-medium truncate max-w-[200px]">
-                    {analyzeResult.filename}
-                  </span>
-                </li>
-                <li className="flex justify-between">
-                  <span className="text-gray-500">페이지 수</span>
-                  <span className="font-medium">
-                    {analyzeResult.cost_estimate.pages} Pages
-                  </span>
-                </li>
-                <li className="flex justify-between">
-                  <span className="text-gray-500">예상 크레딧</span>
-                  <span className="font-medium">
-                    {analyzeResult.cost_estimate.credits} Credits
-                  </span>
-                </li>
-                <li className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between font-bold text-yellow-600">
-                  <span>예상 비용</span>
-                  <span>
-                    ${analyzeResult.cost_estimate.cost_usd.toFixed(4)} USD
-                  </span>
-                </li>
-              </ul>
-            </div>
 
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowCostConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleConfirmCost}
-                className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors shadow-sm flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
               >
-                <Check className="w-4 h-4" />
                 승인 및 진행
               </button>
             </div>

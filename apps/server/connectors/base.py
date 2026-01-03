@@ -10,8 +10,20 @@ class BaseConnector(ABC):
         pass
 
     @abstractmethod
-    def discover(self, config: dict) -> list:
-        """테이블 목록을 가져오는 규칙"""
+    def get_schema_info(self, config: dict) -> list:
+        """
+        테이블과 컬럼 정보를 상세 조회하는 규칙
+        Returns:
+            [
+                {
+                    "table_name": "users",
+                    "columns": [
+                        {"name": "id", "type": "integer"},
+                        {"name": "email", "type": "varchar"}
+                    ]
+                }
+            ]
+        """
         pass
 
     @abstractmethod

@@ -25,17 +25,35 @@ class PostgresConnector(BaseConnector):
             print(f"Postgre Connection faield: {e}")
             return False
 
-    def discover(self, config):
+    def get_schema_info(self, config):
         conn = self._get_connection(config)
         cur = conn.cursor()
-        # 공용스키마에 있는 테이블 목록 조히
-        cur.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-        )
-        tables = [row[0] for row in cur.fetchall()]
+
+        # 테이블 및 컬럼 정보 조회 query
+        query = """
+            SELECT table_name, column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            ORDER BY table_name, ordinal_position
+        """
+        cur.execute(query)
+        rows = cur.fetchall()
+
+        # 데이터 구조화
+        schema_info = {}
+        for table, col, dtype in rows:
+            if table not in schema_info:
+                schema_info[table] = []
+            schema_info[table].append({"name": col, "type": dtype})
+
+        # 리스트 형태로 변환
+        result = []
+        for table, columns in schema_info.items():
+            result.append({"table_name": table, "columns": columns})
+
         cur.close()
         conn.close()
-        return tables
+        return result
 
     def read(self, config, table_name, batch_size=1000):
         conn = self._get_connection(config)

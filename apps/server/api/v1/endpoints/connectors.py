@@ -157,3 +157,67 @@ async def create_connection(
         "success": True,
         "message": "연결 정보가 안전하게 저장되었습니다.",
     }
+
+
+# [NEW] 스키마 조회 API 추가
+@router.get("/{connection_id}/schema")
+async def get_connection_schema(
+    connection_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """
+    **DB 스키마 조회 API**
+    저장된 연결 정보를 복호화하여 DB에 접속하고, 테이블 정보를 가져옵니다.
+    """
+    connection = db.query(Connection).filter(Connection.id == connection_id).first()
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if connection.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    # 복호화 및 설정 재구성
+    try:
+        password = encryption_manager.decrypt(connection.encrypted_password)
+        ssh_config = None
+        if connection.use_ssh:
+            ssh_password = None
+            ssh_private_key = None
+            if connection.encrypted_ssh_password:
+                ssh_password = encryption_manager.decrypt(
+                    connection.encrypted_ssh_password
+                )
+            if connection.encrypted_ssh_private_key:
+                ssh_private_key = encryption_manager.decrypt(
+                    connection.encrypted_ssh_private_key
+                )
+            ssh_config = {
+                "enabled": True,
+                "host": connection.ssh_host,
+                "port": connection.ssh_port,
+                "username": connection.ssh_username,
+                "auth_type": connection.ssh_auth_type,
+                "password": ssh_password,
+                "private_key": ssh_private_key,
+            }
+        config = {
+            "type": connection.type,
+            "host": connection.host,
+            "port": connection.port,
+            "database": connection.database,
+            "username": connection.username,
+            "password": password,
+            "ssh": ssh_config,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Decryption failed: {str(e)}")
+    connector_class = CONNECTOR_MAP.get(connection.type)
+    if not connector_class:
+        raise HTTPException(status_code=400, detail="Unsupported DB type")
+    try:
+        connector = connector_class()
+        connector.get_schema_info(config)
+        tables = connector.get_schema_info(config)
+        return {"tables": tables}
+    except Exception as e:
+        print(f"Schema Fetch Error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch schema: {str(e)}")
