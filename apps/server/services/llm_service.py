@@ -423,6 +423,39 @@ class LLMService:
         ).distinct().all()
         
         return [LLMModelResponse.model_validate(m) for m in models]
+
+    @staticmethod
+    def get_my_embedding_models(db: Session, user_id: uuid.UUID) -> List[LLMModelResponse]:
+        """
+        사용자의 credential에 기반하여 사용 가능한 임베딩 모델 목록을 반환합니다.
+        get_my_available_models와 동일하지만 type='embedding'으로 필터링됩니다.
+        """
+        # 1. 해당 사용자의 모든 credential ID 조회
+        user_creds = db.query(LLMCredential.id).filter(
+            LLMCredential.user_id == user_id,
+            LLMCredential.is_valid == True
+        ).all()
+        cred_ids = [c.id for c in user_creds]
+        
+        if not cred_ids:
+            # Placeholder 사용자로 fallback
+            if user_id != LLMService.PLACEHOLDER_USER_ID:
+                 return LLMService.get_my_embedding_models(db, LLMService.PLACEHOLDER_USER_ID)
+            return []
+
+        # 2. 해당 credential에 매핑된 임베딩 모델 조회
+        models = db.query(LLMModel).join(
+            LLMRelCredentialModel, LLMModel.id == LLMRelCredentialModel.model_id
+        ).options(
+            joinedload(LLMModel.provider)
+        ).filter(
+            LLMRelCredentialModel.credential_id.in_(cred_ids),
+            LLMModel.is_active == True,
+            LLMModel.type == "embedding"  # 임베딩 모델만
+        ).distinct().all()
+        
+        return [LLMModelResponse.model_validate(m) for m in models]
+
     @staticmethod
     def calculate_cost(db: Session, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
         """
