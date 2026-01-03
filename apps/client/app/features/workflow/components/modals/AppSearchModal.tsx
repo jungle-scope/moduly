@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Loader2, X } from 'lucide-react';
-import { appApi, App } from '../../../../features/app/api/appApi';
+import { App } from '../../../../features/app/api/appApi';
+import { workflowApi } from '../../api/workflowApi';
 import { cn } from '@/lib/utils';
 
 // 워크플로우 모듈로 불러올 앱을 검색하고 선택하는 모달 컴포넌트입니다.
@@ -32,20 +33,32 @@ export function AppSearchModal({
       const fetchApps = async () => {
         setIsLoading(true);
         try {
-          // Fetch "My Apps" and filter locally
-          const data = await appApi.listApps();
+          // 백엔드에서 사용 가능한 "Workflow Nodes"를 직접 가져옵니다.
+          // 버전, 스키마, deployment_id가 포함된 배포 정보를 반환합니다.
+          const validApps = await workflowApi.listWorkflowNodes();
 
-          // 필터링 로직:
-          // 1. 현재 편집 중인 앱 제외 (순환 참조 방지 등)
-          // 2. "워크플로우 노드"로 배포된 앱만 표시
-          const validApps = data.filter(
-            (app) =>
-              app.id !== excludedAppId &&
-              app.active_deployment_id &&
-              app.active_deployment_type === 'workflow_node',
+          // 현재 앱을 제외합니다 (순환 참조 방지).
+          // app_id를 비교합니다.
+          const filtered = validApps.filter(
+            (node) => node.app_id !== excludedAppId,
           );
 
-          setApps(validApps);
+          // UI 렌더링에 적합한 구조로 매핑합니다.
+          // 현재는 node 구조를 그대로 사용하거나 필요한 인터페이스로 매핑합니다.
+          // 'name', 'description', 'icon' 등이 필요합니다.
+          // 백엔드의 list_workflow_node_deployments는 다음을 생성합니다:
+          // { deployment_id, app_id, name, description, ... }
+          // 'icon'이 없으므로 백엔드에도 추가해야 할 수 있습니다.
+          // 현재는 누락된 경우 기본 아이콘을 사용합니다.
+
+          const mappedApps = filtered.map((node) => ({
+            ...node,
+            id: node.app_id, // 키 값으로 사용
+            icon: { content: '⚡️', background_color: '#f3f4f6' }, // 백엔드에서 아직 아이콘을 보내지 않으므로 기본 아이콘 사용
+            active_deployment_id: node.deployment_id, // 노드 추가에 필수
+          }));
+
+          setApps(mappedApps as any); // State 타입을 즉시 다시 작성하지 않기 위해 any로 캐스팅
         } catch (error) {
           console.error('Failed to fetch apps:', error);
         } finally {

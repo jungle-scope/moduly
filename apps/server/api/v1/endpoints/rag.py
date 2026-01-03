@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import (
@@ -15,13 +15,15 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from auth.dependencies import get_current_user
-from db.models.knowledge import Document, KnowledgeBase
+from db.models.knowledge import Document, KnowledgeBase, SourceType
 from db.models.user import User
 from schemas.rag import (
+    ApiPreviewRequest,
     DocumentAnalyzeResponse,
     IngestionResponse,
     RAGResponse,
     SearchQuery,
+    ChunkPreview,
 )
 from services.ingestion_local_service import IngestionService
 from services.retrieval import RetrievalService
@@ -32,8 +34,14 @@ router = APIRouter()
 @router.post("/upload", response_model=IngestionResponse)
 async def upload_document(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(..., alias="file"),
+    file: Optional[UploadFile] = File(None, alias="file"),
     knowledge_base_id: Optional[UUID] = Form(None, alias="knowledgeBaseId"),
+    source_type: str = Form("FILE", alias="sourceType"),
+    # API Config Fields
+    api_url: Optional[str] = Form(None, alias="apiUrl"),
+    api_method: str = Form("GET", alias="apiMethod"),
+    api_headers: Optional[str] = Form(None, alias="apiHeaders"),
+    api_body: Optional[str] = Form(None, alias="apiBody"),
     # 지식베이스 신규 생성일 때만 필요한 정보들
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
@@ -53,57 +61,20 @@ async def upload_document(
     ingestion_mode = os.getenv("RAG_INGESTION_MODE", "LOCAL").upper()
     print(f"=== [upload_document] Request Received (Mode: {ingestion_mode}) ===")
 
-    # [Debug Log] 수신된 데이터 확인
-    print(f"filename: {file.filename}")
-    print(f"knowledge_base_id: {knowledge_base_id}")
-    print(f"name: {name}, description: {description}")
-    print(
-        f"ai_model: {ai_model}, top_k: {top_k}, similarity_threshold: {similarity_threshold}"
+    # 1. 지식 베이스 확인 또는 생성
+    target_kb_id, target_ai_model = _get_or_create_knowledge_base(
+        db,
+        current_user,
+        knowledge_base_id,
+        name,
+        description,
+        ai_model,
+        top_k,
+        similarity_threshold,
+        file,
     )
-    ########################
 
-    target_kb_id = knowledge_base_id
-    target_ai_model = ai_model
-
-    # 지식베이스가 없으면 신규 생성
-    if not knowledge_base_id:
-        if not ai_model:
-            raise HTTPException(
-                status_code=400,
-                detail="Embedding model must be selected for new Knowledge Base",
-            )
-
-        user_id = current_user.id
-        new_kb = KnowledgeBase(
-            user_id=user_id,
-            name=name if name else file.filename,  # 이름 없으면 파일명으로
-            description=description,
-            embedding_model=ai_model,
-            top_k=top_k,
-            similarity_threshold=similarity_threshold,
-        )
-        db.add(new_kb)
-        db.commit()
-        db.refresh(new_kb)
-
-        target_kb_id = new_kb.id
-
-    # 지식베이스가 있으면 사용
-    else:
-        kb = (
-            db.query(KnowledgeBase)
-            .filter(KnowledgeBase.id == knowledge_base_id)
-            .first()
-        )
-        if not kb:
-            raise HTTPException(status_code=404, detail="Knowledge Base not found")
-
-        # 데이터 무결성 지키 위해 DB에 저장된 KB의 원래 모델을 사용한다.
-        target_kb_id = kb.id
-        target_ai_model = kb.embedding_model
-
-    # Common Logic: LocalIngestionService를 유틸리티처럼 사하여 파일 저장 및 DB 레코드 생성
-    # (Bedrock 모드여도 DB에 흔적은 남겨야 하므로 LocalIngestionService를 활용)
+    # 2. Ingestion Service 초기화
     local_service = IngestionService(
         db,
         user_id=current_user.id,
@@ -112,29 +83,39 @@ async def upload_document(
         ai_model=target_ai_model,
     )
 
-    # [1] 파일 임시 저장
-    # PyMuPDFLoader가 파일 경로를 요구하기 때문에 디스크에 물리적으로 있어야 합니다.
-    file_path = local_service.save_temp_file(file)
+    # 3. 소스 타입별 데이터 준비 (Strategy Pattern)
+    try:
+        source_enum = SourceType(source_type)
+    except ValueError:
+        source_enum = SourceType.FILE
 
-    # [2] DB 레코드 생성 (Pending 상태)
-    # 비동기 작업이 실패하더라도 "파일이 올라왔었다"는 흔적(DB)은 남긴다
+    if source_enum == SourceType.FILE:
+        file_path, filename, meta_info = _prepare_file_source(local_service, file)
+    elif source_enum == SourceType.API:
+        file_path, filename, meta_info = _prepare_api_source(
+            api_url, api_method, api_headers, api_body
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid source type")
+
+    # 4. DB 레코드 생성 (Pending 상태)
     doc_id = local_service.create_pending_document(
         knowledge_base_id=target_kb_id,
-        filename=file.filename,
+        filename=filename,
         file_path=file_path,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+        source_type=source_enum,
+        meta_info=meta_info,
     )
 
-    print(
-        f"=== [upload_document] Auto-processing skipped. Document {doc_id} is pending configuration. ==="
-    )
+    print(f"=== [upload_document] Document {doc_id} created (Pending). ===")
 
-    return IngestionResponse(  # TODO: 프론트에서 응답 받아서 사용
-        knowledge_base_id=target_kb_id,  # 프론트엔드 이동용
+    return IngestionResponse(
+        knowledge_base_id=target_kb_id,
         document_id=doc_id,
-        status="processing",
-        message=f"지식 베이스 생성 및 파일 업로드가 시작되었습니다. (Mode: {ingestion_mode})",
+        status="pending",
+        message="문서가 등록되었습니다. 설정을 확인하고 처리를 시작해주세요.",
     )
 
 
@@ -212,7 +193,7 @@ def delete_document(
     # 2. 파일 삭제 (TODO: S3파일도 지우려면 로직 추가 필요함)
     import os
 
-    if os.path.exists(doc.file_path):
+    if doc.file_path and os.path.exists(doc.file_path):
         os.remove(doc.file_path)
 
     # 3. DB 삭제 (Cascade로 청크도 같이 삭제됨)
@@ -222,18 +203,46 @@ def delete_document(
     return {"status": "success", "message": "Document deleted successfully"}
 
 
-@router.post("/chat", response_model=RAGResponse)
-def chat_with_knowledge(query: SearchQuery, db: Session = Depends(get_db)):
+@router.post("/search-test/chat", response_model=RAGResponse)
+def search_test_chat(
+    query: SearchQuery, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    [개발자 B 범위]
-    벡터 검색 -> LLM 생성
+    [Search Test] RAG Chat Mode
+    벡터 검색 + LLM 답변 생성
     """
-    retrieval_service = RetrievalService(db)
+    retrieval_service = RetrievalService(db, user_id=current_user.id)
     kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
     response = retrieval_service.generate_answer(
-        query.query, knowledge_base_id=kb_id_str
+        query.query, 
+        knowledge_base_id=kb_id_str,
+        model_id=query.generation_model or "gpt-4o"
     )
     return response
+
+
+@router.post("/search-test/pure", response_model=List[ChunkPreview])
+def search_test_pure(
+    query: SearchQuery, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    [Search Test] Pure Retrieval Mode
+    순수 벡터 검색 (LLM 생성 없음)
+    """
+    retrieval_service = RetrievalService(db, user_id=current_user.id)
+    kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
+    
+    # RetrievalService.search_documents 직접 호출
+    results = retrieval_service.search_documents(
+        query.query, 
+        knowledge_base_id=kb_id_str,
+        top_k=query.top_k or 5
+    )
+    return results
 
 
 @router.get("/document/{document_id}/progress")
@@ -288,3 +297,165 @@ async def get_document_progress(
             await asyncio.sleep(1)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.post("/proxy/preview")
+async def proxy_api_preview(
+    request: ApiPreviewRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    프론트엔드 CORS 문제 해결을 위한 API 프록시 엔드포인트
+    """
+    import requests
+    from requests.exceptions import ConnectionError, HTTPError, Timeout
+
+    print(f"[Proxy] URL: {request.url}")
+    print(f"[Proxy] Headers: {request.headers}")
+
+    # 기본 헤더가 없으면 추가
+    headers = request.headers or {}
+    if "User-Agent" not in headers:
+        headers["User-Agent"] = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        )
+
+    try:
+        response = requests.request(
+            method=request.method,
+            url=request.url,
+            headers=headers,
+            json=request.body if request.method != "GET" else None,
+            timeout=120,  # 60초 타임아웃
+        )
+        # print(f"[debug Proxy] response: {response}")
+        response.raise_for_status()
+
+        try:
+            data = response.json()
+        except ValueError:
+            data = response.text
+
+        return {
+            "status": response.status_code,
+            "data": data,
+            "headers": dict(response.headers),
+        }
+    except HTTPError as e:
+        # 외부 API가 에러 응답(4xx, 5xx)을 준 경우
+        print(f"[Proxy Log] 외부 API 에러: {e}")
+        status_code = e.response.status_code if e.response else 400
+        try:
+            detail = e.response.json()
+        except:
+            detail = e.response.text if e.response else str(e)
+
+        raise HTTPException(status_code=status_code, detail=detail)
+    except Timeout:
+        print("[Proxy Log] 타임아웃 발생 (Timeout)")
+        raise HTTPException(status_code=504, detail="External API Timeout")
+    except ConnectionError:
+        print("[Proxy Log] 연결 실패 (ConnectionError)")
+        raise HTTPException(status_code=502, detail="External API Connection Error")
+    except Exception as e:
+        print(f"[Proxy Log] 기타 오류 발생: {type(e).__name__} - {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _get_or_create_knowledge_base(
+    db: Session,
+    user: User,
+    kb_id: Optional[UUID],
+    name: Optional[str],
+    description: Optional[str],
+    ai_model: Optional[str],
+    top_k: int,
+    similarity_threshold: float,
+    file: Optional[UploadFile],
+) -> tuple[UUID, str]:
+    """지식 베이스를 조회하거나 새로 생성합니다."""
+    if not kb_id:
+        if not ai_model:
+            raise HTTPException(
+                status_code=400,
+                detail="Embedding model must be selected for new Knowledge Base",
+            )
+
+        # 이름 결정: 입력된 이름 -> (파일 있으면 파일명) -> "API Source"
+        kb_name = name if name else (file.filename if file else "API Source")
+
+        new_kb = KnowledgeBase(
+            user_id=user.id,
+            name=kb_name,
+            description=description,
+            embedding_model=ai_model,
+            top_k=top_k,
+            similarity_threshold=similarity_threshold,
+        )
+        db.add(new_kb)
+        db.commit()
+        db.refresh(new_kb)
+        return new_kb.id, ai_model
+
+    else:
+        kb: KnowledgeBase = (
+            db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id).first()
+        )
+        if not kb:
+            raise HTTPException(status_code=404, detail="Knowledge Base not found")
+        return kb.id, kb.embedding_model
+
+
+def _prepare_file_source(local_service: IngestionService, file: Optional[UploadFile]):
+    """파일 소스 처리를 위한 데이터 준비"""
+    if not file:
+        raise HTTPException(status_code=400, detail="File is required for FILE source")
+
+    file_path = local_service.save_temp_file(file)
+    filename = file.filename
+    return file_path, filename, {}
+
+
+def _prepare_api_source(
+    api_url: Optional[str],
+    api_method: str,
+    api_headers: Optional[str],
+    api_body: Optional[str],
+):
+    """API 소스 처리를 위한 데이터 준비"""
+    if not api_url:
+        raise HTTPException(status_code=400, detail="API URL is required")
+
+    import json
+
+    from core.security import security_service
+
+    # 헤더 처리 (JSON 파싱 및 암호화)
+    encrypted_headers = None
+    if api_headers:
+        try:
+            json.loads(api_headers)  # 유효성 검증
+            encrypted_headers = security_service.encrypt(api_headers)
+        except Exception as e:
+            print(f"[Warning] Failed to process headers: {e}")
+            pass
+
+    # 바디 처리 (JSON 파싱)
+    body = None
+    if api_body:
+        try:
+            body = json.loads(api_body)
+        except Exception as e:
+            print(f"[Warning] Failed to parse body: {e}")
+            pass
+
+    meta_info = {
+        "api_config": {
+            "url": api_url,
+            "method": api_method,
+            "headers": encrypted_headers,
+            "body": body,
+        }
+    }
+
+    return None, api_url, meta_info

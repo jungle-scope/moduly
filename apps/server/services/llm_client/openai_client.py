@@ -30,12 +30,42 @@ class OpenAIClient(BaseLLMClient):
         if not self.api_key or not self.base_url:
             raise ValueError("OpenAI credentials에 apiKey/baseUrl가 필요합니다.")
         self.chat_url = self.base_url.rstrip("/") + "/chat/completions"
+        self.embedding_url = self.base_url.rstrip("/") + "/embeddings"
 
     def _build_headers(self) -> Dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+
+    def embed(self, text: str) -> List[float]:
+        """
+        OpenAI Embeddings API 호출.
+        """
+        payload = {
+            "model": self.model_id,
+            "input": text
+        }
+        
+        try:
+            resp = requests.post(
+                self.embedding_url, 
+                headers=self._build_headers(), 
+                json=payload, 
+                timeout=30
+            )
+        except requests.RequestException as exc:
+            raise ValueError(f"OpenAI 임베딩 호출 실패: {exc}") from exc
+
+        if resp.status_code >= 400:
+             raise ValueError(f"OpenAI 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}")
+
+        try:
+            data = resp.json()
+            # OpenAI response format: { "data": [ { "embedding": [...] } ] }
+            return data["data"][0]["embedding"]
+        except (ValueError, KeyError, IndexError) as exc:
+             raise ValueError("OpenAI 임베딩 응답 파싱 실패") from exc
 
     def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
