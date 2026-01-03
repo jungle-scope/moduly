@@ -45,6 +45,7 @@ export default function DocumentSettingsPage() {
   const [segmentIdentifier, setSegmentIdentifier] = useState<string>('\\n\\n');
   const [removeUrlsEmails, setRemoveUrlsEmails] = useState<boolean>(false);
   const [removeWhitespace, setRemoveWhitespace] = useState<boolean>(true);
+  // const [sourceType, setSourceType] = useState<string>('');
 
   const [parsingStrategy, setParsingStrategy] = useState<
     'general' | 'llamaparse'
@@ -58,6 +59,7 @@ export default function DocumentSettingsPage() {
   );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewSegments, setPreviewSegments] = useState<DocumentSegment[]>([]);
+  const [apiOriginalData, setApiOriginalData] = useState<any>(null); // API 원본 데이터 (SessionStorage)
 
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
@@ -157,6 +159,97 @@ export default function DocumentSettingsPage() {
       fetchDocument();
     }
   }, [kbId, documentId, router]);
+
+  // SessionStorage에서 API 원본 데이터 불러오기
+  useEffect(() => {
+    if (
+      document?.source_type === 'API' &&
+      document.meta_info?.api_config?.url
+    ) {
+      const storageKey = 'api_preview' + document.meta_info.api_config.url;
+      const storedData = sessionStorage.getItem(storageKey);
+      if (storedData) {
+        try {
+          setApiOriginalData(JSON.parse(storedData));
+        } catch (e) {
+          console.error(
+            'Failed to parse API preview data from sessionStorage',
+            e,
+          );
+        }
+      }
+    }
+  }, [document]);
+
+  // JSON 트리 뷰어 컴포넌트
+  const JsonTreeViewer = ({ data }: { data: any }) => {
+    if (data === null) return <span className="text-gray-400">null</span>;
+    if (typeof data !== 'object') {
+      const isString = typeof data === 'string';
+      return (
+        <span
+          className={
+            isString
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-blue-600 dark:text-blue-400'
+          }
+        >
+          {isString ? `"${data}"` : String(data)}
+        </span>
+      );
+    }
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [isExpanded, setIsExpanded] = useState(true);
+    const isArray = Array.isArray(data);
+    const keys = Object.keys(data);
+    const isEmpty = keys.length === 0;
+
+    if (isEmpty)
+      return <span className="text-gray-500">{isArray ? '[]' : '{}'}</span>;
+
+    return (
+      <div className="font-mono text-xs ml-4">
+        <div
+          className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded px-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+        >
+          <span className="text-gray-500 font-bold">{isArray ? '[' : '{'}</span>
+          {!isExpanded && <span className="text-gray-400 m-1">...</span>}
+          {!isExpanded && (
+            <span className="text-gray-500 font-bold">
+              {isArray ? ']' : '}'}
+            </span>
+          )}
+          {!isExpanded && (
+            <span className="text-gray-400 ml-2 text-[10px]">
+              {keys.length} items
+            </span>
+          )}
+        </div>
+
+        {isExpanded && (
+          <div className="border-l border-gray-200 dark:border-gray-700 pl-2">
+            {keys.map((key, idx) => (
+              <div key={key} className="my-1 flex items-start">
+                <span className="text-purple-600 dark:text-purple-400 mr-1">
+                  {key}:
+                </span>
+                <JsonTreeViewer data={data[key]} />
+                {idx < keys.length - 1 && (
+                  <span className="text-gray-400">,</span>
+                )}
+              </div>
+            ))}
+            <div className="text-gray-500 font-bold">{isArray ? ']' : '}'}</div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // 상태 폴링
   useEffect(() => {
@@ -290,6 +383,7 @@ export default function DocumentSettingsPage() {
         remove_urls_emails: removeUrlsEmails,
         remove_whitespace: removeWhitespace,
         strategy: strategy,
+        source_type: document?.source_type || 'FILE',
       };
 
       await knowledgeApi.processDocument(
@@ -335,9 +429,10 @@ export default function DocumentSettingsPage() {
           remove_urls_emails: removeUrlsEmails,
           remove_whitespace: removeWhitespace,
           strategy: strategy,
+          source_type: document?.source_type || 'FILE',
         },
       );
-
+      // console.log('[DEBUG]', response);
       setPreviewSegments(response.segments);
       toast.success('청킹 미리보기 완료');
     } catch (error) {
@@ -607,22 +702,47 @@ export default function DocumentSettingsPage() {
           </div>
         </div>
 
-        {/* 2. Center Panel: Original Document View */}
+        {/* 2. 가운데 패널: Original Document View */}
         <div className="flex-1 bg-gray-100 dark:bg-gray-900/50 overflow-hidden flex flex-col border-r border-gray-200 dark:border-gray-700">
           <div className="px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h3 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              Original Document
+              {document?.source_type === 'API'
+                ? 'Extracted Text Preview'
+                : 'Original Document'}
             </h3>
             <span className="text-xs text-gray-500">Read-only</span>
           </div>
           <div className="flex-1 w-full h-full p-4">
-            {kbId && documentId ? (
-              <iframe
-                src={`http://localhost:8000/api/v1/knowledge/${kbId}/documents/${documentId}/content`}
-                className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800"
-                title="Original Document Preview"
-              />
+            {kbId && documentId && document ? (
+              ( document?.source_type === 'API' ||
+                document?.meta_info?.api_config) ? (
+                <div className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 overflow-auto p-4">
+                  <div className="p-4">
+                    {apiOriginalData ? (
+                      <JsonTreeViewer data={apiOriginalData} />
+                    ) : (
+                      <pre className="whitespace-pre-wrap text-sm font-mono text-gray-800 dark:text-gray-200">
+                        {previewSegments.length > 0
+                          ? previewSegments.map((s) => s.content).join('\n\n')
+                          : document?.meta_info?.api_config
+                            ? JSON.stringify(
+                                document.meta_info.api_config,
+                                null,
+                                2,
+                              )
+                            : 'API 데이터를 불러오는 중이거나 미리보기가 없습니다.'}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <iframe
+                  src={`http://localhost:8000/api/v1/knowledge/${kbId}/documents/${documentId}/content`}
+                  className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800"
+                  title="Original Document Preview"
+                />
+              )
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-3">
                 <FileText className="w-12 h-12 opacity-20" />

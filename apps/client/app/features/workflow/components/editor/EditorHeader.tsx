@@ -12,7 +12,7 @@ import {
 import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
 // [NEW] 모니터링 대시보드 모달 Import
 import { MonitoringDashboardModal } from '@/app/features/workflow/components/monitoring/MonitoringDashboardModal';
-import { ScrollText, BarChart3 } from 'lucide-react'; // [NEW] 아이콘 추가
+import { ScrollText, BarChart3, Play } from 'lucide-react'; // [NEW] 아이콘 추가
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   validateVariableName,
@@ -25,6 +25,7 @@ import { ResultModal } from '../modals/ResultModal';
 import { DeploymentModal } from '../modals/DeploymentModal';
 import { DeploymentResultModal } from '../modals/DeploymentResultModal';
 import { InputSchema, OutputSchema } from '../../types/Deployment';
+import { VersionHistorySidebar } from './VersionHistorySidebar';
 
 /** SY.
  * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
@@ -50,7 +51,16 @@ export default function EditorHeader() {
   const router = useRouter();
   const params = useParams();
   const workflowId = (params.id as string) || 'default'; // URL에서 ID 파싱
-  const { projectName, projectIcon, nodes } = useWorkflowStore();
+  const {
+    projectName,
+    projectIcon,
+    nodes,
+    // Version History State
+    previewingVersion,
+    exitPreview,
+    restoreVersion,
+    toggleVersionHistory,
+  } = useWorkflowStore();
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -81,8 +91,18 @@ export default function EditorHeader() {
   }, [router]);
 
   const handleVersionHistory = useCallback(() => {
-    // TODO: Implement version history
-  }, []);
+    toggleVersionHistory();
+  }, [toggleVersionHistory]);
+
+  const handleRestore = useCallback(async () => {
+    if (!previewingVersion) return;
+    if (
+      confirm('현재 드래프트 내용을 덮어쓰고 이 버전으로 복원하시겠습니까?')
+    ) {
+      await restoreVersion(previewingVersion);
+      toast.success('버전이 복원되었습니다.');
+    }
+  }, [previewingVersion, restoreVersion]);
 
   const handlePublish = useCallback(() => {
     setDeploymentType('api'); // REST API 배포
@@ -130,6 +150,10 @@ export default function EditorHeader() {
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
         });
+
+        // 배포 성공 알림 (버전 기록 갱신용)
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Deployment failed:', error);
@@ -146,7 +170,7 @@ export default function EditorHeader() {
         setIsDeploying(false);
       }
     },
-    [workflowId, activeWorkflow?.appId],
+    [activeWorkflow?.appId],
   );
 
   // 웹 앱으로 배포
@@ -180,6 +204,9 @@ export default function EditorHeader() {
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
         });
+
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Web app deployment failed:', error);
@@ -195,7 +222,7 @@ export default function EditorHeader() {
         setIsDeploying(false);
       }
     },
-    [workflowId, activeWorkflow?.appId],
+    [activeWorkflow?.appId],
   );
 
   // 웹사이트 위젯으로 배포
@@ -230,6 +257,9 @@ export default function EditorHeader() {
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
         });
+
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Widget deployment failed:', error);
@@ -244,7 +274,7 @@ export default function EditorHeader() {
         setIsDeploying(false);
       }
     },
-    [workflowId, activeWorkflow?.appId],
+    [activeWorkflow?.appId],
   );
 
   const handlePublishAsWorkflowNode = useCallback(() => {
@@ -281,6 +311,9 @@ export default function EditorHeader() {
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
         });
+
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
         setShowDeployModal(false);
       } catch (error: any) {
         console.error('Workflow node deployment failed:', error);
@@ -470,15 +503,17 @@ export default function EditorHeader() {
           <button
             onClick={handleTestRun}
             disabled={isExecuting}
-            className={`px-4 py-2 font-medium rounded-lg transition-colors shadow-sm ${
+            className={`px-4 py-2 flex items-center gap-2 rounded-lg transition-colors border border-gray-200 shadow-sm ${
               isExecuting
-                ? 'bg-green-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white'
+                ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {isExecuting ? '실행 중...' : 'TEST'}
+            <Play className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              {isExecuting ? '실행 중...' : '테스트'}
+            </span>
           </button>
-
           {/* [NEW] 로그 및 모니터링 버튼 */}
           <button
             onClick={() => setIsLogViewerOpen(true)}
@@ -487,7 +522,6 @@ export default function EditorHeader() {
             <ScrollText className="w-4 h-4" />
             <span className="text-sm font-medium">로그</span>
           </button>
-
           <button
             onClick={() => setIsMonitoringOpen(true)}
             className="px-4 py-2 flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 shadow-sm"
@@ -495,41 +529,43 @@ export default function EditorHeader() {
             <BarChart3 className="w-4 h-4" />
             <span className="text-sm font-medium">모니터링</span>
           </button>
-
           <div className="w-[1px] h-6 bg-gray-200 mx-1" /> {/* 구분선 */}
-
           {/* [NEW] 로그 뷰어 모달 렌더링 */}
           {workflowId && (
             <>
-                <LogViewerModal
-                    isOpen={isLogViewerOpen}
-                    onClose={() => {
-                        setIsLogViewerOpen(false);
-                        setInitialLogRunId(null);
-                        setReturnToMonitoring(false);
-                    }}
-                    workflowId={workflowId as string}
-                    initialRunId={initialLogRunId}
-                    onBack={returnToMonitoring ? () => {
+              <LogViewerModal
+                isOpen={isLogViewerOpen}
+                onClose={() => {
+                  setIsLogViewerOpen(false);
+                  setInitialLogRunId(null);
+                  setReturnToMonitoring(false);
+                }}
+                workflowId={workflowId as string}
+                initialRunId={initialLogRunId}
+                onBack={
+                  returnToMonitoring
+                    ? () => {
                         setIsLogViewerOpen(false);
                         setInitialLogRunId(null);
                         setIsMonitoringOpen(true);
                         setReturnToMonitoring(false);
-                    } : undefined}
-                />
-                <MonitoringDashboardModal
-                    isOpen={isMonitoringOpen}
-                    onClose={() => setIsMonitoringOpen(false)}
-                    workflowId={workflowId as string}
-                    onNavigateToLog={(runId) => {
-                        setInitialLogRunId(runId);
-                        setIsMonitoringOpen(false);
-                        setIsLogViewerOpen(true);
-                        setReturnToMonitoring(true);
-                    }}
-                    initialScrollTop={monitoringScrollPos}
-                    onSaveScrollPos={setMonitoringScrollPos}
-                />
+                      }
+                    : undefined
+                }
+              />
+              <MonitoringDashboardModal
+                isOpen={isMonitoringOpen}
+                onClose={() => setIsMonitoringOpen(false)}
+                workflowId={workflowId as string}
+                onNavigateToLog={(runId) => {
+                  setInitialLogRunId(runId);
+                  setIsMonitoringOpen(false);
+                  setIsLogViewerOpen(true);
+                  setReturnToMonitoring(true);
+                }}
+                initialScrollTop={monitoringScrollPos}
+                onSaveScrollPos={setMonitoringScrollPos}
+              />
             </>
           )}
           <button
@@ -539,7 +575,6 @@ export default function EditorHeader() {
             <ClockIcon className="w-5 h-5" />
             <span className="text-sm font-medium">버전 기록</span>
           </button>
-
           {/* Publish Dropdown */}
           <div className="relative">
             <button
@@ -701,6 +736,39 @@ export default function EditorHeader() {
           result={executionResult}
           onClose={() => setShowResultModal(false)}
         />
+      )}
+
+      {/* Version History Sidebar */}
+      <VersionHistorySidebar />
+
+      {/* Preview Mode Banner */}
+      {previewingVersion && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
+          <div className="flex flex-col">
+            <span className="text-xs text-blue-200 font-medium">
+              현재 미리보기 중
+            </span>
+            <span className="font-bold text-sm">
+              v{previewingVersion.version} -{' '}
+              {previewingVersion.description || '제목 없음'}
+            </span>
+          </div>
+          <div className="h-8 w-px bg-blue-400 mx-2" />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRestore}
+              className="px-4 py-1.5 bg-white text-blue-600 rounded-full text-sm font-bold hover:bg-blue-50 transition-colors shadow-sm"
+            >
+              이 버전으로 복원
+            </button>
+            <button
+              onClick={exitPreview}
+              className="px-3 py-1.5 text-blue-100 hover:text-white hover:bg-blue-500/50 rounded-full text-sm transition-colors"
+            >
+              종료
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

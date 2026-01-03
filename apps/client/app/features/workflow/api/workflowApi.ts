@@ -1,11 +1,7 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
 import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
-import {
-  WorkflowCreateRequest,
-  WorkflowResponse,
-  WorkflowRunListResponse,
-} from '../types/Api';
+import { WorkflowCreateRequest, WorkflowResponse } from '../types/Api';
 
 const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`;
 
@@ -169,7 +165,7 @@ export const workflowApi = {
     const response = await api.get(`/workflows/${workflowId}/runs/${runId}`);
     return response.data as import('../types/Api').WorkflowRun;
   },
-  // [NEW] 대시보드 통계 조회
+
   // [NEW] 대시보드 통계 조회
   getDashboardStats: async (workflowId: string) => {
     const response = await api.get(`/workflows/${workflowId}/stats`);
@@ -180,5 +176,23 @@ export const workflowApi = {
   getTopExpensiveModels: async () => {
     const response = await api.get('/llm/stats/top-models'); // Note: baseURL is /api/v1
     return response.data as import('../types/Api').TopExpensiveModel[];
+  },
+
+  getDeployment: async (deploymentId: string) => {
+    const response = await api.get(`/deployments/${deploymentId}`);
+    return response.data as DeploymentResponse;
+  },
+
+  listWorkflowNodes: async () => {
+    const response = await api.get('/deployments/nodes');
+    return response.data as {
+      deployment_id: string;
+      app_id: string;
+      name: string;
+      description: string;
+      version: number;
+      input_schema: any;
+      output_schema: any;
+    }[];
   },
 };
