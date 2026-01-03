@@ -182,22 +182,6 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
     if (value.substring(selectionEnd - 2, selectionEnd) === '{{') {
       const coords = getCaretCoordinates(target, selectionEnd);
-      // Textarea의 실제 위치 + 커서 위치 - 스크롤 위치 보정
-      // 하지만 getCaretCoordinates는 relative 좌표를 줌.
-      // 여기에 textarea의 offsetTop 등을 더해야 함?
-      // No, getCaretCoordinates logic above mimics content flow.
-      // But we need screen coordinates for absolute positioning of dropdown ON TOP of textarea?
-      // Or relative to the container?
-      // Container has `relative`. The dropdown is absolute.
-      // So we need coordinates relative to the prompts container (div relative).
-      
-      // But we have 3 textareas. Their `offsetTop` varies.
-      // `target` is the textarea invoked.
-      
-      // Let's use simple logic: Dropdown near the cursor.
-      // `coords.top` is inside the textarea.
-      // `target.offsetTop` is textarea's top relative to container.
-      // `target.offsetLeft` is textarea's left.
       
       setSuggestionPos({
         top: target.offsetTop + coords.top + coords.height, // Line height 아래
