@@ -50,6 +50,66 @@ class LLMService:
         "claude-3-haiku-20240307": "Claude 3 Haiku",
     }
 
+    # [NEW] Default Pricing Configuration (USD per 1M tokens -> convert to 1K)
+    # Pricing reference: https://openai.com/api/pricing/, https://anthropic.com/pricing
+    # Prices below are per 1K tokens.
+    # [NEW] Default Pricing Configuration (USD per 1M tokens -> convert to 1K)
+    # Pricing reference: https://openai.com/api/pricing/, https://anthropic.com/pricing
+    # Prices below are per 1K tokens. (ex: $5/1M -> 0.005/1K)
+    KNOWN_MODEL_PRICES = {
+        # --- OpenAI (Chat) ---
+        "gpt-4o": {"input": 0.0025, "output": 0.010}, 
+        "gpt-4o-2024-08-06": {"input": 0.0025, "output": 0.010},
+        "gpt-4o-2024-05-13": {"input": 0.005, "output": 0.015},
+        
+        "gpt-4o-mini": {"input": 0.00015, "output": 0.0006}, 
+        "gpt-4o-mini-2024-07-18": {"input": 0.00015, "output": 0.0006},
+        
+        "o1-preview": {"input": 0.015, "output": 0.060}, 
+        "o1-preview-2024-09-12": {"input": 0.015, "output": 0.060},
+        "o1-mini": {"input": 0.003, "output": 0.012}, 
+        "o1-mini-2024-09-12": {"input": 0.003, "output": 0.012},
+        
+        "gpt-4-turbo": {"input": 0.01, "output": 0.03}, 
+        "gpt-4-turbo-2024-04-09": {"input": 0.01, "output": 0.03},
+        "gpt-4-turbo-preview": {"input": 0.01, "output": 0.03},
+        "gpt-4-0125-preview": {"input": 0.01, "output": 0.03},
+        "gpt-4-1106-preview": {"input": 0.01, "output": 0.03},
+        
+        "gpt-4": {"input": 0.03, "output": 0.06}, 
+        "gpt-4-0613": {"input": 0.03, "output": 0.06},
+        "gpt-4-0314": {"input": 0.03, "output": 0.06},
+        
+        "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015}, 
+        "gpt-3.5-turbo-0125": {"input": 0.0005, "output": 0.0015},
+        "gpt-3.5-turbo-1106": {"input": 0.001, "output": 0.002},
+        
+        # --- OpenAI (Embedding) ---
+        "text-embedding-3-small": {"input": 0.00002, "output": 0.0}, # $0.02 / 1M
+        "text-embedding-3-large": {"input": 0.00013, "output": 0.0}, # $0.13 / 1M
+        "text-embedding-ada-002": {"input": 0.00010, "output": 0.0}, # $0.10 / 1M
+        
+        # --- Anthropic ---
+        "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015}, # v2
+        "claude-3-5-sonnet-20240620": {"input": 0.003, "output": 0.015}, 
+        
+        "claude-3-opus-20240229": {"input": 0.015, "output": 0.075}, 
+        "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015}, 
+        "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125}, 
+        
+        "claude-2.1": {"input": 0.008, "output": 0.024},
+        "claude-2.0": {"input": 0.008, "output": 0.024},
+        "claude-instant-1.2": {"input": 0.0008, "output": 0.0024},
+        
+        # --- Google ---
+        # Note: Google prices change frequently and have free tier limits.
+        "gemini-1.5-pro": {"input": 0.0035, "output": 0.0105}, # $3.50 / $10.50 (<128k)
+        "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003}, 
+        "gemini-1.5-flash-8b": {"input": 0.0000375, "output": 0.00015},
+        "gemini-1.0-pro": {"input": 0.0005, "output": 0.0015}, 
+        "text-embedding-004": {"input": 0.000025, "output": 0.0},
+    }
+
     @staticmethod
     def _mask_plain(value: str) -> str:
         if not value: return ""
@@ -106,6 +166,11 @@ class LLMService:
             # Apply friendly mapping if available, otherwise use capitalized ID
             display_name = LLMService.MODEL_DISPLAY_NAMES.get(clean_id, clean_id)
             
+            # [NEW] Determine Default Pricing
+            pricing = LLMService.KNOWN_MODEL_PRICES.get(clean_id)
+            input_price = pricing["input"] if pricing else None
+            output_price = pricing["output"] if pricing else None
+
             if mid in existing_models:
                 # Update metadata and name if changed
                 model = existing_models[mid]
@@ -115,6 +180,14 @@ class LLMService:
                     changed = True
                 if model.name != display_name:
                     model.name = display_name
+                    changed = True
+                
+                # Update pricing if explicitly missing and we have knowledge
+                if model.input_price_1k is None and input_price is not None:
+                    model.input_price_1k = input_price
+                    changed = True
+                if model.output_price_1k is None and output_price is not None:
+                    model.output_price_1k = output_price
                     changed = True
                 
                 if changed:
@@ -138,7 +211,9 @@ class LLMService:
                     type=m_type,
                     context_window=ctx,
                     is_active=True,
-                    model_metadata=rm
+                    model_metadata=rm,
+                    input_price_1k=input_price, # [NEW]
+                    output_price_1k=output_price # [NEW]
                 )
                 db.add(new_model)
                 synced_models.append(new_model)
@@ -348,3 +423,101 @@ class LLMService:
         ).distinct().all()
         
         return [LLMModelResponse.model_validate(m) for m in models]
+    @staticmethod
+    def calculate_cost(db: Session, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
+        """
+        Calculate cost based on model pricing.
+        """
+        # 1. Find the model to get pricing
+        # Note: model_id might be "gpt-4o" (model_id_for_api_call)
+        model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
+        
+        if not model or model.input_price_1k is None or model.output_price_1k is None:
+            return 0.0
+
+        # 2. Calculate
+        input_cost = (prompt_tokens / 1000.0) * float(model.input_price_1k)
+        output_cost = (completion_tokens / 1000.0) * float(model.output_price_1k)
+        
+        return input_cost + output_cost
+
+    @staticmethod
+    def log_usage(
+        db: Session,
+        user_id: uuid.UUID,
+        model_id: str,
+        usage: Dict[str, Any],
+        cost: float,
+        workflow_run_id: Optional[uuid.UUID] = None,
+        node_id: Optional[str] = None
+    ) -> LLMUsageLog:
+        """
+        Save LLM usage to database.
+        """
+        # Find model DB ID
+        model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
+        
+        log = LLMUsageLog(
+            user_id=user_id,
+            model_id=model.id if model else None,
+            workflow_run_id=workflow_run_id,
+            node_id=node_id,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            total_cost=cost,
+            status="success"
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        return log
+
+    @staticmethod
+    def update_model_pricing(db: Session, model_id: uuid.UUID, input_price: float, output_price: float) -> LLMModel:
+        """
+        Update pricing for a specific model.
+        """
+        model = db.query(LLMModel).filter(LLMModel.id == model_id).first()
+        if not model:
+            raise ValueError(f"Model {model_id} not found")
+            
+        model.input_price_1k = input_price
+        model.output_price_1k = output_price
+        db.commit()
+        db.refresh(model)
+        return model
+
+    @staticmethod
+    def sync_system_prices(db: Session) -> Dict[str, Any]:
+        """
+        Sync ALL existing models in DB with KNOWN_MODEL_PRICES.
+        Overrides existing prices if a match is found in the known list.
+        """
+        updated_count = 0
+        known_prices = LLMService.KNOWN_MODEL_PRICES
+        
+        models = db.query(LLMModel).all()
+        for m in models:
+            # Match by model_id_for_api_call (e.g. gpt-4o)
+            # Also handle if ID has "models/" prefix (Google)
+            clean_id = m.model_id_for_api_call.replace("models/", "")
+            
+            pricing = known_prices.get(clean_id)
+            if pricing:
+                # Update if different (or if previously None)
+                # Comparing floats roughly
+                current_in = float(m.input_price_1k) if m.input_price_1k is not None else -1.0
+                current_out = float(m.output_price_1k) if m.output_price_1k is not None else -1.0
+                
+                target_in = pricing["input"]
+                target_out = pricing["output"]
+                
+                if abs(current_in - target_in) > 0.0000001 or abs(current_out - target_out) > 0.0000001:
+                    m.input_price_1k = target_in
+                    m.output_price_1k = target_out
+                    updated_count += 1
+        
+        if updated_count > 0:
+            db.commit()
+            
+        return {"updated_models": updated_count}

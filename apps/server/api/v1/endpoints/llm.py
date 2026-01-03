@@ -11,9 +11,15 @@ from schemas.llm import (
     LLMProviderResponse,
     LLMCredentialCreate,
     LLMCredentialResponse,
-    LLMModelResponse
+    LLMModelResponse,
+    LLMModelPricingUpdate
 )
 from services.llm_service import LLMService
+
+from sqlalchemy import func, desc
+from db.models.llm import LLMUsageLog, LLMModel, LLMProvider
+from datetime import datetime
+import pytz
 
 router = APIRouter()
 
@@ -90,5 +96,96 @@ def delete_credential(
         if not deleted:
             raise HTTPException(status_code=404, detail="Credential not found")
         return {"message": "Credential deleted", "id": str(credential_id)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# --- Stats ---
+
+@router.get("/stats/top-models")
+def get_top_expensive_models(
+    db: Session = Depends(get_db),
+    # Optional: current_user validation if we want to restrict visibility
+    # current_user: User = Depends(get_current_user) 
+):
+    """
+    Get Top 3 expensive models for the current month.
+    """
+    try:
+        # 1. Determine date range (This Month in UTC mostly, or naive)
+        now = datetime.now()
+        start_of_month = datetime(now.year, now.month, 1)
+        
+        # 2. Query
+        # Join Log -> Model -> Provider
+        # Group by Model
+        results = (
+            db.query(
+                LLMModel.name.label("model_name"),
+                LLMProvider.name.label("provider_name"),
+                func.sum(LLMUsageLog.total_cost).label("total_cost"),
+                func.sum(LLMUsageLog.prompt_tokens + LLMUsageLog.completion_tokens).label("total_tokens")
+            )
+            .join(LLMModel, LLMUsageLog.model_id == LLMModel.id)
+            .join(LLMProvider, LLMModel.provider_id == LLMProvider.id)
+            .filter(LLMUsageLog.created_at >= start_of_month)
+            .group_by(LLMModel.id, LLMModel.name, LLMProvider.id, LLMProvider.name)
+            .order_by(desc("total_cost"))
+            .limit(3)
+            .all()
+        )
+        
+        # 3. Format Response
+        response = []
+        for r in results:
+            response.append({
+                "model_name": r.model_name,
+                "provider_name": r.provider_name,
+                "total_cost": float(r.total_cost) if r.total_cost else 0.0,
+                "total_tokens": int(r.total_tokens) if r.total_tokens else 0
+            })
+            
+        return response
+
+    except Exception as exc:
+        print(f"Error fetching top models: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# --- Pricing Management ---
+
+@router.post("/models/sync-pricing")
+def sync_system_pricing(
+    db: Session = Depends(get_db),
+    # Optional: Admin only
+):
+    """
+    [Admin] Sync all DB models with hardcoded system prices.
+    Useful when system price list is updated.
+    """
+    try:
+        result = LLMService.sync_system_prices(db)
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.put("/models/{model_id}/pricing")
+def update_model_pricing(
+    model_id: UUID,
+    pricing: LLMModelPricingUpdate,
+    db: Session = Depends(get_db),
+    # Optional: Admin only
+):
+    """
+    [Admin] Manually update pricing for a specific model.
+    """
+    try:
+        model = LLMService.update_model_pricing(
+            db, model_id, pricing.input_price_1k, pricing.output_price_1k
+        )
+        return {"message": "Pricing updated", "model": model.name}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

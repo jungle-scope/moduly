@@ -98,6 +98,9 @@ class LLMNode(Node[LLMNodeData]):
         ]
         messages = [m for m in messages if m["content"]]  # 비어있는 메시지 제외
 
+        if not messages:
+            raise ValueError("프롬프트 렌더링 결과가 모두 비어있습니다. 입력 변수가 올바르게 전달되었는지 확인해주세요.")
+
         # STEP 4. LLM 호출 ----------------------------------------------------
         response = client.invoke(messages=messages, **(self.data.parameters or {}))
 
@@ -112,7 +115,45 @@ class LLMNode(Node[LLMNodeData]):
         usage = response.get("usage", {}) if isinstance(response, dict) else {}
 
         # STEP 5. 결과 포맷팅 --------------------------------------------------
-        return {"text": text, "usage": usage, "model": self.data.model_id}
+        cost = 0.0
+        if usage:
+            prompt_tokens = usage.get("prompt_tokens", 0)
+            completion_tokens = usage.get("completion_tokens", 0)
+            try:
+                # DB 세션이 있으면 비용 계산
+                if db_session:
+                    cost = LLMService.calculate_cost(db_session, self.data.model_id, prompt_tokens, completion_tokens)
+                    
+                    # [NEW] Usage 로깅 저장
+                    user_id_str = self.execution_context.get("user_id")
+                    workflow_run_id_str = self.execution_context.get("workflow_run_id")
+                    
+                    if user_id_str:
+                        try:
+                            # workflow_run_id는 engine에서 string으로 넘겨준다고 가정 (execute_stream 참조)
+                            wf_run_uuid = uuid.UUID(workflow_run_id_str) if workflow_run_id_str else None
+                            
+                            LLMService.log_usage(
+                                db=db_session,
+                                user_id=uuid.UUID(user_id_str),
+                                model_id=self.data.model_id,
+                                usage=usage,
+                                cost=cost,
+                                workflow_run_id=wf_run_uuid,
+                                node_id=self.id
+                            )
+                        except Exception as log_err:
+                            print(f"[LLMNode] Failed to save usage log: {log_err}")
+
+            except Exception as e:
+                print(f"[LLMNode] Cost calculation/logging failed: {e}")
+
+        return {
+            "text": text, 
+            "usage": usage, 
+            "model": self.data.model_id,
+            "cost": cost 
+        }
 
     def _render_prompt(self, template: Optional[str], inputs: Dict[str, Any]) -> str:
         """
