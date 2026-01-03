@@ -22,13 +22,6 @@ import { create } from 'zustand';
 import { DEFAULT_NODES } from '../constants';
 import { workflowApi } from '../api/workflowApi';
 
-interface SidebarState {
-  workflow: boolean;
-  plugin: boolean;
-  data: boolean;
-  configuration: boolean;
-}
-
 export interface Workflow {
   id: string;
   appId: string;
@@ -45,8 +38,7 @@ type WorkflowState = {
   // === Editor UI 상태 (editorStore에서 유래) ===
   workflows: Workflow[];
   activeWorkflowId: string;
-  sidebarCollapsed: SidebarState; // 사이드바 각 섹션의 접힘 상태
-  activeConfigTab: 'logs' | 'monitoring';
+
   projectName: string;
   projectIcon: AppIcon;
   interactiveMode: 'mouse' | 'touchpad'; // 입력 모드 (마우스/터치패드)
@@ -69,8 +61,7 @@ type WorkflowState = {
   setEdges: (edges: Edge[]) => void;
 
   // === Editor UI 액션 ===
-  toggleSidebarSection: (section: keyof SidebarState) => void;
-  setActiveConfigTab: (tab: 'logs' | 'monitoring') => void;
+
   setProjectInfo: (name: string, icon: AppIcon) => void;
   setInteractiveMode: (mode: 'mouse' | 'touchpad') => void;
   toggleFullscreen: () => void;
@@ -120,13 +111,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   // === Editor UI 상태 ===
   workflows: initialWorkflows,
   activeWorkflowId: 'default',
-  sidebarCollapsed: {
-    workflow: false,
-    plugin: true,
-    data: true,
-    configuration: false,
-  },
-  activeConfigTab: 'logs',
+
   projectName: 'My Project',
   projectIcon: { type: 'emoji', content: '🔥', background_color: '#FFE5D4' },
   interactiveMode: 'mouse',
@@ -173,18 +158,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const newEdges = addEdge(connection, currentEdges);
     get().setEdges(newEdges);
   },
-
-  // === Editor UI 액션 ===
-  toggleSidebarSection: (section) => {
-    set((state) => ({
-      sidebarCollapsed: {
-        ...state.sidebarCollapsed,
-        [section]: !state.sidebarCollapsed[section],
-      },
-    }));
-  },
-
-  setActiveConfigTab: (tab) => set({ activeConfigTab: tab }),
 
   setProjectInfo: (name, icon) => set({ projectName: name, projectIcon: icon }),
 
