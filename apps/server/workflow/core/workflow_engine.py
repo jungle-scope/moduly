@@ -393,9 +393,9 @@ class WorkflowEngine:
         if node_schema and node_schema.type == "startNode":
             return self.user_input
 
-        # [PERF] 연결된 선행 노드의 결과만 추출 (기존: 모든 결과 복사)
-        required_inputs = self.reverse_graph.get(node_id, [])
-        return {prev_id: results[prev_id] for prev_id in required_inputs if prev_id in results}
+        # 실행된 모든 노드의 결과를 전달 (조상 노드 참조 가능)
+        # 참조만 전달하므로 메모리 복사 오버헤드 최소화
+        return dict(results)
 
     def _get_answer_node_result(self, results: Dict) -> Dict[str, Any]:
         """
