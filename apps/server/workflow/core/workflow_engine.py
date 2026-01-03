@@ -364,9 +364,9 @@ class WorkflowEngine:
         특별 케이스:
             - StartNode: user_input을 직접 전달 (네임스페이스 없이)
         """
-        # StartNode는 user_input을 직접 받음
+        # StartNode 또는 WebhookTriggerNode는 user_input을 직접 받음
         node_schema = self.node_schemas.get(node_id)
-        if node_schema and node_schema.type == "startNode":
+        if node_schema and node_schema.type in ["startNode", "webhookTrigger"]:
             return self.user_input
 
         # 실행된 모든 노드의 결과를 전달 (조상 노드 참조 가능)

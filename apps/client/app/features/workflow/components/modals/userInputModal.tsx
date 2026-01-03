@@ -110,7 +110,7 @@ export function UserInputModal({
                         className="h-4 w-4 rounded border-gray-300"
                       />
                       <span className="text-sm font-medium text-gray-700">
-                        {variable.name}
+                        {variable.label || variable.name}
                         {variable.required && (
                           <span className="text-red-500 ml-1">*</span>
                         )}
@@ -119,7 +119,7 @@ export function UserInputModal({
                   ) : variable.type === 'select' ? (
                     <>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {variable.name}
+                        {variable.label || variable.name}
                         {variable.required && (
                           <span className="text-red-500 ml-1">*</span>
                         )}
@@ -142,7 +142,7 @@ export function UserInputModal({
                   ) : variable.type === 'file' ? (
                     <>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {variable.name}
+                        {variable.label || variable.name}
                         {variable.required && (
                           <span className="text-red-500 ml-1">*</span>
                         )}
@@ -169,26 +169,42 @@ export function UserInputModal({
                   ) : (
                     <>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {variable.name}
+                        {variable.label || variable.name}
                         {variable.required && (
                           <span className="text-red-500 ml-1">*</span>
                         )}
                       </label>
-                      <input
-                        type={variable.type === 'number' ? 'number' : 'text'}
-                        value={inputs[variable.name] || ''}
-                        onChange={(e) =>
-                          handleChange(
-                            variable.name,
-                            variable.type === 'number'
-                              ? Number(e.target.value)
-                              : e.target.value,
-                          )
-                        }
-                        required={variable.required}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder={`${variable.name} 입력`}
-                      />
+                      {variable.type === 'paragraph' ? (
+                        <textarea
+                          value={inputs[variable.name] || ''}
+                          onChange={(e) =>
+                            handleChange(variable.name, e.target.value)
+                          }
+                          required={variable.required}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                          placeholder={
+                            variable.placeholder || `${variable.name} 입력`
+                          }
+                        />
+                      ) : (
+                        <input
+                          type={variable.type === 'number' ? 'number' : 'text'}
+                          value={inputs[variable.name] || ''}
+                          onChange={(e) =>
+                            handleChange(
+                              variable.name,
+                              variable.type === 'number'
+                                ? Number(e.target.value)
+                                : e.target.value,
+                            )
+                          }
+                          required={variable.required}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder={
+                            variable.placeholder || `${variable.name} 입력`
+                          }
+                        />
+                      )}
                     </>
                   )}
                 </div>
