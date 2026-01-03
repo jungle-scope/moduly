@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Search, Send, Bot, X, Loader2, Settings } from 'lucide-react';
 import axios from 'axios';
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+
 interface RAGResponse {
   answer: string;
   references: {
@@ -60,7 +62,7 @@ export default function KnowledgeSearchModal({
         try {
           setLoadingModels(true);
           const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/llm/my-models`,
+            `${BASE_URL}/api/v1/llm/my-models`,
             {
               method: 'GET',
               headers: { 'Content-Type': 'application/json' },
@@ -111,7 +113,7 @@ export default function KnowledgeSearchModal({
 
       // Call Backend API
       const res = await axios.post<RAGResponse>(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}${endpoint}`,
+        `${BASE_URL}${endpoint}`,
         payload,
         { withCredentials: true }
       );
