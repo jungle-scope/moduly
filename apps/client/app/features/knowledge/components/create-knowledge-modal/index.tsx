@@ -30,7 +30,7 @@ export default function CreateKnowledgeModal({
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Embedding model options from API
+  // API에서 가져온 임베딩 모델 옵션
   type EmbeddingModel = {
     id: string;
     model_id_for_api_call: string;
@@ -45,7 +45,7 @@ export default function CreateKnowledgeModal({
   // 50MB 제한 (bytes)
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-  // Fetch available embedding models
+  // 사용 가능한 임베딩 모델 가져오기
   useEffect(() => {
     const fetchEmbeddingModels = async () => {
       try {
@@ -61,7 +61,7 @@ export default function CreateKnowledgeModal({
         if (res.ok) {
           const json = await res.json();
           setEmbeddingModels(json);
-          // Set default if models available and current default not in list
+          // 모델이 있고 현재 기본값이 목록에 없으면 첫 번째 모델로 설정
           if (json.length > 0 && !json.find((m: EmbeddingModel) => m.model_id_for_api_call === formData.embeddingModel)) {
             setFormData(prev => ({ ...prev, embeddingModel: json[0].model_id_for_api_call }));
           }

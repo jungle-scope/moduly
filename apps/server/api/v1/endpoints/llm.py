@@ -58,7 +58,7 @@ def get_my_embedding_models(
     current_user: User = Depends(get_current_user)
 ):
     """
-    List embedding models available to the current user.
+    현재 사용자가 사용 가능한 임베딩 모델 목록 조회.
     """
     try:
         return LLMService.get_my_embedding_models(db, current_user.id)
