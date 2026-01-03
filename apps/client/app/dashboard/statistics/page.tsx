@@ -1,6 +1,12 @@
-// 임시 통계 페이지, 목데이터로 구성
+'use client';
+
+import { useState } from 'react';
+import { MonitoringTab } from './components/MonitoringTab';
+import { LogTab } from './components/LogTab';
 
 export default function StatisticsPage() {
+  const [activeTab, setActiveTab] = useState<'monitoring' | 'logs'>('monitoring');
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -12,138 +18,44 @@ export default function StatisticsPage() {
         </p>
       </div>
 
-      {/* 통계 카드 그리드 */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {/* 총 모듈 수 */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-950">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                총 모듈 수
-              </p>
-              <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-                12
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-              <svg
-                className="h-6 w-6 text-blue-600 dark:text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* 이번 달 실행 */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-950">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                이번 달 실행
-              </p>
-              <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-                1,234
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-              <svg
-                className="h-6 w-6 text-green-600 dark:text-green-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* 성공률 */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-950">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                성공률
-              </p>
-              <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-                98.5%
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
-              <svg
-                className="h-6 w-6 text-purple-600 dark:text-purple-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* 평균 실행 시간 */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-950">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                평균 실행 시간
-              </p>
-              <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-                2.3s
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900">
-              <svg
-                className="h-6 w-6 text-orange-600 dark:text-orange-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
+      {/* 탭 네비게이션 */}
+      <div className="mb-8 border-b border-gray-200 dark:border-gray-800">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('monitoring')}
+            className={`whitespace-nowrap border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'monitoring'
+                ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            모니터링
+          </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`whitespace-nowrap border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'logs'
+                ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            로그
+          </button>
+        </nav>
       </div>
 
-      {/* 최근 활동 */}
-      <div className="mt-8">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-          최근 활동
-        </h2>
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950">
-          <div className="p-6">
-            <p className="text-center text-gray-500 dark:text-gray-400">
-              최근 활동 데이터가 곧 표시됩니다.
-            </p>
-          </div>
+
+      {/* 탭 컨텐츠 */}
+      {activeTab === 'monitoring' ? (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+           <MonitoringTab />
         </div>
-      </div>
+      ) : (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 h-[calc(100vh-200px)]">
+           <LogTab />
+        </div>
+      )}
     </div>
   );
 }
+

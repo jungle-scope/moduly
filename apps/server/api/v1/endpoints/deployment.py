@@ -12,7 +12,7 @@ from services.deployment_service import DeploymentService
 router = APIRouter()
 
 
-@router.post("/", response_model=DeploymentResponse)
+@router.post("", response_model=DeploymentResponse)
 def create_deployment(
     deployment_in: DeploymentCreate,
     db: Session = Depends(get_db),
@@ -24,7 +24,7 @@ def create_deployment(
     return DeploymentService.create_deployment(db, deployment_in, current_user.id)
 
 
-@router.get("/", response_model=List[DeploymentResponse])
+@router.get("", response_model=List[DeploymentResponse])
 def get_deployments(
     app_id: str = None,
     workflow_id: str = None,
