@@ -178,11 +178,18 @@ export interface WorkflowNodeData extends NodeData {
 // ============================================================================
 
 // ===================== [KnowledgeNode] =====================================
+export interface KnowledgeBaseRef {
+  id: string;
+  name: string;
+}
+
 export interface KnowledgeNodeData extends BaseNodeData {
-  knowledgeBaseId?: string;
-  knowledgeBaseName?: string;
+  knowledgeBases?: KnowledgeBaseRef[];
   queryVariable?: [string, string]; // [node_id, variable_key]
+  scoreThreshold?: number;
   topK?: number;
+  queryVariables?: { name: string; value_selector: string[] }[];
+  userQuery?: string;
 }
 // ============================================================================
 

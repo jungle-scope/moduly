@@ -7,8 +7,9 @@ import { KnowledgeNodeData } from '../../../../types/Nodes';
 
 export const KnowledgeNode = memo(
   ({ data, selected }: NodeProps<Node<KnowledgeNodeData>>) => {
-    const knowledgeBaseName = data.knowledgeBaseName || '지식 베이스 미선택';
-    const topK = data.topK ?? 3;
+    const knowledgeBases = data.knowledgeBases || [];
+    const primaryName = knowledgeBases[0]?.name || '지식 베이스 미선택';
+    const extraCount = Math.max(knowledgeBases.length - 1, 0);
 
     return (
       <BaseNode data={data} selected={selected}>
@@ -19,9 +20,13 @@ export const KnowledgeNode = memo(
           <div className="flex flex-col gap-1">
             <div className="text-xs text-gray-500">Knowledge Base</div>
             <div className="text-sm font-semibold text-gray-900 truncate">
-              {knowledgeBaseName}
+              {primaryName}
             </div>
-            <div className="text-xs text-gray-500">Top K: {topK}</div>
+            {extraCount > 0 && (
+              <div className="text-[11px] text-gray-500">
+                외 {extraCount}개 선택됨
+              </div>
+            )}
           </div>
         </div>
       </BaseNode>

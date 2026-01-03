@@ -162,10 +162,12 @@ export const nodeRegistry: NodeDefinition[] = [
     defaultData: () => ({
       title: '지식',
       description: '지식 베이스 검색',
-      knowledgeBaseId: '',
-      knowledgeBaseName: '',
+      knowledgeBases: [],
       queryVariable: undefined,
+      scoreThreshold: 0.5,
       topK: 3,
+      queryVariables: [],
+      userQuery: '',
     }),
   },
   {
