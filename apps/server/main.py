@@ -49,7 +49,6 @@ async def lifespan(app: FastAPI):
         db.close()
 
     yield
-    # 3. Shutdown Logic (if any)
 
 
 app = FastAPI(title="Moduly API", redirect_slashes=False, lifespan=lifespan)
