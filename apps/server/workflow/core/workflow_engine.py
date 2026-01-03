@@ -41,6 +41,10 @@ class WorkflowEngine:
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
         self.execution_context = execution_context or {}
+        
+        # [FIX] DB 세션을 execution_context에 주입 (WorkflowNode 등에서 사용)
+        if db is not None:
+            self.execution_context["db"] = db
         self.graph = self._build_graph()
         self.reverse_graph = self._build_reverse_graph()  # [PERF] 역방향 그래프 캐싱 (선행 노드 조회 최적화)
         self._build_node_instances()  # Schema → Node 변환
