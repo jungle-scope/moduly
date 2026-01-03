@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Search, Send, Bot, User, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+
 interface RAGResponse {
   answer: string;
   references: {
@@ -34,7 +36,7 @@ export default function SearchPlayground({
     try {
       // Call Backend API
       const res = await axios.post<RAGResponse>(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/rag/search-test/chat`,
+        `${BASE_URL}/api/v1/rag/search-test/chat`,
         {
           query: query,
           knowledge_base_id: knowledgeBaseId,
