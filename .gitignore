@@ -8,9 +8,6 @@ __pycache__/
 # Node
 apps/client/.next/
 
-# 클라이언트 디버깅용
-apps/client/.vscode/
-
 # Environment
 .env
 .env.local
