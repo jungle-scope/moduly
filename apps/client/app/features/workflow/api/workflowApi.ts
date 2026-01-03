@@ -1,7 +1,11 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
 import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
-import { WorkflowCreateRequest, WorkflowResponse } from '../types/Api';
+import {
+  WorkflowCreateRequest,
+  WorkflowResponse,
+  WorkflowRunListResponse,
+} from '../types/Api';
 
 const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`;
 
