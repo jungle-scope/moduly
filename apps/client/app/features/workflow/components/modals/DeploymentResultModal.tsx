@@ -190,7 +190,7 @@ export function DeploymentResultModal({ onClose, result }: Props) {
     appId: '${result.url_slug}'
   };
 </script>
-<script src="http://localhost:8000/static/widget.js"></script>`}
+<script src="${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/static/widget.js"></script>`}
                   </pre>
                   <button
                     onClick={() =>
@@ -200,7 +200,7 @@ export function DeploymentResultModal({ onClose, result }: Props) {
     appId: '${result.url_slug}'
   };
 </script>
-<script src="http://localhost:8000/static/widget.js"></script>`,
+<script src="${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/static/widget.js"></script>`,
                       )
                     }
                     className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"

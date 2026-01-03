@@ -1,10 +1,13 @@
 import axios from 'axios';
 import { WorkflowDraftRequest } from '../types/Workflow';
 import { DeploymentCreate, DeploymentResponse } from '../types/Deployment';
-import { WorkflowCreateRequest, WorkflowResponse } from '../types/Api';
+import {
+  WorkflowCreateRequest,
+  WorkflowResponse,
+  WorkflowRunListResponse,
+} from '../types/Api';
 
-// Next.js Rewrites를 사용하므로 상대 경로 사용 (자동으로 localhost:3000 -> 127.0.0.1:8000 프록시됨)
-const API_BASE_URL = '/api/v1';
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`;
 
 // Axios 인스턴스 생성 (withCredentials 설정)
 const api = axios.create({

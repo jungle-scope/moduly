@@ -101,8 +101,9 @@ export default function KnowledgeSearchModal({
         payload.generation_model = selectedModelId;
       }
 
-      const res = await axios.post(
-        `http://localhost:8000${endpoint}`,
+      // Call Backend API
+      const res = await axios.post<RAGResponse>(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}${endpoint}`,
         payload,
         { withCredentials: true }
       );
@@ -114,7 +115,7 @@ export default function KnowledgeSearchModal({
         // Search 모드는 List[ChunkPreview]가 옴 -> RAGResponse 형태로 래핑해서 표시
         setResponse({
           answer: "", // 답변 없음
-          references: res.data // 문서 목록만 있음
+          references: res.data as any // 문서 목록만 있음 (Type Casting)
         });
       }
     } catch (error) {
@@ -228,34 +229,24 @@ export default function KnowledgeSearchModal({
           {isLoading && (
             <div className="flex flex-col items-center justify-center h-full text-blue-600">
               <Loader2 className="w-8 h-8 animate-spin mb-2" />
-              <p className="text-sm font-medium">
-                {activeTab === 'chat' && selectedModelId 
-                  ? `${selectedModelId} 모델이 생각 중...` 
-                  : "문서 검색 중..."}
-              </p>
+              <p className="text-sm font-medium">지식 베이스 검색 및 답변 생성 중...</p>
             </div>
           )}
 
           {response && (
             <div className="space-y-6 max-w-3xl mx-auto">
-              
-              {/* Answer Section (Only in Chat Tab) */}
-              {activeTab === 'chat' && (
-                <div className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 mt-1">
-                    <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white mb-2 flex items-center justify-between">
-                      AI 답변
-                      <span className="text-xs text-gray-400 font-normal">Model: {selectedModelId}</span>
-                    </p>
-                    <div className="text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                      {response.answer}
-                    </div>
+              {/* Answer Section */}
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 mt-1">
+                  <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">AI 답변</p>
+                  <div className="text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                    {response.answer}
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* References Section */}
               <div className={activeTab === 'chat' ? "pl-12" : ""}>
@@ -264,25 +255,21 @@ export default function KnowledgeSearchModal({
                   참조 문서 ({response.references.length})
                 </h4>
                 <div className="grid gap-3">
-                  {response.references.length === 0 ? (
-                    <div className="text-sm text-gray-400 italic p-2">검색된 문서가 없습니다.</div>
-                  ) : (
-                    response.references.map((ref, idx) => (
-                      <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 text-sm shadow-sm hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="font-medium text-blue-600 dark:text-blue-400 text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-full border border-blue-100 dark:border-blue-800">
-                            {ref.filename}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            유사도: {(ref.similarity_score * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed text-xs">
-                          {ref.content}
-                        </p>
+                  {response.references.map((ref, idx) => (
+                    <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 text-sm shadow-sm hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-medium text-blue-600 dark:text-blue-400 text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-full border border-blue-100 dark:border-blue-800">
+                          {ref.filename}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          유사도: {(ref.similarity_score * 100).toFixed(1)}%
+                        </span>
                       </div>
-                    ))
-                  )}
+                      <p className="text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed text-xs">
+                        {ref.content}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

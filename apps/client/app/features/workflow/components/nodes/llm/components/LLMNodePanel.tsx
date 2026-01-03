@@ -65,13 +65,13 @@ const getCaretCoordinates = (
 };
 
 export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
-  const router = useRouter(); 
+  const router = useRouter();
   const { updateNodeData, nodes, edges } = useWorkflowStore();
-  
+
   const systemPromptRef = useRef<HTMLTextAreaElement>(null);
   const userPromptRef = useRef<HTMLTextAreaElement>(null);
   const assistantPromptRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const [activePromptField, setActivePromptField] = useState<
     'system_prompt' | 'user_prompt' | 'assistant_prompt' | null
   >(null);
@@ -91,23 +91,35 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
   // [VALIDATION] 등록되지 않은 변수 경고
   const validationErrors = useMemo(() => {
-    const allPrompts = (data.system_prompt || '') + (data.user_prompt || '') + (data.assistant_prompt || '');
+    const allPrompts =
+      (data.system_prompt || '') +
+      (data.user_prompt || '') +
+      (data.assistant_prompt || '');
     // 등록된 변수 이름들 (공백 제거)
-    const registeredNames = new Set((data.referenced_variables || []).map((v) => v.name?.trim()).filter(Boolean));
+    const registeredNames = new Set(
+      (data.referenced_variables || [])
+        .map((v) => v.name?.trim())
+        .filter(Boolean),
+    );
     const errors: string[] = [];
 
     // 정규식: 닫는 중괄호 } 를 제외한 모든 문자 1개 이상 (공백, 한글 포함)
-    const regex = /{{\s*([^}]+?)\s*}}/g; 
+    const regex = /{{\s*([^}]+?)\s*}}/g;
     let match;
     while ((match = regex.exec(allPrompts)) !== null) {
-      const varName = match[1].trim(); 
+      const varName = match[1].trim();
       // varName이 비어있지 않고, 등록된 이름에 없으면 에러
       if (varName && !registeredNames.has(varName)) {
         errors.push(varName);
       }
     }
     return Array.from(new Set(errors));
-  }, [data.system_prompt, data.user_prompt, data.assistant_prompt, data.referenced_variables]);
+  }, [
+    data.system_prompt,
+    data.user_prompt,
+    data.assistant_prompt,
+    data.referenced_variables,
+  ]);
 
   // Handlers
   const handleUpdateData = useCallback(
@@ -182,7 +194,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
     if (value.substring(selectionEnd - 2, selectionEnd) === '{{') {
       const coords = getCaretCoordinates(target, selectionEnd);
-      
+
       setSuggestionPos({
         top: target.offsetTop + coords.top + coords.height, // Line height 아래
         left: target.offsetLeft + coords.left,
@@ -198,14 +210,14 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     if (!activePromptField) return;
 
     const currentValue = (data as any)[activePromptField] || '';
-    
+
     const refMap = {
       system_prompt: systemPromptRef,
       user_prompt: userPromptRef,
       assistant_prompt: assistantPromptRef,
     };
     const textarea = refMap[activePromptField]?.current;
-    
+
     if (!textarea) return;
 
     const selectionEnd = textarea.selectionEnd;
@@ -214,7 +226,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     if (lastOpen !== -1) {
       const prefix = currentValue.substring(0, lastOpen);
       const suffix = currentValue.substring(selectionEnd);
-      
+
       const newValue = `${prefix}{{ ${varName} }}${suffix}`;
 
       handleFieldChange(activePromptField, newValue);
@@ -234,7 +246,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
       try {
         setLoadingModels(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/llm/my-models`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/llm/my-models`,
           {
             method: 'GET',
             headers: {
@@ -318,104 +330,104 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
         </div>
       </CollapsibleSection>
 
-          {/* 2. Variables Mapping */}
-          <CollapsibleSection
-            title="Referenced Variables"
-            icon={
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddVariable();
-                }}
-                className="p-1 hover:bg-gray-200 rounded transition-colors ml-auto"
-                title="Add Variable"
-              >
-                <Plus className="w-4 h-4 text-gray-600" />
-              </button>
-            }
+      {/* 2. Variables Mapping */}
+      <CollapsibleSection
+        title="Referenced Variables"
+        icon={
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddVariable();
+            }}
+            className="p-1 hover:bg-gray-200 rounded transition-colors ml-auto"
+            title="Add Variable"
           >
-            <div className="flex flex-col gap-3">
-              {(data.referenced_variables || []).length === 0 && (
-                <div className="text-xs text-gray-400 p-2 text-center border border-dashed border-gray-200 rounded">
-                  No variables defined. Click + to add.
-                </div>
-              )}
-              {(data.referenced_variables || []).map((variable, index) => {
-                const selectedSourceNodeId = variable.value_selector?.[0] || '';
-
-                return (
-                  <div
-                    key={index}
-                    className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-500">
-                        Name
-                      </span>
-                      <input
-                        className="flex-1 text-xs border border-gray-300 rounded px-2 py-1"
-                        placeholder="e.g. topic"
-                        value={variable.name}
-                        onChange={(e) =>
-                          handleUpdateVariable(index, 'name', e.target.value)
-                        }
-                      />
-                      <button
-                        onClick={() => handleRemoveVariable(index)}
-                        className="text-gray-400 hover:text-red-500"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-500 min-w-[32px]">
-                        Value
-                      </span>
-                      <div className="flex-1 flex gap-1">
-                        <select
-                          className="w-1/2 text-xs border border-gray-300 rounded px-2 py-1"
-                          value={selectedSourceNodeId}
-                          onChange={(e) =>
-                            handleSelectorUpdate(index, 0, e.target.value)
-                          }
-                        >
-                          <option value="" disabled>
-                            Select Node
-                          </option>
-                          {upstreamNodes.map((n) => (
-                            <option key={n.id} value={n.id}>
-                              {(n.data as { title?: string })?.title || n.type}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          className="w-1/2 text-xs border border-gray-300 rounded px-2 py-1"
-                          value={variable.value_selector?.[1] || ''}
-                          onChange={(e) =>
-                            handleSelectorUpdate(index, 1, e.target.value)
-                          }
-                          disabled={!selectedSourceNodeId}
-                        >
-                          <option value="" disabled>
-                            Select Output
-                          </option>
-                          {selectedSourceNodeId &&
-                            getNodeOutputs(
-                              nodes.find((n) => n.id === selectedSourceNodeId)!,
-                            ).map((outKey) => (
-                              <option key={outKey} value={outKey}>
-                                {outKey}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <Plus className="w-4 h-4 text-gray-600" />
+          </button>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {(data.referenced_variables || []).length === 0 && (
+            <div className="text-xs text-gray-400 p-2 text-center border border-dashed border-gray-200 rounded">
+              No variables defined. Click + to add.
             </div>
-          </CollapsibleSection>
+          )}
+          {(data.referenced_variables || []).map((variable, index) => {
+            const selectedSourceNodeId = variable.value_selector?.[0] || '';
+
+            return (
+              <div
+                key={index}
+                className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">
+                    Name
+                  </span>
+                  <input
+                    className="flex-1 text-xs border border-gray-300 rounded px-2 py-1"
+                    placeholder="e.g. topic"
+                    value={variable.name}
+                    onChange={(e) =>
+                      handleUpdateVariable(index, 'name', e.target.value)
+                    }
+                  />
+                  <button
+                    onClick={() => handleRemoveVariable(index)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500 min-w-[32px]">
+                    Value
+                  </span>
+                  <div className="flex-1 flex gap-1">
+                    <select
+                      className="w-1/2 text-xs border border-gray-300 rounded px-2 py-1"
+                      value={selectedSourceNodeId}
+                      onChange={(e) =>
+                        handleSelectorUpdate(index, 0, e.target.value)
+                      }
+                    >
+                      <option value="" disabled>
+                        Select Node
+                      </option>
+                      {upstreamNodes.map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {(n.data as { title?: string })?.title || n.type}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="w-1/2 text-xs border border-gray-300 rounded px-2 py-1"
+                      value={variable.value_selector?.[1] || ''}
+                      onChange={(e) =>
+                        handleSelectorUpdate(index, 1, e.target.value)
+                      }
+                      disabled={!selectedSourceNodeId}
+                    >
+                      <option value="" disabled>
+                        Select Output
+                      </option>
+                      {selectedSourceNodeId &&
+                        getNodeOutputs(
+                          nodes.find((n) => n.id === selectedSourceNodeId)!,
+                        ).map((outKey) => (
+                          <option key={outKey} value={outKey}>
+                            {outKey}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CollapsibleSection>
 
       {/* 3. Prompts */}
       <CollapsibleSection title="Prompts">
