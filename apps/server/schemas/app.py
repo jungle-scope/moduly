@@ -38,6 +38,7 @@ class AppResponse(BaseModel):
     icon: AppIcon
     workflow_id: Optional[UUID] = None  # App의 작업실 Workflow
     url_slug: Optional[str] = None  # 첫 배포 시 생성
+    auth_secret: Optional[str] = None  # Webhook 인증용 시크릿
     is_market: bool
     forked_from: Optional[UUID] = None
     active_deployment_id: Optional[UUID] = None

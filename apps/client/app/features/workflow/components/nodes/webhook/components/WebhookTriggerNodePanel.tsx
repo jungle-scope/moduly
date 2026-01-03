@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   WebhookTriggerNodeData,
   VariableMapping,
@@ -6,6 +6,8 @@ import {
 import { CollapsibleSection } from '../../../ui/CollapsibleSection';
 import { Plus, Copy, Trash2 } from 'lucide-react';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
+import { appApi } from '@/app/features/app/api/appApi';
+import { webhookApi } from '@/app/features/workflow/api/webhookApi';
 
 interface WebhookTriggerNodePanelProps {
   nodeId: string;
@@ -21,10 +23,54 @@ export function WebhookTriggerNodePanel({
   data,
 }: WebhookTriggerNodePanelProps) {
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
-  const [isCaptureMode, setIsCaptureMode] = useState(false);
+  const workflows = useWorkflowStore((state) => state.workflows);
+  const activeWorkflowId = useWorkflowStore((state) => state.activeWorkflowId);
 
-  // Webhook URL 생성 (app의 url_slug + auth_secret 조합)
-  const webhookUrl = `${window.location.origin}/api/v1/hooks/[app-slug]?token=[auth-secret]`;
+  const [isCaptureMode, setIsCaptureMode] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState<string>('');
+  const [isLoadingUrl, setIsLoadingUrl] = useState(true);
+  const [urlSlug, setUrlSlug] = useState<string>('');
+
+  // 폴링 interval과 timeout을 저장하기 위한 ref
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 현재 워크플로우의 appId 가져오기
+  const currentWorkflow = workflows.find((w) => w.id === activeWorkflowId);
+  const appId = currentWorkflow?.appId;
+
+  // App 정보를 가져와서 Webhook URL 생성 (컴포넌트 마운트 시 1회만)
+  useEffect(() => {
+    const fetchAppAndGenerateUrl = async () => {
+      if (!appId) {
+        setWebhookUrl('App 정보를 불러올 수 없습니다');
+        setIsLoadingUrl(false);
+        return;
+      }
+
+      try {
+        const app = await appApi.getApp(appId);
+        if (app.url_slug) {
+          setUrlSlug(app.url_slug);
+          const baseUrl =
+            process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+          const token = app.auth_secret || '[auth-secret]';
+          const url = `${baseUrl}/api/v1/hooks/${app.url_slug}?token=${token}`;
+          setWebhookUrl(url);
+        } else {
+          setWebhookUrl('URL Slug가 없습니다');
+        }
+      } catch (error) {
+        console.error('Failed to fetch app:', error);
+        setWebhookUrl('URL 생성 실패');
+      } finally {
+        setIsLoadingUrl(false);
+      }
+    };
+
+    fetchAppAndGenerateUrl();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleProviderChange = (provider: 'jira' | 'custom') => {
     updateNodeData(nodeId, { provider });
@@ -66,14 +112,49 @@ export function WebhookTriggerNodePanel({
   };
 
   const handleStartCapture = async () => {
-    setIsCaptureMode(true);
-    // TODO: Call API to start capture
-    // GET /api/v1/hooks/{slug}/capture/start
+    if (!urlSlug) {
+      console.error('No url_slug available');
+      return;
+    }
+
+    try {
+      await webhookApi.startCapture(urlSlug);
+      setIsCaptureMode(true);
+
+      // 폴링 시작: 2초마다 상태 확인
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const status = await webhookApi.getCaptureStatus(urlSlug);
+          if (status.status === 'captured' && status.payload) {
+            console.log('Payload captured:', status.payload);
+            // TODO: JSON 뷰어 모달 표시
+            handleCancelCapture();
+          }
+        } catch (error) {
+          console.error('Failed to get capture status:', error);
+        }
+      }, 2000);
+
+      // 30초 후 자동 취소
+      timeoutRef.current = setTimeout(() => {
+        handleCancelCapture();
+      }, 30000);
+    } catch (error) {
+      console.error('Failed to start capture:', error);
+    }
   };
 
   const handleCancelCapture = () => {
+    // Interval과 timeout 정리
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     setIsCaptureMode(false);
-    // TODO: Call API to cancel capture (optional)
   };
 
   return (
@@ -84,13 +165,14 @@ export function WebhookTriggerNodePanel({
           <div className="flex items-center gap-2">
             <input
               type="text"
-              value={webhookUrl}
+              value={isLoadingUrl ? '로딩 중...' : webhookUrl}
               readOnly
               className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50"
             />
             <button
               onClick={handleCopyUrl}
-              className="p-2 hover:bg-gray-100 rounded transition-colors"
+              disabled={isLoadingUrl}
+              className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
               title="Copy URL"
             >
               <Copy className="w-4 h-4 text-gray-600" />
@@ -99,7 +181,8 @@ export function WebhookTriggerNodePanel({
           {!isCaptureMode ? (
             <button
               onClick={handleStartCapture}
-              className="w-full px-4 py-2 text-sm font-medium text-white bg-purple-500 rounded hover:bg-purple-600 transition-colors"
+              disabled={isLoadingUrl || !urlSlug}
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-purple-500 rounded hover:bg-purple-600 disabled:bg-gray-300 transition-colors"
             >
               캡처 시작
             </button>
