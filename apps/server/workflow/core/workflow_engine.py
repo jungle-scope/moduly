@@ -1,4 +1,4 @@
-import concurrent.futures
+import asyncio
 from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy.orm import Session
@@ -9,7 +9,7 @@ from workflow.core.workflow_node_factory import NodeFactory
 
 
 class WorkflowEngine:
-    """노드와 엣지를 받아서 전체 워크플로우 실행을 담당하는 엔진"""
+    """노드와 엣지를 받아서 전체 워크플로우 실행을 담당하는 엔진 (AsyncIO 기반)"""
 
     def __init__(
         self,
@@ -66,16 +66,16 @@ class WorkflowEngine:
         # ============================================================
         self.logger = WorkflowLogger(db)  # 로깅 유틸리티 인스턴스
 
-    def execute(self) -> Dict[str, Any]:
+    async def execute(self) -> Dict[str, Any]:
         """
         워크플로우 전체 실행 (Wrapper)
         execute_stream을 호출하여 실행하고, 최종 결과만 반환합니다.
         """
         if self.is_deployed:
-            return self.execute_deployed()
+            return await self.execute_deployed()
 
         final_context = {}
-        for event in self.execute_stream():
+        async for event in self.execute_stream():
             if event["type"] == "workflow_finish":
                 final_context = event["data"]
             elif event["type"] == "error":
@@ -83,7 +83,7 @@ class WorkflowEngine:
 
         return final_context
 
-    def execute_stream(self):
+    async def execute_stream(self):
         """
         워크플로우를 실행하고 진행 상황을 제너레이터로 반환합니다. (SSE 스트리밍용)
         각 실행 단계마다 이벤트를 yield하여 클라이언트가 실시간으로 상태를 알 수 있게 합니다.
@@ -94,25 +94,40 @@ class WorkflowEngine:
         - workflow_finish: 전체 워크플로우 완료
         - error: 실행 중 오류 발생
         """
-        yield from self._execute_core(stream_mode=True)
+        async for event in self._execute_core(stream_mode=True):
+            yield event
 
-    def execute_deployed(self):
+    async def execute_deployed(self):
         """
         워크플로우 실행 로직
         streaming이 필요 없는 배포된 workflow를 실행할 때 사용합니다.
         """
-        # _execute_core는 제너레이터이므로, 값을 반환받으려면 StopIteration의 value를 가져와야 함
-        gen = self._execute_core(stream_mode=False)
-        try:
-            while True:
-                next(gen)
-        except StopIteration as e:
-            return e.value
+        # _execute_core는 제너레이터이므로, 값을 반환받으려면 StopAsyncIteration의 value를 가져와야 할 수도 있지만
+        # python async generator는 return 값을 가질 수 없음 (Python 3.6+).
+        # 대신 _execute_core 안에서 return 하는 것이 아니라, 마지막에 결과를 반환하도록 구조를 잡아야 함.
+        # 하지만 여기서는 async for 루프를 돌면서 결과를 수집하는 방식으로 구현.
 
-    def _execute_core(self, stream_mode: bool = False):
+        # NOTE: async generator는 return 값을 가질 수 없음. 따라서 예외 처리로 값을 전달하거나,
+        # _execute_core가 마지막에 특정 이벤트를 yield하고 종료하도록 해야 함.
+        # 여기서는 _execute_core가 stream_mode=False일 때도 workflow_finish 이벤트를 주도록 하거나
+        # 별도 로직을 분리해야 함.
+
+        # 리팩토링: _execute_core는 항상 이벤트를 yield하도록 하고, 여기서 처리.
+        final_result = None
+        try:
+            async for event in self._execute_core(stream_mode=False):
+                if event["type"] == "workflow_finish":
+                    final_result = event["data"]
+                # 배포 모드에서는 중간 이벤트 무시 (에러 제외)
+        except Exception as e:
+            raise e
+
+        return final_result
+
+    async def _execute_core(self, stream_mode: bool = False):
         """
         핵심 실행 로직 - 스트리밍/배포 모드 공용
-        [성능 개선] ThreadPoolExecutor를 이용한 병렬 실행
+        [성능 개선] AsyncIO를 이용한 비동기/병렬 실행
         """
         # ============================================================
         # [NEW] 실행 로그 시작
@@ -132,97 +147,100 @@ class WorkflowEngine:
         results = {}
 
         # 병렬 실행 상태 관리
-        # executed_nodes: 실행이 완료된 노드 집합
-        # running_futures: 현재 실행 중인 노드들의 Future 객체 (Future -> node_id)
-        # queued_nodes: 실행 대기 중인 노드 집합 (중복 실행 방지)
         executed_nodes = set()
         queued_nodes = {start_node}
 
-        # Max Workers는 적절히 설정 (CPU 코어 수 or I/O 바운드 고려)
-        max_workers = 10
+        # AsyncIO Task 관리
+        # running_tasks: {Task: node_id}
+        running_tasks = {}
+
+        # Max Workers (AsyncIO Semaphore로 제어)
+        max_concurrent_tasks = 10
+        semaphore = asyncio.Semaphore(max_concurrent_tasks)
+        loop = asyncio.get_running_loop()
 
         try:
             # 1. 워크플로우 시작 이벤트 (스트림 모드만)
             if stream_mode:
                 yield {"type": "workflow_start", "data": {}}
 
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=max_workers
-            ) as executor:
-                running_futures = {}  # {future: node_id}
+            # 초기 시작 노드 실행 태스크 생성
+            await self._submit_node(
+                start_node, results, running_tasks, stream_mode, loop, semaphore
+            )
 
-                # 초기 시작 노드 제출
-                self._submit_node(
-                    start_node, results, executor, running_futures, stream_mode
+            while running_tasks:
+                # 완료된 작업 대기 (하나라도 완료되면 리턴)
+                # asyncio.wait는 (done, pending) 튜플 반환
+                done, _ = await asyncio.wait(
+                    running_tasks.keys(),
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
 
-                while running_futures:
-                    # 완료된 작업 대기 (하나라도 완료되면 리턴)
-                    done, _ = concurrent.futures.wait(
-                        running_futures.keys(),
-                        return_when=concurrent.futures.FIRST_COMPLETED,
-                    )
+                for task in done:
+                    node_id = running_tasks.pop(task)
+                    executed_nodes.add(node_id)
 
-                    for future in done:
-                        node_id = running_futures.pop(future)
-                        executed_nodes.add(node_id)
+                    try:
+                        # 실행 결과 가져오기 (예외 발생 시 여기서 raise됨)
+                        result_data = task.result()
+                        node_result = result_data["result"]
 
-                        try:
-                            # 실행 결과 가져오기 (예외 발생 시 여기서 raise됨)
-                            result_data = future.result()
-                            node_result = result_data["result"]
+                        # 결과 저장
+                        results[node_id] = node_result
 
-                            # 결과 저장 (Thread-safe in Main Thread)
-                            results[node_id] = node_result
+                        # 스트리밍 이벤트 전달
+                        if stream_mode:
+                            for event in result_data["events"]:
+                                yield event
 
-                            # 스트리밍 이벤트 전달 (Main Thread에서 yield)
-                            if stream_mode:
-                                yield from result_data["events"]
+                    except Exception as e:
+                        # 에러 처리
+                        error_msg = str(e)
+                        self.logger.update_run_log_error(error_msg)
 
-                        except Exception as e:
-                            # 에러 처리
-                            error_msg = str(e)
-                            self.logger.update_run_log_error(error_msg)
+                        if stream_mode:
+                            yield {
+                                "type": "error",
+                                "data": {"node_id": node_id, "message": error_msg},
+                            }
 
-                            if stream_mode:
-                                yield {
-                                    "type": "error",
-                                    "data": {"node_id": node_id, "message": error_msg},
-                                }
-                            else:
-                                raise e  # 배포 모드에서는 즉시 중단
-                            return  # 종료
+                        # 실행 중인 모든 태스크 취소
+                        for t in running_tasks:
+                            t.cancel()
 
-                        # 다음 실행할 노드 탐색 및 제출
-                        next_nodes = self._get_next_nodes(node_id, results[node_id])
-                        for next_node_id in next_nodes:
-                            # 아직 실행 안됐고, 큐에 없고, 모든 선행 노드가 완료되었으면 실행
-                            if (
-                                next_node_id not in executed_nodes
-                                and next_node_id not in queued_nodes
-                                and next_node_id not in running_futures.values()
-                                and self._is_ready(next_node_id, results)
-                            ):
-                                queued_nodes.add(next_node_id)
-                                self._submit_node(
-                                    next_node_id,
-                                    results,
-                                    executor,
-                                    running_futures,
-                                    stream_mode,
-                                )
+                        raise e  # 즉시 중단
+
+                    # 다음 실행할 노드 탐색 및 제출
+                    next_nodes = self._get_next_nodes(node_id, results[node_id])
+                    for next_node_id in next_nodes:
+                        # 아직 실행 안됐고, 큐에 없고, 현재 실행 중이지 않으며, 모든 선행 노드가 완료되었으면 실행
+                        if (
+                            next_node_id not in executed_nodes
+                            and next_node_id not in queued_nodes
+                            and next_node_id not in running_tasks.values()
+                            and self._is_ready(next_node_id, results)
+                        ):
+                            queued_nodes.add(next_node_id)
+                            await self._submit_node(
+                                next_node_id,
+                                results,
+                                running_tasks,
+                                stream_mode,
+                                loop,
+                                semaphore,
+                            )
 
             # 4. 워크플로우 종료
             if stream_mode:
-                # 마지막에 실행된 노드 기준으로 Context 생성 (주의: 병렬 실행에서는 '마지막'의 개념이 모호할 수 있음)
-                # 여기서는 전체 결과를 반환하는 것으로 처리
                 final_context = dict(results)
                 self.logger.update_run_log_finish(final_context)
                 yield {"type": "workflow_finish", "data": final_context}
             else:
                 final_result = self._get_answer_node_result(results)
                 self.logger.update_run_log_finish(final_result)
-                return final_result
+                # 배포 모드에서도 결과 전달을 위해 이벤트 사용
+                yield {"type": "workflow_finish", "data": final_result}
 
         except Exception as e:
             if not stream_mode:
@@ -235,35 +253,40 @@ class WorkflowEngine:
         finally:
             self.logger.shutdown()
 
-    def _submit_node(self, node_id, results, executor, running_futures, stream_mode):
+    async def _submit_node(
+        self, node_id, results, running_tasks, stream_mode, loop, semaphore
+    ):
         """
-        개별 노드를 실행하기 위해 Executor에 작업 제출을 도와주는 헬퍼 메서드
+        개별 노드를 실행하기 위해 AsyncIO Task 생성
         """
-
         # node_id 검증
         if node_id not in self.node_instances:
-            # 이는 치명적 오류이므로 즉시 예외 발생 (Future 내에서 처리됨)
             raise ValueError(f"노드 ID '{node_id}'를 찾을 수 없습니다.")
 
         node_instance = self.node_instances[node_id]
         node_schema = self.node_schemas[node_id]
 
-        # 컨텍스트 복사 (스레드 안전성 보장)
-        # 읽기 전용으로 전달하거나 복사해서 전달
+        # 컨텍스트 복사 (스레드 안전성 보장 필요 시)
         inputs = self._get_context(node_id, results)
 
-        # Future 제출
-        future = executor.submit(
-            self._execute_node_task,
-            node_id,
-            node_schema,
-            node_instance,
-            inputs,
-            stream_mode,
-        )
-        running_futures[future] = node_id
+        async def _task_wrapper():
+            async with semaphore:
+                # 동기 노드 실행을 스레드 풀에서 실행하여 이벤트 루프 블로킹 방지
+                return await loop.run_in_executor(
+                    None,
+                    self._execute_node_task_sync,
+                    node_id,
+                    node_schema,
+                    node_instance,
+                    inputs,
+                    stream_mode,
+                )
 
-    def _execute_node_task(
+        # Task 생성 및 등록
+        task = asyncio.create_task(_task_wrapper())
+        running_tasks[task] = node_id
+
+    def _execute_node_task_sync(
         self, node_id, node_schema, node_instance, inputs, stream_mode
     ):
         """
@@ -283,7 +306,7 @@ class WorkflowEngine:
             )
 
         try:
-            # 2. 노드 실행 (핵심)
+            # 2. 노드 실행 (핵심) - 동기 실행
             result = node_instance.execute(inputs)
 
             # 3. 노드 완료 로깅 & 이벤트
@@ -305,7 +328,6 @@ class WorkflowEngine:
         except Exception as e:
             error_msg = str(e)
             self.logger.update_node_log_error(node_id, error_msg)
-            # 에러는 메인 스레드에서 잡아서 처리하도록 re-raise
             raise e
 
     # ================================================================
