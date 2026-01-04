@@ -195,12 +195,30 @@ class LLMService:
                 synced_models.append(model)
             else:
                 # Create new model
-                # Heuristic for type and context (naive)
-                m_type = "chat"
-                if "embedding" in mid: m_type = "embedding"
+                # Model type detection based on model ID
+                mid_lower = mid.lower()
+                m_type = "chat"  # 기본값
+                
+                # Embedding 모델
+                if "embedding" in mid_lower:
+                    m_type = "embedding"
+                # Audio 모델 (TTS, Whisper, Audio)
+                elif "tts" in mid_lower or "whisper" in mid_lower or "audio" in mid_lower:
+                    m_type = "audio"
+                # Image 생성 모델
+                elif "dall-e" in mid_lower or "image" in mid_lower:
+                    m_type = "image"
+                # Realtime 모델
+                elif "realtime" in mid_lower:
+                    m_type = "realtime"
+                # Moderation 모델
+                elif "moderation" in mid_lower:
+                    m_type = "moderation"
+                # Chat 모델 (gpt, o1, o3, claude, gemini 등)
+                # else: 기본값 "chat" 유지
                 
                 # Default context window is unknown for dynamic discovery, set safe default or specific rules
-                ctx = 4096 
+                ctx = 4096
                 if "gpt-4" in mid: ctx = 8192
                 if "128k" in mid or "gpt-4o" in mid: ctx = 128000
                 
