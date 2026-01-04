@@ -53,7 +53,9 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Moduly API", redirect_slashes=False, lifespan=lifespan)
+app = FastAPI(
+    title="Moduly API", strict_slashes=False, redirect_slashes=False, lifespan=lifespan
+)
 
 origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
 origins = origins_str.split(",")
