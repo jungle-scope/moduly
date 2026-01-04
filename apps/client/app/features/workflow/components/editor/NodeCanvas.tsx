@@ -18,6 +18,7 @@ import '@xyflow/react/dist/style.css';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { WorkflowNodeData, Node } from '../../types/Nodes';
 import { nodeTypes as coreNodeTypes } from '../nodes';
+import { PuzzleEdge } from '../nodes/edges/PuzzleEdge';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import NodeDetailsPanel from './NodeDetailsPanel';
@@ -114,6 +115,16 @@ export default function NodeCanvas() {
     }),
     [],
   ) as unknown as NodeTypes;
+
+  const edgeTypes = useMemo(() => ({ puzzle: PuzzleEdge }), []);
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: 'puzzle',
+      style: { strokeWidth: 10, stroke: '#d1d5db' },
+      animated: false,
+    }),
+    [],
+  );
 
   // 워크플로우 전환 시 뷰포트 복원
   const prevActiveWorkflowId = useRef(activeWorkflowId);
@@ -247,6 +258,14 @@ export default function NodeCanvas() {
           onMoveEnd={handleMoveEnd}
           onNodeClick={handleNodeClick}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
+          connectionLineStyle={{
+            strokeWidth: 10,
+            stroke: '#d1d5db',
+            strokeLinecap: 'round',
+            strokeDasharray: '0 20', // 점선 미리보기 (PuzzleEdge와 동일한 스타일)
+          }}
           fitView
           attributionPosition="bottom-right"
           className="bg-gray-50"

@@ -3,7 +3,7 @@ import {
   WebhookTriggerNodeData,
   VariableMapping,
 } from '../../../../types/Nodes';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { Plus, Copy, Trash2 } from 'lucide-react';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { appApi } from '@/app/features/app/api/appApi';

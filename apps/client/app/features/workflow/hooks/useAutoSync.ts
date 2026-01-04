@@ -57,7 +57,7 @@ export const useAutoSync = () => {
             console.warn('⚠️ 저장된 노드가 없어 기본 노드로 자동 복구합니다.');
             data.nodes = DEFAULT_NODES as AppNode[];
           }
-          setWorkflowData(data);
+          setWorkflowData(data, workflowId);
 
           // 저장된 viewport를 React Flow에 적용
           if (data.viewport) {

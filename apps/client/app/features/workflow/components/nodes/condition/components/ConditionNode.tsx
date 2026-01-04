@@ -1,14 +1,22 @@
 import { memo } from 'react';
 import { Handle, Position, Node, NodeProps } from '@xyflow/react';
-import { BaseNode } from '../../BaseNode';
+import { GitFork } from 'lucide-react';
+import { BaseNode, SmartHandle } from '../../BaseNode';
 import { ConditionNodeData } from '../../../../types/Nodes';
 
 export const ConditionNode = memo(
-  ({ data, selected }: NodeProps<Node<ConditionNodeData>>) => {
+  ({ data, selected, id }: NodeProps<Node<ConditionNodeData>>) => {
     const cases = data.cases || [];
 
     return (
-      <BaseNode data={data} selected={selected} showSourceHandle={false}>
+      <BaseNode
+        id={id}
+        data={data}
+        selected={selected}
+        showSourceHandle={false}
+        icon={<GitFork className="text-white" />}
+        iconColor="#f97316" // orange-500
+      >
         <div className="p-4 text-sm text-gray-500 text-center">
           {/* Condition Logic Visualization */}
           <div className="mb-2">
@@ -18,35 +26,36 @@ export const ConditionNode = memo(
           </div>
 
           {/* Output Handles - Flexbox Refactor */}
-          <div className="flex flex-col gap-2 mt-4 z-10 w-[calc(100%+28px)] -mr-7 self-end">
+          {/* 탭 높이(14px)만큼 더 바깥으로 내밀기 위해 너비와 마진 조정 (28px + 14px = 42px) */}
+          <div className="flex flex-col gap-2 mt-4 z-10 w-[calc(100%+42px)] -mr-[42px] self-end">
             {/* Case별 핸들 */}
             {cases.map((caseItem, index) => (
               <div
                 key={caseItem.id}
                 className="flex items-center justify-end h-6 relative z-50"
               >
-                <span className="mr-2 text-xs text-blue-600 font-semibold whitespace-nowrap">
+                <span className="mr-3 text-xs text-blue-600 font-semibold whitespace-nowrap">
                   {caseItem.case_name || `Case ${index + 1}`}
                 </span>
-                <Handle
+                <SmartHandle
                   type="source"
                   position={Position.Right}
                   id={caseItem.id}
-                  className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white !static !transform-none"
+                  className="!static !transform-none" // Flex 내부 정렬을 위해 static 사용
                 />
               </div>
             ))}
 
             {/* Else 핸들 - 항상 마지막 */}
             <div className="flex items-center justify-end h-6 relative z-50">
-              <span className="mr-2 text-xs text-gray-500 font-semibold whitespace-nowrap">
+              <span className="mr-3 text-xs text-gray-500 font-semibold whitespace-nowrap">
                 Default
               </span>
-              <Handle
+              <SmartHandle
                 type="source"
                 position={Position.Right}
                 id="default"
-                className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white !static !transform-none"
+                className="!static !transform-none"
               />
             </div>
           </div>

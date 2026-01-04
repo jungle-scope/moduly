@@ -4,7 +4,7 @@ import { Plus, X } from 'lucide-react';
 import { AnswerNodeData, AnswerNodeOutput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 
 interface AnswerNodePanelProps {
   nodeId: string;

@@ -23,5 +23,7 @@ export const nodeTypes = {
   templateNode: TemplateNode,
   workflowNode: WorkflowNode,
   fileExtractionNode: FileExtractionNode,
+  webhookTrigger: WebhookTriggerNode,
+  knowledgeNode: KnowledgeNode,
   // endNode: EndNode,
 };

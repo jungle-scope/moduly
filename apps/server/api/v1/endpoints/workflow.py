@@ -45,12 +45,12 @@ def get_workflow_runs(
     특정 워크플로우의 실행 이력 조회
     """
     skip = (page - 1) * limit
-    
+
     # 워크플로우 접근 권한 체크 (간단히 소유자만)
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
-    
+
     # TODO: 권한 체크 로직 강화 필요 (협업 기능 등)
     # if workflow.created_by != str(current_user.id):
     #     raise HTTPException(status_code=403, detail="Not authorized")
@@ -82,11 +82,12 @@ def get_workflow_run_detail(
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
-    
-    run = db.query(WorkflowRun).filter(
-        WorkflowRun.id == run_id,
-        WorkflowRun.workflow_id == workflow_id
-    ).first()
+
+    run = (
+        db.query(WorkflowRun)
+        .filter(WorkflowRun.id == run_id, WorkflowRun.workflow_id == workflow_id)
+        .first()
+    )
 
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -108,6 +109,7 @@ def get_workflow_stats(
     current_user: User = Depends(get_current_user),
 ):
     import traceback
+
     try:
         from db.models.workflow_run import WorkflowNodeRun, WorkflowRun
         from schemas.log import (
@@ -118,152 +120,202 @@ def get_workflow_stats(
             RunCostStat,
             StatsSummary,
         )
-        
+
         # 1. 권한 체크
         workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        
+
         # 기간 필터 (기본 30일)
         cutoff_date = datetime.now() - timedelta(days=days)
-        
+
         base_query = db.query(WorkflowRun).filter(
             WorkflowRun.workflow_id == workflow_id,
-            WorkflowRun.started_at >= cutoff_date
+            WorkflowRun.started_at >= cutoff_date,
         )
 
         # === 1. Summary Stats ===
         total_runs = base_query.count()
-        success_count = base_query.filter(WorkflowRun.status == 'success').count()
-        
+        success_count = base_query.filter(WorkflowRun.status == "success").count()
+
         # Avg Duration
-        avg_duration = db.query(func.avg(WorkflowRun.duration)).filter(
-            WorkflowRun.workflow_id == workflow_id,
-            WorkflowRun.started_at >= cutoff_date,
-            WorkflowRun.duration.isnot(None)
-        ).scalar() or 0.0
+        avg_duration = (
+            db.query(func.avg(WorkflowRun.duration))
+            .filter(
+                WorkflowRun.workflow_id == workflow_id,
+                WorkflowRun.started_at >= cutoff_date,
+                WorkflowRun.duration.isnot(None),
+            )
+            .scalar()
+            or 0.0
+        )
 
         # Total Cost & Tokens
-        total_cost_res = db.query(
-            func.sum(WorkflowRun.total_cost),
-            func.sum(WorkflowRun.total_tokens)
-        ).filter(
-            WorkflowRun.workflow_id == workflow_id,
-            WorkflowRun.started_at >= cutoff_date
-        ).first()
-        
+        total_cost_res = (
+            db.query(
+                func.sum(WorkflowRun.total_cost), func.sum(WorkflowRun.total_tokens)
+            )
+            .filter(
+                WorkflowRun.workflow_id == workflow_id,
+                WorkflowRun.started_at >= cutoff_date,
+            )
+            .first()
+        )
+
         total_cost = float(total_cost_res[0] or 0.0)
         total_tokens = int(total_cost_res[1] or 0)
 
         summary = StatsSummary(
             totalRuns=total_runs,
-            successRate=round((success_count / total_runs * 100), 1) if total_runs > 0 else 0.0,
+            successRate=round((success_count / total_runs * 100), 1)
+            if total_runs > 0
+            else 0.0,
             avgDuration=round(avg_duration, 2),
             totalCost=round(total_cost, 4),
-            avgTokenPerRun=round(total_tokens / total_runs, 1) if total_runs > 0 else 0.0,
-            avgCostPerRun=round(total_cost / total_runs, 5) if total_runs > 0 else 0.0
+            avgTokenPerRun=round(total_tokens / total_runs, 1)
+            if total_runs > 0
+            else 0.0,
+            avgCostPerRun=round(total_cost / total_runs, 5) if total_runs > 0 else 0.0,
         )
 
         # === 2. Runs Over Time (Extended) ===
         runs_over_time = []
-        daily_stats = db.query(
-            cast(WorkflowRun.started_at, Date).label('date'),
-            func.count(WorkflowRun.id),
-            func.sum(WorkflowRun.total_cost),
-            func.sum(WorkflowRun.total_tokens)
-        ).filter(
-            WorkflowRun.workflow_id == workflow_id,
-            WorkflowRun.started_at >= cutoff_date
-        ).group_by(
-            cast(WorkflowRun.started_at, Date)
-        ).order_by(
-            cast(WorkflowRun.started_at, Date)
-        ).all()
+        daily_stats = (
+            db.query(
+                cast(WorkflowRun.started_at, Date).label("date"),
+                func.count(WorkflowRun.id),
+                func.sum(WorkflowRun.total_cost),
+                func.sum(WorkflowRun.total_tokens),
+            )
+            .filter(
+                WorkflowRun.workflow_id == workflow_id,
+                WorkflowRun.started_at >= cutoff_date,
+            )
+            .group_by(cast(WorkflowRun.started_at, Date))
+            .order_by(cast(WorkflowRun.started_at, Date))
+            .all()
+        )
 
         for row in daily_stats:
-            runs_over_time.append(DailyRunStat(
-                date=str(row[0]), 
-                count=row[1],
-                total_cost=float(row[2] or 0.0),
-                total_tokens=int(row[3] or 0)
-            ))
+            runs_over_time.append(
+                DailyRunStat(
+                    date=str(row[0]),
+                    count=row[1],
+                    total_cost=float(row[2] or 0.0),
+                    total_tokens=int(row[3] or 0),
+                )
+            )
 
         # === 3. Cost Analysis (Min/Max Runs) ===
         # Top 3 Min Cost (Success only, Cost > 0 to avoid boring zeros if wanted, but user asked for min cost. 0 is valid min.)
         # Let's just do Success runs.
         min_cost_runs = []
-        min_runs_query = db.query(WorkflowRun).filter(
-            WorkflowRun.workflow_id == workflow_id,
-            WorkflowRun.status == 'success',
-            WorkflowRun.started_at >= cutoff_date,
-            # WorkflowRun.total_cost > 0 # Optional
-        ).order_by(WorkflowRun.total_cost.asc()).limit(3).all()
-        
+        min_runs_query = (
+            db.query(WorkflowRun)
+            .filter(
+                WorkflowRun.workflow_id == workflow_id,
+                WorkflowRun.status == "success",
+                WorkflowRun.started_at >= cutoff_date,
+                # WorkflowRun.total_cost > 0 # Optional
+            )
+            .order_by(WorkflowRun.total_cost.asc())
+            .limit(3)
+            .all()
+        )
+
         for run in min_runs_query:
-            min_cost_runs.append(RunCostStat(
-                run_id=run.id,
-                started_at=run.started_at,
-                total_tokens=run.total_tokens or 0,
-                total_cost=run.total_cost or 0.0
-            ))
+            min_cost_runs.append(
+                RunCostStat(
+                    run_id=run.id,
+                    started_at=run.started_at,
+                    total_tokens=run.total_tokens or 0,
+                    total_cost=run.total_cost or 0.0,
+                )
+            )
 
         # Top 3 Max Cost
         max_cost_runs = []
-        max_runs_query = db.query(WorkflowRun).filter(
-            WorkflowRun.workflow_id == workflow_id,
-            WorkflowRun.status == 'success',
-            WorkflowRun.started_at >= cutoff_date
-        ).order_by(WorkflowRun.total_cost.desc()).limit(3).all()
+        max_runs_query = (
+            db.query(WorkflowRun)
+            .filter(
+                WorkflowRun.workflow_id == workflow_id,
+                WorkflowRun.status == "success",
+                WorkflowRun.started_at >= cutoff_date,
+            )
+            .order_by(WorkflowRun.total_cost.desc())
+            .limit(3)
+            .all()
+        )
 
         for run in max_runs_query:
-            max_cost_runs.append(RunCostStat(
-                run_id=run.id,
-                started_at=run.started_at,
-                total_tokens=run.total_tokens or 0,
-                total_cost=run.total_cost or 0.0
-            ))
+            max_cost_runs.append(
+                RunCostStat(
+                    run_id=run.id,
+                    started_at=run.started_at,
+                    total_tokens=run.total_tokens or 0,
+                    total_cost=run.total_cost or 0.0,
+                )
+            )
 
         # === 4. Failure Analysis ===
         failure_analysis = []
-        failed_nodes = db.query(
-            WorkflowNodeRun.node_id,
-            WorkflowNodeRun.node_type,
-            WorkflowNodeRun.error_message,
-            func.count(WorkflowNodeRun.id)
-        ).join(WorkflowRun).filter(
-            WorkflowRun.workflow_id == workflow_id,
-            WorkflowNodeRun.status == 'failed',
-            WorkflowRun.started_at >= cutoff_date
-        ).group_by(
-            WorkflowNodeRun.node_id, 
-            WorkflowNodeRun.node_type, 
-            WorkflowNodeRun.error_message
-        ).order_by(func.count(WorkflowNodeRun.id).desc()).limit(5).all()
+        failed_nodes = (
+            db.query(
+                WorkflowNodeRun.node_id,
+                WorkflowNodeRun.node_type,
+                WorkflowNodeRun.error_message,
+                func.count(WorkflowNodeRun.id),
+            )
+            .join(WorkflowRun)
+            .filter(
+                WorkflowRun.workflow_id == workflow_id,
+                WorkflowNodeRun.status == "failed",
+                WorkflowRun.started_at >= cutoff_date,
+            )
+            .group_by(
+                WorkflowNodeRun.node_id,
+                WorkflowNodeRun.node_type,
+                WorkflowNodeRun.error_message,
+            )
+            .order_by(func.count(WorkflowNodeRun.id).desc())
+            .limit(5)
+            .all()
+        )
 
         for row in failed_nodes:
-            failure_analysis.append(FailureStat(
-                node_id=row[0],
-                node_name=f"{row[1]} ({row[0]})",
-                count=row[3],
-                reason=str(row[2])[:50] + "..." if row[2] else "Unknown Error",
-                rate="-" 
-            ))
+            failure_analysis.append(
+                FailureStat(
+                    node_id=row[0],
+                    node_name=f"{row[1]} ({row[0]})",
+                    count=row[3],
+                    reason=str(row[2])[:50] + "..." if row[2] else "Unknown Error",
+                    rate="-",
+                )
+            )
 
         # === 5. Recent Failures ===
         recent_failures = []
-        failed_runs = db.query(WorkflowRun).filter(
-            WorkflowRun.workflow_id == workflow_id,
-            WorkflowRun.status == 'failed'
-        ).order_by(WorkflowRun.started_at.desc()).limit(5).all()
+        failed_runs = (
+            db.query(WorkflowRun)
+            .filter(
+                WorkflowRun.workflow_id == workflow_id, WorkflowRun.status == "failed"
+            )
+            .order_by(WorkflowRun.started_at.desc())
+            .limit(5)
+            .all()
+        )
 
         for run in failed_runs:
-            failed_node = next((n for n in run.node_runs if n.status == 'failed'), None)
-            recent_failures.append(RecentFailure(
-                run_id=str(run.id),
-                failed_at=str(run.started_at), 
-                node_id=failed_node.node_id if failed_node else "Unknown",
-                error_message=run.error_message or (failed_node.error_message if failed_node else "Unknown error")
-            ))
+            failed_node = next((n for n in run.node_runs if n.status == "failed"), None)
+            recent_failures.append(
+                RecentFailure(
+                    run_id=str(run.id),
+                    failed_at=str(run.started_at),
+                    node_id=failed_node.node_id if failed_node else "Unknown",
+                    error_message=run.error_message
+                    or (failed_node.error_message if failed_node else "Unknown error"),
+                )
+            )
 
         return DashboardStatsResponse(
             summary=summary,
@@ -271,12 +323,11 @@ def get_workflow_stats(
             minCostRuns=min_cost_runs,
             maxCostRuns=max_cost_runs,
             failureAnalysis=failure_analysis,
-            recentFailures=recent_failures
+            recentFailures=recent_failures,
         )
     except Exception as e:
         print(f"[ERROR] Stats API Failed:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @router.post("", response_model=WorkflowResponse)
@@ -405,7 +456,7 @@ def get_draft_workflow(
 
 
 @router.post("/{workflow_id}/execute")
-def execute_workflow(
+async def execute_workflow(
     workflow_id: str,
     user_input: dict = {},
     db: Session = Depends(get_db),
@@ -439,12 +490,18 @@ def execute_workflow(
         # WorkflowNode(모듈)가 실행될 때 대상 워크플로우의 그래프 데이터를 DB에서 로드해야 하기 때문입니다.
         # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
         engine = WorkflowEngine(
-            graph, user_input, execution_context={"user_id": str(current_user.id), "workflow_id": workflow_id}, db=db
+            graph,
+            user_input,
+            execution_context={
+                "user_id": str(current_user.id),
+                "workflow_id": workflow_id,
+            },
+            db=db,
         )
         print("user_input", user_input)
 
         # 준비된 엔진을 실행 (시작 노드 탐색 -> Queue 기반 순차 실행 -> 결과 반환)
-        return engine.execute()
+        return await engine.execute()
     except ValueError as e:
         # 노드 검증 실패 등의 입력 오류
         raise HTTPException(status_code=400, detail=str(e))
@@ -537,18 +594,21 @@ async def stream_workflow(
             )
 
         engine = WorkflowEngine(
-            graph, 
-            user_input, 
-            execution_context={"user_id": str(current_user.id), "workflow_id": workflow_id}, 
-            db=db
+            graph,
+            user_input,
+            execution_context={
+                "user_id": str(current_user.id),
+                "workflow_id": workflow_id,
+            },
+            db=db,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
     # 4. 제너레이터 함수 정의 (SSE 포맷팅)
-    def event_generator():
+    async def event_generator():
         try:
-            for event in engine.execute_stream():
+            async for event in engine.execute_stream():
                 # SSE 포맷: "data: {json_content}\n\n"
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:

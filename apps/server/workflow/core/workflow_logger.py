@@ -10,19 +10,19 @@ WorkflowEngine의 실행 이력을 DB에 기록하는 역할을 담당합니다.
 - 메인 실행 루프의 지연(Latency)을 최소화
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-import uuid
 import queue
 import threading
-import time
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
 from db.models.llm import LLMUsageLog
-from db.session import get_db, SessionLocal # SessionLocal 필요
+from db.models.workflow_run import WorkflowNodeRun, WorkflowRun
+from db.session import SessionLocal  # SessionLocal 필요
+
 
 class WorkflowLogger:
     """워크플로우 실행 로깅을 담당하는 유틸리티 클래스 (Async Version)"""
@@ -35,7 +35,7 @@ class WorkflowLogger:
         self.workflow_run_id: Optional[uuid.UUID] = None
         self.log_queue = queue.Queue()
         self.is_active = True
-        
+
         # 백그라운드 워커 스레드 시작
         self.worker_thread = threading.Thread(target=self._log_worker, daemon=True)
         self.worker_thread.start()
@@ -51,20 +51,20 @@ class WorkflowLogger:
         - 큐에 남은 작업을 모두 처리할 때까지 대기
         - 워커 스레드 종료
         """
-        self.log_queue.put(None) # 워커 중지를 위한 센티널(Sentinel)
+        self.log_queue.put(None)  # 워커 중지를 위한 센티널(Sentinel)
         self.worker_thread.join()
 
     def _log_worker(self):
         """백그라운드에서 로그를 DB에 기록하는 워커"""
         # 별도의 DB 세션 생성 (스레드 독립성 보장)
         session = SessionLocal()
-        
+
         try:
             while True:
                 task = self.log_queue.get()
-                if task is None: # 종료 신호
+                if task is None:  # 종료 신호
                     break
-                
+
                 try:
                     self._process_task(session, task)
                 except Exception as e:
@@ -103,7 +103,7 @@ class WorkflowLogger:
         user_id: str,
         user_input: Dict[str, Any],
         is_deployed: bool,
-        execution_context: Dict[str, Any]
+        execution_context: Dict[str, Any],
     ) -> Optional[uuid.UUID]:
         """워크플로우 실행 로그 생성 (Async)"""
         if not workflow_id or not user_id:
@@ -121,7 +121,7 @@ class WorkflowLogger:
             "is_deployed": is_deployed,
             "deployment_id": execution_context.get("deployment_id"),
             "workflow_version": execution_context.get("workflow_version"),
-            "started_at": datetime.now(timezone.utc)
+            "started_at": datetime.now(timezone.utc),
         }
         self.log_queue.put({"type": "create_run", "data": data})
         return run_id
@@ -130,11 +130,11 @@ class WorkflowLogger:
         """워크플로우 실행 완료 로그 업데이트 (Async)"""
         if not self.workflow_run_id:
             return
-        
+
         data = {
             "run_id": self.workflow_run_id,
             "outputs": outputs,
-            "finished_at": datetime.now(timezone.utc)
+            "finished_at": datetime.now(timezone.utc),
         }
         self.log_queue.put({"type": "update_run_finish", "data": data})
 
@@ -142,11 +142,11 @@ class WorkflowLogger:
         """워크플로우 실행 에러 로그 업데이트 (Async)"""
         if not self.workflow_run_id:
             return
-            
+
         data = {
             "run_id": self.workflow_run_id,
             "error_message": error_message,
-            "finished_at": datetime.now(timezone.utc)
+            "finished_at": datetime.now(timezone.utc),
         }
         self.log_queue.put({"type": "update_run_error", "data": data})
 
@@ -160,7 +160,7 @@ class WorkflowLogger:
             "node_id": node_id,
             "node_type": node_type,
             "inputs": inputs,
-            "started_at": datetime.now(timezone.utc)
+            "started_at": datetime.now(timezone.utc),
         }
         self.log_queue.put({"type": "create_node", "data": data})
 
@@ -173,7 +173,7 @@ class WorkflowLogger:
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "outputs": outputs,
-            "finished_at": datetime.now(timezone.utc)
+            "finished_at": datetime.now(timezone.utc),
         }
         self.log_queue.put({"type": "update_node_finish", "data": data})
 
@@ -186,7 +186,7 @@ class WorkflowLogger:
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "error_message": error_message,
-            "finished_at": datetime.now(timezone.utc)
+            "finished_at": datetime.now(timezone.utc),
         }
         self.log_queue.put({"type": "update_node_error", "data": data})
 
@@ -203,36 +203,44 @@ class WorkflowLogger:
             trigger_mode="deployed" if data["is_deployed"] else "manual",
             inputs=data["user_input"],
             started_at=data["started_at"],
-            deployment_id=uuid.UUID(str(data["deployment_id"])) if data["deployment_id"] else None,
-            workflow_version=data["workflow_version"]
+            deployment_id=uuid.UUID(str(data["deployment_id"]))
+            if data["deployment_id"]
+            else None,
+            workflow_version=data["workflow_version"],
         )
         session.add(run_log)
         session.commit()
 
     def _db_update_run_log_finish(self, session: Session, data: Dict[str, Any]):
-        run_log = session.query(WorkflowRun).filter(WorkflowRun.id == data["run_id"]).first()
+        run_log = (
+            session.query(WorkflowRun).filter(WorkflowRun.id == data["run_id"]).first()
+        )
         if run_log:
             run_log.status = "success"
             run_log.outputs = data["outputs"]
             run_log.finished_at = data["finished_at"]
-            
+
             if run_log.started_at:
                 # 타임존 인식 계산
                 if run_log.started_at.tzinfo is None:
-                     # DB가 naive datetime을 반환할 경우 (UTC에서는 발생하지 않아야 함)
-                     pass
-                run_log.duration = (run_log.finished_at - run_log.started_at).total_seconds()
-            
+                    # DB가 naive datetime을 반환할 경우 (UTC에서는 발생하지 않아야 함)
+                    pass
+                run_log.duration = (
+                    run_log.finished_at - run_log.started_at
+                ).total_seconds()
+
             # 비용 및 토큰 집계
             stats = (
                 session.query(
-                    func.sum(LLMUsageLog.prompt_tokens + LLMUsageLog.completion_tokens).label("total_tokens"),
-                    func.sum(LLMUsageLog.total_cost).label("total_cost")
+                    func.sum(
+                        LLMUsageLog.prompt_tokens + LLMUsageLog.completion_tokens
+                    ).label("total_tokens"),
+                    func.sum(LLMUsageLog.total_cost).label("total_cost"),
                 )
                 .filter(LLMUsageLog.workflow_run_id == data["run_id"])
                 .first()
             )
-            
+
             if stats:
                 run_log.total_tokens = stats.total_tokens or 0
                 run_log.total_cost = stats.total_cost or 0.0
@@ -240,14 +248,18 @@ class WorkflowLogger:
             session.commit()
 
     def _db_update_run_log_error(self, session: Session, data: Dict[str, Any]):
-        run_log = session.query(WorkflowRun).filter(WorkflowRun.id == data["run_id"]).first()
+        run_log = (
+            session.query(WorkflowRun).filter(WorkflowRun.id == data["run_id"]).first()
+        )
         if run_log:
             run_log.status = "failed"
             run_log.error_message = data["error_message"]
             run_log.finished_at = data["finished_at"]
-            
+
             if run_log.started_at:
-                run_log.duration = (run_log.finished_at - run_log.started_at).total_seconds()
+                run_log.duration = (
+                    run_log.finished_at - run_log.started_at
+                ).total_seconds()
 
             session.commit()
 
@@ -258,7 +270,7 @@ class WorkflowLogger:
             node_type=data["node_type"],
             status="running",
             inputs=data["inputs"],
-            started_at=data["started_at"]
+            started_at=data["started_at"],
         )
         session.add(node_run)
         session.commit()
@@ -271,7 +283,7 @@ class WorkflowLogger:
             .order_by(WorkflowNodeRun.started_at.desc())
             .first()
         )
-        
+
         if node_run:
             node_run.status = "success"
             outputs = data["outputs"]
@@ -279,7 +291,7 @@ class WorkflowLogger:
                 node_run.outputs = outputs
             else:
                 node_run.outputs = {"result": outputs}
-            
+
             node_run.finished_at = data["finished_at"]
             session.commit()
 
@@ -291,10 +303,9 @@ class WorkflowLogger:
             .order_by(WorkflowNodeRun.started_at.desc())
             .first()
         )
-        
+
         if node_run:
             node_run.status = "failed"
             node_run.error_message = data["error_message"]
             node_run.finished_at = data["finished_at"]
             session.commit()
-
