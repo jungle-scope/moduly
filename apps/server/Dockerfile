@@ -49,10 +49,10 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
 # 헬스 체크 설정
-HEALTHCHECK --interval=30s --timeout=10s --start-period=3s --retries=3 \
+HEALTHCHECK --interval=60s --timeout=10s --start-period=3s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
 EXPOSE 8000
 
 # 실행 명령 (모듈 경로 형식으로 지정)
-CMD ["uvicorn", "apps.server.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "apps.server.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]
