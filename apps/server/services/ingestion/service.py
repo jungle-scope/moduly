@@ -177,73 +177,71 @@ class IngestionOrchestrator:
         """
         미리보기 (DB 저장 없음)
         """
+        # 1. Pipeline Execution
+        processor = IngestionFactory.get_processor(source_type, self.db, self.user_id)
+
+        source_config = {}
+        if source_type == SourceType.FILE:
+            source_config = {"file_path": file_path, "strategy": strategy}
+        elif source_type == SourceType.API:
+            api_config = meta_info.get("api_config", {})
+            source_config = api_config
+        elif source_type == SourceType.DB:
+            base_config = meta_info or {}
+            source_config = {**base_config, **(db_config or {})}
+
+        result = processor.process(source_config)
+
+        # Check for errors from processor
+        if result.metadata and "error" in result.metadata:
+            raise Exception(f"Processor Error: {result.metadata['error']}")
+
+        raw_blocks = result.chunks
+        full_text = "\n".join([b["content"] for b in raw_blocks])
+
+        # 2. Preprocessing (Legacy logic)
+        if remove_urls_emails:
+            full_text = re.sub(
+                r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+                "",
+                full_text,
+            )
+            full_text = re.sub(r"[\w\.-]+@[\w\.-]+", "", full_text)
+        if remove_whitespace:
+            full_text = re.sub(r"[ \t]+", " ", full_text)
+            full_text = re.sub(r"\n{3,}", "\n\n", full_text)
+
+        # 3. Chunking
+        separators = ["\n\n", "\n", ".", " ", ""]
+        if segment_identifier:
+            identifier = segment_identifier.replace("\\n", "\n")
+            if identifier not in separators:
+                separators.insert(0, identifier)
+
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=separators,
+            keep_separator=True,
+        )
+        splits = splitter.split_text(full_text)
+
+        # 4. Return preview format
         try:
-            # 1. Pipeline Execution
-            processor = IngestionFactory.get_processor(
-                source_type, self.db, self.user_id
+            encoding = tiktoken.encoding_for_model(self.ai_model)
+        except Exception:
+            encoding = tiktoken.get_encoding("cl100k_base")
+
+        preview = []
+        for s in splits:
+            preview.append(
+                {
+                    "content": s,
+                    "token_count": len(encoding.encode(s)),
+                    "char_count": len(s),
+                }
             )
-
-            source_config = {}
-            if source_type == SourceType.FILE:
-                source_config = {"file_path": file_path, "strategy": strategy}
-            elif source_type == SourceType.API:
-                api_config = meta_info.get("api_config", {})
-                source_config = api_config
-            elif source_type == SourceType.DB:
-                base_config = meta_info or {}
-                source_config = {**base_config, **(db_config or {})}
-
-            result = processor.process(source_config)
-            raw_blocks = result.chunks
-            full_text = "\n".join([b["content"] for b in raw_blocks])
-
-            # 2. Preprocessing (Legacy logic)
-            if remove_urls_emails:
-                full_text = re.sub(
-                    r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
-                    "",
-                    full_text,
-                )
-                full_text = re.sub(r"[\w\.-]+@[\w\.-]+", "", full_text)
-            if remove_whitespace:
-                full_text = re.sub(r"[ \t]+", " ", full_text)
-                full_text = re.sub(r"\n{3,}", "\n\n", full_text)
-
-            # 3. Chunking
-            separators = ["\n\n", "\n", ".", " ", ""]
-            if segment_identifier:
-                identifier = segment_identifier.replace("\\n", "\n")
-                if identifier not in separators:
-                    separators.insert(0, identifier)
-
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-                separators=separators,
-                keep_separator=True,
-            )
-            splits = splitter.split_text(full_text)
-
-            # 4. Return preview format
-            try:
-                encoding = tiktoken.encoding_for_model(self.ai_model)
-            except:
-                encoding = tiktoken.get_encoding("cl100k_base")
-
-            preview = []
-            for s in splits:
-                preview.append(
-                    {
-                        "content": s,
-                        "token_count": len(encoding.encode(s)),
-                        "char_count": len(s),
-                    }
-                )
-            return preview
-
-        except Exception as e:
-            print(f"Preview failed: {e}")
-            return []
+        return preview
 
     def _build_config(self, doc: Document) -> Dict[str, Any]:
         config = {"document_id": str(doc.id)}
@@ -256,6 +254,9 @@ class IngestionOrchestrator:
             config.update(api_config)
         elif doc.source_type == SourceType.DB:
             config.update(doc.meta_info or {})
+            # Flatten db_config if it exists (DB Processor expects selections at root)
+            if "db_config" in config and isinstance(config["db_config"], dict):
+                config.update(config["db_config"])
         return config
 
     def _refine_chunks(self, raw_blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

@@ -18,11 +18,13 @@ import {
 interface Props {
   onChange: (config: DBConfig) => void;
   onTestConnection: (config: DBConfig) => Promise<boolean>; // 부모 컴포넌트에서 테스트 로직 주입
+  initialConfig?: Partial<DBConfig>; // DB 연결 수정 원래 값 보여주기 용도
 }
 
 export default function DBConnectionForm({
   onChange,
   onTestConnection,
+  initialConfig,
 }: Props) {
   // 상태 관리
   const [loading, setLoading] = useState(false);
@@ -30,21 +32,21 @@ export default function DBConnectionForm({
     'idle',
   );
   const [config, setConfig] = useState<DBConfig>({
-    connectionName: '',
-    type: SUPPORTED_DB_TYPES[0].value,
-    host: '',
-    port: 5432,
-    database: '',
-    username: '',
-    password: '',
+    connectionName: initialConfig?.connectionName || '',
+    type: initialConfig?.type || SUPPORTED_DB_TYPES[0].value,
+    host: initialConfig?.host || '',
+    port: initialConfig?.port || 5432,
+    database: initialConfig?.database || '',
+    username: initialConfig?.username || '',
+    password: '', // 비밀번호는 항상 빈 값으로 시작
     ssh: {
-      enabled: false,
-      host: '',
-      port: 22,
-      username: '',
-      authType: 'password',
-      password: '',
-      privateKey: '',
+      enabled: initialConfig?.ssh?.enabled || false,
+      host: initialConfig?.ssh?.host || '',
+      port: initialConfig?.ssh?.port || 22,
+      username: initialConfig?.ssh?.username || '',
+      authType: initialConfig?.ssh?.authType || 'password',
+      password: '', // SSH 비밀번호도 항상 빈 값
+      privateKey: '', // SSH 키도 항상 빈 값
     },
   });
 
@@ -346,7 +348,7 @@ export default function DBConnectionForm({
           ) : (
             <Server className="w-3 h-3" />
           )}
-          연결 테스트
+          연결
         </button>
       </div>
     </div>

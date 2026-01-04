@@ -1,7 +1,10 @@
+import logging
 from typing import Any, Dict
 
 from services.ingestion.processors.base import BaseProcessor, ProcessingResult
 from services.ingestion.transformers.db_nl_transformer import DbNlTransformer
+
+logger = logging.getLogger(__name__)
 
 # Connector 의존성 (기존 Connector 재사용)
 # 하지만 Connector 로직이 복잡하므로 Service layer를 거치거나 models.connection을 이용해 Connector를 띄워야 함.
@@ -51,16 +54,30 @@ class DbProcessor(BaseProcessor):
             )
 
         # 연결 설정 복호화
-        import json
 
-        from core.security import security_service
+        from utils.encryption import encryption_manager
 
         try:
-            decrypted_config = security_service.decrypt(conn_record.encrypted_config)
-            config_dict = json.loads(decrypted_config)
+            # 개별 필드에서 설정 구성 및 비밀번호 복호화
+            try:
+                password = encryption_manager.decrypt(conn_record.encrypted_password)
+            except Exception:
+                # Decryption 실패 시 원본 값 사용 (개발 환경 등에서 암호화 안 된 경우)
+                logger.warning(
+                    f"Decryption failed for connection {connection_id}, using raw password"
+                )
+                password = conn_record.encrypted_password
+
+            config_dict = {
+                "host": conn_record.host,
+                "port": conn_record.port,
+                "database": conn_record.database,
+                "username": conn_record.username,
+                "password": password,
+            }
         except Exception as e:
             return ProcessingResult(
-                chunks=[], metadata={"error": f"Config decryption failed: {str(e)}"}
+                chunks=[], metadata={"error": f"Config setup failed: {str(e)}"}
             )
 
         # 3. 데이터 패칭 (Schema Info Fetching이 아니라 Data Fetching 메서드가 Connector에 필요)

@@ -13,6 +13,7 @@ from schemas.connector import (
     DBConnectionTestRequest,
     DBConnectionTestResponse,
 )
+from schemas.connector_detail import DBConnectionDetailResponse
 from utils.encryption import encryption_manager
 
 router = APIRouter()
@@ -159,7 +160,46 @@ async def create_connection(
     }
 
 
-# [NEW] 스키마 조회 API 추가
+@router.get("/{connection_id}", response_model=DBConnectionDetailResponse)
+async def get_connection_details(
+    connection_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """
+    **DB 연결 상세 정보 조회 API**
+    저장된 연결 정보(Host, Port 등)를 반환합니다. (비밀번호 제외)
+    """
+    connection = db.query(Connection).filter(Connection.id == connection_id).first()
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if connection.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    ssh_config = None
+    if connection.use_ssh:
+        ssh_config = {
+            "enabled": True,
+            "host": connection.ssh_host,
+            "port": connection.ssh_port,
+            "username": connection.ssh_username,
+            "auth_type": connection.ssh_auth_type,
+            # Passwords/Keys are not returned
+        }
+
+    return DBConnectionDetailResponse(
+        id=str(connection.id),
+        connection_name=connection.name,
+        type=connection.type,
+        host=connection.host,
+        port=connection.port,
+        database=connection.database,
+        username=connection.username,
+        ssh=ssh_config,
+    )
+
+
+# 스키마 조회 API 추가
 @router.get("/{connection_id}/schema")
 async def get_connection_schema(
     connection_id: str,

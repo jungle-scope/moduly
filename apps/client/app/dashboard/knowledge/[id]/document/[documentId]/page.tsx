@@ -7,15 +7,12 @@ import {
   Save,
   AlertTriangle,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  knowledgeApi,
-  DocumentSegment,
-  AnalyzeResponse,
-  DocumentPreviewRequest,
-} from '@/app/features/knowledge/api/knowledgeApi';
+import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
 import { DocumentResponse } from '@/app/features/knowledge/types/Knowledge';
+import { useDocumentProcess } from '@/app/features/knowledge/hooks/useDocumentProcess';
 // Separated Components
 import FileSourceViewer from '@/app/features/knowledge/components/ingestion-views/FileSourceViewer';
 import ApiSourceViewer from '@/app/features/knowledge/components/ingestion-views/ApiSourceViewer';
@@ -23,20 +20,24 @@ import DbSourceViewer from '@/app/features/knowledge/components/ingestion-views/
 import CommonChunkSettings from '@/app/features/knowledge/components/document-settings/CommonChunkSettings';
 import ParsingStrategySettings from '@/app/features/knowledge/components/document-settings/ParsingStrategySettings';
 import ChunkPreviewList from '@/app/features/knowledge/components/preview/ChunkPreviewList';
+import DBConnectionForm from '@/app/features/knowledge/components/create-knowledge-modal/DBConnectionForm';
+import { DBConfig } from '@/app/features/knowledge/types/db';
+import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 
 export default function DocumentSettingsPage() {
   const params = useParams();
   const router = useRouter();
   const kbId = params.id as string;
   const documentId = params.documentId as string;
+
   // 상태 관리
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<string>(''); // 문서 상태
   const [document, setDocument] = useState<DocumentResponse | null>(null);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [selectedDbItems, setSelectedDbItems] = useState<
     Record<string, string[]>
   >({});
+
   // 설정 상태
   const [chunkSize, setChunkSize] = useState<number>(1000);
   const [chunkOverlap, setChunkOverlap] = useState<number>(200);
@@ -46,18 +47,18 @@ export default function DocumentSettingsPage() {
   const [parsingStrategy, setParsingStrategy] = useState<
     'general' | 'llamaparse'
   >('general');
-  const [showCostConfirm, setShowCostConfirm] = useState(false);
-  const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResponse | null>(
-    null,
-  );
-  const [pendingAction, setPendingAction] = useState<'preview' | 'save' | null>(
-    null,
-  );
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [previewSegments, setPreviewSegments] = useState<DocumentSegment[]>([]);
   const [apiOriginalData, setApiOriginalData] = useState<any>(null); // API 원본 데이터 (SessionStorage)
+
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
+
+  // [추가] DB 연결 수정 관련 상태
+  const [connectionId, setConnectionId] = useState<string>('');
+  const [isEditingConnection, setIsEditingConnection] = useState(false);
+  const [formKey, setFormKey] = useState(0); // 폼 강제 리셋용 키
+  const [connectionDetails, setConnectionDetails] = useState<any>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
   // SSE 연결 (Indexing 상태일 때)
   useEffect(() => {
     if (status !== 'indexing' || !documentId) return;
@@ -117,8 +118,19 @@ export default function DocumentSettingsPage() {
               setRemoveWhitespace(targetDoc.meta_info.remove_whitespace);
             }
             // DB 선택값 복원
-            if (targetDoc.meta_info.db_config?.selected_items) {
-              setSelectedDbItems(targetDoc.meta_info.db_config.selected_items);
+            if (targetDoc.meta_info.db_config) {
+              if (targetDoc.meta_info.db_config.selected_items) {
+                setSelectedDbItems(
+                  targetDoc.meta_info.db_config.selected_items,
+                );
+              }
+              if (targetDoc.meta_info.db_config.connection_id) {
+                setConnectionId(targetDoc.meta_info.db_config.connection_id);
+              }
+            }
+            // Fallback for flat structure
+            if (targetDoc.meta_info.connection_id) {
+              setConnectionId(targetDoc.meta_info.connection_id);
             }
           }
         } else {
@@ -156,6 +168,77 @@ export default function DocumentSettingsPage() {
       }
     }
   }, [document]);
+  // useDocumentProcess Hook 사용
+  const {
+    isAnalyzing,
+    isPreviewLoading,
+    showCostConfirm,
+    setShowCostConfirm,
+    analyzeResult,
+    setAnalyzeResult,
+    setPendingAction,
+    previewSegments,
+    handleSaveClick,
+    handlePreviewClick,
+    handleConfirmCost,
+  } = useDocumentProcess({
+    kbId,
+    documentId,
+    document,
+    setStatus,
+    setProgress,
+    settings: {
+      chunkSize,
+      chunkOverlap,
+      segmentIdentifier,
+      removeUrlsEmails,
+      removeWhitespace,
+      parsingStrategy,
+      selectedDbItems,
+    },
+    connectionId: connectionId,
+  });
+
+  // DB 연결 저장 핸들러
+  const handleConnectionRequest = async (config: DBConfig) => {
+    try {
+      const newConn = await connectorApi.createConnector(config);
+      if (newConn.success && newConn.id) {
+        setConnectionId(newConn.id); // ID 업데이트 -> 스키마 새로고침 트리거됨
+        toast.success('DB 연결 정보가 업데이트되었습니다.');
+        setIsEditingConnection(false); // 폼 닫기
+        return true;
+      } else {
+        toast.error(newConn.message || '연결 실패');
+        return false;
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.response?.data?.detail || '오류 발생');
+      return false;
+    }
+  };
+
+  const handleEditConnection = async () => {
+    if (!connectionId) {
+      toast.error('연결 ID가 없습니다.');
+      return;
+    }
+
+    setIsLoadingDetails(true);
+    try {
+      const details = await connectorApi.getConnectionDetails(connectionId);
+      setConnectionDetails(details);
+      setIsEditingConnection(true);
+      setFormKey((prev) => prev + 1);
+    } catch (e: any) {
+      console.error(e);
+      toast.error('연결 정보를 불러오는데 실패했습니다.');
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
   // 상태 폴링
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
@@ -171,6 +254,7 @@ export default function DocumentSettingsPage() {
             params.documentId as string,
           );
           setStatus(doc.status);
+
           if (doc.status === 'waiting_for_approval') {
             clearInterval(intervalId);
             if (doc.meta_info && doc.meta_info.cost_estimate) {
@@ -186,9 +270,11 @@ export default function DocumentSettingsPage() {
             }
             return;
           }
+
           if (doc.status === 'completed' || doc.status === 'failed') {
             clearInterval(intervalId);
           }
+
           if (doc.meta_info) {
             if (typeof doc.meta_info.processing_progress === 'number') {
               setProgress(doc.meta_info.processing_progress);
@@ -200,7 +286,15 @@ export default function DocumentSettingsPage() {
       }, 2000);
     }
     return () => clearInterval(intervalId);
-  }, [status, params.id, params.documentId]);
+  }, [
+    status,
+    params.id,
+    params.documentId,
+    setAnalyzeResult,
+    setPendingAction,
+    setShowCostConfirm,
+  ]);
+
   // 완료 시 자동 이동
   useEffect(() => {
     if (status === 'completed' && progress >= 100) {
@@ -210,135 +304,6 @@ export default function DocumentSettingsPage() {
       return () => clearTimeout(timer);
     }
   }, [status, progress, router, kbId]);
-  // 분석 및 비용 승인 로직
-  const handleAnalyzeAndProceed = async (action: 'preview' | 'save') => {
-    setIsAnalyzing(true);
-    try {
-      const result = await knowledgeApi.analyzeDocument(documentId);
-      setAnalyzeResult(result);
-      if (result.is_cached) {
-        if (action === 'preview') {
-          await executePreview('llamaparse');
-        } else if (action === 'save') {
-          await executeSave('llamaparse');
-        }
-        return;
-      }
-      setPendingAction(action);
-      setShowCostConfirm(true);
-    } catch (error) {
-      console.error(error);
-      toast.error('문서 분석에 실패했습니다.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-  const handleConfirmCost = async () => {
-    setShowCostConfirm(false);
-    if (status === 'waiting_for_approval') {
-      try {
-        setStatus('indexing');
-        await knowledgeApi.confirmDocumentParsing(documentId, 'llamaparse');
-        toast.success('처리를 재개합니다.');
-      } catch (e) {
-        console.error(e);
-        toast.error('처리 재개 실패');
-      }
-      return;
-    }
-    if (!pendingAction) return;
-    if (pendingAction === 'preview') {
-      await executePreview('llamaparse');
-    } else if (pendingAction === 'save') {
-      await executeSave('llamaparse');
-    }
-    setPendingAction(null);
-  };
-  // 저장 및 처리 핸들러
-  const executeSave = async (strategy: 'general' | 'llamaparse') => {
-    if (!document) return;
-    try {
-      const selections = Object.entries(selectedDbItems).map(
-        ([table, cols]) => ({
-          table_name: table,
-          columns: cols,
-        }),
-      );
-      const requestData: DocumentPreviewRequest = {
-        chunk_size: chunkSize,
-        chunk_overlap: chunkOverlap,
-        segment_identifier: segmentIdentifier,
-        remove_urls_emails: removeUrlsEmails,
-        remove_whitespace: removeWhitespace,
-        strategy: strategy,
-        source_type: document?.source_type || 'FILE',
-        db_config: { selections },
-      };
-      await knowledgeApi.processDocument(
-        params.id as string,
-        document.id,
-        requestData,
-      );
-      setStatus('indexing');
-      setProgress(0);
-      toast.success(
-        strategy === 'general'
-          ? '일반 파싱으로 처리를 시작합니다.'
-          : 'LlamaParse로 처리를 시작합니다.',
-      );
-    } catch (error) {
-      console.error('Save failed:', error);
-      toast.error('저장에 실패했습니다.');
-    }
-  };
-  const handleSaveClick = () => {
-    if (parsingStrategy === 'general') {
-      executeSave('general');
-    } else {
-      handleAnalyzeAndProceed('save');
-    }
-  };
-  // 미리보기 실행 핸들러
-  const executePreview = async (strategy: 'general' | 'llamaparse') => {
-    if (!kbId || !documentId) return;
-    setIsPreviewLoading(true);
-    try {
-      const selections = Object.entries(selectedDbItems).map(
-        ([table, cols]) => ({
-          table_name: table,
-          columns: cols,
-        }),
-      );
-      const response = await knowledgeApi.previewDocumentChunking(
-        kbId,
-        documentId,
-        {
-          chunk_size: Number(chunkSize),
-          chunk_overlap: Number(chunkOverlap),
-          segment_identifier: segmentIdentifier,
-          remove_urls_emails: removeUrlsEmails,
-          remove_whitespace: removeWhitespace,
-          strategy: strategy,
-          source_type: document?.source_type || 'FILE',
-          db_config: { selections },
-        },
-      );
-      setPreviewSegments(response.segments);
-      toast.success('청킹 미리보기 완료');
-    } catch (error) {
-      console.error(error);
-      toast.error('미리보기 생성 실패');
-    } finally {
-      setIsPreviewLoading(false);
-    }
-  };
-  const handlePreviewClick = () => {
-    if (parsingStrategy === 'general') {
-      executePreview('general');
-    } else {
-      handleAnalyzeAndProceed('preview');
-    }
-  };
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -352,11 +317,57 @@ export default function DocumentSettingsPage() {
     switch (document.source_type) {
       case 'DB':
         return (
-          <DbSourceViewer
-            connectionId={document.meta_info?.connection_id}
-            selectedDbItems={selectedDbItems}
-            onChange={setSelectedDbItems}
-          />
+          <div className="flex flex-col h-full">
+            {/* DB 연결 수정 섹션 */}
+            <div className="mb-4">
+              {!isEditingConnection ? (
+                <button
+                  onClick={handleEditConnection} // [변경] 직접 토글 대신 핸들러 호출
+                  disabled={isLoadingDetails}
+                  className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 shadow-sm disabled:opacity-50"
+                >
+                  {isLoadingDetails ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
+                      로딩 중...
+                    </>
+                  ) : (
+                    '⚙️ DB 연결 설정 수정'
+                  )}
+                </button>
+              ) : (
+                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      DB 연결 정보 수정
+                    </h4>
+                    <button
+                      onClick={() => {
+                        setIsEditingConnection(false);
+                        setConnectionDetails(null); // 상세 정보 초기화
+                      }}
+                      className="text-gray-500 hover:text-gray-700 text-xs"
+                    >
+                      취소
+                    </button>
+                  </div>
+                  <DBConnectionForm
+                    key={formKey} // 폼 초기화
+                    onChange={() => {}}
+                    onTestConnection={handleConnectionRequest}
+                    initialConfig={connectionDetails}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-h-0">
+              <DbSourceViewer
+                connectionId={connectionId} // 업데이트된 ID 사용
+                selectedDbItems={selectedDbItems}
+                onChange={setSelectedDbItems}
+              />
+            </div>
+          </div>
         );
       case 'API':
         return (
@@ -369,6 +380,7 @@ export default function DocumentSettingsPage() {
         return <FileSourceViewer kbId={kbId} documentId={documentId} />;
     }
   };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -386,7 +398,7 @@ export default function DocumentSettingsPage() {
               {document?.filename || '문서 설정'}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              문서 처리 방식 및 청킹 설정을 조정합니다.
+              소스 처리 방식 및 청킹 설정을 조정합니다.
             </p>
           </div>
         </div>

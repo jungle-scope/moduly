@@ -177,7 +177,7 @@ export const knowledgeApi = {
       `/knowledge/${kbId}/documents/${documentId}/preview`,
       data,
     );
-    console.log('[previewDocumentChunking] ', response.data);
+    // console.log('[previewDocumentChunking] ', response.data);
     return response.data;
   },
 

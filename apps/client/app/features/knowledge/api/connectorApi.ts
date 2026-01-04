@@ -62,4 +62,15 @@ export const connectorApi = {
     const response = await api.get(`/connectors/${connectionId}/schema`);
     return response.data;
   },
+
+  /**
+   * DB 연결 상세 정보 조회 (비밀번호 제외)
+   *
+   * @param connectedId - 연결 ID
+   * @returns 저장된 DB연결 정보
+   */
+  getConnectionDetails: async (connectionId: string): Promise<any> => {
+    const response = await api.get(`/connectors/${connectionId}`);
+    return response.data;
+  },
 };
