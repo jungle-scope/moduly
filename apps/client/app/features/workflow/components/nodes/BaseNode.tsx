@@ -34,7 +34,7 @@ interface BaseNodeProps {
 }
 
 // === SmartHandle Component ===
-const SmartHandle: React.FC<HandleProps & { className?: string }> = ({
+export const SmartHandle: React.FC<HandleProps & { className?: string }> = ({
   className,
   ...props
 }) => {
@@ -333,11 +333,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
             <h3 className="text-lg font-bold text-gray-900 leading-none mb-1">
               {data.title || 'Untitled Node'}
             </h3>
-            {data.description && (
-              <p className="text-xs font-medium text-gray-400 leading-relaxed line-clamp-2">
-                {data.description}
-              </p>
-            )}
+            {/* Description removed per user request for centering title */}
           </div>
         </div>
 

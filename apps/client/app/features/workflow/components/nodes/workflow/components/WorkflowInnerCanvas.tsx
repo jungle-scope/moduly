@@ -15,6 +15,8 @@ import { nodeTypes as coreNodeTypes } from '../../index';
 // 내부 노드용 간단한 노트 컴포넌트 등 필요하면 추가
 // 여기서는 기존 노드를 그대로 쓰되 interaction만 막음
 
+import { PuzzleEdge } from '../../edges/PuzzleEdge';
+
 interface WorkflowInnerCanvasProps {
   nodes: Node[];
   edges: Edge[];
@@ -27,6 +29,24 @@ const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
     [],
   ) as unknown as NodeTypes;
 
+  // 엣지 타입 메모이제이션
+  const edgeTypes = useMemo(() => ({ puzzle: PuzzleEdge }), []);
+
+  // 기본 엣지 스타일 설정 (메인 캔버스와 동일하게)
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: 'puzzle',
+      style: {
+        strokeWidth: 10,
+        stroke: '#d1d5db',
+        strokeLinecap: 'round' as const,
+        strokeDasharray: '0 20',
+      },
+      animated: false,
+    }),
+    [],
+  );
+
   // 읽기 전용 모드 설정
   const defaultViewport = { x: 0, y: 0, zoom: 0.5 }; // 초기 줌 레벨
 
@@ -36,6 +56,8 @@ const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         proOptions={{ hideAttribution: true }}

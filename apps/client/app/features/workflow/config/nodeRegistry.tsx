@@ -10,6 +10,8 @@ import {
   Globe,
   LayoutTemplate,
   Plug,
+  BookOpen,
+  Webhook,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -61,10 +63,10 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'webhook-trigger',
     type: 'webhookTrigger',
-    name: 'Webhook',
+    name: 'Webhook Trigger',
     category: 'trigger',
-    color: 'bg-purple-500',
-    icon: '🔗',
+    color: '#a855f7', // purple-500
+    icon: <Webhook className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '외부 Webhook으로 워크플로우를 시작합니다.',
     defaultData: () => ({
@@ -179,8 +181,8 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'knowledgeNode',
     name: '지식',
     category: 'data',
-    color: 'bg-indigo-500',
-    icon: '📚',
+    color: '#6366f1', // indigo-500
+    icon: <BookOpen className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '지식 베이스를 조회하고 검색합니다.',
     defaultData: () => ({
