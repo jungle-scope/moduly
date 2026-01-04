@@ -96,14 +96,17 @@ type WorkflowState = {
   setEnvVariables: (vars: EnvVariable[]) => void;
   setRuntimeVariables: (vars: RuntimeVariable[]) => void;
   updateNodeData: (nodeId: string, newData: Record<string, unknown>) => void;
-  setWorkflowData: (data: {
-    nodes: Node[];
-    edges: Edge[];
-    viewport: { x: number; y: number; zoom: number };
-    features?: Features;
-    envVariables?: EnvVariable[];
-    runtimeVariables?: RuntimeVariable[];
-  }) => void;
+  setWorkflowData: (
+    data: {
+      nodes: Node[];
+      edges: Edge[];
+      viewport: { x: number; y: number; zoom: number };
+      features?: Features;
+      envVariables?: EnvVariable[];
+      runtimeVariables?: RuntimeVariable[];
+    },
+    workflowId?: string,
+  ) => void;
 };
 
 // Initial data
@@ -224,7 +227,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   notifyDeploymentComplete: () => set({ lastDeployedAt: new Date() }),
 
   restoreVersion: async (version) => {
-    const { activeWorkflowId, exitPreview } = get();
+    const state = get();
+    const { activeWorkflowId } = state;
 
     try {
       // 1. 스냅샷 데이터로 현재 드래프트 업데이트 API 호출
@@ -285,14 +289,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   loadWorkflowsByApp: async (appId: string) => {
     try {
       const workflows = await workflowApi.listWorkflowsByApp(appId);
+      const currentWorkflows = get().workflows;
 
       // Backend 워크플로우를 프론트엔드 포맷으로 변환
-      const formattedWorkflows: Workflow[] = workflows.map((w) => ({
-        id: w.id,
-        appId: w.app_id,
-        nodes: [],
-        edges: [],
-      }));
+      const formattedWorkflows: Workflow[] = workflows.map((w) => {
+        const existing = currentWorkflows.find((cw) => cw.id === w.id);
+        return {
+          id: w.id,
+          appId: w.app_id,
+          nodes: existing?.nodes?.length ? existing.nodes : [],
+          edges: existing?.edges?.length ? existing.edges : [],
+          viewport: existing?.viewport || { x: 0, y: 0, zoom: 1 },
+        };
+      });
 
       set({ workflows: formattedWorkflows });
     } catch (error) {
@@ -363,7 +372,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
   },
 
-  setWorkflowData: (data) => {
+  setWorkflowData: (data: any, workflowId?: string) => {
     set({
       nodes: data.nodes || [],
       edges: data.edges || [],
@@ -371,7 +380,38 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       envVariables: data.envVariables || [],
       runtimeVariables: data.runtimeVariables || [],
     });
-    // Viewport는 ReactFlow 인스턴스에서 처리해야 하므로 여기서는 무시하거나 별도 처리
-    // 하지만 초기 로딩 시 Store에 저장해두면 나중에 사용할 수 있음
+
+    const { activeWorkflowId, workflows } = get();
+    const targetId = workflowId || activeWorkflowId;
+
+    if (targetId) {
+      const exists = workflows.some((w) => w.id === targetId);
+      let updatedWorkflows;
+
+      if (exists) {
+        updatedWorkflows = workflows.map((w) =>
+          w.id === targetId
+            ? {
+                ...w,
+                nodes: data.nodes || [],
+                edges: data.edges || [],
+                ...(data.viewport ? { viewport: data.viewport } : {}),
+              }
+            : w,
+        );
+      } else {
+        updatedWorkflows = [
+          ...workflows,
+          {
+            id: targetId,
+            appId: '',
+            nodes: data.nodes || [],
+            edges: data.edges || [],
+            viewport: data.viewport || { x: 0, y: 0, zoom: 1 },
+          },
+        ];
+      }
+      set({ workflows: updatedWorkflows });
+    }
   },
 }));
