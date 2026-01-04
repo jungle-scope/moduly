@@ -31,7 +31,6 @@ async def lifespan(app: FastAPI):
 
     # 2. Seed Default LLM Providers (Idempotent)
 
-    # [NEW] 로깅 모델 등록
     from db.session import SessionLocal
 
     db = SessionLocal()
