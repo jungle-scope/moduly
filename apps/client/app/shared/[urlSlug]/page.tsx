@@ -42,7 +42,7 @@ export default function SharedWorkflowPage() {
       try {
         setInfoLoading(true);
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/deployments/public/${urlSlug}/info`,
+          `/api/v1/deployments/public/${urlSlug}/info`,
         );
 
         if (!response.ok) {
@@ -89,18 +89,15 @@ export default function SharedWorkflowPage() {
     setResult(null);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/run-public/${urlSlug}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: inputs, // 동적으로 생성된 inputs 객체 전송
-          }),
+      const response = await fetch(`/api/v1/run-public/${urlSlug}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify({
+          inputs: inputs, // 동적으로 생성된 inputs 객체 전송
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(

@@ -59,8 +59,7 @@ export function WebhookTriggerNodePanel({
         const app = await appApi.getApp(appId);
         if (app.url_slug) {
           setUrlSlug(app.url_slug);
-          const baseUrl =
-            process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+          const baseUrl = ''; // 상대 경로 사용 (Next.js proxy 거침)
           const token = app.auth_secret || '[auth-secret]';
           const url = `${baseUrl}/api/v1/hooks/${app.url_slug}?token=${token}`;
           setWebhookUrl(url);

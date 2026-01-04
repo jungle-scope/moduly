@@ -52,7 +52,7 @@ export default function EmbedChatPage() {
       try {
         setLoading(true);
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/deployments/public/${urlSlug}/info`,
+          `/api/v1/deployments/public/${urlSlug}/info`,
         );
 
         if (!response.ok) {
@@ -105,28 +105,25 @@ export default function EmbedChatPage() {
 
     try {
       // 실제 API 호출
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/run-public/${urlSlug}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: deploymentInfo?.input_schema?.variables.reduce(
-              (acc, variable) => {
-                // 첫 번째 input 변수에 사용자 메시지 매핑
-                // TODO: 추후 다중 입력 변수 지원 시 개선 필요
-                if (Object.keys(acc).length === 0) {
-                  acc[variable.name] = currentInput;
-                }
-                return acc;
-              },
-              {} as Record<string, string>,
-            ),
-          }),
+      const response = await fetch(`/api/v1/run-public/${urlSlug}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify({
+          inputs: deploymentInfo?.input_schema?.variables.reduce(
+            (acc, variable) => {
+              // 첫 번째 input 변수에 사용자 메시지 매핑
+              // TODO: 추후 다중 입력 변수 지원 시 개선 필요
+              if (Object.keys(acc).length === 0) {
+                acc[variable.name] = currentInput;
+              }
+              return acc;
+            },
+            {} as Record<string, string>,
+          ),
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`API 호출 실패: ${response.status}`);

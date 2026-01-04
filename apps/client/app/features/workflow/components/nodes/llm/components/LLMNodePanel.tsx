@@ -245,16 +245,13 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     const fetchMyModels = async () => {
       try {
         setLoadingModels(true);
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/llm/my-models`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
+        const res = await fetch(`/api/v1/llm/my-models`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        );
+          credentials: 'include',
+        });
         if (res.ok) {
           const json = await res.json();
           setModelOptions(json);
