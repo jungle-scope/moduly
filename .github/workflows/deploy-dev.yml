@@ -59,7 +59,10 @@ jobs:
     # (ECS에 현재 설정된 json 파일을 가져옵니다)
     - name: Download task definition
       run: |
-        aws ecs describe-task-definition --task-definition moduly-backend-task-def --query taskDefinition > task-definition.json
+        aws ecs describe-task-definition \
+          --task-definition moduly-backend-task-def \
+          --query 'taskDefinition | {family: family, taskRoleArn: taskRoleArn, executionRoleArn: executionRoleArn, networkMode: networkMode, containerDefinitions: containerDefinitions, volumes: volumes, placementConstraints: placementConstraints, requiresCompatibilities: requiresCompatibilities, cpu: cpu, memory: memory}' \
+          > task-definition.json
 
     # 6. [중요] 태스크 정의에 새 이미지 갈아끼우기
     # (다운받은 json 파일 안의 'image' 부분을 방금 빌드한 걸로 바꿉니다)
