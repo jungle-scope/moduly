@@ -16,7 +16,9 @@ router = APIRouter()
 CAPTURE_SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 
-def run_webhook_workflow(deployment_id: str, payload: Dict[str, Any], db: Session):
+async def run_webhook_workflow(
+    deployment_id: str, payload: Dict[str, Any], db: Session
+):
     """
     백그라운드에서 워크플로우를 실행하는 함수
 
@@ -26,6 +28,7 @@ def run_webhook_workflow(deployment_id: str, payload: Dict[str, Any], db: Sessio
         db: DB 세션
     """
     try:
+        print(f"[Webhook Debug] Starting workflow for deployment: {deployment_id}")
         # 배포 정보 조회
         deployment = (
             db.query(WorkflowDeployment)
@@ -34,17 +37,25 @@ def run_webhook_workflow(deployment_id: str, payload: Dict[str, Any], db: Sessio
         )
 
         if not deployment or not deployment.graph_snapshot:
-            print(f"[Webhook Error] Deployment {deployment_id} not found")
+            print(
+                f"[Webhook Error] Deployment {deployment_id} not found or no graph snapshot"
+            )
             return
 
+        print(
+            f"[Webhook Debug] Found deployment. Graph nodes: {len(deployment.graph_snapshot.get('nodes', []))}"
+        )
+
         # 엔진 실행
+        print(f"[Webhook Debug] Initializing engine with payload: {payload}")
         engine = WorkflowEngine(
             graph=deployment.graph_snapshot,
             user_input=payload,  # Webhook Payload를 user_input으로 전달
             is_deployed=True,
         )
 
-        result = engine.execute()
+        print("[Webhook Debug] Executing engine...")
+        result = await engine.execute()
         print(f"[Webhook Success] Workflow executed: {result}")
 
     except Exception as e:
