@@ -415,7 +415,10 @@ export default function EditorHeader() {
         if (startNode?.type === 'webhookTrigger') {
           // Webhook인 경우 __json_payload__를 파싱해서 inputs로 사용
           try {
-            const rawJson = inputs['__json_payload__'];
+            const rawJson =
+              inputs instanceof FormData
+                ? (inputs.get('__json_payload__') as string)
+                : inputs['__json_payload__'];
             inputs = JSON.parse(rawJson);
           } catch (e) {
             console.error('JSON parsing failed:', e);
