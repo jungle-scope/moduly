@@ -6,13 +6,16 @@ import {
   KnowledgeBaseResponse,
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { KnowledgeNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 
 // LLM 노드와 동일한 caret 좌표 계산 헬퍼
-const getCaretCoordinates = (element: HTMLTextAreaElement, position: number) => {
+const getCaretCoordinates = (
+  element: HTMLTextAreaElement,
+  position: number,
+) => {
   const div = document.createElement('div');
   const style = window.getComputedStyle(element);
 
@@ -57,9 +60,9 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
   data,
 }) => {
   const { updateNodeData, nodes, edges } = useWorkflowStore();
-  const [knowledgeBases, setKnowledgeBases] = useState<
-    KnowledgeBaseResponse[]
-  >([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseResponse[]>(
+    [],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState<
@@ -292,7 +295,10 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
                 필수
               </span>
               <span>
-                선택됨: <span className="font-medium text-gray-800">{selectedCount}</span>
+                선택됨:{' '}
+                <span className="font-medium text-gray-800">
+                  {selectedCount}
+                </span>
               </span>
             </span>
             {loading && <span className="text-indigo-600">불러오는 중...</span>}
@@ -307,8 +313,9 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
               const kbDetailLoading = detailLoading[kb.id];
               const kbDetailError = detailError[kb.id];
               const completedDocs =
-                kbDetail?.documents?.filter((doc) => doc.status === 'completed') ||
-                [];
+                kbDetail?.documents?.filter(
+                  (doc) => doc.status === 'completed',
+                ) || [];
               return (
                 <label
                   key={kb.id}
@@ -359,10 +366,14 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
                         <div className="px-3 py-1.5 flex items-center justify-between text-xs text-gray-700 border-b border-gray-100">
                           <span>지식 목록</span>
                           {kbDetailLoading && (
-                            <span className="text-indigo-600">불러오는 중...</span>
+                            <span className="text-indigo-600">
+                              불러오는 중...
+                            </span>
                           )}
                           {kbDetailError && (
-                            <span className="text-red-500">{kbDetailError}</span>
+                            <span className="text-red-500">
+                              {kbDetailError}
+                            </span>
                           )}
                         </div>
                         <div className="max-h-24 overflow-y-auto divide-y divide-gray-100">
@@ -372,7 +383,10 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
                                 key={doc.id || `${kb.id}-doc-${index}`}
                                 className="px-3 py-1.5 text-sm text-gray-900 flex items-center gap-2 min-w-0 w-full"
                               >
-                                <span className="truncate flex-1 min-w-0" title={doc.filename}>
+                                <span
+                                  className="truncate flex-1 min-w-0"
+                                  title={doc.filename}
+                                >
                                   {doc.filename}
                                 </span>
                                 <span className="text-[11px] text-gray-500 whitespace-nowrap">
@@ -439,24 +453,27 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
                 max={1}
                 step={0.01}
                 value={scoreThreshold}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                updateNodeData(nodeId, {
-                  scoreThreshold: Number.isNaN(value) ? undefined : value,
-                });
-              }}
-              className="absolute inset-0 w-full h-6 bg-transparent accent-indigo-600 appearance-none
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  updateNodeData(nodeId, {
+                    scoreThreshold: Number.isNaN(value) ? undefined : value,
+                  });
+                }}
+                className="absolute inset-0 w-full h-6 bg-transparent accent-indigo-600 appearance-none
                 [&::-webkit-slider-runnable-track]:bg-transparent
                 [&::-moz-range-track]:bg-transparent
                 [&::-ms-track]:bg-transparent"
-              style={{ background: 'transparent' }}
-            />
-          </div>
+                style={{ background: 'transparent' }}
+              />
+            </div>
             <span className="text-[11px] text-gray-500">
-              유사도 점수 하한선입니다. 값이 높을수록 더 엄격하게 필터링합니다 (0~1).
+              유사도 점수 하한선입니다. 값이 높을수록 더 엄격하게 필터링합니다
+              (0~1).
             </span>
             <div className="flex items-center justify-between text-[11px] text-gray-500">
-              <span>권장: {recommendedScoreRange[0]} ~ {recommendedScoreRange[1]}</span>
+              <span>
+                권장: {recommendedScoreRange[0]} ~ {recommendedScoreRange[1]}
+              </span>
               <span>현재: {scoreThreshold.toFixed(2)}</span>
             </div>
           </div>
@@ -482,7 +499,8 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
               className="h-9 rounded border border-gray-300 px-3 text-sm focus:border-indigo-500 focus:outline-none"
             />
             <span className="text-[11px] text-gray-500">
-              검색 시 반환할 컨텍스트 개수입니다. 필요한 맥락만 가져오도록 1~20 사이에서 설정하세요 (기본 3).
+              검색 시 반환할 컨텍스트 개수입니다. 필요한 맥락만 가져오도록 1~20
+              사이에서 설정하세요 (기본 3).
             </span>
             <div className="relative h-1.5 rounded-full bg-gray-100 overflow-hidden">
               <div
@@ -498,7 +516,9 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
               />
             </div>
             <div className="flex items-center justify-between text-[11px] text-gray-500">
-              <span>권장: {recommendedTopKRange[0]} ~ {recommendedTopKRange[1]}</span>
+              <span>
+                권장: {recommendedTopKRange[0]} ~ {recommendedTopKRange[1]}
+              </span>
               <span>현재: {topK}</span>
             </div>
           </div>
@@ -528,7 +548,8 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
                   (v.value_selector || []).length < 1),
             ) && (
               <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-800">
-                비어 있는 변수 행이 있습니다. 이름과 값을 입력하거나 행을 삭제하세요.
+                비어 있는 변수 행이 있습니다. 이름과 값을 입력하거나 행을
+                삭제하세요.
               </div>
             )}
 
@@ -602,7 +623,9 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
                       disabled={!selectedNodeId}
                     >
                       <option value="">
-                        {!selectedNodeId ? '먼저 노드를 선택하세요' : '변수 선택'}
+                        {!selectedNodeId
+                          ? '먼저 노드를 선택하세요'
+                          : '변수 선택'}
                       </option>
                       {availableOutputs.map((outKey) => (
                         <option key={outKey} value={outKey}>
@@ -617,7 +640,8 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
 
             {(data.queryVariables || []).length === 0 && (
               <div className="rounded border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-600">
-                필요한 경우 입력 변수와 상위 노드 출력을 연결해 입력 쿼리를 구성하세요.
+                필요한 경우 입력 변수와 상위 노드 출력을 연결해 입력 쿼리를
+                구성하세요.
               </div>
             )}
           </div>
@@ -634,20 +658,25 @@ export const KnowledgeNodePanel: React.FC<KnowledgeNodePanelProps> = ({
           <textarea
             ref={queryInputRef}
             value={data.userQuery || ''}
-            onChange={(e) => updateNodeData(nodeId, { userQuery: e.target.value })}
+            onChange={(e) =>
+              updateNodeData(nodeId, { userQuery: e.target.value })
+            }
             onKeyUp={handleQueryKeyUp}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 100)}
             className="w-full rounded border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none min-h-[80px] resize-y"
             placeholder="질의를 입력하거나 변수로 구성하세요. '{{' 입력 시 변수 목록이 나타납니다."
           />
           <span className="text-[11px] text-gray-500">
-            비어 있으면 검색이 실행되지 않습니다. 필요한 경우 매핑한 변수를 함께 사용하세요.
+            비어 있으면 검색이 실행되지 않습니다. 필요한 경우 매핑한 변수를 함께
+            사용하세요.
           </span>
           {missingVariables.length > 0 && (
             <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-800">
               <div>
                 등록되지 않은 변수:{' '}
-                <strong className="font-bold">{missingVariables.join(', ')}</strong>
+                <strong className="font-bold">
+                  {missingVariables.join(', ')}
+                </strong>
               </div>
               <div className="text-[11px] text-red-700 mt-1">
                 변수 매핑 섹션에서 추가하거나 쿼리에서 제거하세요.
