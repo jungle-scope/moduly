@@ -49,6 +49,21 @@ export const nodeRegistry: NodeDefinition[] = [
       variables: [],
     }),
   },
+  {
+    id: 'webhook-trigger',
+    type: 'webhookTrigger',
+    name: 'Webhook',
+    category: 'trigger',
+    color: 'bg-purple-500',
+    icon: '🔗',
+    implemented: true,
+    description: '외부 Webhook으로 워크플로우를 시작합니다.',
+    defaultData: () => ({
+      title: 'Webhook Trigger',
+      provider: 'custom',
+      variable_mappings: [],
+    }),
+  },
 
   // LLM Category
   {

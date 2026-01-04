@@ -177,6 +177,18 @@ export interface WorkflowNodeData extends NodeData {
 }
 // ============================================================================
 
+// ==================== [WebhookTriggerNode] ==================================
+export interface VariableMapping {
+  variable_name: string;
+  json_path: string;
+}
+
+export interface WebhookTriggerNodeData extends BaseNodeData {
+  provider: 'jira' | 'custom';
+  variable_mappings: VariableMapping[];
+}
+// ============================================================================
+
 // ===================== [KnowledgeNode] =====================================
 export interface KnowledgeBaseRef {
   id: string;
@@ -217,6 +229,10 @@ export type FileExtractionNode = ReactFlowNode<
   FileExtractionNodeData,
   'fileExtractionNode'
 >;
+export type WebhookTriggerNode = ReactFlowNode<
+  WebhookTriggerNodeData,
+  'webhookTrigger'
+>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
@@ -229,6 +245,7 @@ export type AppNode =
   | CodeNode
   | TemplateNode
   | FileExtractionNode
+  | WebhookTriggerNode
   | NoteNode
   | KnowledgeNode
   | WorkflowNode;

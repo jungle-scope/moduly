@@ -7,6 +7,7 @@ import { LLMNode } from './llm/components/LLMNode';
 import { TemplateNode } from './template/components/TemplateNode';
 import { WorkflowNode } from './workflow/components/WorkflowNode';
 import { FileExtractionNode } from './file_extraction/components/FileExtractionNode';
+import { WebhookTriggerNode } from './webhook/components/WebhookTriggerNode';
 import { KnowledgeNode } from './knowledge/components/KnowledgeNode';
 
 // import EndNode from './EndNode';
@@ -22,6 +23,5 @@ export const nodeTypes = {
   templateNode: TemplateNode,
   workflowNode: WorkflowNode,
   fileExtractionNode: FileExtractionNode,
-  knowledgeNode: KnowledgeNode,
   // endNode: EndNode,
 };

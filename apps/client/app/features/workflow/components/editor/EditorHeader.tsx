@@ -335,40 +335,60 @@ export default function EditorHeader() {
     setErrorMsg(null);
 
     // 1. StartNode 찾기
-    const startNode = nodes.find((node) => node.type === 'startNode');
+    const startNode = nodes.find(
+      (node) => node.type === 'startNode' || node.type === 'webhookTrigger',
+    );
     if (!startNode) {
       const errorContent =
-        '시작 노드를 찾을 수 없습니다. 워크플로우에 시작 노드를 추가해주세요.';
+        '시작 노드를 찾을 수 없습니다. 워크플로우에 시작 노드나 웹훅 트리거를 추가해주세요.';
       console.warn('start node가 없습니다.');
       setErrorMsg(errorContent);
       return;
     }
 
     // 2. 유효성 검사
-    const data = startNode.data as StartNodeData;
-    const variables = data.variables || [];
-    for (const variable of variables) {
-      const otherNames = variables
-        .filter((v) => v.id !== variable.id)
-        .map((v) => v.name);
-      let error = validateVariableName(
-        variable.name,
-        variable.label,
-        otherNames,
-      );
-      if (!error) {
-        error = validateVariableSettings(
-          variable.type,
-          variable.options,
-          variable.maxLength,
+    let variables: WorkflowVariable[] = [];
+
+    if (startNode.type === 'startNode') {
+      const data = startNode.data as StartNodeData;
+      variables = data.variables || [];
+      for (const variable of variables) {
+        const otherNames = variables
+          .filter((v) => v.id !== variable.id)
+          .map((v) => v.name);
+        let error = validateVariableName(
+          variable.name,
+          variable.label,
+          otherNames,
         );
+        if (!error) {
+          error = validateVariableSettings(
+            variable.type,
+            variable.options,
+            variable.maxLength,
+          );
+        }
+        if (error) {
+          const errorContent = `유효성 검사 실패: [${
+            variable.label || variable.name
+          }] ${error}`;
+          console.warn(errorContent);
+          setErrorMsg(errorContent);
+          return;
+        }
       }
-      if (error) {
-        const errorContent = `유효성 검사 실패: [${variable.label || variable.name}] ${error}`;
-        console.warn(errorContent);
-        setErrorMsg(errorContent);
-        return;
-      }
+    } else if (startNode.type === 'webhookTrigger') {
+      // Webhook Trigger인 경우 전체 JSON Body를 입력받음
+      variables = [
+        {
+          id: '__json_payload__',
+          name: '__json_payload__',
+          label: 'JSON Payload (Body)',
+          type: 'paragraph',
+          required: true,
+          placeholder: '{"issue": {"key": "TEST-123"}}',
+        },
+      ];
     }
 
     // 3. 변수 저장 후 모달 표시
@@ -387,6 +407,22 @@ export default function EditorHeader() {
       // 워크플로우 실행
       try {
         setIsExecuting(true);
+
+        const startNode = nodes.find(
+          (node) => node.type === 'startNode' || node.type === 'webhookTrigger',
+        );
+
+        if (startNode?.type === 'webhookTrigger') {
+          // Webhook인 경우 __json_payload__를 파싱해서 inputs로 사용
+          try {
+            const rawJson = inputs['__json_payload__'];
+            inputs = JSON.parse(rawJson);
+          } catch (e) {
+            console.error('JSON parsing failed:', e);
+            toast.error('유효하지 않은 JSON 형식입니다.');
+            return;
+          }
+        }
 
         // 1. 초기화: 모든 노드 상태 초기화
         const initialNodes = nodes.map((node) => ({
