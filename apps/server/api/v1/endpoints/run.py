@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.post("/run/{url_slug}")
-def run_workflow(
+async def run_workflow(
     url_slug: str,
     request_body: dict = Body(...),
     authorization: Optional[str] = Header(None),
@@ -30,7 +30,7 @@ def run_workflow(
         auth_token = x_auth_secret
 
     # REST API: 인증 필요
-    return DeploymentService.run_deployment(
+    return await DeploymentService.run_deployment(
         db=db,
         url_slug=url_slug,
         user_inputs=request_body.get("inputs", {}),
@@ -40,7 +40,7 @@ def run_workflow(
 
 
 @router.post("/run-public/{url_slug}")
-def run_workflow_public(
+async def run_workflow_public(
     url_slug: str,
     request_body: dict = Body(...),
     response: Response = None,
@@ -58,7 +58,7 @@ def run_workflow_public(
     response.headers["Access-Control-Allow-Headers"] = "*"
 
     # 웹 앱/임베딩: 공개 접근 (인증 불필요)
-    return DeploymentService.run_deployment(
+    return await DeploymentService.run_deployment(
         db=db,
         url_slug=url_slug,
         user_inputs=request_body.get("inputs", {}),
