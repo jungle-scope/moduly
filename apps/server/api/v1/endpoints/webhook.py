@@ -28,7 +28,6 @@ async def run_webhook_workflow(
         db: DB 세션
     """
     try:
-        print(f"[Webhook Debug] Starting workflow for deployment: {deployment_id}")
         # 배포 정보 조회
         deployment = (
             db.query(WorkflowDeployment)
@@ -37,24 +36,16 @@ async def run_webhook_workflow(
         )
 
         if not deployment or not deployment.graph_snapshot:
-            print(
-                f"[Webhook Error] Deployment {deployment_id} not found or no graph snapshot"
-            )
+            print(f"[Webhook Error] Deployment {deployment_id} not found")
             return
 
-        print(
-            f"[Webhook Debug] Found deployment. Graph nodes: {len(deployment.graph_snapshot.get('nodes', []))}"
-        )
-
         # 엔진 실행
-        print(f"[Webhook Debug] Initializing engine with payload: {payload}")
         engine = WorkflowEngine(
             graph=deployment.graph_snapshot,
             user_input=payload,  # Webhook Payload를 user_input으로 전달
             is_deployed=True,
         )
 
-        print("[Webhook Debug] Executing engine...")
         result = await engine.execute()
         print(f"[Webhook Success] Workflow executed: {result}")
 
