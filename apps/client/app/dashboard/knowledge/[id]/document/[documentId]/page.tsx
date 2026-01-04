@@ -738,7 +738,7 @@ export default function DocumentSettingsPage() {
                 </div>
               ) : (
                 <iframe
-                  src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/knowledge/${kbId}/documents/${documentId}/content`}
+                  src={`/api/v1/knowledge/${kbId}/documents/${documentId}/content`}
                   className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800"
                   title="Original Document Preview"
                 />

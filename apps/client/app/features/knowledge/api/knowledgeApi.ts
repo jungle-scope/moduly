@@ -48,7 +48,7 @@ export type {
   KnowledgeBaseDetailResponse,
 };
 
-const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`;
+const API_BASE_URL = '/api/v1';
 
 // Axios 인스턴스 생성 (withCredentials 설정)
 const api = axios.create({
