@@ -8,7 +8,7 @@ import {
   StartNodeData,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 
 interface ConditionNodePanelProps {
   nodeId: string;

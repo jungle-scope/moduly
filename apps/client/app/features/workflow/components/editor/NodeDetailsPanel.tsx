@@ -8,7 +8,7 @@ interface NodeDetailsPanelProps {
   onClose: () => void;
   children: React.ReactNode;
   header?: {
-    icon?: string;
+    icon?: React.ReactNode | string;
     title?: string;
     description?: string;
   };
@@ -175,7 +175,8 @@ export default function NodeDetailsPanel({
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="flex items-center gap-3 flex-1">
           <div
-            className={`flex items-center justify-center w-8 h-8 min-w-[32px] rounded text-white font-bold text-sm ${nodeDef?.color || 'bg-gray-500'}`}
+            className="flex items-center justify-center w-8 h-8 min-w-[32px] rounded text-white font-bold text-sm"
+            style={{ backgroundColor: nodeDef?.color || '#6b7280' }}
           >
             {nodeDef?.icon || '📦'}
           </div>

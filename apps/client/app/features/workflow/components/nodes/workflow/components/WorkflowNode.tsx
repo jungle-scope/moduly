@@ -1,9 +1,9 @@
 import { memo, useState, useCallback, useMemo } from 'react';
 import { WorkflowInnerCanvas } from './WorkflowInnerCanvas';
-import { NodeProps, Handle, Position } from '@xyflow/react';
+import { NodeProps } from '@xyflow/react';
 import { WorkflowNode as WorkflowNodeType } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Puzzle } from 'lucide-react';
 import { workflowApi } from '../../../../api/workflowApi';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { toast } from 'sonner';
@@ -15,9 +15,6 @@ export const WorkflowNode = memo(
   ({ id, data, selected }: NodeProps<WorkflowNodeType>) => {
     const { updateNodeData } = useWorkflowStore();
     const [isLoading, setIsLoading] = useState(false);
-
-    // BaseNode 헤더에 설명이 중복 표시되지 않도록 description을 제외하고 전달
-    const baseNodeData = { ...data, description: undefined };
 
     const isExpanded = data.expanded || false;
 
@@ -174,87 +171,55 @@ export const WorkflowNode = memo(
 
     return (
       <BaseNode
-        data={baseNodeData}
+        id={id}
+        data={data}
         selected={selected}
-        className="border-purple-500 bg-purple-50/50 dark:bg-purple-900/10 transition-all duration-300 relative"
-        showSourceHandle={false}
-        showTargetHandle={false}
+        className="transition-all duration-300 relative"
+        showSourceHandle={true}
+        showTargetHandle={true}
+        icon={<Puzzle className="text-white" />}
+        iconColor="#14b8a6" // teal-500
       >
-        {/* 헤더 영역에 고정된 커스텀 핸들 */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white !top-[24px]"
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          className="!w-2.5 !h-2.5 !bg-blue-500 !border-2 !border-white !top-[24px]"
-        />
+        {/* 토글 버튼: 우측 상단 절대 위치 */}
+        <button
+          onClick={handleToggle}
+          className="absolute top-5 right-5 p-1 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+          title={isExpanded ? '접기' : '펼치기'}
+        >
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : isExpanded ? (
+            <ChevronDown className="w-4 h-4" />
+          ) : (
+            <ChevronRight className="w-4 h-4" />
+          )}
+        </button>
 
-        <div className="flex flex-col w-full">
-          {/* Header Content */}
-          <div className="flex items-center gap-3 py-1 relative">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-              {data.icon ? (
-                <span className="text-xl">{data.icon}</span>
+        {/* 확장된 콘텐츠: 시각적 그래프 */}
+        {isExpanded && (
+          <div className="mt-2 pt-2 border-t border-gray-100 animate-in slide-in-from-top-1 fade-in duration-200">
+            <div
+              className="nodrag bg-gray-50 rounded-lg overflow-hidden relative border border-gray-200"
+              style={{
+                width: containerSize.width,
+                height: containerSize.height,
+              }}
+              onMouseDown={(e) => e.stopPropagation()} // 이벤트 전파 방지
+              onClick={(e) => e.stopPropagation()}
+            >
+              {filteredNodes.length > 0 ? (
+                <WorkflowInnerCanvas
+                  nodes={filteredNodes}
+                  edges={filteredEdges}
+                />
               ) : (
-                <div className="h-full w-full rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600" />
+                <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                  표시할 노드가 없습니다.
+                </div>
               )}
             </div>
-            <div className="flex flex-col flex-1 min-w-0 pr-6">
-              <div className="flex items-center justify-between">
-                {/* 요청에 따라 버전 정보 제거됨 */}
-              </div>
-              {/* 토글 버튼: 우측 상단 절대 위치 */}
-              <button
-                onClick={handleToggle}
-                className="absolute top-0 right-0 p-1 rounded-md hover:bg-purple-100 dark:hover:bg-purple-800/30 text-purple-600 transition-colors"
-                title={isExpanded ? '접기' : '펼치기'}
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : isExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </button>
-              <span
-                className="text-xs text-muted-foreground truncate"
-                title={data.description}
-              >
-                {data.description || '설명 없음'}
-              </span>
-            </div>
           </div>
-
-          {/* 확장된 콘텐츠: 시각적 그래프 */}
-          {isExpanded && (
-            <div className="mt-2 pt-2 border-t border-purple-200/50 dark:border-purple-800/30 animate-in slide-in-from-top-1 fade-in duration-200">
-              <div
-                className="nodrag bg-gray-100/50 rounded-lg overflow-hidden relative border border-gray-200"
-                style={{
-                  width: containerSize.width,
-                  height: containerSize.height,
-                }}
-                onMouseDown={(e) => e.stopPropagation()} // 이벤트 전파 방지
-                onClick={(e) => e.stopPropagation()}
-              >
-                {filteredNodes.length > 0 ? (
-                  <WorkflowInnerCanvas
-                    nodes={filteredNodes}
-                    edges={filteredEdges}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                    표시할 노드가 없습니다.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </BaseNode>
     );
   },

@@ -66,15 +66,17 @@ export const workflowApi = {
       isFormData ? 'FormData (파일 포함)' : JSON.stringify(userInput || {}),
     );
 
-    const response = await fetch(
-      `${API_BASE_URL}/workflows/${workflowId}/stream`,
-      {
-        method: 'POST',
-        headers: isFormData ? {} : { 'Content-Type': 'application/json' },
-        credentials: 'include', // 쿠키 인증 포함
-        body: isFormData ? userInput : JSON.stringify(userInput || {}),
-      },
-    );
+    // [FIX] fetch는 상대 경로 사용 시 일부 환경(Node 등)에서 프로토콜 누락 에러가 발생할 수 있음
+    // 브라우저에서도 명시적으로 Origin을 붙여주는 것이 안전함
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const fetchUrl = `${baseUrl}${API_BASE_URL}/workflows/${workflowId}/stream`;
+
+    const response = await fetch(fetchUrl, {
+      method: 'POST',
+      headers: isFormData ? {} : { 'Content-Type': 'application/json' },
+      credentials: 'include', // 쿠키 인증 포함
+      body: isFormData ? userInput : JSON.stringify(userInput || {}),
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

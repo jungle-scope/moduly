@@ -5,7 +5,7 @@ import { LLMNodeData } from '../../../../types/Nodes';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { Plus, Trash2 } from 'lucide-react';
 
 // Backend Response Type matches LLMModelResponse
