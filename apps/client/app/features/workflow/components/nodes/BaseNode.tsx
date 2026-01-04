@@ -38,37 +38,21 @@ const SmartHandle: React.FC<HandleProps & { className?: string }> = ({
   className,
   ...props
 }) => {
-  const nodeId = useNodeId();
-  const connections = useHandleConnections({
-    type: props.type,
-    id: props.id,
-    nodeId: nodeId || undefined,
-  });
-
-  const isConnected = connections.length > 0;
-
   return (
     <Handle
       {...props}
       className={cn(
-        // 기본 스타일
-        '!w-4 !h-4 !bg-white !border-2 !border-gray-300 !rounded-full transition-all duration-300 z-50 flex items-center justify-center',
-        // 가시성 제어
-        isConnected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
-        // 호버 효과
-        'hover:!w-6 hover:!h-6 hover:!bg-blue-500 hover:!border-0 hover:scale-110',
+        // 히트 영역은 투명하게 유지하되, 드래그하기 쉽도록 크기 확보
+        '!w-6 !h-6 !bg-transparent !border-0 rounded-full z-50 flex items-center justify-center',
         className,
       )}
     >
-      <Plus
-        className="w-3.5 h-3.5 text-white opacity-0 hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-        strokeWidth={3}
-      />
-      <style jsx>{`
-        .react-flow__handle:hover svg {
-          opacity: 1 !important;
-        }
-      `}</style>
+      {/* 
+         시각적 가이드: 
+         노드에 마우스를 올렸을(group-hover) 때만 중앙에 작은 파란색 점이 나타납니다.
+         이것이 '연결 가능한 지점'임을 암시(Hint)합니다. 
+      */}
+      <div className="w-3 h-3 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-visible duration-300 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
     </Handle>
   );
 };
@@ -105,8 +89,8 @@ const JigsawBackground = ({
 }) => {
   // Path Constants
   const r = 16; // Corner radius (rounded-2xl ~ 16px)
-  const tabSize = 34; // 탭 너비 (24 -> 34: 더 넓게)
-  const tabHeight = 14; // 탭 높이 (8 -> 14: 더 튀어나오게)
+  const tabSize = 34; // 탭 너비 (24 -> 34 -> 24: 유저 요청으로 축소)
+  const tabHeight = 14; // 탭 높이 (8 -> 14 -> 12: 유저 요청으로 축소)
 
   // Draw Path Function
   const d = useMemo(() => {
@@ -230,6 +214,15 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
   // Resize Observer
   useEffect(() => {
     if (!ref.current) return;
+
+    // Initial measurement to prevent invisible node on first render
+    if (ref.current.offsetWidth > 0 || ref.current.offsetHeight > 0) {
+      setDimensions({
+        width: ref.current.offsetWidth,
+        height: ref.current.offsetHeight,
+      });
+    }
+
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
@@ -238,12 +231,12 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
             height: entry.borderBoxSize[0].blockSize,
           });
         } else {
-          // Fallback for older browsers
+          // Fallback for older browsers or edge cases
           setDimensions({
-            width: (entry.contentRect.width || 0) + 40, // content + padding(20*2) approx (unsafe)
-            height: (entry.contentRect.height || 0) + 40,
+            width: (entry.contentRect.width || 0) + 56, // p-7 * 2 = 56
+            height: (entry.contentRect.height || 0) + 56,
           });
-          // Better fallback: just read offsetWidth
+          // Check offsetWidth as final fallback
           if (ref.current) {
             setDimensions({
               width: ref.current.offsetWidth,
@@ -267,14 +260,14 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
 
     if (puzzleType === 'start') {
       left = 'flat';
-      right = 'blank';
+      right = 'tab'; // 돌출형으로 변경
     } else if (puzzleType === 'end') {
-      left = 'blank';
+      left = 'tab'; // 돌출형으로 변경
       right = 'flat';
     } else {
-      // middle: West(In)=Blank, East(In)=Blank
-      left = 'blank';
-      right = 'blank';
+      // middle: West(In)=Tab, East(In)=Tab
+      left = 'tab'; // 돌출형으로 변경
+      right = 'tab'; // 돌출형으로 변경
     }
 
     return { top, right, bottom, left };
@@ -282,17 +275,17 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
 
   const getHandleStyle = (side: 'left' | 'right') => {
     const shape = side === 'left' ? shapes.left : shapes.right;
-    const offset = 14; // tabHeight (8 -> 14)
-    const baseMargin = -8; // -ml-2 equivalent
+    const tabHeight = 14; // 돌출된 탭의 길이
 
+    // 돌출형 탭의 끝부분(Tip)에 핸들이 위치하도록 오프셋 조정
+    // React Flow 핸들은 기본적으로 노드 경계선(0위치)에 있으므로,
+    // 바깥쪽으로 tabHeight만큼 밀어냅니다.
     if (side === 'left') {
-      if (shape === 'tab') return { marginLeft: `${baseMargin - offset}px` };
-      if (shape === 'blank') return { marginLeft: `${baseMargin + offset}px` };
-      return {};
+      if (shape === 'tab') return { left: `-${tabHeight}px` };
+      return {}; // 기본 위치
     } else {
-      if (shape === 'tab') return { marginRight: `${baseMargin - offset}px` };
-      if (shape === 'blank') return { marginRight: `${baseMargin + offset}px` };
-      return {};
+      if (shape === 'tab') return { right: `-${tabHeight}px` };
+      return {}; // 기본 위치
     }
   };
 

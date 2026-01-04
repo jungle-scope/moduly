@@ -8,7 +8,7 @@ import {
 import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 
 interface WorkflowNodePanelProps {
   nodeId: string;

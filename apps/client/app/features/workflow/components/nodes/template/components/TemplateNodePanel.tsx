@@ -4,7 +4,7 @@ import { TemplateNodeData, TemplateVariable } from '../../../../types/Nodes';
 import { toast } from 'sonner';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { Plus } from 'lucide-react';
 
 interface TemplateNodePanelProps {

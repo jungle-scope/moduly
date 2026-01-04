@@ -11,7 +11,7 @@ import {
   LayoutIcon,
   FullscreenIcon,
   ChevronDownIcon,
-} from '../icons';
+} from '../nodes/icons';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   getNodesByCategory,
