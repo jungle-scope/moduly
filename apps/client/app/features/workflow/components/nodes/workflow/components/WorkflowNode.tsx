@@ -171,6 +171,7 @@ export const WorkflowNode = memo(
 
     return (
       <BaseNode
+        id={id}
         data={data}
         selected={selected}
         className="transition-all duration-300 relative"

@@ -10,11 +10,13 @@ interface TemplateNodeProps {
 }
 
 export const TemplateNode: React.FC<TemplateNodeProps> = ({
+  id,
   data,
   selected,
 }) => {
   return (
     <BaseNode
+      id={id}
       data={data}
       selected={selected}
       icon={<LayoutTemplate className="text-white" />}

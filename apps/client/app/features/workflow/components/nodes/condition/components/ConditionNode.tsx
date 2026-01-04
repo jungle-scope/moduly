@@ -5,11 +5,12 @@ import { BaseNode } from '../../BaseNode';
 import { ConditionNodeData } from '../../../../types/Nodes';
 
 export const ConditionNode = memo(
-  ({ data, selected }: NodeProps<Node<ConditionNodeData>>) => {
+  ({ data, selected, id }: NodeProps<Node<ConditionNodeData>>) => {
     const cases = data.cases || [];
 
     return (
       <BaseNode
+        id={id}
         data={data}
         selected={selected}
         showSourceHandle={false}

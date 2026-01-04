@@ -10,11 +10,13 @@ interface FileExtractionNodeProps {
 }
 
 export const FileExtractionNode: React.FC<FileExtractionNodeProps> = ({
+  id,
   data,
   selected,
 }) => {
   return (
     <BaseNode
+      id={id}
       data={data}
       selected={selected}
       icon={<FileText className="text-white" />}

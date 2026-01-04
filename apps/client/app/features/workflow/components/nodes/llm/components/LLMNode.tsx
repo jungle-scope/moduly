@@ -7,9 +7,10 @@ import { LLMNodeData } from '../../../../types/Nodes';
 
 // NOTE: [LLM] LLM 노드 박스 UI (BaseNode를 사용해 일관된 껍데기 유지)
 export const LLMNode = memo(
-  ({ data, selected }: NodeProps<Node<LLMNodeData>>) => {
+  ({ data, selected, id }: NodeProps<Node<LLMNodeData>>) => {
     return (
       <BaseNode
+        id={id}
         data={data}
         selected={selected}
         icon={<Bot className="text-white" />}

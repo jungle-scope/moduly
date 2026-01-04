@@ -7,13 +7,15 @@ import { BaseNode } from '../../BaseNode';
 import { MessageSquare } from 'lucide-react';
 
 export const AnswerNode = memo(
-  ({ data, selected }: NodeProps<Node<AnswerNodeData>>) => {
+  ({ data, selected, id }: NodeProps<Node<AnswerNodeData>>) => {
     const { nodes } = useWorkflowStore();
 
     return (
       <BaseNode
+        id={id}
         data={data}
         selected={selected}
+        puzzleType="end"
         showSourceHandle={false}
         icon={<MessageSquare className="text-white" />}
         iconColor="#10b981" // green-500

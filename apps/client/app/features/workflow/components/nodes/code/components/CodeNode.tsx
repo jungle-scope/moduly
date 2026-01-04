@@ -5,9 +5,10 @@ import { CodeNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 
 export const CodeNode = memo(
-  ({ data, selected }: NodeProps<Node<CodeNodeData>>) => {
+  ({ data, selected, id }: NodeProps<Node<CodeNodeData>>) => {
     return (
       <BaseNode
+        id={id}
         data={data}
         selected={selected}
         icon={<Code className="text-white" />}
