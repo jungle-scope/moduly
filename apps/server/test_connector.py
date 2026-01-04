@@ -11,7 +11,7 @@ db_config = {
     "port": "6543",
     "database": "postgres",
     "user": "postgres.gtumhvionhewnnjzftdx",
-    "password": os.getenv("DB_PASSWORD"),
+    "password": os.getenv("EXTERNAL_DB_PASSWORD"),
 }
 
 connector = PostgresConnector()

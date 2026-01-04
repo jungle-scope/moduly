@@ -15,6 +15,9 @@ export interface DocumentPreviewRequest {
   remove_whitespace?: boolean;
   source_type: 'FILE' | 'API' | 'DB';
   strategy?: 'general' | 'llamaparse';
+  db_config?: {
+    selections: { table_name: string; columns: string[] }[];
+  } | null;
 }
 
 export interface DocumentSegment {

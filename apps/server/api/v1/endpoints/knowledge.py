@@ -21,7 +21,7 @@ from schemas.rag import (
     KnowledgeBaseResponse,
     KnowledgeUpdate,
 )
-from services.ingestion_local_service import IngestionService
+from services.ingestion.service import IngestionOrchestrator as IngestionService
 
 router = APIRouter()
 
@@ -306,6 +306,7 @@ async def process_document(
             "segment_identifier": request.segment_identifier,
             "remove_urls_emails": request.remove_urls_emails,
             "remove_whitespace": request.remove_whitespace,
+            "db_config": request.db_config,
         }
     )
     doc.meta_info = new_meta
@@ -326,10 +327,8 @@ async def process_document(
     )
 
     background_tasks.add_task(
-        ingestion_service.process_document_background,
+        ingestion_service.process_document,
         document_id,
-        kb_id,
-        doc.file_path,
     )
 
     return {"status": "processing", "message": "Document processing started"}
@@ -377,6 +376,7 @@ def preview_document_chunking(
             strategy=request.strategy,
             source_type=request.source_type,
             meta_info=doc.meta_info,
+            db_config=request.db_config,
         )
     except Exception as e:
         import traceback
@@ -428,24 +428,15 @@ async def sync_document(
     # 2. 백그라운드 작업 시작
     ingestion_service = IngestionService(
         db,
+        user_id=current_user.id,
         chunk_size=doc.chunk_size,
         chunk_overlap=doc.chunk_overlap,
         ai_model=doc.knowledge_base.embedding_model,
     )
 
-    # process_document_background는 file_path를 인자로 받지만,
-    # 내부적으로 doc_id로 다시 조회하여 source_type이 API면 file_path를 무시하거나 설정값 사용함.
-    # API 소스인 경우 file_path는 None일 수 있음. 처리 로직에서 확인 필요.
-    # IngestionService.process_document_background: file_path argument exists.
-    # We pass doc.file_path (which might be None or url).
-
-    file_path = doc.file_path or ""
-
     background_tasks.add_task(
-        ingestion_service.process_document_background,
+        ingestion_service.process_document,
         document_id,
-        kb_id,
-        file_path,
     )
 
     return {"status": "processing", "message": "Document sync started"}

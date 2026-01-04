@@ -1,0 +1,67 @@
+from typing import Any, Dict
+
+import requests
+
+from services.ingestion.parsers.json_parser import JsonParser
+from services.ingestion.processors.base import BaseProcessor, ProcessingResult
+
+
+class ApiProcessor(BaseProcessor):
+    """
+    [ApiProcessor]
+    HTTP API를 호출하여 데이터를 가져오고 텍스트를 추출합니다.
+    """
+
+    def process(self, source_config: Dict[str, Any]) -> ProcessingResult:
+        """
+        source_config: {
+            "url": "http://...",
+            "method": "GET",
+            "headers": {...},
+            "body": {...}
+        }
+        """
+        url = source_config.get("url")
+        method = source_config.get("method", "GET")
+        headers = source_config.get("headers", {})
+        body = source_config.get("body")
+
+        if not url:
+            return ProcessingResult(chunks=[], metadata={"error": "No URL provided"})
+
+        try:
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                json=body if method != "GET" else None,
+                timeout=30,
+            )
+            response.raise_for_status()
+
+            parser = JsonParser()
+            try:
+                json_data = response.json()
+                # 객체 직접 전달
+                parsed_blocks = parser.parse("", json_object=json_data)
+            except ValueError:
+                # JSON이 아닌 경우 텍스트 그대로 사용
+                parsed_blocks = [{"text": response.text, "page": 1}]
+
+            chunks = []
+            for block in parsed_blocks:
+                chunks.append(
+                    {
+                        "content": block["text"],
+                        "metadata": {"source": url, "page": block["page"]},
+                    }
+                )
+
+            return ProcessingResult(
+                chunks=chunks,
+                metadata={"url": url, "status_code": response.status_code},
+            )
+
+        except Exception as e:
+            print(f"[ApiProcessor] Request failed: {e}")
+            return ProcessingResult(chunks=[], metadata={"error": str(e)})

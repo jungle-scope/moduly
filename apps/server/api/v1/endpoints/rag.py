@@ -20,13 +20,15 @@ from db.models.knowledge import Document, KnowledgeBase, SourceType
 from db.models.user import User
 from schemas.rag import (
     ApiPreviewRequest,
+    ChunkPreview,
     DocumentAnalyzeResponse,
     IngestionResponse,
     RAGResponse,
     SearchQuery,
-    ChunkPreview,
 )
-from services.ingestion_local_service import IngestionService
+
+# from services.ingestion_local_service import IngestionService
+from services.ingestion.service import IngestionOrchestrator as IngestionService
 from services.retrieval import RetrievalService
 
 router = APIRouter()
@@ -190,9 +192,8 @@ async def confirm_document_parsing(
     ingestion_service = IngestionService(db, user_id=current_user.id)
 
     background_tasks.add_task(
-        ingestion_service.resume_processing,
+        ingestion_service.process_document,  # Was resume_processing, but process_document handles it if logic supports
         document_id,
-        strategy,
     )
 
     return {
@@ -236,9 +237,9 @@ def delete_document(
 
 @router.post("/search-test/chat", response_model=RAGResponse)
 def search_test_chat(
-    query: SearchQuery, 
+    query: SearchQuery,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     [Search Test] RAG Chat Mode
@@ -247,18 +248,18 @@ def search_test_chat(
     retrieval_service = RetrievalService(db, user_id=current_user.id)
     kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
     response = retrieval_service.generate_answer(
-        query.query, 
+        query.query,
         knowledge_base_id=kb_id_str,
-        model_id=query.generation_model or "gpt-4o"
+        model_id=query.generation_model or "gpt-4o",
     )
     return response
 
 
 @router.post("/search-test/pure", response_model=List[ChunkPreview])
 def search_test_pure(
-    query: SearchQuery, 
+    query: SearchQuery,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     [Search Test] Pure Retrieval Mode
@@ -266,12 +267,10 @@ def search_test_pure(
     """
     retrieval_service = RetrievalService(db, user_id=current_user.id)
     kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
-    
+
     # RetrievalService.search_documents 직접 호출
     results = retrieval_service.search_documents(
-        query.query, 
-        knowledge_base_id=kb_id_str,
-        top_k=query.top_k or 5
+        query.query, knowledge_base_id=kb_id_str, top_k=query.top_k or 5
     )
     return results
 
@@ -378,7 +377,7 @@ async def proxy_api_preview(
         status_code = e.response.status_code if e.response else 400
         try:
             detail = e.response.json()
-        except:
+        except Exception:
             detail = e.response.text if e.response else str(e)
 
         raise HTTPException(status_code=status_code, detail=detail)

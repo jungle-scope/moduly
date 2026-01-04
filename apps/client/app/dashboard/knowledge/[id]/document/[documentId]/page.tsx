@@ -384,6 +384,14 @@ export default function DocumentSettingsPage() {
     if (!document) return;
 
     try {
+      // DB 선택 정보 변환 (Record -> Array)
+      const selections = Object.entries(selectedDbItems).map(
+        ([table, cols]) => ({
+          table_name: table,
+          columns: cols,
+        }),
+      );
+
       const requestData: DocumentPreviewRequest = {
         chunk_size: chunkSize,
         chunk_overlap: chunkOverlap,
@@ -392,6 +400,7 @@ export default function DocumentSettingsPage() {
         remove_whitespace: removeWhitespace,
         strategy: strategy,
         source_type: document?.source_type || 'FILE',
+        db_config: { selections },
       };
 
       await knowledgeApi.processDocument(
@@ -427,6 +436,14 @@ export default function DocumentSettingsPage() {
 
     setIsPreviewLoading(true);
     try {
+      // DB 선택 정보 변환
+      const selections = Object.entries(selectedDbItems).map(
+        ([table, cols]) => ({
+          table_name: table,
+          columns: cols,
+        }),
+      );
+
       const response = await knowledgeApi.previewDocumentChunking(
         kbId,
         documentId,
@@ -438,6 +455,7 @@ export default function DocumentSettingsPage() {
           remove_whitespace: removeWhitespace,
           strategy: strategy,
           source_type: document?.source_type || 'FILE',
+          db_config: { selections },
         },
       );
       // console.log('[DEBUG]', response);

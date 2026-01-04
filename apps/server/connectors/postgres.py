@@ -68,3 +68,22 @@ class PostgresConnector(BaseConnector):
 
         cur.close()
         conn.close()
+
+    def fetch_data(self, config, query, batch_size=1000):
+        conn = self._get_connection(config)
+
+        import psycopg2.extras
+
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        try:
+            cur.execute(query)
+            while True:
+                rows = cur.fetchmany(batch_size)
+                if not rows:
+                    break
+                for row in rows:
+                    yield dict(row)  # RealDictRow -> dict 변환
+        finally:
+            cur.close()
+            conn.close()
