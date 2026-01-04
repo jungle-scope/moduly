@@ -28,6 +28,7 @@ import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodeP
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
+import { KnowledgeNodePanel } from '../nodes/knowledge/components/KnowledgeNodePanel';
 
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
@@ -308,6 +309,12 @@ export default function NodeCanvas() {
           {/* [WorkflowNode] 모듈 입력 매핑 패널 추가 */}
           {selectedNode && selectedNodeType === 'workflowNode' && (
             <WorkflowNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'knowledgeNode' && (
+            <KnowledgeNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />
