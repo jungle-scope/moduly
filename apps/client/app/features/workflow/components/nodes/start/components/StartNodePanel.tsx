@@ -2,7 +2,7 @@ import { StartNodeData } from '../../../../types/Nodes';
 import { useVariableManager } from '../hooks/useVariableManager';
 import { VariableList } from './VariableList';
 import { TriggerSection } from './TriggerSection';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { Plus } from 'lucide-react';
 
 interface StartNodePanelProps {

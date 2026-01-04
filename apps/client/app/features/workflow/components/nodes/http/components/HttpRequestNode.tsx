@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { NodeProps, Node } from '@xyflow/react';
+import { Globe } from 'lucide-react';
 import { HttpRequestNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 
@@ -24,7 +25,8 @@ export const HttpRequestNode = memo(
         data={data}
         selected={selected}
         showSourceHandle={true}
-        className="w-[300px] border-blue-500 hover:border-blue-600 ring-blue-500"
+        icon={<Globe className="text-white" />}
+        iconColor="#0ea5e9" // sky-500
       >
         <div className="flex flex-col gap-2 p-1">
           {/* Method and URL Preview */}

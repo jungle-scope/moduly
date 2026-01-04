@@ -217,10 +217,10 @@ class AppService:
 
         # 5. 워크플로우 복제 (배포된 스냅샷 기반)
         graph_snapshot = deployment.graph_snapshot
-        
+
         # graph_snapshot에서 features 분리 (있다면)
         features = graph_snapshot.get("features", {})
-        
+
         # graph 데이터 (features 제외)
         graph_data = {k: v for k, v in graph_snapshot.items() if k != "features"}
 
@@ -260,10 +260,17 @@ class AppService:
         if app.created_by != user_id:
             return None
 
-        # 연결된 워크플로우도 삭제해야 함 (여기서는 단순히 앱만 삭제, DB FK 설정에 따라 다를 수 있음)
-        # 만약 워크플로우가 앱에 종속적이라면 함께 삭제하는 것이 좋음.
-        # 일단은 앱만 삭제.
+        # 1. Circular dependency 해결을 위해 workflow_id 관계 끊기
+        app.workflow_id = None
+        db.flush()
 
+        # 2. 연결된 워크플로우 삭제
+        # Workflow.app_id가 ON DELETE CASCADE가 아닐 수 있으므로 수동 삭제
+        db.query(Workflow).filter(Workflow.app_id == app_id).delete()
+        db.flush()
+
+        # 3. 앱 삭제
+        # WorkflowDeployment는 ON DELETE CASCADE로 설정되어 있어 자동 삭제됨
         db.delete(app)
         db.commit()
 

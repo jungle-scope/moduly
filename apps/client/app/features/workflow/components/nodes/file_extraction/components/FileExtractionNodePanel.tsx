@@ -3,7 +3,7 @@ import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore
 import { FileExtractionNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 
 interface FileExtractionNodePanelProps {
   nodeId: string;
