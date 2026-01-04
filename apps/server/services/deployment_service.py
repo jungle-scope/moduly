@@ -235,7 +235,7 @@ class DeploymentService:
         return nodes
 
     @staticmethod
-    def run_deployment(
+    async def run_deployment(
         db: Session,
         url_slug: str,
         user_inputs: Dict[str, Any],
@@ -312,14 +312,18 @@ class DeploymentService:
             execution_context = {
                 "user_id": app.created_by,  # 실행 주체 (앱 소유자에게 비용 청구 시)
                 "workflow_id": str(app.workflow_id) if app.workflow_id else None,
-                "trigger_mode": "app",      # [NEW] 실행 모드 (앱 배포 실행)
+                "trigger_mode": "app",  # [NEW] 실행 모드 (앱 배포 실행)
                 "deployment_id": str(deployment.id),
-                "workflow_version": deployment.version
+                "workflow_version": deployment.version,
             }
             engine = WorkflowEngine(
-                graph=graph_data, user_input=user_inputs, is_deployed=True, execution_context=execution_context, db=db
+                graph=graph_data,
+                user_input=user_inputs,
+                is_deployed=True,
+                execution_context=execution_context,
+                db=db,
             )
-            results = engine.execute()
+            results = await engine.execute()
             return {"status": "success", "results": results}
 
         except ValueError as e:
@@ -367,6 +371,24 @@ class DeploymentService:
                         }
                         for var in variables
                         if var.get("name")
+                    ]
+                }
+            elif node.get("type") == "webhookTrigger":
+                mappings = node.get("data", {}).get("variable_mappings", [])
+                if not mappings:
+                    return None
+
+                return {
+                    "variables": [
+                        {
+                            # Webhook의 변수는 모두 string으로 취급하거나,
+                            # 필요하면 JSON Path에서 유추해야 하지만 일단 string으로 통일
+                            "name": mapping.get("variable_name", ""),
+                            "type": "string",
+                            "label": mapping.get("variable_name", ""),
+                        }
+                        for mapping in mappings
+                        if mapping.get("variable_name")
                     ]
                 }
 

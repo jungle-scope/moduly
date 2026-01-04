@@ -1,29 +1,28 @@
+from datetime import datetime
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from db.session import get_db
-from db.models.user import User
 from auth.dependencies import get_current_user
+from db.models.llm import LLMModel, LLMProvider, LLMUsageLog
+from db.models.user import User
+from db.session import get_db
 from schemas.llm import (
-    LLMProviderResponse,
     LLMCredentialCreate,
     LLMCredentialResponse,
+    LLMModelPricingUpdate,
     LLMModelResponse,
-    LLMModelPricingUpdate
+    LLMProviderResponse,
 )
 from services.llm_service import LLMService
-
-from sqlalchemy import func, desc
-from db.models.llm import LLMUsageLog, LLMModel, LLMProvider
-from datetime import datetime
-import pytz
 
 router = APIRouter()
 
 # --- Providers (System) ---
+
 
 @router.get("/providers", response_model=List[LLMProviderResponse])
 def get_system_providers(db: Session = Depends(get_db)):
@@ -38,10 +37,10 @@ def get_system_providers(db: Session = Depends(get_db)):
 
 # --- Credentials (User) ---
 
+
 @router.get("/my-models", response_model=List[LLMModelResponse])
 def get_my_models(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     List all models available to the current user.
@@ -54,8 +53,7 @@ def get_my_models(
 
 @router.get("/my-embedding-models", response_model=List[LLMModelResponse])
 def get_my_embedding_models(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     현재 사용자가 사용 가능한 임베딩 모델 목록 조회.
@@ -68,8 +66,7 @@ def get_my_embedding_models(
 
 @router.get("/credentials", response_model=List[LLMCredentialResponse])
 def get_my_credentials(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     List all credentials for the current user.
@@ -84,7 +81,7 @@ def get_my_credentials(
 def register_credential(
     request: LLMCredentialCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Register a new API Key for a specific provider.
@@ -101,7 +98,7 @@ def register_credential(
 def delete_credential(
     credential_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete a user credential.
@@ -117,11 +114,12 @@ def delete_credential(
 
 # --- Stats ---
 
+
 @router.get("/stats/top-models")
 def get_top_expensive_models(
     db: Session = Depends(get_db),
     # Optional: current_user validation if we want to restrict visibility
-    # current_user: User = Depends(get_current_user) 
+    # current_user: User = Depends(get_current_user)
 ):
     """
     Get Top 3 expensive models for the current month.
@@ -130,7 +128,7 @@ def get_top_expensive_models(
         # 1. Determine date range (This Month in UTC mostly, or naive)
         now = datetime.now()
         start_of_month = datetime(now.year, now.month, 1)
-        
+
         # 2. Query
         # Join Log -> Model -> Provider
         # Group by Model
@@ -139,7 +137,9 @@ def get_top_expensive_models(
                 LLMModel.name.label("model_name"),
                 LLMProvider.name.label("provider_name"),
                 func.sum(LLMUsageLog.total_cost).label("total_cost"),
-                func.sum(LLMUsageLog.prompt_tokens + LLMUsageLog.completion_tokens).label("total_tokens")
+                func.sum(
+                    LLMUsageLog.prompt_tokens + LLMUsageLog.completion_tokens
+                ).label("total_tokens"),
             )
             .join(LLMModel, LLMUsageLog.model_id == LLMModel.id)
             .join(LLMProvider, LLMModel.provider_id == LLMProvider.id)
@@ -149,17 +149,19 @@ def get_top_expensive_models(
             .limit(3)
             .all()
         )
-        
+
         # 3. Format Response
         response = []
         for r in results:
-            response.append({
-                "model_name": r.model_name,
-                "provider_name": r.provider_name,
-                "total_cost": float(r.total_cost) if r.total_cost else 0.0,
-                "total_tokens": int(r.total_tokens) if r.total_tokens else 0
-            })
-            
+            response.append(
+                {
+                    "model_name": r.model_name,
+                    "provider_name": r.provider_name,
+                    "total_cost": float(r.total_cost) if r.total_cost else 0.0,
+                    "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
+                }
+            )
+
         return response
 
     except Exception as exc:
@@ -168,6 +170,7 @@ def get_top_expensive_models(
 
 
 # --- Pricing Management ---
+
 
 @router.post("/models/sync-pricing")
 def sync_system_pricing(

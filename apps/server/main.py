@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
 
-load_dotenv()  # .env 파일 로드
+# .env 파일을 기본값으로 로드 (개발 환경)
+# 배포 환경에서는 ECS Task Definition의 환경변수가 우선 적용됨
+load_dotenv()
 
 import os
 from contextlib import asynccontextmanager
@@ -29,7 +31,6 @@ async def lifespan(app: FastAPI):
 
     # 2. Seed Default LLM Providers (Idempotent)
 
-    # [NEW] 로깅 모델 등록
     from db.session import SessionLocal
 
     db = SessionLocal()
@@ -51,7 +52,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Moduly API", redirect_slashes=False, lifespan=lifespan)
+app = FastAPI(title="Moduly API", lifespan=lifespan)
 
 origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
 origins = origins_str.split(",")
