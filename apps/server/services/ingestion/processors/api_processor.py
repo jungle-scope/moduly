@@ -26,6 +26,24 @@ class ApiProcessor(BaseProcessor):
         headers = source_config.get("headers", {})
         body = source_config.get("body")
 
+        # headers가 JSON string일 수 있으므로 파싱
+        if isinstance(headers, str):
+            try:
+                import json
+
+                headers = json.loads(headers)
+            except:
+                headers = {}
+
+        # body가 JSON string일 수 있으므로 파싱
+        if isinstance(body, str):
+            try:
+                import json
+
+                body = json.loads(body)
+            except:
+                body = None
+
         if not url:
             return ProcessingResult(chunks=[], metadata={"error": "No URL provided"})
 

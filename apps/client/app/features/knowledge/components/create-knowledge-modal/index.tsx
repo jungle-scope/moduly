@@ -20,7 +20,7 @@ import DBConnectionForm from './DBConnectionForm';
 import {
   DBConfig,
   SUPPORTED_DB_TYPES,
-} from '@/app/features/knowledge/types/db';
+} from '@/app/features/knowledge/types/DB';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 
 interface CreateKnowledgeModalProps {

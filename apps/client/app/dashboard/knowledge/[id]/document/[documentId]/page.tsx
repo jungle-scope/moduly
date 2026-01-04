@@ -21,7 +21,7 @@ import CommonChunkSettings from '@/app/features/knowledge/components/document-se
 import ParsingStrategySettings from '@/app/features/knowledge/components/document-settings/ParsingStrategySettings';
 import ChunkPreviewList from '@/app/features/knowledge/components/preview/ChunkPreviewList';
 import DBConnectionForm from '@/app/features/knowledge/components/create-knowledge-modal/DBConnectionForm';
-import { DBConfig } from '@/app/features/knowledge/types/db';
+import { DBConfig } from '@/app/features/knowledge/types/DB';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 
 export default function DocumentSettingsPage() {

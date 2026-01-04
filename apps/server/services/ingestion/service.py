@@ -196,9 +196,25 @@ class IngestionOrchestrator:
             source_config = {"file_path": file_path, "strategy": strategy}
         elif source_type == SourceType.API:
             api_config = meta_info.get("api_config", {})
+            # api_config가 JSON string일 수 있으므로 파싱
+            if isinstance(api_config, str):
+                try:
+                    import json
+
+                    api_config = json.loads(api_config)
+                except:
+                    api_config = {}
             source_config = api_config
         elif source_type == SourceType.DB:
             base_config = meta_info or {}
+            # db_config가 JSON string일 수 있으므로 파싱
+            if isinstance(db_config, str):
+                try:
+                    import json
+
+                    db_config = json.loads(db_config)
+                except:
+                    db_config = {}
             source_config = {**base_config, **(db_config or {})}
 
         result = processor.process(source_config)

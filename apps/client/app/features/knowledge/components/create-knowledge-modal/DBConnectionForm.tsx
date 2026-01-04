@@ -11,7 +11,7 @@ import {
   SUPPORTED_DB_TYPES,
   SupportedDbType,
   DBConfig,
-} from '@/app/features/knowledge/types/db';
+} from '@/app/features/knowledge/types/DB';
 
 // 타입 정의
 
