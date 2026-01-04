@@ -189,6 +189,22 @@ export interface WebhookTriggerNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ===================== [KnowledgeNode] =====================================
+export interface KnowledgeBaseRef {
+  id: string;
+  name: string;
+}
+
+export interface KnowledgeNodeData extends BaseNodeData {
+  knowledgeBases?: KnowledgeBaseRef[];
+  queryVariable?: [string, string]; // [node_id, variable_key]
+  scoreThreshold?: number;
+  topK?: number;
+  queryVariables?: { name: string; value_selector: string[] }[];
+  userQuery?: string;
+}
+// ============================================================================
+
 // ==================== [FileExtractionNode] ==================================
 export interface FileExtractionNodeData extends BaseNodeData {
   file_path_variable?: [string, string]; // value_selector: [node_id, variable_key]
@@ -208,6 +224,7 @@ export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
 export type CodeNode = ReactFlowNode<CodeNodeData, 'codeNode'>;
 export type TemplateNode = ReactFlowNode<TemplateNodeData, 'templateNode'>;
 export type WorkflowNode = ReactFlowNode<WorkflowNodeData, 'workflowNode'>;
+export type KnowledgeNode = ReactFlowNode<KnowledgeNodeData, 'knowledgeNode'>;
 export type FileExtractionNode = ReactFlowNode<
   FileExtractionNodeData,
   'fileExtractionNode'
@@ -230,6 +247,7 @@ export type AppNode =
   | FileExtractionNode
   | WebhookTriggerNode
   | NoteNode
+  | KnowledgeNode
   | WorkflowNode;
 
 // 하위 호환성 (필요시)

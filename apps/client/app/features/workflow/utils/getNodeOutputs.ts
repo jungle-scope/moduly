@@ -27,6 +27,8 @@ export const getNodeOutputs = (node: Node): string[] => {
       return (node.data as any).outputs || [];
     case 'fileExtractionNode':
       return ['result', 'page_count'];
+    case 'knowledgeNode':
+      return ['context', 'metadata'];
     default:
       return ['result'];
   }
