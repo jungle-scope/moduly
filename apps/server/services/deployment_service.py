@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import desc, func
+
 from sqlalchemy.orm import Session
 
 from db.models.app import App
@@ -367,6 +368,24 @@ class DeploymentService:
                         }
                         for var in variables
                         if var.get("name")
+                    ]
+                }
+            elif node.get("type") == "webhookTrigger":
+                mappings = node.get("data", {}).get("variable_mappings", [])
+                if not mappings:
+                    return None
+
+                return {
+                    "variables": [
+                        {
+                            # Webhook의 변수는 모두 string으로 취급하거나, 
+                            # 필요하면 JSON Path에서 유추해야 하지만 일단 string으로 통일
+                            "name": mapping.get("variable_name", ""),
+                            "type": "string",
+                            "label": mapping.get("variable_name", ""),
+                        }
+                        for mapping in mappings
+                        if mapping.get("variable_name")
                     ]
                 }
 

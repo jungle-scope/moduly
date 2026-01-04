@@ -90,7 +90,7 @@ export default function SharedWorkflowPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/v1/run-public/${urlSlug}`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/run-public/${urlSlug}`,
         {
           method: 'POST',
           headers: {

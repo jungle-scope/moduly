@@ -12,10 +12,15 @@ from auth.dependencies import get_current_user
 from db.models.app import App
 from db.models.user import User
 from db.models.workflow import Workflow
+
 # [NEW] 로깅 모델 및 스키마
 from db.models.workflow_run import WorkflowRun
-from schemas.log import WorkflowRunSchema, WorkflowRunListResponse, DashboardStatsResponse
 from db.session import get_db
+from schemas.log import (
+    DashboardStatsResponse,
+    WorkflowRunListResponse,
+    WorkflowRunSchema,
+)
 from schemas.workflow import (
     WorkflowCreateRequest,
     WorkflowDraftRequest,
@@ -90,8 +95,10 @@ def get_workflow_run_detail(
 
 
 # [NEW] 모니터링 대시보드 통계 API
-from sqlalchemy import func, cast, Date, Integer
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
+
+from sqlalchemy import Date, cast, func
+
 
 @router.get("/{workflow_id}/stats", response_model=DashboardStatsResponse)
 def get_workflow_stats(
@@ -102,8 +109,15 @@ def get_workflow_stats(
 ):
     import traceback
     try:
-        from schemas.log import DashboardStatsResponse, StatsSummary, DailyRunStat, RunCostStat, FailureStat, RecentFailure
-        from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
+        from db.models.workflow_run import WorkflowNodeRun, WorkflowRun
+        from schemas.log import (
+            DailyRunStat,
+            DashboardStatsResponse,
+            FailureStat,
+            RecentFailure,
+            RunCostStat,
+            StatsSummary,
+        )
         
         # 1. 권한 체크
         workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()

@@ -49,6 +49,21 @@ export const nodeRegistry: NodeDefinition[] = [
       variables: [],
     }),
   },
+  {
+    id: 'webhook-trigger',
+    type: 'webhookTrigger',
+    name: 'Webhook',
+    category: 'trigger',
+    color: 'bg-purple-500',
+    icon: '🔗',
+    implemented: true,
+    description: '외부 Webhook으로 워크플로우를 시작합니다.',
+    defaultData: () => ({
+      title: 'Webhook Trigger',
+      provider: 'custom',
+      variable_mappings: [],
+    }),
+  },
 
   // LLM Category
   {
@@ -148,6 +163,26 @@ export const nodeRegistry: NodeDefinition[] = [
     defaultData: () => ({
       title: '분기',
       conditions: [],
+    }),
+  },
+  {
+    id: 'knowledge',
+    type: 'knowledgeNode',
+    name: '지식',
+    category: 'data',
+    color: 'bg-indigo-500',
+    icon: '📚',
+    implemented: true,
+    description: '지식 베이스를 조회하고 검색합니다.',
+    defaultData: () => ({
+      title: '지식',
+      description: '지식 베이스 검색',
+      knowledgeBases: [],
+      queryVariable: undefined,
+      scoreThreshold: 0.5,
+      topK: 3,
+      queryVariables: [],
+      userQuery: '',
     }),
   },
   {

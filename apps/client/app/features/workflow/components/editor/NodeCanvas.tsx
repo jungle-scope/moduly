@@ -28,11 +28,13 @@ import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodeP
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
+import { KnowledgeNodePanel } from '../nodes/knowledge/components/KnowledgeNodePanel';
 
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
+import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTriggerNodePanel';
 
 export default function NodeCanvas() {
   const {
@@ -311,8 +313,20 @@ export default function NodeCanvas() {
               data={selectedNode.data as any}
             />
           )}
+          {selectedNode && selectedNodeType === 'knowledgeNode' && (
+            <KnowledgeNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
           {selectedNode && selectedNodeType === 'fileExtractionNode' && (
             <FileExtractionNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'webhookTrigger' && (
+            <WebhookTriggerNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

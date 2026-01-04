@@ -161,7 +161,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   onNodesChange: (changes: NodeChange[]) => {
     const currentNodes = get().nodes || [];
-    const newNodes = applyNodeChanges(changes, currentNodes);
+    // DB에 deletable:false로 저장된 노드도 삭제 가능하도록 속성 제거
+    // TODO: 데이터 마이그레이션 후 제거 필요
+    const deletableNodes = currentNodes.map((node) => {
+      const { deletable, ...rest } = node as any;
+      return rest;
+    });
+    const newNodes = applyNodeChanges(changes, deletableNodes);
     get().setNodes(newNodes as Node[]);
   },
 

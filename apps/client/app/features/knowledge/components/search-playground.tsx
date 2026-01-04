@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Search, Send, Bot, User, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+
 interface RAGResponse {
   answer: string;
   references: {
@@ -18,7 +20,9 @@ interface SearchPlaygroundProps {
   knowledgeBaseId: string;
 }
 
-export default function SearchPlayground({ knowledgeBaseId }: SearchPlaygroundProps) {
+export default function SearchPlayground({
+  knowledgeBaseId,
+}: SearchPlaygroundProps) {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<RAGResponse | null>(null);
@@ -31,10 +35,13 @@ export default function SearchPlayground({ knowledgeBaseId }: SearchPlaygroundPr
 
     try {
       // Call Backend API
-      const res = await axios.post<RAGResponse>('http://localhost:8000/api/v1/rag/chat', {
-        query: query,
-        knowledge_base_id: knowledgeBaseId,
-      });
+      const res = await axios.post<RAGResponse>(
+        `${BASE_URL}/api/v1/rag/search-test/chat`,
+        {
+          query: query,
+          knowledge_base_id: knowledgeBaseId,
+        },
+      );
 
       setResponse(res.data);
     } catch (error) {
@@ -54,7 +61,10 @@ export default function SearchPlayground({ knowledgeBaseId }: SearchPlaygroundPr
           검색 시뮬레이터
         </h3>
         <p className="text-xs text-gray-500 mt-1">
-          Knowledge Base ID: <span className="font-mono bg-gray-100 dark:bg-gray-900 px-1 py-0.5 rounded">{knowledgeBaseId}</span>
+          Knowledge Base ID:{' '}
+          <span className="font-mono bg-gray-100 dark:bg-gray-900 px-1 py-0.5 rounded">
+            {knowledgeBaseId}
+          </span>
         </p>
       </div>
 
@@ -82,7 +92,9 @@ export default function SearchPlayground({ knowledgeBaseId }: SearchPlaygroundPr
                 <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">AI 답변 (Mock)</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                  AI 답변 (Mock)
+                </p>
                 <div className="text-gray-700 dark:text-gray-300 leading-relaxed bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-lg">
                   {response.answer}
                 </div>
@@ -97,7 +109,10 @@ export default function SearchPlayground({ knowledgeBaseId }: SearchPlaygroundPr
               </h4>
               <div className="grid gap-3">
                 {response.references.map((ref, idx) => (
-                  <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 text-sm">
+                  <div
+                    key={idx}
+                    className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 text-sm"
+                  >
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-medium text-blue-600 dark:text-blue-400 text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 rounded-full">
                         {ref.filename}

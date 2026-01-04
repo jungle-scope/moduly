@@ -1,89 +1,65 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from langchain_openai import OpenAIEmbeddings
 
-from db.models.knowledge import Document, DocumentChunk
+from db.models.knowledge import Document, DocumentChunk, KnowledgeBase
+from db.models.llm import LLMModel
 from schemas.rag import ChunkPreview, RAGResponse
 from services.llm_service import LLMService
 
-
-# --- Constants ---
-QUERY_EXPANSION_SYSTEM_PROMPT = """
-You are a query optimizer for the AI service 'Moduly'.
-Moduly is an AI workflow automation tool.
-
-Your Task:
-Rewrite the user's query to use correct official terminology mostly in English.
-Keep the user's original intent clearly.
-Output ONLY the rewritten query text.
-
-Term Glossary:
-- 모듈리 -> Moduly
-- 랙 -> RAG (Retrieval Augmented Generation)
-- 워크플로우 -> Workflow
-"""
-
 class RetrievalService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user_id):
         self.db = db
-        # 1. LLM 클라이언트 확보 (API Key 획득용)
-        # TODO: 실제로는 사용자 ID를 받아와서 해당 사용자의 Provider를 가져와야 함 (현재는 Shared Mode)
-        try:
-            self.llm_client = LLMService.get_any_provider_client(db)
-            self.api_key = self.llm_client.api_key  # OpenAIClient인 경우 api_key 속성 존재
-        except Exception as e:
-            print(f"[Retrieval] Failed to load LLM Client: {e}")
-            self.llm_client = None
-            self.api_key = None
+        self.user_id = user_id
+        # llm_client는 generate_answer에서 필요 시 로드합니다.
+        self.llm_client = None
 
-
-
-    def search_documents(self, query: str, knowledge_base_id: str = None, top_k: int = 5, threshold: float = 0.3) -> list[ChunkPreview]:
+    def search_documents(self, query: str, knowledge_base_id: str = None, top_k: int = 5, threshold: float = 0.15) -> list[ChunkPreview]:
         """
-        [Public API] 지식 베이스 검색 (Vector Search Only)
-        다른 노드(예: Knowledge Node)에서 검색 결과만 필요할 때 이 함수를 직접 호출하세요.
+        [Public API] 사용자의 쿼리를 받아 관련성 높은 문서 청크들을 반환합니다.
+        (Query Rewrite 기능은 제거되었습니다.)
         """
+        
         # knowledge_base_id가 없으면 빈 리스트 반환 (안전장치)
         if not knowledge_base_id:
             print("[Search] Missing knowledge_base_id")
             return []
 
-        # 0. Query Expansion (Smart Search)
-        # 한글 발음(모듈리) -> 영어 키워드(Moduly) 등으로 변환하여 검색 품질 향상
-        try:
-            expansion_prompt = [
-                {"role": "system", "content": QUERY_EXPANSION_SYSTEM_PROMPT},
-                {"role": "user", "content": query}
-            ]
-            # LLM에게 쿼리 최적화 요청
-            expanded_resp = self.llm_client.invoke(expansion_prompt)
-            rewritten_query = expanded_resp["choices"][0]["message"]["content"].strip()
-            print(f"[Search] 🧠 Smart Rewrite: '{query}' -> '{rewritten_query}'")
-            
-            # 검색어를 변환된 것으로 교체
-            query = rewritten_query
-        except Exception as e:
-            print(f"Query Expansion Failed: {e}")
 
-        # 1. Query Embedding (Real)
+        # 1. Query Embedding (Dynamic Provider via LLMClient)
         try:
-            embeddings_model = OpenAIEmbeddings(
-                model="text-embedding-3-small",
-                openai_api_key=self.api_key
-            )
-            query_vector = embeddings_model.embed_query(query)
+            # 1-1. KnowledgeBase 조회하여 설정된 Embedding Model ID 확인
+            kb = self.db.query(KnowledgeBase).filter(KnowledgeBase.id == knowledge_base_id).first()
+            if not kb or not kb.embedding_model:
+                 print(f"[Search ERROR] KB {knowledge_base_id} not found or no embedding model set.")
+                 # Fallback: 기존처럼 하드코딩된 모델을 쓸 수도 있으나, 여기서는 에러 로그 후 리턴
+                 return []
+            
+            embedding_model_id = kb.embedding_model
+
+            # 1-2. 모델 타입 검증 (Type Check)
+            model_info = self.db.query(LLMModel).filter(LLMModel.model_id_for_api_call == embedding_model_id).first()
+            if model_info and model_info.type != 'embedding':
+                 print(f"[Search] ⚠️ Model {embedding_model_id} is type '{model_info.type}', not 'embedding'.")
+                 return []
+
+            # 1-3. User Client 획득 (해당 모델을 지원하는 Credential 사용)
+            embed_client = LLMService.get_client_for_user(self.db, self.user_id, embedding_model_id)
+
+            # 1-4. 임베딩 수행
+            query_vector = embed_client.embed(query)
+            
         except Exception as e:
-            print(f"Embedding Failed: {e}")
-            return []
+            # 에러 원인 파악을 위해 raise
+            print(f"[Retrieval Error] Embedding Failed: {e}")
+            raise e
 
         # 2. Vector Search (SQLAlchemy with pgvector)
-        # Select distance explicitly to filter by it
         distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label("distance")
         
         stmt = (
             select(DocumentChunk, Document, distance_col)
             .join(Document)
-            .where(Document.knowledge_base_id == knowledge_base_id)  # <-- Filter by Knowledge Base ID
+            .where(Document.knowledge_base_id == knowledge_base_id)
             .order_by(distance_col)
             .limit(top_k)
         )
@@ -121,17 +97,12 @@ class RetrievalService:
         
         return "\n\n".join([c.content for c in chunks])
 
-    def generate_answer(self, query: str, knowledge_base_id: str) -> RAGResponse:
+    def generate_answer(self, query: str, knowledge_base_id: str, model_id: str = "gpt-4o") -> RAGResponse:
         """
         [Public API] 검색 + 답변 생성 (Chat Interface용)
+        Arguments:
+            model_id: 답변 생성에 사용할 Chat 모델 ID (default: gpt-4o)
         """
-
-        if not self.api_key:
-            return RAGResponse(
-                answer="⚠️ OpenAI API Key가 설정되지 않아 실제 검색을 수행할 수 없습니다.",
-                references=[]
-            )
-
 
         # Step 1: Search (Reuse public method)
         relevant_chunks = self.search_documents(query, knowledge_base_id)
@@ -145,7 +116,24 @@ class RetrievalService:
 
         context_text = "\n\n".join([c.content for c in relevant_chunks])
 
-        # Step 3: LLM Generation
+        # Step 3: LLM Generation (On-Demand Client)
+        # 1. 이미 클라이언트가 있고, 그 클라이언트의 모델이 요청된 모델과 같으면 재사용
+        if self.llm_client and self.llm_client.model_id == model_id:
+            pass
+        else:
+            # 2. 클라이언트가 없거나 다른 모델을 원하면 새로 로드
+            try:
+                self.llm_client = LLMService.get_client_for_user(self.db, self.user_id, model_id)
+            except Exception as e:
+                print(f"[Retrieval] Failed to load generation model {model_id}: {e}")
+                self.llm_client = None
+        
+        if not self.llm_client:
+            return RAGResponse(
+                answer=f"⚠️ 답변 생성을 위한 모델({model_id})을 찾을 수 없습니다. (Credential 등록 필요)",
+                references=[]
+            )
+
         system_prompt = (
             "You are a helpful assistant. Use the following context to answer the user's question.\n"
             "If the answer is not in the context, say you don't know.\n\n"

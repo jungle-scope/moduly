@@ -335,12 +335,15 @@ class WorkflowEngine:
     # ================================================================
 
     def _find_start_node(self) -> str:
-        """시작 노드 찾기 (type == "startNode"인 노드)"""
+        """시작 노드 찾기 (type == "startNode" 또는 "webhookTrigger")"""
         start_nodes = []
 
-        # 모든 노드를 순회하면서 startNode 타입 찾기
+        # Trigger 노드 타입 정의
+        TRIGGER_TYPES = ["startNode", "webhookTrigger"]
+
+        # 모든 노드를 순회하면서 Trigger 타입 찾기
         for node_id, node in self.node_schemas.items():
-            if node.type == "startNode":
+            if node.type in TRIGGER_TYPES:
                 start_nodes.append(node_id)
 
         if len(start_nodes) > 1:
@@ -349,7 +352,9 @@ class WorkflowEngine:
             )
 
         elif len(start_nodes) == 0:
-            raise ValueError("워크플로우에 시작 노드(type='startNode')가 없습니다.")
+            raise ValueError(
+                "워크플로우에 시작 노드(type='startNode' or 'webhookTrigger')가 없습니다."
+            )
 
         return start_nodes[0]
 
@@ -444,9 +449,9 @@ class WorkflowEngine:
         특별 케이스:
             - StartNode: user_input을 직접 전달 (네임스페이스 없이)
         """
-        # StartNode는 user_input을 직접 받음
+        # StartNode 또는 WebhookTriggerNode는 user_input을 직접 받음
         node_schema = self.node_schemas.get(node_id)
-        if node_schema and node_schema.type == "startNode":
+        if node_schema and node_schema.type in ["startNode", "webhookTrigger"]:
             return self.user_input
 
         # 실행된 모든 노드의 결과를 전달 (조상 노드 참조 가능)

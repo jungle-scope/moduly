@@ -41,7 +41,7 @@ export function useGlobalLogs() {
         try {
             const result = await workflowApi.getWorkflowRuns(workflowId, 1, 20);
             // Inject Workflow Name
-            return result.items.map(run => ({
+            return result.items.map((run: WorkflowRun) => ({
                 ...run,
                 workflow_name: app.name,
                 // Ensure workflow_id is correct if missing from response
@@ -57,7 +57,8 @@ export function useGlobalLogs() {
       const allLogs = results.flat();
 
       // 3. Sort by Started At Desc
-      const sortedLogs = allLogs.sort((a, b) => 
+      const sortedLogs = allLogs.sort(
+        (a: GlobalWorkflowRun, b: GlobalWorkflowRun) =>
         new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
       );
 
