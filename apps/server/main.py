@@ -31,7 +31,6 @@ async def lifespan(app: FastAPI):
 
     # 2. Seed Default LLM Providers (Idempotent)
 
-    # [NEW] 로깅 모델 등록
     from db.session import SessionLocal
 
     db = SessionLocal()
@@ -53,9 +52,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(
-    title="Moduly API", strict_slashes=False, redirect_slashes=False, lifespan=lifespan
-)
+app = FastAPI(title="Moduly API", lifespan=lifespan)
 
 origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
 origins = origins_str.split(",")
