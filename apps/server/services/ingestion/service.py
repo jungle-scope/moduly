@@ -76,18 +76,29 @@ class IngestionOrchestrator:
 
     def process_document(self, document_id: UUID):
         print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
+        print(f"[DEBUG] DB session active: {self.db is not None}")
         doc = self.db.query(Document).get(document_id)
         if not doc:
-            print(f"Document {document_id} not found.")
+            print(f"[DEBUG] Document {document_id} not found.")
             return
+
+        print(f"[DEBUG] Document found - source_type: {doc.source_type}")
+        print(f"[DEBUG] meta_info: {doc.meta_info}")
 
         try:
             self._update_status(document_id, "indexing")
             processor = IngestionFactory.get_processor(
                 doc.source_type, self.db, self.user_id
             )
+            print(f"[DEBUG] Processor created: {type(processor).__name__}")
+
             source_config = self._build_config(doc)
+            print(f"[DEBUG] Built config: {source_config}")
+
             result = processor.process(source_config)
+            print(
+                f"[DEBUG] Processor result - chunks: {len(result.chunks)}, metadata: {result.metadata}"
+            )
 
             if result.metadata.get("error"):
                 raise Exception(result.metadata["error"])
@@ -270,18 +281,48 @@ class IngestionOrchestrator:
         return refined
 
     def _save_to_vector_db(self, doc: Document, chunks: List[Dict[str, Any]]):
+        from services.llm_service import LLMService
+
         self.db.query(DocumentChunk).filter(
             DocumentChunk.document_id == doc.id
         ).delete()
         new_chunks = []
+
+        # LLM 클라이언트 초기화 (임베딩 생성용)
+        llm_client = None
+        if self.user_id:
+            try:
+                llm_client = LLMService.get_client_for_user(
+                    db=self.db,
+                    user_id=self.user_id,
+                    model_id=self.ai_model,  # 예: "text-embedding-3-small"
+                )
+                print("[DEBUG] LLM client initialized for embedding generation")
+            except Exception as e:
+                print(f"[ERROR] Failed to get LLM client: {e}")
+                print("[WARNING] Falling back to dummy vectors")
+        else:
+            print("[WARNING] No user_id provided, using dummy vectors")
+
         for i, chunk in enumerate(chunks):
-            dummy_vector = [0.1] * 1536
+            # [NEW] 실제 임베딩 생성
+            if llm_client:
+                try:
+                    embedding = llm_client.embed(chunk["content"])
+                except Exception as e:
+                    print(f"[ERROR] Embedding failed for chunk {i}: {e}")
+                    embedding = [0.1] * 1536  # Fallback
+            else:
+                embedding = [0.1] * 1536  # Fallback
+
             new_chunk = DocumentChunk(
                 document_id=doc.id,
+                knowledge_base_id=doc.knowledge_base_id,
                 content=chunk["content"],
                 chunk_index=i,
-                meta_info=chunk["metadata"],
-                embedding=dummy_vector,
+                token_count=chunk.get("token_count", 0),
+                metadata_=chunk["metadata"],
+                embedding=embedding,
             )
             new_chunks.append(new_chunk)
         self.db.bulk_save_objects(new_chunks)

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   knowledgeApi,
@@ -46,6 +47,8 @@ export function useDocumentProcess({
   );
   const [previewSegments, setPreviewSegments] = useState<DocumentSegment[]>([]);
 
+  const router = useRouter();
+
   // 1. 공통 Request Data 생성 함수
   const createRequestData = (
     strategy: 'general' | 'llamaparse',
@@ -84,7 +87,13 @@ export function useDocumentProcess({
     try {
       const requestData = createRequestData(strategy);
       console.log('[Debug] Save Request Data:', requestData);
-      await knowledgeApi.processDocument(kbId, document.id, requestData);
+      console.log('[Debug] Calling processDocument API...');
+      const response = await knowledgeApi.processDocument(
+        kbId,
+        document.id,
+        requestData,
+      );
+      console.log('[Debug] API Response:', response);
 
       setStatus('indexing');
       setProgress(0);
@@ -93,8 +102,12 @@ export function useDocumentProcess({
           ? '일반 파싱으로 처리를 시작합니다.'
           : 'LlamaParse로 처리를 시작합니다.',
       );
-    } catch (error) {
-      console.error('Save failed:', error);
+
+      // 저장 성공 후 지식 베이스 페이지로 리다이렉션
+      router.push(`/dashboard/knowledge/${kbId}`);
+    } catch (error: any) {
+      console.error('[Debug] Save failed:', error);
+      console.error('[Debug] Error details:', error.response?.data);
       toast.error('저장에 실패했습니다.');
     }
   };

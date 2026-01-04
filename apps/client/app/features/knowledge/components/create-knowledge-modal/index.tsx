@@ -165,6 +165,7 @@ export default function CreateKnowledgeModal({
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           connection_name: config.connectionName,
           type: config.type,
