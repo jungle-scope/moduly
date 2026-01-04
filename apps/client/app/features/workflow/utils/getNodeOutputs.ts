@@ -16,7 +16,7 @@ export const getNodeOutputs = (node: Node): string[] => {
     case 'llmNode':
       return ['text', 'usage', 'model'];
     case 'templateNode':
-      return (node.data?.variables as any[])?.map((v) => v.name) || [];
+      return ['text'];
     case 'codeNode':
       return ['result'];
     case 'httpRequestNode':
