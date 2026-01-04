@@ -1,15 +1,18 @@
 import { X } from 'lucide-react';
+import { JsonTreeViewer } from './JsonTreeViewer';
 
 interface PayloadViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   payload: Record<string, unknown> | null;
+  onSelect?: (path: string, value: any) => void;
 }
 
 export function PayloadViewerModal({
   isOpen,
   onClose,
   payload,
+  onSelect,
 }: PayloadViewerModalProps) {
   if (!isOpen) return null;
 
@@ -19,19 +22,30 @@ export function PayloadViewerModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-lg font-semibold">Captured Webhook Payload</h2>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              필드 값 옆의 + 버튼을 눌러 변수로 추가하세요
+            </span>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {/* JSON Content */}
         <div className="flex-1 overflow-auto p-6">
-          <pre className="text-sm bg-gray-50 p-4 rounded border overflow-x-auto">
-            <code>{JSON.stringify(payload, null, 2)}</code>
-          </pre>
+          <div className="bg-gray-50 p-4 rounded border min-h-[200px]">
+            {payload ? (
+              <JsonTreeViewer data={payload} onSelect={onSelect} />
+            ) : (
+              <p className="text-gray-400 text-center mt-10">
+                데이터가 없습니다.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
