@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,7 @@ class LLMNodeData(BaseNodeData):
     assistant_prompt: Optional[str] = None
     referenced_variables: List[LLMVariable] = Field(default_factory=list)
     context_variable: Optional[str] = None
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="LLM API 파라미터 (temperature, top_p, max_tokens 등)")
 
     def validate(self) -> None:
         # 모델은 필수

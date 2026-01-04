@@ -1,5 +1,7 @@
 'use client';
 
+import { Sliders } from 'lucide-react';
+
 import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   ReactFlow,
@@ -35,6 +37,7 @@ import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
 import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTriggerNodePanel';
+import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
 
 export default function NodeCanvas() {
   const {
@@ -58,6 +61,9 @@ export default function NodeCanvas() {
 
   // 앱 검색 모달 상태
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+  // [LLM] 파라미터 패널 상태
+  const [isParamPanelOpen, setIsParamPanelOpen] = useState(false);
 
   // 키보드 단축키: 검색 모달을 열기 위한 Cmd+K
   useKeyboardShortcut(
@@ -137,15 +143,21 @@ export default function NodeCanvas() {
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
     if (node.type && node.type !== 'note') {
+      // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
+      if (selectedNodeId !== node.id) {
+        setIsParamPanelOpen(false);
+      }
       setSelectedNodeId(node.id);
       setSelectedNodeType(node.type);
     }
-  }, []);
+  }, [selectedNodeId]);
 
+  // 세부 정보 패널 닫기
   // 세부 정보 패널 닫기
   const handleClosePanel = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedNodeType(null);
+    setIsParamPanelOpen(false);
   }, []);
 
   // 선택된 노드 데이터 가져오기
@@ -257,10 +269,35 @@ export default function NodeCanvas() {
         />
 
         {/* 노드 상세 패널 - ReactFlow 컨테이너 기준으로 위치 */}
+        {/* [LLM] 파라미터 사이드 패널 (NodeDetailsPanel 왼쪽에 위치) */}
+        {isParamPanelOpen && selectedNodeType === 'llmNode' && selectedNode && (
+          <LLMParameterSidePanel
+            nodeId={selectedNode.id}
+            data={selectedNode.data as any}
+            onClose={() => setIsParamPanelOpen(false)}
+          />
+        )}
+
         <NodeDetailsPanel
           nodeId={selectedNodeId}
           onClose={handleClosePanel}
           header={panelHeader}
+          headerActions={
+            selectedNodeType === 'llmNode' ? (
+              <button
+                onClick={() => setIsParamPanelOpen((prev) => !prev)}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  isParamPanelOpen
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                }`}
+                title="LLM 파라미터 설정"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>파라미터</span>
+              </button>
+            ) : undefined
+          }
         >
           {selectedNode && selectedNodeType === 'startNode' && (
             <StartNodePanel

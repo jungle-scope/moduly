@@ -86,7 +86,7 @@ class OpenAIClient(BaseLLMClient):
             "messages": messages,
         }
         payload.update(kwargs)
-
+        
         try:
             resp = requests.post(
                 self.chat_url, headers=self._build_headers(), json=payload, timeout=60
