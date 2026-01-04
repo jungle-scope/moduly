@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
 
-load_dotenv()  # .env 파일 로드
+# .env 파일을 기본값으로 로드 (개발 환경)
+# 배포 환경에서는 ECS Task Definition의 환경변수가 우선 적용됨
+load_dotenv()
 
 import os
 from contextlib import asynccontextmanager
