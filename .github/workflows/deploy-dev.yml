@@ -1,0 +1,50 @@
+name: Deploy Backend (Develop)
+
+on:
+  push:
+    branches:
+      - develop   # ⭐ develop 브랜치에 푸시될 때 작동
+    paths:
+      - 'apps/server/**' # ⭐ apps/server 폴더 내 코드가 바뀔 때만 작동 (폴더명 확인!)
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. GitHub에 올라온 우리 코드 내려받기
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # 2. AWS 로그인 (금고에서 열쇠 꺼내기)
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    # 3. ECR(이미지 저장소) 로그인
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    # 4. 도커 이미지 빌드 및 푸시 (모노레포 설정)
+    - name: Build, tag, and push image to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        IMAGE_TAG: develop
+      run: |
+        # ⭐ 중요: 빌드 컨텍스트를 ./apps/server로 지정합니다.
+        # Dockerfile이 apps/server 폴더 안에 있어야 합니다.
+        docker build -f ./apps/server/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+    # 5. ECS 서비스 강제 업데이트 (새 서버로 교체)
+    - name: Force deployment to ECS
+      run: |
+        aws ecs update-service --cluster ${{ secrets.ECS_CLUSTER }} \
+                               --service ${{ secrets.ECS_SERVICE }} \
+                               --force-new-deployment

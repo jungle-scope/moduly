@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import (
@@ -24,6 +24,7 @@ from schemas.rag import (
     IngestionResponse,
     RAGResponse,
     SearchQuery,
+    ChunkPreview,
 )
 from services.ingestion_local_service import IngestionService
 from services.retrieval import RetrievalService
@@ -233,18 +234,46 @@ def delete_document(
     return {"status": "success", "message": "Document deleted successfully"}
 
 
-@router.post("/chat", response_model=RAGResponse)
-def chat_with_knowledge(query: SearchQuery, db: Session = Depends(get_db)):
+@router.post("/search-test/chat", response_model=RAGResponse)
+def search_test_chat(
+    query: SearchQuery, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    [개발자 B 범위]
-    벡터 검색 -> LLM 생성
+    [Search Test] RAG Chat Mode
+    벡터 검색 + LLM 답변 생성
     """
-    retrieval_service = RetrievalService(db)
+    retrieval_service = RetrievalService(db, user_id=current_user.id)
     kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
     response = retrieval_service.generate_answer(
-        query.query, knowledge_base_id=kb_id_str
+        query.query, 
+        knowledge_base_id=kb_id_str,
+        model_id=query.generation_model or "gpt-4o"
     )
     return response
+
+
+@router.post("/search-test/pure", response_model=List[ChunkPreview])
+def search_test_pure(
+    query: SearchQuery, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    [Search Test] Pure Retrieval Mode
+    순수 벡터 검색 (LLM 생성 없음)
+    """
+    retrieval_service = RetrievalService(db, user_id=current_user.id)
+    kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
+    
+    # RetrievalService.search_documents 직접 호출
+    results = retrieval_service.search_documents(
+        query.query, 
+        knowledge_base_id=kb_id_str,
+        top_k=query.top_k or 5
+    )
+    return results
 
 
 @router.get("/document/{document_id}/progress")

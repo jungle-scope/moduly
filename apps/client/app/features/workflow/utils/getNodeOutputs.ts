@@ -8,6 +8,11 @@ export const getNodeOutputs = (node: Node): string[] => {
   switch (node.type) {
     case 'startNode':
       return (node.data?.variables as any[])?.map((v) => v.name) || [];
+    case 'webhookTrigger':
+      return (
+        (node.data?.variable_mappings as any[])?.map((v) => v.variable_name) ||
+        []
+      );
     case 'llmNode':
       return ['text', 'usage', 'model'];
     case 'templateNode':

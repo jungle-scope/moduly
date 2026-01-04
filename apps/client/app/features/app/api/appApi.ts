@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -30,6 +30,7 @@ export interface App {
   description?: string;
   icon: AppIcon;
   url_slug?: string;
+  auth_secret?: string;
   is_market: boolean;
   forked_from?: string;
   workflow_id?: string;

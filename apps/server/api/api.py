@@ -10,6 +10,7 @@ from api.v1.endpoints import (
     llm,
     rag,
     run,
+    webhook,
     workflow,
 )
 
@@ -41,3 +42,6 @@ api_router.include_router(
     deployment.router, prefix="/deployments", tags=["deployments"]
 )
 api_router.include_router(run.router, tags=["run"])
+
+# Webhook (External Trigger)
+api_router.include_router(webhook.router, tags=["webhook"])

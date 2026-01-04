@@ -1,4 +1,10 @@
 from dotenv import load_dotenv
+
+load_dotenv()  # .env 파일 로드
+
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -6,14 +12,8 @@ from sqlalchemy import text
 
 from api.api import api_router
 from db.base import Base
-from db.session import engine
-
-load_dotenv()  # .env 파일 로드
-
-
-from contextlib import asynccontextmanager
-
 from db.seed import seed_default_llm_providers, seed_placeholder_user
+from db.session import engine
 
 
 @asynccontextmanager
@@ -28,11 +28,8 @@ async def lifespan(app: FastAPI):
     print("✅ Database tables created successfully!")
 
     # 2. Seed Default LLM Providers (Idempotent)
-    import uuid
 
-    from db.models.user import User
     # [NEW] 로깅 모델 등록
-    from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
     from db.session import SessionLocal
 
     db = SessionLocal()
@@ -52,19 +49,17 @@ async def lifespan(app: FastAPI):
         db.close()
 
     yield
-    # 3. Shutdown Logic (if any)
 
 
 app = FastAPI(title="Moduly API", redirect_slashes=False, lifespan=lifespan)
 
+origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+origins = origins_str.split(",")
 
 # CORS 설정 (withCredentials 지원)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Frontend 개발 서버
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=origins,  # .env에서 CORS_ORIGINS로 설정 가능
     allow_credentials=True,  # 쿠키 전송 허용
     allow_methods=["*"],
     allow_headers=["*"],
