@@ -59,7 +59,7 @@ export function WebhookTriggerNodePanel({
         const app = await appApi.getApp(appId);
         if (app.url_slug) {
           setUrlSlug(app.url_slug);
-          const baseUrl = ''; // 상대 경로 사용 (Next.js proxy 거침)
+          const baseUrl = window.location.origin; // 추후 gateway 등록시 수정 필요
           const token = app.auth_secret || '[auth-secret]';
           const url = `${baseUrl}/api/v1/hooks/${app.url_slug}?token=${token}`;
           setWebhookUrl(url);
