@@ -114,7 +114,15 @@ export function DeploymentResultModal({ onClose, result }: Props) {
   }
 
   // 성공 케이스
-  const API_URL = `/api/v1/run/${result.url_slug}`;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_URL = `${baseUrl}/api/v1/run/${result.url_slug}`;
+
+  // 프론트엔드 URL (위젯이 로드할 iframe 주소)
+  // 브라우저 환경에서는 현재 origin 사용, SSR시에는 기본값 사용
+  const frontendUrl =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://www.moviepick.shop';
 
   return (
     <>
@@ -187,20 +195,22 @@ export function DeploymentResultModal({ onClose, result }: Props) {
                   <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
                     {`<script>
   window.ModulyConfig = {
-    appId: '${result.url_slug}'
+    appId: '${result.url_slug}',
+    frontendUrl: '${frontendUrl}'
   };
 </script>
-<script src="${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/static/widget.js"></script>`}
+<script src="${baseUrl}/static/widget.js"></script>`}
                   </pre>
                   <button
                     onClick={() =>
                       handleCopy(
                         `<script>
   window.ModulyConfig = {
-    appId: '${result.url_slug}'
+    appId: '${result.url_slug}',
+    frontendUrl: '${frontendUrl}'
   };
 </script>
-<script src="${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/static/widget.js"></script>`,
+<script src="${baseUrl}/static/widget.js"></script>`,
                       )
                     }
                     className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
