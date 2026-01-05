@@ -117,7 +117,7 @@ export default function EditorHeader() {
     }
   }, [previewingVersion, restoreVersion]);
 
-  const handlePublish = useCallback(() => {
+  const handlePublishAsRestAPI = useCallback(() => {
     setDeploymentType('api'); // REST API 배포
     setShowDeployModal(true);
   }, []);
@@ -673,7 +673,7 @@ export default function EditorHeader() {
                   <button
                     onClick={() => {
                       setShowDeployDropdown(false);
-                      handlePublish();
+                      handlePublishAsRestAPI();
                     }}
                     className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                   >

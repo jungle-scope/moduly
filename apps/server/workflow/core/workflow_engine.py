@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ class WorkflowEngine:
         execution_context: Dict[str, Any] = None,
         is_deployed: bool = False,
         db: Optional[Session] = None,  # [NEW] DB 세션 주입 (로깅용)
+        parent_run_id: Optional[str] = None,  # [NEW] 서브 워크플로우용 부모 run_id
     ):
         """
         WorkflowEngine 초기화
@@ -29,6 +31,7 @@ class WorkflowEngine:
             execution_context: 실행 컨텍스트 (user_id 등 전역 환경 정보)
             is_deployed: 배포 모드 여부 (True: 배포된 워크플로우, False: Draft)
             db: DB 세션 (로깅용) # [NEW]
+            parent_run_id: 부모 워크플로우의 run_id (서브 워크플로우 실행 시 사용)
         """
         # graph가 딕셔너리인 경우 nodes와 edges 추출
         if isinstance(graph, dict):
@@ -65,6 +68,7 @@ class WorkflowEngine:
         # [NEW SECTION] 모니터링/로깅 관련 초기화
         # ============================================================
         self.logger = WorkflowLogger(db)  # 로깅 유틸리티 인스턴스
+        self.parent_run_id = parent_run_id  # 서브 워크플로우용 부모 run_id
 
     async def execute(self) -> Dict[str, Any]:
         """
@@ -132,15 +136,20 @@ class WorkflowEngine:
         # ============================================================
         # [NEW] 실행 로그 시작
         # ============================================================
-        workflow_run_id = self.logger.create_run_log(
-            workflow_id=self.execution_context.get("workflow_id"),
-            user_id=self.execution_context.get("user_id"),
-            user_input=self.user_input,
-            is_deployed=self.is_deployed,
-            execution_context=self.execution_context,
-        )
-        if workflow_run_id:
-            self.execution_context["workflow_run_id"] = str(workflow_run_id)
+        # 서브 워크플로우인 경우 부모의 run_id를 재사용
+        if self.parent_run_id:
+            self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
+            self.execution_context["workflow_run_id"] = self.parent_run_id
+        else:
+            workflow_run_id = self.logger.create_run_log(
+                workflow_id=self.execution_context.get("workflow_id"),
+                user_id=self.execution_context.get("user_id"),
+                user_input=self.user_input,
+                is_deployed=self.is_deployed,
+                execution_context=self.execution_context,
+            )
+            if workflow_run_id:
+                self.execution_context["workflow_run_id"] = str(workflow_run_id)
         # ============================================================
 
         start_node = self._find_start_node()
