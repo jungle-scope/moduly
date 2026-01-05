@@ -119,12 +119,14 @@ class AppService:
 
         Args:
             db: 데이터베이스 세션
-            user_id: 현재 유저 ID (사용되지 않지만 일관성을 위해 유지)
+            user_id: 현재 유저 ID
 
         Returns:
             공개된 App 객체 리스트
         """
-        return db.query(App).filter(App.is_market == True).all()
+        return (
+            db.query(App).filter(App.is_market == True, App.created_by != user_id).all()
+        )
 
     @staticmethod
     def update_app(db: Session, app_id: str, request: AppUpdateRequest, user_id: str):
