@@ -60,8 +60,8 @@ export default function CreateKnowledgeModal({
   });
 
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
+    name: '참고자료 생성 테스트',
+    description: `참고자료 생성 테스트입니다 ${new Date().toLocaleString()}`,
     chunkSize: 500,
     chunkOverlap: 50,
     embeddingModel: 'text-embedding-3-small',
@@ -247,7 +247,7 @@ export default function CreateKnowledgeModal({
         }
       }
 
-      // 지식 베이스 생성
+      // 참고자료 생성
       const response = await knowledgeApi.uploadKnowledgeBase({
         sourceType: sourceType,
         file: sourceType === 'FILE' && file ? file : undefined,
@@ -434,9 +434,10 @@ export default function CreateKnowledgeModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {knowledgeBaseId ? '소스 추가' : '지식 베이스 생성'}
+            {knowledgeBaseId ? '자료 추가' : '참고자료 그룹 생성'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
@@ -449,6 +450,7 @@ export default function CreateKnowledgeModal({
           {/* 소스타입 선택 */}
           <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
             <button
+              type="button"
               onClick={() => setSourceType('FILE')}
               className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
                 sourceType === 'FILE'
@@ -460,6 +462,7 @@ export default function CreateKnowledgeModal({
               <span className="font-medium">파일 업로드</span>
             </button>
             <button
+              type="button"
               onClick={() => setSourceType('API')}
               className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
                 sourceType === 'API'
@@ -471,6 +474,7 @@ export default function CreateKnowledgeModal({
               <span className="font-medium">API 연동</span>
             </button>
             <button
+              type="button"
               onClick={() => setSourceType('DB')}
               className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
                 sourceType === 'DB'
@@ -583,6 +587,7 @@ export default function CreateKnowledgeModal({
 
                 <div className="pt-2">
                   <button
+                    type="button"
                     onClick={fetchApiData}
                     disabled={isFetchingApi || !apiConfig.url}
                     className="w-full py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -604,6 +609,7 @@ export default function CreateKnowledgeModal({
                         Response Preview
                       </h4>
                       <button
+                        type="button"
                         onClick={() => setApiPreviewData(null)}
                         className="text-xs text-gray-400 hover:text-gray-600"
                       >
@@ -653,7 +659,7 @@ export default function CreateKnowledgeModal({
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
-                    placeholder="이 지식 베이스에 대한 설명을 입력하세요"
+                    placeholder="이 참고자료 그룹에 대한 설명을 입력하세요"
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                   />
@@ -811,12 +817,14 @@ export default function CreateKnowledgeModal({
         {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             취소
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={isLoading || embeddingModels.length === 0}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"

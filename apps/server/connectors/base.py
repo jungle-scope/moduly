@@ -27,8 +27,10 @@ class BaseConnector(ABC):
         pass
 
     @abstractmethod
-    def read(
-        self, config: dict, table_name: str, batch_size: int = 1000, last_synced_at=None
-    ):
-        """데이터를 배치 단위로 조금씩 읽어오는 규칙. 마지막 인자가 있으면 그 이후 데이터만 가져옵니다"""
+    def fetch_data(self, config: dict, query: str, batch_size: int = 1000):
+        """
+        임의의 쿼리 결과 데이터를 배치 단위로 가져오는 규칙
+        Returns:
+            Generator[Dict[str, Any]]: 컬럼명과 값이 매핑된 딕셔너리 리스트 (yield)
+        """
         pass

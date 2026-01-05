@@ -14,7 +14,7 @@ import {
   Clock,
   Settings,
   Trash2,
-  RefreshCw,
+  RotateCw,
   Bot,
   Globe,
 } from 'lucide-react';
@@ -22,6 +22,10 @@ import {
   knowledgeApi,
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
+import {
+  DocumentResponse,
+  SourceType,
+} from '@/app/features/knowledge/types/Knowledge';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
 import { toast } from 'sonner';
@@ -43,6 +47,11 @@ export default function KnowledgeDetailPage() {
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
 
+  // Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // 데이터 조회
   const fetchKnowledgeBase = async () => {
     try {
@@ -54,7 +63,7 @@ export default function KnowledgeDetailPage() {
       setEditDesc(data.description || '');
     } catch (error) {
       console.error('Failed to fetch knowledge base', error);
-      alert('지식 베이스를 불러오는데 실패했습니다.');
+      alert('참고자료 그룹을 불러오는데 실패했습니다.');
       router.push('/dashboard/knowledge');
     } finally {
       setIsLoading(false);
@@ -67,8 +76,25 @@ export default function KnowledgeDetailPage() {
     }
   }, [id]);
 
+  // 문서 상태 자동 갱신 (Polling)
+  useEffect(() => {
+    // 처리 중(indexing, processing, pending)인 자료가 존재하는지 확인
+    const hasProcessingDocs = knowledgeBase?.documents.some((doc) =>
+      ['indexing', 'processing', 'pending'].includes(doc.status),
+    );
+
+    // 처리 중인 자료가 있다면 3초마다 상태 갱신
+    if (hasProcessingDocs) {
+      const intervalId = setInterval(() => {
+        fetchKnowledgeBase();
+      }, 3000);
+      return () => clearInterval(intervalId);
+    }
+  }, [knowledgeBase, id]);
+
   // 날짜 포맷팅
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'long',
@@ -132,21 +158,28 @@ export default function KnowledgeDetailPage() {
       await knowledgeApi.deleteDocument(documentId);
       // 성공 시 목록 새로고침
       fetchKnowledgeBase();
-      toast.success('문서가 삭제되었습니다.');
+      toast.success('자료가 삭제되었습니다.');
     } catch (error) {
       console.error('Failed to delete document:', error);
-      toast.error('문서 삭제에 실패했습니다.');
+      toast.error('자료 삭제에 실패했습니다.');
     }
   };
 
-  const handleSyncDocument = async (documentId: string) => {
+  const handleSyncDocument = async (
+    documentId: string,
+    sourceType: SourceType,
+  ) => {
     try {
       await knowledgeApi.syncDocument(id, documentId);
       fetchKnowledgeBase();
-      toast.success('API 동기화가 시작되었습니다.');
+      const message =
+        sourceType === 'DB'
+          ? 'DB 동기화가 시작되었습니다.'
+          : 'API 동기화가 시작되었습니다.';
+      toast.success(message);
     } catch (error) {
       console.error('Failed to sync document:', error);
-      toast.error('API 동기화 실패');
+      toast.error('동기화 실패');
     }
   };
 
@@ -180,6 +213,24 @@ export default function KnowledgeDetailPage() {
       fetchKnowledgeBase();
     } catch {
       alert('설명 수정 실패');
+    }
+  };
+
+  // 참고자료 그룹 삭제 핸들러
+  const handleDeleteKnowledgeBase = async () => {
+    if (deleteConfirmName !== knowledgeBase?.name) {
+      toast.error('참고자료 그룹 이름이 일치하지 않습니다.');
+      return;
+    }
+    try {
+      setIsDeleting(true);
+      await knowledgeApi.deleteKnowledgeBase(id);
+      toast.success('참고자료 그룹이 삭제되었습니다.');
+      router.push('/dashboard/knowledge');
+    } catch (error) {
+      console.error('Failed to delete kb:', error);
+      toast.error('참고자료 그룹 삭제 실패');
+      setIsDeleting(false);
     }
   };
 
@@ -264,7 +315,15 @@ export default function KnowledgeDetailPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            title="참고자료 그룹 삭제"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+          <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button
             onClick={() => setIsSearchModalOpen(true)}
             className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-white rounded-lg transition-colors mr-3 shadow-sm"
@@ -287,7 +346,7 @@ export default function KnowledgeDetailPage() {
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/50">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Database className="w-5 h-5 text-gray-500" />
-            데이터 소스 목록
+            자료 목록
             <span className="ml-2 text-sm font-normal text-gray-500 bg-white dark:bg-gray-600 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-500">
               {knowledgeBase.documents.length}개
             </span>
@@ -302,7 +361,7 @@ export default function KnowledgeDetailPage() {
                 <th className="px-6 py-4">파일명 / 소스명</th>
                 <th className="px-6 py-4">상태</th>
                 <th className="px-6 py-4">청크 수</th>
-                <th className="px-6 py-4">업로드 일시</th>
+                <th className="px-6 py-4">업데이트 일시</th>
                 <th className="px-6 py-4 text-right">작업</th>
               </tr>
             </thead>
@@ -315,7 +374,7 @@ export default function KnowledgeDetailPage() {
                   >
                     <div className="flex flex-col items-center gap-2">
                       <FileText className="w-8 h-8 opacity-20" />
-                      <p>아직 등록된 문서가 없습니다.</p>
+                      <p>아직 등록된 자료가 없습니다.</p>
                     </div>
                   </td>
                 </tr>
@@ -370,24 +429,36 @@ export default function KnowledgeDetailPage() {
                         : '-'}
                     </td>
                     <td className="px-6 py-4 text-gray-500 text-sm">
-                      {formatDate(doc.created_at)}
+                      {formatDate(doc.updated_at || doc.created_at)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {doc.source_type === 'API' && (
+                      <div className="flex items-center justify-end">
+                        {doc.source_type &&
+                          ['API', 'DB'].includes(doc.source_type) && (
+                            <>
+                              <button
+                                className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                onClick={() =>
+                                  handleSyncDocument(
+                                    doc.id,
+                                    doc.source_type as SourceType,
+                                  )
+                                }
+                                title="최신 데이터 동기화"
+                              >
+                                <RotateCw className="h-4 w-4" />
+                              </button>
+                              <div className="w-px h-3 bg-gray-200 dark:bg-gray-700 mx-3" />
+                            </>
+                          )}
                         <button
-                          className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-colors mr-2"
-                          onClick={() => handleSyncDocument(doc.id)}
-                          title="API 데이터 동기화"
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          title="삭제"
                         >
-                          <RefreshCw className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
-                      )}
-                      <button
-                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
-                        onClick={() => handleDeleteDocument(doc.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -413,6 +484,72 @@ export default function KnowledgeDetailPage() {
         knowledgeBaseId={id}
         onClose={() => setIsSearchModalOpen(false)}
       />
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex justify-between items-start">
+              <h3 className="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+                <Trash2 className="w-5 h-5" />
+                참고자료 그룹 삭제
+              </h3>
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-800 dark:text-red-300">
+                <p className="font-semibold mb-1">경고: 복구할 수 없습니다.</p>
+                <p>
+                  삭제하시려면 참고자료 그룹 이름{' '}
+                  <span className="font-bold underline">
+                    {knowledgeBase.name}
+                  </span>
+                  과 똑같이 입력해주세요.
+                </p>
+              </div>
+
+              <input
+                type="text"
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
+                placeholder="참고자료 그룹 이름 입력"
+              />
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleDeleteKnowledgeBase}
+                  disabled={
+                    deleteConfirmName !== knowledgeBase.name || isDeleting
+                  }
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      삭제 중...
+                    </>
+                  ) : (
+                    '삭제 확인'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
