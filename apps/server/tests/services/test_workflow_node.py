@@ -4,11 +4,13 @@ WorkflowNode 테스트
 워크플로우 내에서 다른 워크플로우를 실행하는 WorkflowNode의 동작을 테스트합니다.
 """
 
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+
+from workflow.nodes.base.entities import NodeStatus
 from workflow.nodes.workflow import WorkflowNode
 from workflow.nodes.workflow.entities import WorkflowNodeData, WorkflowNodeInput
-from workflow.nodes.base.entities import NodeStatus
 
 
 def test_workflow_node_initialization():
@@ -46,9 +48,7 @@ def test_workflow_node_execution_with_input_mapping():
         appId="app-xyz",
         inputs=[
             WorkflowNodeInput(name="input_text", value_selector=["start-node", "text"]),
-            WorkflowNodeInput(
-                name="language", value_selector=["config-node", "lang"]
-            ),
+            WorkflowNodeInput(name="language", value_selector=["config-node", "lang"]),
         ],
     )
     node = WorkflowNode(id="wf-node-1", data=node_data)
@@ -77,10 +77,12 @@ def test_workflow_node_execution_with_input_mapping():
     # Mock WorkflowEngine
     with patch("workflow.core.workflow_engine.WorkflowEngine") as MockEngine:
         mock_engine_instance = MockEngine.return_value
-        mock_engine_instance.execute.return_value = {
-            "answer": "처리 완료",
-            "processed_text": "HELLO WORLD",
-        }
+        mock_engine_instance.execute = AsyncMock(
+            return_value={
+                "answer": "처리 완료",
+                "processed_text": "HELLO WORLD",
+            }
+        )
 
         # Execution context
         node.execution_context = {"db": mock_db, "user_id": "user-1"}
@@ -106,9 +108,9 @@ def test_workflow_node_execution_with_input_mapping():
         assert call_args[1]["execution_context"] == node.execution_context
         assert call_args[1]["is_deployed"] is True
 
-        # 3. 실행 결과 확인
-        assert result["answer"] == "처리 완료"
-        assert result["processed_text"] == "HELLO WORLD"
+        # 3. 실행 결과 확인 (WorkflowNode는 {"result": ...} 형태로 반환)
+        assert result["result"]["answer"] == "처리 완료"
+        assert result["result"]["processed_text"] == "HELLO WORLD"
 
         # 4. 상태가 COMPLETED로 변경되었는지 확인
         assert node.status == NodeStatus.COMPLETED
@@ -201,7 +203,7 @@ def test_workflow_node_nested_value_extraction():
 
     with patch("workflow.core.workflow_engine.WorkflowEngine") as MockEngine:
         mock_engine_instance = MockEngine.return_value
-        mock_engine_instance.execute.return_value = {"result": "OK"}
+        mock_engine_instance.execute = AsyncMock(return_value={"result": "OK"})
 
         node.execution_context = {"db": mock_db}
         inputs = {
