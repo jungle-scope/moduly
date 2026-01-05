@@ -259,8 +259,8 @@ export interface MailNodeData extends BaseNodeData {
   keyword?: string;
   sender?: string;
   subject?: string;
-  after_date?: string;
-  before_date?: string;
+  start_date?: string;
+  end_date?: string;
 
   // Options
   folder: string;

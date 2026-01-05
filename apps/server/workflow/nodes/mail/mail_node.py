@@ -117,32 +117,40 @@ class MailNode(Node[MailNodeData]):
         if subject:
             criteria.append(f'SUBJECT "{subject}"')
 
-        # 날짜 필터: after_date가 없으면 기본 7일 전으로 설정
-        after_date = self.data.after_date
-        if not after_date:
+        # 날짜 필터: start_date가 없으면 기본 7일 전으로 설정
+        start_date = self.data.start_date
+        if not start_date:
             # 7일 전 날짜 계산
             from datetime import timedelta
 
             seven_days_ago = datetime.now() - timedelta(days=7)
-            after_date = seven_days_ago.strftime("%Y-%m-%d")
+            start_date = seven_days_ago.strftime("%Y-%m-%d")
 
-        if after_date:
+        if start_date:
             # IMAP 날짜 형식: DD-Mon-YYYY
             try:
-                date_obj = datetime.strptime(after_date, "%Y-%m-%d")
+                date_obj = datetime.strptime(start_date, "%Y-%m-%d")
                 imap_date = date_obj.strftime("%d-%b-%Y")
                 criteria.append(f"SINCE {imap_date}")
             except ValueError:
                 raise ValueError(
-                    f"잘못된 날짜 형식: {after_date}. YYYY-MM-DD 형식을 사용하세요."
+                    f"잘못된 날짜 형식: {start_date}. YYYY-MM-DD 형식을 사용하세요."
                 )
 
-        if self.data.before_date:
+        if self.data.end_date:
             try:
-                date_obj = datetime.strptime(self.data.before_date, "%Y-%m-%d")
+                date_obj = datetime.strptime(self.data.end_date, "%Y-%m-%d")
+                # BEFORE criteria excludes the date, so we add 1 day to include it
+                from datetime import timedelta
+
+                date_obj += timedelta(days=1)
+
                 imap_date = date_obj.strftime("%d-%b-%Y")
                 criteria.append(f"BEFORE {imap_date}")
             except ValueError:
+                raise ValueError(
+                    f"잘못된 날짜 형식: {self.data.end_date}. YYYY-MM-DD 형식을 사용하세요."
+                )
                 raise ValueError(
                     f"잘못된 날짜 형식: {self.data.before_date}. YYYY-MM-DD 형식을 사용하세요."
                 )

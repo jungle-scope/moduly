@@ -46,8 +46,8 @@ class MailNodeData(BaseNodeData):
     keyword: Optional[str] = Field(None, description="검색 키워드")
     sender: Optional[str] = Field(None, description="발신자 필터")
     subject: Optional[str] = Field(None, description="제목 필터")
-    after_date: Optional[str] = Field(None, description="시작 날짜 (YYYY-MM-DD)")
-    before_date: Optional[str] = Field(None, description="종료 날짜 (YYYY-MM-DD)")
+    start_date: Optional[str] = Field(None, description="시작일 (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(None, description="종료일 (YYYY-MM-DD)")
 
     # Options
     folder: str = Field("INBOX", description="검색할 폴더")

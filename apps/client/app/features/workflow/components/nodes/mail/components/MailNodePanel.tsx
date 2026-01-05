@@ -504,13 +504,13 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">
-                After Date
+                Start Date
               </label>
               <input
                 type="date"
                 className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
-                value={data.after_date || ''}
-                onChange={(e) => handleUpdateData('after_date', e.target.value)}
+                value={data.start_date || ''}
+                onChange={(e) => handleUpdateData('start_date', e.target.value)}
               />
               <p className="text-[10px] text-gray-500">
                 💡 Default: 7 days ago
@@ -519,15 +519,13 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">
-                Before Date
+                End Date
               </label>
               <input
                 type="date"
                 className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
-                value={data.before_date || ''}
-                onChange={(e) =>
-                  handleUpdateData('before_date', e.target.value)
-                }
+                value={data.end_date || ''}
+                onChange={(e) => handleUpdateData('end_date', e.target.value)}
               />
             </div>
           </div>
