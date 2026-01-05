@@ -225,7 +225,7 @@ class DeploymentService:
                     "deployment_id": str(deployment.id),
                     "app_id": str(app.id),
                     "name": app.name,
-                    "description": deployment.description or app.description,
+                    "description": app.description,
                     "input_schema": deployment.input_schema,
                     "output_schema": deployment.output_schema,
                     "version": deployment.version,
