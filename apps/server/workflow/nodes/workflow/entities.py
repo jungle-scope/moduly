@@ -1,4 +1,5 @@
-from typing import List, Optional
+from typing import List
+
 from pydantic import BaseModel, Field
 
 from workflow.nodes.base.entities import BaseNodeData
@@ -13,3 +14,6 @@ class WorkflowNodeData(BaseNodeData):
     workflowId: str = Field(..., description="Target workflow ID")
     appId: str = Field(..., description="Target App ID")
     inputs: List[WorkflowNodeInput] = Field(default=[], description="Input mappings")
+    outputs: List[str] = Field(
+        default=[], description="Expected output variable names from output_schema"
+    )

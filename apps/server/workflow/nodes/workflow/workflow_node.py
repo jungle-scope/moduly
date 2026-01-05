@@ -110,5 +110,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
 
         result = asyncio.run(engine.execute())
 
+        # 출력 통일: 항상 'result' 키로 반환
+        # 서브 워크플로우의 출력값 구조와 관계없이 일관된 출력 제공
         print(f"[WorkflowNode] Sub-workflow result: {result}")
-        return result
+        return {"result": result}
