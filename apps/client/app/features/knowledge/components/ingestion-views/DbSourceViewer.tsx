@@ -1,0 +1,30 @@
+import React from 'react';
+import DBSchemaSelector from '@/app/features/knowledge/components/document-settings/DBSchemaSelector';
+
+interface DbSourceViewerProps {
+  connectionId?: string;
+  selectedDbItems: Record<string, string[]>;
+  onChange: (items: Record<string, string[]>) => void;
+}
+
+export default function DbSourceViewer({
+  connectionId,
+  selectedDbItems,
+  onChange,
+}: DbSourceViewerProps) {
+  if (!connectionId) {
+    return (
+      <div className="flex items-center justify-center p-8 text-gray-400">
+        <p>DB 연결 정보가 없습니다.</p>
+      </div>
+    );
+  }
+
+  return (
+    <DBSchemaSelector
+      connectionId={connectionId}
+      value={selectedDbItems}
+      onChange={onChange}
+    />
+  );
+}

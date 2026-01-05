@@ -21,7 +21,7 @@ from schemas.rag import (
     KnowledgeBaseResponse,
     KnowledgeUpdate,
 )
-from services.ingestion_local_service import IngestionService
+from services.ingestion.service import IngestionOrchestrator as IngestionService
 
 router = APIRouter()
 
@@ -91,6 +91,7 @@ def get_knowledge_base(
                 error_message=doc.error_message,
                 chunk_count=len(doc.chunks),  # N+1 발생 가능, 추후 최적화
                 token_count=0,  # 우선 0으로 반환
+                source_type=doc.source_type,
                 meta_info=doc.meta_info,
             )
         )
@@ -279,6 +280,9 @@ async def process_document(
     """
     문서 설정(청킹 등)을 저장하고 백그라운드 처리를 시작합니다.
     """
+    print(f"[DEBUG] process_document called - kb_id: {kb_id}, doc_id: {document_id}")
+    print(f"[DEBUG] Request data: {request.model_dump()}")
+
     # 1. 문서 조회 (권한 확인)
     doc = (
         db.query(Document)
@@ -292,7 +296,10 @@ async def process_document(
     )
 
     if not doc:
+        print("[DEBUG] Document not found!")
         raise HTTPException(status_code=404, detail="Document not found")
+
+    print(f"[DEBUG] Found document: {doc.id}, source_type: {doc.source_type}")
 
     # 2. 설정 업데이트
     doc.chunk_size = request.chunk_size
@@ -305,15 +312,18 @@ async def process_document(
             "segment_identifier": request.segment_identifier,
             "remove_urls_emails": request.remove_urls_emails,
             "remove_whitespace": request.remove_whitespace,
+            "db_config": request.db_config,
         }
     )
     doc.meta_info = new_meta
+    print(f"[DEBUG] Updated meta_info: {new_meta}")
 
     # 상태 업데이트 (처리 시작 전)
     doc.status = (
         "indexing"  # IngestionService가 실행되기 전부터 UI에서 처리중으로 표시하기 위함
     )
     db.commit()
+    print("[DEBUG] DB commit successful")
 
     # 3. 백그라운드 작업 시작
     ingestion_service = IngestionService(
@@ -325,11 +335,10 @@ async def process_document(
     )
 
     background_tasks.add_task(
-        ingestion_service.process_document_background,
+        ingestion_service.process_document,
         document_id,
-        kb_id,
-        doc.file_path,
     )
+    print("[DEBUG] Background task added")
 
     return {"status": "processing", "message": "Document processing started"}
 
@@ -376,6 +385,7 @@ def preview_document_chunking(
             strategy=request.strategy,
             source_type=request.source_type,
             meta_info=doc.meta_info,
+            db_config=request.db_config,
         )
     except Exception as e:
         import traceback
@@ -427,24 +437,15 @@ async def sync_document(
     # 2. 백그라운드 작업 시작
     ingestion_service = IngestionService(
         db,
+        user_id=current_user.id,
         chunk_size=doc.chunk_size,
         chunk_overlap=doc.chunk_overlap,
         ai_model=doc.knowledge_base.embedding_model,
     )
 
-    # process_document_background는 file_path를 인자로 받지만,
-    # 내부적으로 doc_id로 다시 조회하여 source_type이 API면 file_path를 무시하거나 설정값 사용함.
-    # API 소스인 경우 file_path는 None일 수 있음. 처리 로직에서 확인 필요.
-    # IngestionService.process_document_background: file_path argument exists.
-    # We pass doc.file_path (which might be None or url).
-
-    file_path = doc.file_path or ""
-
     background_tasks.add_task(
-        ingestion_service.process_document_background,
+        ingestion_service.process_document,
         document_id,
-        kb_id,
-        file_path,
     )
 
     return {"status": "processing", "message": "Document sync started"}
