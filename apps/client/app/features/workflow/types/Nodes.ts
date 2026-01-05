@@ -63,6 +63,11 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 export type AuthType = 'none' | 'bearer' | 'apiKey';
 
+export interface HttpVariable {
+  name: string;
+  value_selector: string[];
+}
+
 export interface HttpRequestNodeData extends BaseNodeData {
   method: HttpMethod;
   url: string;
@@ -75,6 +80,7 @@ export interface HttpRequestNodeData extends BaseNodeData {
     apiKeyHeader?: string; // API Key header name
     apiKeyValue?: string; // API Key value
   };
+  referenced_variables: HttpVariable[];
 }
 // ============================================================================
 
