@@ -2,7 +2,7 @@
 
 import { toast } from 'sonner';
 import { useReactFlow } from '@xyflow/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeftIcon,
@@ -12,7 +12,7 @@ import {
 import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
 // [NEW] 모니터링 대시보드 모달 Import
 import { MonitoringDashboardModal } from '@/app/features/workflow/components/monitoring/MonitoringDashboardModal';
-import { ScrollText, BarChart3, Play, HelpCircle } from 'lucide-react'; // [NEW] 아이콘 추가
+import { ScrollText, BarChart3, Play } from 'lucide-react'; // [NEW] 아이콘 추가
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   validateVariableName,
@@ -26,6 +26,10 @@ import { DeploymentModal } from '../modals/DeploymentModal';
 import { DeploymentResultModal } from '../modals/DeploymentResultModal';
 import { InputSchema, OutputSchema } from '../../types/Deployment';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
+import {
+  MemoryModeToggle,
+  useMemoryMode,
+} from './memory/MemoryModeControls';
 
 /** SY.
  * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
@@ -64,10 +68,6 @@ export default function EditorHeader() {
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [isMemoryModeEnabled, setIsMemoryModeEnabled] = useState(false);
-  const [showMemoryConfirm, setShowMemoryConfirm] = useState(false);
-  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
-  const [hasProviderKey, setHasProviderKey] = useState<boolean | null>(null);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false); // [NEW] 로그 뷰어 모달 상태
   const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null); // [NEW] 로그 뷰어 초기 진입 ID
   const [isMonitoringOpen, setIsMonitoringOpen] = useState(false); // [NEW] 모니터링 모달 상태
@@ -90,74 +90,14 @@ export default function EditorHeader() {
     'api' | 'webapp' | 'widget' | 'workflow_node'
   >('api'); // 배포 타입 추적
 
-  useEffect(() => {
-    const fetchKeyStatus = async () => {
-      try {
-        const res = await fetch('/api/v1/llm/credentials', {
-          credentials: 'include',
-        });
-        if (!res.ok) throw new Error('Failed to fetch credentials');
-        const data = await res.json();
-        setHasProviderKey(Array.isArray(data) && data.length > 0);
-      } catch (error) {
-        console.error('Failed to check provider key:', error);
-        setHasProviderKey(false);
-      }
-    };
-    fetchKeyStatus();
-  }, []);
-
-  useEffect(() => {
-    if (hasProviderKey === false && isMemoryModeEnabled) {
-      setIsMemoryModeEnabled(false);
-      setShowMemoryConfirm(false);
-      toast.info('프로바이더 키가 없어 기억모드를 끕니다.', { duration: 2000 });
-    }
-  }, [hasProviderKey, isMemoryModeEnabled]);
-
-  const toggleMemoryMode = useCallback(() => {
-    if (hasProviderKey === false) {
-      setShowKeyPrompt(true);
-      return;
-    }
-    if (hasProviderKey === null) return; // still loading
-
-    setShowMemoryConfirm((prev) => {
-      if (!isMemoryModeEnabled) {
-        return true;
-      }
-      setIsMemoryModeEnabled(false);
-      return prev;
-    });
-  }, [hasProviderKey, isMemoryModeEnabled]);
-
-  const handleConfirmMemoryMode = useCallback(() => {
-    setIsMemoryModeEnabled(true);
-    setShowMemoryConfirm(false);
-  }, []);
-
-  const handleCancelMemoryMode = useCallback(() => {
-    setIsMemoryModeEnabled(false);
-    setShowMemoryConfirm(false);
-  }, []);
-
-  const handleGoToProviderSettings = useCallback(() => {
-    setShowKeyPrompt(false);
-    router.push('/settings/provider');
-  }, [router]);
-
-  const memoryModeDescription =
-    '최근 실행 기록을 요약해 다음 실행에 컨텍스트로 반영합니다. 추가 LLM 호출로 비용이 늘 수 있으니 켜기 전에 확인해주세요.';
-
-  const MemoryTooltip = ({ text }: { text: string }) => (
-    <div className="group relative inline-block">
-      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
-      <div className="absolute z-50 hidden group-hover:block w-60 p-2 text-[11px] leading-relaxed text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
-        {text}
-        <div className="absolute -top-1 left-3 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
-      </div>
-    </div>
-  );
+  const {
+    isMemoryModeEnabled,
+    hasProviderKey,
+    memoryModeDescription,
+    toggleMemoryMode,
+    appendMemoryFlag,
+    modals: memoryModeModals,
+  } = useMemoryMode(router, toast);
 
   const handleBack = useCallback(() => {
     router.push('/dashboard');
@@ -500,21 +440,7 @@ export default function EditorHeader() {
           }
         }
 
-        const payload =
-          inputs instanceof FormData
-            ? (() => {
-                const formCopy = new FormData();
-                inputs.forEach((value, key) => {
-                  if (value instanceof File) {
-                    formCopy.append(key, value);
-                  } else {
-                    formCopy.append(key, value as string);
-                  }
-                });
-                formCopy.append('memory_mode', String(isMemoryModeEnabled));
-                return formCopy;
-              })()
-            : { ...(inputs as Record<string, any>), memory_mode: isMemoryModeEnabled };
+        const payload = appendMemoryFlag(inputs);
 
         // 1. 초기화: 모든 노드 상태 초기화
         const initialNodes = nodes.map((node) => ({
@@ -643,30 +569,12 @@ export default function EditorHeader() {
             </span>
           </button>
           <div className="flex items-center gap-2 px-3 py-2 bg-white/80 border border-gray-200 rounded-lg shadow-sm">
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-semibold text-gray-700">
-                기억모드
-              </span>
-              <MemoryTooltip text={memoryModeDescription} />
-              {hasProviderKey === false && (
-                <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full font-medium">
-                  키 필요
-                </span>
-              )}
-            </div>
-            <button
-              onClick={toggleMemoryMode}
-              className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
-                isMemoryModeEnabled ? 'bg-blue-600' : 'bg-gray-200'
-              } ${hasProviderKey === false ? 'opacity-60 cursor-not-allowed' : ''}`}
-              aria-pressed={isMemoryModeEnabled}
-            >
-              <span
-                className={`absolute top-[2px] left-[2px] h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  isMemoryModeEnabled ? 'translate-x-6' : ''
-                }`}
-              />
-            </button>
+            <MemoryModeToggle
+              isEnabled={isMemoryModeEnabled}
+              hasProviderKey={hasProviderKey}
+              description={memoryModeDescription}
+              onToggle={toggleMemoryMode}
+            />
           </div>
           {/* [NEW] 로그 및 모니터링 버튼 */}
           <button
@@ -896,7 +804,7 @@ export default function EditorHeader() {
       <VersionHistorySidebar />
 
       {/* Preview Mode Banner */}
-        {previewingVersion && (
+      {previewingVersion && (
           <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
             <div className="flex flex-col">
               <span className="text-xs text-blue-200 font-medium">
@@ -924,81 +832,7 @@ export default function EditorHeader() {
           </div>
         </div>
       )}
-
-      {/* Memory Mode Confirm Modal */}
-      {showMemoryConfirm && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
-                🧠
-              </div>
-              <div>
-                <p className="text-base font-semibold text-gray-900 leading-relaxed">
-                  추가 LLM 호출이 발생해 비용이 증가할 수 있습니다.
-                  <br />
-                  동의하시면 계속 진행합니다.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className="text-amber-600">⚠️</span>
-              <span>
-                기억 기능을 켜면 최근 실행을 요약해 다음 실행 흐름을 이어줍니다.
-              </span>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={handleConfirmMemoryMode}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-              >
-                사용하겠습니다
-              </button>
-              <button
-                onClick={handleCancelMemoryMode}
-                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Provider Key Prompt */}
-      {showKeyPrompt && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
-                🔑
-              </div>
-              <div>
-                <p className="text-base font-semibold text-gray-900 leading-relaxed">
-                  LLM Provider 키를 등록해야 기억모드를 켤 수 있습니다.
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  설정에서 키를 등록하면 비용 동의 후 기억모드를 사용할 수 있습니다.
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={handleGoToProviderSettings}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-              >
-                키 등록하기
-              </button>
-              <button
-                onClick={() => setShowKeyPrompt(false)}
-                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
-              >
-                나중에 할게요
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {memoryModeModals}
     </div>
   );
 }
