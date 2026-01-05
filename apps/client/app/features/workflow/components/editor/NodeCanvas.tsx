@@ -60,6 +60,9 @@ export default function NodeCanvas() {
     activeWorkflowId,
     updateWorkflowViewport,
     setNodes,
+    updateNodeData, // [FIX] ReferenceError: updateNodeData is not defined 오류 수정
+    isVersionHistoryOpen, // [FIX] 버전 기록 패널 상호 배타적 동작 복구
+    toggleVersionHistory, // [FIX] 버전 기록 패널 상호 배타적 동작 복구
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
