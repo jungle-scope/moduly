@@ -67,7 +67,7 @@ class DockerSandboxService:
                         "language": "python3",
                         "code": wrapper,
                         "preload": "",
-                        "enable_network": False,
+                        "enable_network": True,
                     },
                 )
 
