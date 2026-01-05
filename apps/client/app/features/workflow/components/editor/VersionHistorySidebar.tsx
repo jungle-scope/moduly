@@ -42,7 +42,7 @@ export function VersionHistorySidebar() {
   if (!isVersionHistoryOpen) return null;
 
   return (
-    <div className="absolute top-14 right-0 bottom-0 w-80 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="absolute top-36 right-0 bottom-0 w-80 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col animate-in slide-in-from-right duration-200">
       {/* 헤더 */}
       <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
         <div className="flex items-center gap-2 text-gray-800">

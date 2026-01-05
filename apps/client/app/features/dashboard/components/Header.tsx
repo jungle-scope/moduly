@@ -59,7 +59,7 @@ export default function Header() {
   };
 
   return (
-    <header className="h-16 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between px-6">
+    <header className="relative z-[99] h-16 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between px-6">
       {/* Logo */}
       <div className="flex items-center">
         <Image
@@ -87,7 +87,7 @@ export default function Header() {
 
         {/* Dropdown Menu */}
         {isDropdownOpen && (
-          <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+          <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[9999]">
             {/* User Info Header */}
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="flex items-center gap-3">
