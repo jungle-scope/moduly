@@ -84,8 +84,9 @@ class DockerSandboxService:
         }
 
         # 로깅: 요청 정보
-        logger.info(f"🚀 Sandbox API 요청: {url}")
-        logger.debug(
+        print(f"🚀 Sandbox API 요청: {url}")
+        print(f"🔑 Using API Key: {self.api_key[:10]}... (length: {len(self.api_key)})")
+        print(
             f"📦 Request data: {json.dumps(request_data, ensure_ascii=False, indent=2)}"
         )
 
@@ -103,27 +104,28 @@ class DockerSandboxService:
                 response = client.post(url, json=request_data, headers=headers)
 
                 # 로깅: 응답 상태
-                logger.info(f"📨 Response status: {response.status_code}")
+                print(f"📨 Response status: {response.status_code}")
 
                 # 에러 체크: 서비스 불가
                 if response.status_code == 503:
-                    logger.error("❌ Sandbox 서비스 unavailable (503)")
+                    print("❌ Sandbox 서비스 unavailable (503)")
                     return {"error": "Code execution service is unavailable"}
 
                 # 에러 체크: 기타 HTTP 에러
                 if response.status_code != 200:
                     error_msg = f"Failed to execute code, status {response.status_code}: {response.text}"
-                    logger.error(f"❌ {error_msg}")
-                    return {"error": error_msg}
+                    debug_info = f"\nDEBUG: URL={url}, API_Key={self.api_key[:15]}..., Headers={headers}"
+                    print(f"❌ {error_msg}{debug_info}")
+                    return {"error": f"{error_msg}{debug_info}"}
 
                 # 응답 파싱
                 try:
                     response_data = response.json()
-                    logger.debug(
+                    print(
                         f"📥 Response data: {json.dumps(response_data, ensure_ascii=False, indent=2)}"
                     )
                 except Exception as e:
-                    logger.error(f"❌ Failed to parse response: {e}")
+                    print(f"❌ Failed to parse response: {e}")
                     return {"error": "Failed to parse sandbox response"}
 
                 # Dify Sandbox 응답 형식 처리
@@ -131,7 +133,7 @@ class DockerSandboxService:
                 response_code = response_data.get("code")
                 if response_code != 0:
                     error_msg = response_data.get("message", "Unknown error")
-                    logger.error(f"❌ Sandbox error code {response_code}: {error_msg}")
+                    print(f"❌ Sandbox error code {response_code}: {error_msg}")
                     return {"error": f"Sandbox error: {error_msg}"}
 
                 # data 추출
@@ -139,39 +141,42 @@ class DockerSandboxService:
 
                 # 실행 중 에러 확인
                 if data.get("error"):
-                    logger.error(f"❌ Code execution error: {data['error']}")
+                    print(f"❌ Code execution error: {data['error']}")
                     return {"error": data["error"]}
 
                 # stdout에서 JSON 결과 추출
                 stdout = data.get("stdout", "")
                 if not stdout:
-                    logger.warning("⚠️ No output from code execution")
+                    print("⚠️ No output from code execution")
                     return {"error": "No output from code execution"}
 
-                logger.info("✅ Code executed successfully")
-                logger.debug(f"📤 Output: {stdout[:200]}...")
+                print("✅ Code executed successfully")
+                print(f"📤 Output: {stdout[:200]}...")
 
                 # JSON 파싱
                 try:
                     result = json.loads(stdout.strip())
                     return result
                 except json.JSONDecodeError as e:
-                    logger.error(f"❌ Invalid JSON output: {e}")
+                    print(f"❌ Invalid JSON output: {e}")
                     return {"error": f"Invalid JSON output: {stdout[:100]}..."}
 
         except httpx.TimeoutException:
             error_msg = f"실행 시간 초과 ({timeout}초)"
-            logger.error(f"❌ {error_msg}")
+            print(f"❌ {error_msg}")
             return {"error": error_msg}
 
         except httpx.RequestError as e:
             error_msg = f"Sandbox API 연결 오류: {str(e)}"
-            logger.error(f"❌ {error_msg}")
+            print(f"❌ {error_msg}")
             return {"error": error_msg}
 
         except Exception as e:
             error_msg = f"예상치 못한 오류: {str(e)}"
-            logger.error(f"❌ {error_msg}", exc_info=True)
+            print(f"❌ {error_msg}")
+            import traceback
+
+            traceback.print_exc()
             return {"error": error_msg}
 
     def _create_wrapper(self, user_code: str, inputs: Dict[str, Any]) -> str:
