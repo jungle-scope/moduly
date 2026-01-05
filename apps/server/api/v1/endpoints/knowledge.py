@@ -363,6 +363,10 @@ async def process_document(
             "remove_urls_emails": request.remove_urls_emails,
             "remove_whitespace": request.remove_whitespace,
             "db_config": request.db_config,
+            # 필터링 설정 저장
+            "selection_mode": request.selection_mode,
+            "chunk_range": request.chunk_range,
+            "keyword_filter": request.keyword_filter,
         }
     )
     doc.meta_info = new_meta
@@ -436,6 +440,10 @@ def preview_document_chunking(
             source_type=request.source_type,
             meta_info=doc.meta_info,
             db_config=request.db_config,
+            # 필터링 파라미터 전달
+            selection_mode=request.selection_mode,
+            chunk_range=request.chunk_range,
+            keyword_filter=request.keyword_filter,
         )
     except Exception as e:
         import traceback

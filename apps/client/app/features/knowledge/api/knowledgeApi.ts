@@ -20,6 +20,10 @@ export interface DocumentPreviewRequest {
   db_config?: {
     selections: { table_name: string; columns: string[] }[];
   } | null;
+  // [추가] 필터링 파라미터
+  selection_mode?: 'all' | 'range' | 'keyword';
+  chunk_range?: string;
+  keyword_filter?: string;
 }
 
 export interface DocumentSegment {

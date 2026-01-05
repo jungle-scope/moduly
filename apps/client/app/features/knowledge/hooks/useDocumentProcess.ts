@@ -80,11 +80,14 @@ export function useDocumentProcess({
       source_type: document?.source_type || 'FILE',
       db_config: {
         selections,
-        // [추가] connectionIdOverride가 있으면 db_config에 포함하여 서버로 전송
         ...(connectionIdOverride
           ? { connection_id: connectionIdOverride }
           : {}),
       },
+      // 필터링 파라미터 전송
+      selection_mode: selectionMode,
+      chunk_range: chunkRange,
+      keyword_filter: keywordFilter,
     };
   };
 
@@ -102,8 +105,6 @@ export function useDocumentProcess({
       );
       console.log('[Debug] API Response:', response);
 
-      setStatus('indexing');
-      setProgress(0);
       setStatus('indexing');
       setProgress(0);
 
@@ -140,31 +141,9 @@ export function useDocumentProcess({
       );
       console.log('[Debug] Preview Response:', response);
 
-      // 범위 선택에 따라 청크 필터링 (필터링 된 청크만 preview에 표시된다)
-      let filteredSegments = response.segments;
-
-      if (selectionMode === 'range' && chunkRange) {
-        // 청크 범위 파싱: "1-100, 500-600" → [1,2,3,...,100,500,501,...,600]
-        const selectedIndices = parseChunkRange(chunkRange);
-        filteredSegments = response.segments.filter((_, idx) =>
-          selectedIndices.includes(idx),
-        );
-        console.log(
-          `[Debug] Range filtering: ${response.segments.length} → ${filteredSegments.length} chunks`,
-        );
-      } else if (selectionMode === 'keyword' && keywordFilter) {
-        // 키워드 필터링: content에 키워드 포함 여부
-        const keyword = keywordFilter.toLowerCase();
-        filteredSegments = response.segments.filter((segment) =>
-          segment.content.toLowerCase().includes(keyword),
-        );
-        console.log(
-          `[Debug] Keyword filtering: ${response.segments.length} → ${filteredSegments.length} chunks`,
-        );
-      }
-
-      setPreviewSegments(filteredSegments);
-      toast.success(`청킹 미리보기 완료 (${filteredSegments.length}개 청크)`);
+      // 서버에서 필터링된 결과를 그대로 사용 (클라이언트 필터링 로직 제거)
+      setPreviewSegments(response.segments);
+      toast.success(`청킹 미리보기 완료 (${response.segments.length}개 청크)`);
     } catch (error) {
       console.error(error);
       toast.error('미리보기 생성 실패');
@@ -173,33 +152,7 @@ export function useDocumentProcess({
     }
   };
 
-  // 청크 범위 파싱 헬퍼 함수
-  const parseChunkRange = (rangeStr: string): number[] => {
-    const indices: number[] = [];
-    const ranges = rangeStr.split(',').map((r) => r.trim());
-
-    for (const range of ranges) {
-      if (range.includes('-')) {
-        const [start, end] = range
-          .split('-')
-          .map((n) => parseInt(n.trim(), 10));
-        if (!isNaN(start) && !isNaN(end)) {
-          for (let i = start; i <= end; i++) {
-            indices.push(i);
-          }
-        }
-      } else {
-        const num = parseInt(range.trim(), 10);
-        if (!isNaN(num)) {
-          indices.push(num);
-        }
-      }
-    }
-
-    return [...new Set(indices)].sort((a, b) => a - b); // 중복 제거 및 정렬
-  };
-
-  // 4. 비용 승인 핸들러
+  // 비용 승인 핸들러
   const handleAnalyzeAndProceed = async (action: 'preview' | 'save') => {
     setAnalyzingAction(action);
     try {

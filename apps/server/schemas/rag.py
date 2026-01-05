@@ -77,6 +77,10 @@ class DocumentPreviewRequest(BaseModel):
     strategy: str = "general"  # "general" or "llamaparse"
     source_type: str = "FILE"  # FILE or API
     db_config: Optional[Dict[str, Any]] = None
+    # 필터링 파라미터 추가
+    selection_mode: str = "all"  # 'all', 'range', 'keyword'
+    chunk_range: Optional[str] = None
+    keyword_filter: Optional[str] = None
 
 
 class DocumentProcessRequest(DocumentPreviewRequest):
