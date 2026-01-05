@@ -93,7 +93,7 @@ export default function CreateKnowledgeModal({
     const fetchEmbeddingModels = async () => {
       try {
         setLoadingModels(true);
-        const res = await fetch(`${BASE_URL}/api/v1/llm/my-embedding-models`, {
+        const res = await fetch(`/api/v1/llm/my-embedding-models`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

@@ -8,10 +8,11 @@ interface NodeDetailsPanelProps {
   onClose: () => void;
   children: React.ReactNode;
   header?: {
-    icon?: string;
+    icon?: React.ReactNode | string;
     title?: string;
     description?: string;
   };
+  headerActions?: React.ReactNode;
 }
 
 /**
@@ -23,6 +24,7 @@ export default function NodeDetailsPanel({
   onClose,
   children,
   header,
+  headerActions,
 }: NodeDetailsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -175,7 +177,8 @@ export default function NodeDetailsPanel({
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="flex items-center gap-3 flex-1">
           <div
-            className={`flex items-center justify-center w-8 h-8 min-w-[32px] rounded text-white font-bold text-sm ${nodeDef?.color || 'bg-gray-500'}`}
+            className="flex items-center justify-center w-8 h-8 min-w-[32px] rounded text-white font-bold text-sm"
+            style={{ backgroundColor: nodeDef?.color || '#6b7280' }}
           >
             {nodeDef?.icon || '📦'}
           </div>
@@ -256,13 +259,16 @@ export default function NodeDetailsPanel({
             )}
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1 hover:bg-gray-100 rounded transition-colors"
-          aria-label="Close panel"
-        >
-          <X className="w-5 h-5 text-gray-500" />
-        </button>
+        <div className="flex items-center gap-2">
+          {headerActions}
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            aria-label="Close panel"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
       </div>
 
       {/* 패널 콘텐츠 - 현재는 children을 표시하며, 현재 사용에서는 보통 비어 있음 */}

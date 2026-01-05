@@ -5,7 +5,7 @@ import { Plus, X, Maximize2, Minimize2 } from 'lucide-react';
 import { CodeNodeData, CodeNodeInput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 
 interface CodeNodePanelProps {
   nodeId: string;

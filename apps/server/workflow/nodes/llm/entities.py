@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,7 @@ class LLMNodeData(BaseNodeData):
     assistant_prompt: Optional[str] = None
     referenced_variables: List[LLMVariable] = Field(default_factory=list)
     context_variable: Optional[str] = None
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="LLM API 파라미터 (temperature, top_p, max_tokens 등)")
 
     def validate(self) -> None:
         # 모델은 필수
@@ -41,12 +42,19 @@ class LLMNodeData(BaseNodeData):
         if all(not p for p in prompts):
             raise ValueError("system/user/assistant 프롬프트 중 최소 1개는 필요합니다.")
 
-        # referenced_variables 검증 (각 변수에 name과 value_selector가 있는지)
+        # referenced_variables 정리: 불완전한 변수(이름/selector 없음)는 무시
+        cleaned_vars = []
         for var in self.referenced_variables:
-            if not var.name or not var.name.strip():
-                raise ValueError("변수명이 비어있습니다.")
-            if not var.value_selector or len(var.value_selector) < 1:
-                raise ValueError(f"변수 '{var.name}'의 value_selector가 비어있습니다.")
+            name = (var.name or "").strip()
+            selector = var.value_selector or []
+            # 이름과 selector가 모두 비어있으면 무시
+            if not name and (not selector or len(selector) < 2):
+                continue
+            # 이름은 있지만 selector가 불완전하면 무시
+            if name and (not selector or len(selector) < 2):
+                continue
+            cleaned_vars.append(var)
+        self.referenced_variables = cleaned_vars
 
         if self.context_variable is not None:
             stripped_context = self.context_variable.strip()

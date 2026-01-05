@@ -7,7 +7,7 @@ import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeftIcon,
   ClockIcon,
-} from '@/app/features/workflow/components/icons';
+} from '@/app/features/workflow/components/nodes/icons';
 // [NEW] 로그 뷰어 모달 Import
 import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
 // [NEW] 모니터링 대시보드 모달 Import
@@ -415,7 +415,10 @@ export default function EditorHeader() {
         if (startNode?.type === 'webhookTrigger') {
           // Webhook인 경우 __json_payload__를 파싱해서 inputs로 사용
           try {
-            const rawJson = inputs['__json_payload__'];
+            const rawJson =
+              inputs instanceof FormData
+                ? (inputs.get('__json_payload__') as string)
+                : inputs['__json_payload__'];
             inputs = JSON.parse(rawJson);
           } catch (e) {
             console.error('JSON parsing failed:', e);

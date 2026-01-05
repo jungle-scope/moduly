@@ -102,7 +102,14 @@ class LLMNode(Node[LLMNodeData]):
             raise ValueError("프롬프트 렌더링 결과가 모두 비어있습니다. 입력 변수가 올바르게 전달되었는지 확인해주세요.")
 
         # STEP 4. LLM 호출 ----------------------------------------------------
-        response = client.invoke(messages=messages, **(self.data.parameters or {}))
+        # 파라미터 전처리: stop 리스트에서 빈 문자열 제거
+        llm_params = dict(self.data.parameters or {})
+        if "stop" in llm_params and isinstance(llm_params["stop"], list):
+            llm_params["stop"] = [s for s in llm_params["stop"] if s and s.strip()]
+            if not llm_params["stop"]:
+                del llm_params["stop"]
+        
+        response = client.invoke(messages=messages, **llm_params)
 
         # OpenAI 응답 포맷에서 텍스트/usage 추출 (missing 시 안전하게 빈 값)
         text = ""

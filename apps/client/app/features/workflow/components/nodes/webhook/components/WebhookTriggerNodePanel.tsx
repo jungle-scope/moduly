@@ -3,7 +3,7 @@ import {
   WebhookTriggerNodeData,
   VariableMapping,
 } from '../../../../types/Nodes';
-import { CollapsibleSection } from '../../../ui/CollapsibleSection';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { Plus, Copy, Trash2 } from 'lucide-react';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { appApi } from '@/app/features/app/api/appApi';
@@ -59,8 +59,7 @@ export function WebhookTriggerNodePanel({
         const app = await appApi.getApp(appId);
         if (app.url_slug) {
           setUrlSlug(app.url_slug);
-          const baseUrl =
-            process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+          const baseUrl = ''; // 상대 경로 사용 (Next.js proxy 거침)
           const token = app.auth_secret || '[auth-secret]';
           const url = `${baseUrl}/api/v1/hooks/${app.url_slug}?token=${token}`;
           setWebhookUrl(url);
