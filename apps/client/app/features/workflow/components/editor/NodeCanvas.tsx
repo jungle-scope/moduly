@@ -1,12 +1,18 @@
 'use client';
 
-import { Sliders } from 'lucide-react';
+import { Sliders, Plus, StickyNote, Play } from 'lucide-react';
+import { NodeSelector } from './NodeSelector';
+import {
+  type NodeDefinition,
+  getNodeDefinition,
+  getNodesByCategory,
+} from '../../config/nodeRegistry';
+import { NoteNode, AppNode } from '../../types/Nodes';
 
 import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   ReactFlow,
   Background,
-  Controls,
   BackgroundVariant,
   useReactFlow,
   type Viewport,
@@ -55,7 +61,9 @@ export default function NodeCanvas() {
     activeWorkflowId,
     updateWorkflowViewport,
     setNodes,
-    updateNodeData,
+    updateNodeData, // [FIX] ReferenceError: updateNodeData is not defined 오류 수정
+    isVersionHistoryOpen, // [FIX] 버전 기록 패널 상호 배타적 동작 복구
+    toggleVersionHistory, // [FIX] 버전 기록 패널 상호 배타적 동작 복구
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
@@ -171,11 +179,25 @@ export default function NodeCanvas() {
     [activeWorkflowId, updateWorkflowViewport],
   );
 
+  // 버전 기록이 열리면 노드 상세 패널 닫기 (상호 배타적)
+  useEffect(() => {
+    if (isVersionHistoryOpen) {
+      setSelectedNodeId(null);
+      setSelectedNodeType(null);
+      setIsParamPanelOpen(false);
+    }
+  }, [isVersionHistoryOpen]);
+
   // 노드 클릭 시 세부 정보 패널 표시 처리
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
       if (node.type && node.type !== 'note') {
+        // 버전 기록이 열려있으면 닫기
+        if (isVersionHistoryOpen) {
+          toggleVersionHistory();
+        }
+
         // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
         if (selectedNodeId !== node.id) {
           setIsParamPanelOpen(false);
@@ -184,7 +206,7 @@ export default function NodeCanvas() {
         setSelectedNodeType(node.type);
       }
     },
-    [selectedNodeId],
+    [selectedNodeId, isVersionHistoryOpen, toggleVersionHistory],
   );
 
   // 세부 정보 패널 닫기
@@ -259,6 +281,97 @@ export default function NodeCanvas() {
     return activeWorkflow?.appId;
   }, [workflows, activeWorkflowId]);
 
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    isOpen: boolean;
+  } | null>(null);
+
+  // Node Selector Modal specific to Context Menu
+  const [isContextNodeSelectorOpen, setIsContextNodeSelectorOpen] =
+    useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+
+  const onPaneContextMenu = useCallback(
+    (event: React.MouseEvent | MouseEvent) => {
+      event.preventDefault();
+      // Calculate position relative to container
+      const x = event.clientX;
+      const y = event.clientY;
+
+      setContextMenu({ x, y, isOpen: true });
+      setContextMenuPos({ x, y });
+    },
+    [],
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleAddNodeFromContext = useCallback(() => {
+    setContextMenu(null);
+    setIsContextNodeSelectorOpen(true);
+  }, []);
+
+  const handleAddMemoFromContext = useCallback(() => {
+    if (!contextMenuPos) return;
+
+    const position = screenToFlowPosition({
+      x: contextMenuPos.x,
+      y: contextMenuPos.y,
+    });
+
+    const newNote: NoteNode = {
+      id: `note-${Date.now()}`,
+      type: 'note',
+      data: { content: '', title: '메모' },
+      position,
+      style: { width: 200, height: 100 },
+    };
+
+    setNodes([...nodes, newNote]);
+    setContextMenu(null);
+  }, [contextMenuPos, screenToFlowPosition, setNodes, nodes]);
+
+  const { triggerWorkflowRun } = useWorkflowStore();
+
+  const handleTestRunFromContext = useCallback(() => {
+    triggerWorkflowRun();
+    setContextMenu(null);
+  }, [triggerWorkflowRun]);
+
+  const handleSelectNodeFromContext = useCallback(
+    (nodeDefId: string) => {
+      const nodeDef = getNodeDefinition(nodeDefId);
+      if (!nodeDef) return;
+
+      const position = screenToFlowPosition({
+        x: contextMenuPos.x,
+        y: contextMenuPos.y,
+      });
+
+      const newNode: AppNode = {
+        id: `${nodeDef.id}-${Date.now()}`,
+        type: nodeDef.type as any,
+        data: nodeDef.defaultData() as any,
+        position,
+      };
+
+      setNodes([...nodes, newNode]);
+      setIsContextNodeSelectorOpen(false);
+    },
+    [contextMenuPos, screenToFlowPosition, setNodes, nodes],
+  );
+
+  // Close context menu on click elsewhere
+  useEffect(() => {
+    const handleClick = () => handleCloseContextMenu();
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, [handleCloseContextMenu]);
+
   return (
     <div className="flex-1 bg-gray-50 relative flex flex-col">
       {/* App Search Modal */}
@@ -270,9 +383,10 @@ export default function NodeCanvas() {
       />
 
       {/* ReactFlow 캔버스 */}
-
-      {/* ReactFlow 캔버스 */}
-      <div className="flex-1 relative">
+      <div
+        className="flex-1 relative"
+        onContextMenu={(e) => e.preventDefault()}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -281,6 +395,7 @@ export default function NodeCanvas() {
           onConnect={onConnect}
           onMoveEnd={handleMoveEnd}
           onNodeClick={handleNodeClick}
+          onPaneContextMenu={onPaneContextMenu}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
@@ -301,7 +416,6 @@ export default function NodeCanvas() {
             size={1}
             color="#d1d5db"
           />
-          <Controls className="shadow-lg! border! border-gray-200! rounded-lg!" />
         </ReactFlow>
 
         {/* 플로팅 하단 패널 - 사이드 패널에 따라 위치 조정 */}
@@ -424,6 +538,68 @@ export default function NodeCanvas() {
             />
           )}
         </NodeDetailsPanel>
+
+        {/* Context Menu UI */}
+        {contextMenu && (
+          <div
+            className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={handleAddNodeFromContext}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 text-gray-500" />
+              노드 추가
+            </button>
+            <button
+              onClick={handleAddMemoFromContext}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <StickyNote className="w-4 h-4 text-gray-500" />
+              메모 추가
+            </button>
+            <div className="my-1 border-t border-gray-100" />
+            <button
+              onClick={handleTestRunFromContext}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Play className="w-4 h-4 text-gray-500" />
+              테스트 실행
+            </button>
+          </div>
+        )}
+
+        {/* Context Menu Node Selector Modal */}
+        {isContextNodeSelectorOpen && (
+          <div
+            className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-[320px] max-h-[400px] overflow-y-auto"
+            style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-medium text-sm text-gray-900">
+                노드 선택
+              </span>
+              <button
+                onClick={() => setIsContextNodeSelectorOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+            <NodeSelector onSelect={handleSelectNodeFromContext} />
+          </div>
+        )}
+
+        {/* Close Node Selector when clicking outside (overlay) */}
+        {isContextNodeSelectorOpen && (
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsContextNodeSelectorOpen(false)}
+          />
+        )}
       </div>
     </div>
   );

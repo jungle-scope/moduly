@@ -6,7 +6,6 @@ import { Search, Plus, Pencil } from 'lucide-react';
 
 import CreateAppModal from '../features/app/components/create-app-modal';
 import EditAppModal from '../features/app/components/edit-app-modal';
-import LogoutButton from '../features/auth/components/LogoutButton';
 import { appApi, type App } from '../features/app/api/appApi';
 
 export default function DashboardPage() {
@@ -20,6 +19,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadApps();
+
+    // Listen for create app modal event from sidebar
+    const handleOpenModal = () => {
+      setIsCreateModalOpen(true);
+    };
+
+    window.addEventListener('openCreateAppModal', handleOpenModal);
+    return () =>
+      window.removeEventListener('openCreateAppModal', handleOpenModal);
   }, []);
 
   const loadApps = async () => {
@@ -56,37 +64,37 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            스튜디오
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            모듈을 생성하고 편집하는 공간입니다.
-          </p>
-        </div>
-        <LogoutButton />
-      </div>
+    <div className="p-8 bg-gradient-to-br from-white via-gray-50 to-gray-100 min-h-full border border-gray-200">
+      {/* Page Title */}
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">대시보드</h1>
 
-      {/* Search Bar */}
-      <div className="mb-6">
+      {/* Search and Create Row */}
+      <div className="mb-6 flex items-center justify-end gap-3">
+        {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="모듈 이름 검색..."
+            placeholder="Search for projects"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-400"
+            className="w-64 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
         </div>
+
+        {/* Create Button */}
+        <button
+          onClick={handleCreateApp}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Create
+        </button>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
           {error}
         </div>
       )}
@@ -94,69 +102,61 @@ export default function DashboardPage() {
       {/* Loading State */}
       {isLoading && (
         <div className="text-center py-12">
-          <p className="text-gray-500">로딩 중...</p>
+          <p className="text-gray-500 text-sm">로딩 중...</p>
         </div>
       )}
 
       {/* Module Cards Grid */}
+      {/* Apps Grid */}
       {!isLoading && (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {/* Create Module Button */}
-          <button
-            onClick={handleCreateApp}
-            className="group flex min-h-[200px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white p-6 transition-all hover:border-blue-500 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-500 dark:hover:bg-gray-800"
-          >
-            <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 transition-colors group-hover:bg-blue-100 dark:bg-gray-800 dark:group-hover:bg-blue-900">
-              <Plus className="h-8 w-8 text-gray-400 transition-colors group-hover:text-blue-600 dark:text-gray-500 dark:group-hover:text-blue-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              모듈 만들기
-            </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              새로운 모듈 생성
-            </p>
-          </button>
-
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {/* Existing App Cards */}
           {filteredApps.map((app) => (
             <div
               key={app.id}
               onClick={() => handleAppClick(app)}
-              className="group flex min-h-[200px] cursor-pointer flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700"
+              className="group cursor-pointer rounded-xl border border-gray-200/60 bg-white py-8 px-6 shadow-sm transition-all hover:shadow-md hover:border-gray-300"
             >
-              {/* Header: Title + Icon */}
-              <div className="flex items-start justify-between mb-4">
+              {/* Card Header */}
+              <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 transition-colors group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">
                     {app.name}
                   </h3>
-                  {app.description && (
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                      {app.description}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500">{app.description}</p>
                 </div>
-
-                {/* Large Icon */}
+                {/* Icon */}
                 <div
-                  className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 ml-4"
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl flex-shrink-0 ml-3"
                   style={{ backgroundColor: app.icon?.background_color }}
                 >
                   {app.icon?.content}
                 </div>
               </div>
 
-              {/* Footer: Meta Info */}
-              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                <p className="text-xs text-gray-400">
-                  수정: {new Date(app.updated_at).toLocaleDateString('ko-KR')}
-                </p>
+              {/* Footer */}
+              <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
+                <div className="flex items-center gap-1">
+                  <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-[8px] text-blue-600 font-medium">
+                      U
+                    </span>
+                  </div>
+                  <span>
+                    • Edited{' '}
+                    {new Date(app.updated_at).toLocaleDateString('en-US', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      year: '2-digit',
+                    })}
+                  </span>
+                </div>
                 <button
                   onClick={(e) => handleEditApp(e, app)}
-                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                  className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
                   title="앱 정보 수정"
                 >
-                  <Pencil className="w-4 h-4" />
+                  <Pencil className="w-3 h-3" />
                 </button>
               </div>
             </div>
