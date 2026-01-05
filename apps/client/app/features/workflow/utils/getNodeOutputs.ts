@@ -29,6 +29,21 @@ export const getNodeOutputs = (node: Node): string[] => {
       return ['result', 'page_count'];
     case 'knowledgeNode':
       return ['context', 'metadata'];
+    case 'githubNode':
+      // Get PR: pr_title, pr_body, pr_state, pr_number, files_count, files, diff_url
+      // Comment PR: comment_id, comment_url, comment_body
+      return [
+        'pr_title',
+        'pr_body',
+        'pr_state',
+        'pr_number',
+        'files_count',
+        'files',
+        'diff_url',
+        'comment_id',
+        'comment_url',
+        'comment_body',
+      ];
     default:
       return ['result'];
   }

@@ -32,6 +32,7 @@ import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
 import { KnowledgeNodePanel } from '../nodes/knowledge/components/KnowledgeNodePanel';
+import { GithubNodePanel } from '../nodes/github/components/GithubNodePanel';
 
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
@@ -405,6 +406,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'webhookTrigger' && (
             <WebhookTriggerNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'githubNode' && (
+            <GithubNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />
