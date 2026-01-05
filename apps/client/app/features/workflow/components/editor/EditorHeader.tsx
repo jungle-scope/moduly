@@ -26,6 +26,10 @@ import { DeploymentModal } from '../modals/DeploymentModal';
 import { DeploymentResultModal } from '../modals/DeploymentResultModal';
 import { InputSchema, OutputSchema } from '../../types/Deployment';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
+import {
+  MemoryModeToggle,
+  useMemoryMode,
+} from './memory/MemoryModeControls';
 
 /** SY.
  * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
@@ -86,6 +90,15 @@ export default function EditorHeader() {
     'api' | 'webapp' | 'widget' | 'workflow_node'
   >('api'); // 배포 타입 추적
 
+  const {
+    isMemoryModeEnabled,
+    hasProviderKey,
+    memoryModeDescription,
+    toggleMemoryMode,
+    appendMemoryFlag,
+    modals: memoryModeModals,
+  } = useMemoryMode(router, toast);
+
   const handleBack = useCallback(() => {
     router.push('/dashboard');
   }, [router]);
@@ -104,7 +117,7 @@ export default function EditorHeader() {
     }
   }, [previewingVersion, restoreVersion]);
 
-  const handlePublish = useCallback(() => {
+  const handlePublishAsRestAPI = useCallback(() => {
     setDeploymentType('api'); // REST API 배포
     setShowDeployModal(true);
   }, []);
@@ -427,6 +440,8 @@ export default function EditorHeader() {
           }
         }
 
+        const payload = appendMemoryFlag(inputs);
+
         // 1. 초기화: 모든 노드 상태 초기화
         const initialNodes = nodes.map((node) => ({
           ...node,
@@ -441,7 +456,7 @@ export default function EditorHeader() {
         // 여기서 async 콜백을 사용하여 의도적인 지연(Delay)을 만듭니다.
         await workflowApi.executeWorkflowStream(
           workflowId,
-          inputs,
+          payload,
           async (event) => {
             // 시각적 피드백을 위한 지연 (너무 빠르면 사용자가 인지하기 힘듦)
             await new Promise((resolve) => setTimeout(resolve, 500));
@@ -553,6 +568,14 @@ export default function EditorHeader() {
               {isExecuting ? '실행 중...' : '테스트'}
             </span>
           </button>
+          <div className="flex items-center gap-2 px-3 py-2 bg-white/80 border border-gray-200 rounded-lg shadow-sm">
+            <MemoryModeToggle
+              isEnabled={isMemoryModeEnabled}
+              hasProviderKey={hasProviderKey}
+              description={memoryModeDescription}
+              onToggle={toggleMemoryMode}
+            />
+          </div>
           {/* [NEW] 로그 및 모니터링 버튼 */}
           <button
             onClick={() => setIsLogViewerOpen(true)}
@@ -650,7 +673,7 @@ export default function EditorHeader() {
                   <button
                     onClick={() => {
                       setShowDeployDropdown(false);
-                      handlePublish();
+                      handlePublishAsRestAPI();
                     }}
                     className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                   >
@@ -782,10 +805,10 @@ export default function EditorHeader() {
 
       {/* Preview Mode Banner */}
       {previewingVersion && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
-          <div className="flex flex-col">
-            <span className="text-xs text-blue-200 font-medium">
-              현재 미리보기 중
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
+            <div className="flex flex-col">
+              <span className="text-xs text-blue-200 font-medium">
+                현재 미리보기 중
             </span>
             <span className="font-bold text-sm">
               v{previewingVersion.version} -{' '}
@@ -809,6 +832,7 @@ export default function EditorHeader() {
           </div>
         </div>
       )}
+      {memoryModeModals}
     </div>
   );
 }

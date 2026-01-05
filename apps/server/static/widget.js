@@ -5,6 +5,7 @@
  * <script>
  *   window.ModulyConfig = {
  *     appId: 'your-url-slug'
+ *     frontendUrl: 'https://www.moviepick.shop'
  *   };
  * </script>
  * <script src="http://localhost:8000/static/widget.js"></script>
@@ -20,7 +21,18 @@
   }
 
   const config = window.ModulyConfig;
-  const CHAT_URL = `http://localhost:3000/embed/chat/${config.appId}`;
+  
+  // 프론트엔드 URL 결정
+  // 1. ModulyConfig.frontendUrl이 명시적으로 설정되어 있으면 사용
+  // 2. 없으면 현재 스크립트가 로드된 백엔드 URL에서 추론
+  let frontendUrl = config.frontendUrl;
+    
+  // 기본값 (스크립트를 찾지 못한 경우)
+  if (!frontendUrl) {
+    frontendUrl = 'https://www.moviepick.shop';
+  }
+  
+  const CHAT_URL = `${frontendUrl}/embed/chat/${config.appId}`;
 
   // 위젯 상태
   let isOpen = false;

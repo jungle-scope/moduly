@@ -69,3 +69,4 @@ openpyxl
 python-docx
 sshtunnel
 paramiko<3.0
+PyGithub
