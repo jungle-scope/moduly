@@ -44,13 +44,16 @@ def get_deployments(
 
 @router.get("/nodes", response_model=List[dict])
 def list_workflow_nodes(
+    excluded_app_id: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     배포된 워크플로우 노드 목록을 조회합니다. (재사용 가능한 모듈)
     """
-    return DeploymentService.list_workflow_node_deployments(db)
+    return DeploymentService.list_workflow_node_deployments(
+        db, current_user.id, excluded_app_id=excluded_app_id
+    )
 
 
 @router.get("/{deployment_id}", response_model=DeploymentResponse)

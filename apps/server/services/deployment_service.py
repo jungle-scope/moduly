@@ -191,7 +191,9 @@ class DeploymentService:
         return deployment
 
     @staticmethod
-    def list_workflow_node_deployments(db: Session) -> List[Dict[str, Any]]:
+    def list_workflow_node_deployments(
+        db: Session, user_id: uuid.UUID, excluded_app_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         '워크플로우 노드'로 배포된 모든 앱의 목록을 조회합니다.
         다른 워크플로우에서 사용할 수 있는 컴포넌트 목록용입니다.
@@ -199,6 +201,7 @@ class DeploymentService:
         Returns:
             [
                 {
+                    "deployment_id": "...",
                     "app_id": "...",
                     "name": "...",
                     "description": "...",
@@ -210,13 +213,18 @@ class DeploymentService:
         """
         # 1. 활성 배포(Active Deployment)가 있고, 타입이 WORKFLOW_NODE인 App 조회
         # (WorkflowDeployment와 App을 조인하여 최신 정보 가져옴)
-        results = (
+        query = (
             db.query(App, WorkflowDeployment)
             .join(WorkflowDeployment, App.active_deployment_id == WorkflowDeployment.id)
             .filter(WorkflowDeployment.type == DeploymentType.WORKFLOW_NODE)
             .filter(WorkflowDeployment.is_active == True)
-            .all()
+            .filter(App.created_by == str(user_id))  # [NEW] 내 앱만 조회
         )
+
+        if excluded_app_id:
+            query = query.filter(App.id != excluded_app_id)
+
+        results = query.all()
 
         nodes = []
         for app, deployment in results:
@@ -225,7 +233,7 @@ class DeploymentService:
                     "deployment_id": str(deployment.id),
                     "app_id": str(app.id),
                     "name": app.name,
-                    "description": deployment.description or app.description,
+                    "description": app.description,
                     "input_schema": deployment.input_schema,
                     "output_schema": deployment.output_schema,
                     "version": deployment.version,

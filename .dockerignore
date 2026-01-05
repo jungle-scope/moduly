@@ -9,3 +9,4 @@ apps/client/.next
 
 # 참고자료 파일업로드 관련
 apps/server/uploads
+docker/

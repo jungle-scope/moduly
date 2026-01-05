@@ -55,7 +55,6 @@ uvicorn==0.40.0
 langchain==0.3.14
 langchain-community==0.3.14
 pymupdf4llm
-docker
 pgvector==0.3.6
 openai==1.59.5
 pymupdf==1.25.1
