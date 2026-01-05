@@ -59,7 +59,7 @@ export function WebhookTriggerNodePanel({
         const app = await appApi.getApp(appId);
         if (app.url_slug) {
           setUrlSlug(app.url_slug);
-          const baseUrl = ''; // 상대 경로 사용 (Next.js proxy 거침)
+          const baseUrl = window.location.origin; // 추후 gateway 등록시 수정 필요
           const token = app.auth_secret || '[auth-secret]';
           const url = `${baseUrl}/api/v1/hooks/${app.url_slug}?token=${token}`;
           setWebhookUrl(url);
@@ -170,12 +170,41 @@ export function WebhookTriggerNodePanel({
     setIsCaptureMode(false);
   };
 
+  const handlePayloadSelect = (path: string, value: any) => {
+    // 변수명 자동 생성: 경로의 마지막 부분 (e.g. issue.fields.summary -> summary)
+    // 숫자로만 된 건 제외하거나 prefix 붙임 (e.g. issues[0] -> issues_0)
+    let varName = path.split('.').pop() || 'variable';
+    varName = varName.replace(/\[(\d+)\]/g, '_$1'); // array index handling
+
+    // 이미 존재하는 변수명인지 확인 후 중복 시 숫자 붙임
+    let finalVarName = varName;
+    let counter = 1;
+    while (
+      data.variable_mappings.some((m) => m.variable_name === finalVarName)
+    ) {
+      finalVarName = `${varName}_${counter}`;
+      counter++;
+    }
+
+    const newMapping: VariableMapping = {
+      variable_name: finalVarName,
+      json_path: path,
+    };
+
+    updateNodeData(nodeId, {
+      variable_mappings: [...data.variable_mappings, newMapping],
+    });
+
+    toast.success(`변수 '${finalVarName}' (경로: ${path}) 추가됨!`);
+  };
+
   return (
     <>
       <PayloadViewerModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         payload={capturedPayload}
+        onSelect={handlePayloadSelect}
       />
       <div className="flex flex-col gap-2">
         {/* Webhook URL Section */}
