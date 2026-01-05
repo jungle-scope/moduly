@@ -61,8 +61,9 @@ class MailNode(Node[MailNodeData]):
 
             email_ids = messages[0].split()
 
-            # 결과 제한
-            email_ids = email_ids[-data.max_results :]
+            # 결과 제한 (기본값: 5)
+            max_results = data.max_results if data.max_results is not None else 5
+            email_ids = email_ids[-max_results:]
 
             # 각 이메일 가져오기 (최신 순)
             emails = []

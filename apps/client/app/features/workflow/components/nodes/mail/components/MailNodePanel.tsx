@@ -558,11 +558,17 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               min="1"
               max="100"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
-              value={data.max_results || 10}
-              onChange={(e) =>
-                handleUpdateData('max_results', parseInt(e.target.value))
-              }
+              value={data.max_results ?? ''}
+              placeholder="5"
+              onChange={(e) => {
+                const value =
+                  e.target.value === '' ? undefined : parseInt(e.target.value);
+                handleUpdateData('max_results', value);
+              }}
             />
+            <p className="text-[10px] text-gray-500">
+              💡 Default: 5 (if empty)
+            </p>
           </div>
 
           {/* Checkboxes */}

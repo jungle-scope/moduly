@@ -51,7 +51,9 @@ class MailNodeData(BaseNodeData):
 
     # Options
     folder: str = Field("INBOX", description="검색할 폴더")
-    max_results: int = Field(10, description="최대 결과 개수", ge=1, le=100)
+    max_results: Optional[int] = Field(
+        None, description="최대 결과 개수 (기본값: 5)", ge=1, le=100
+    )
     unread_only: bool = Field(False, description="읽지 않은 메일만")
     mark_as_read: bool = Field(False, description="검색 후 읽음 표시")
 

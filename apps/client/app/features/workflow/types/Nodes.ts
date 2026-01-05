@@ -258,7 +258,7 @@ export interface MailNodeData extends BaseNodeData {
 
   // Options
   folder: string;
-  max_results: number;
+  max_results?: number; // Optional: 기본값 10
   unread_only: boolean;
   mark_as_read: boolean;
 
