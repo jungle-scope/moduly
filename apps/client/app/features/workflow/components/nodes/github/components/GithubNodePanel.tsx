@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { GithubNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
@@ -11,8 +11,50 @@ interface GithubNodePanelProps {
   data: GithubNodeData;
 }
 
+const getCaretCoordinates = (
+  element: HTMLTextAreaElement,
+  position: number,
+) => {
+  const div = document.createElement('div');
+  const style = window.getComputedStyle(element);
+
+  Array.from(style).forEach((prop) => {
+    div.style.setProperty(prop, style.getPropertyValue(prop));
+  });
+
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.top = '0';
+  div.style.left = '0';
+
+  const textContent = element.value.substring(0, position);
+  div.innerHTML =
+    textContent.replace(/\n/g, '<br>') + '<span id="caret-marker">|</span>';
+
+  document.body.appendChild(div);
+
+  const marker = div.querySelector('#caret-marker');
+  const coordinates = {
+    top: marker
+      ? marker.getBoundingClientRect().top - div.getBoundingClientRect().top
+      : 0,
+    left: marker
+      ? marker.getBoundingClientRect().left - div.getBoundingClientRect().left
+      : 0,
+    height: parseInt(style.lineHeight) || 20,
+  };
+
+  document.body.removeChild(div);
+  return coordinates;
+};
+
 export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
   const { updateNodeData, nodes, edges } = useWorkflowStore();
+
+  const commentBodyRef = useRef<HTMLTextAreaElement>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionPos, setSuggestionPos] = useState({ top: 0, left: 0 });
 
   // 상위 노드 가져오기
   const upstreamNodes = useMemo(
@@ -27,7 +69,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
     [nodeId, updateNodeData],
   );
 
-  // Variable handlers (LLM 노드와 동일)
+  // 변수 핸들러
   const handleAddVariable = useCallback(() => {
     handleUpdateData('referenced_variables', [
       ...(data.referenced_variables || []),
@@ -73,6 +115,51 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
     },
     [data.referenced_variables, handleUpdateData],
   );
+
+  // 자동완성 handlers
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+    const value = target.value;
+    const selectionEnd = target.selectionEnd;
+
+    if (value.substring(selectionEnd - 2, selectionEnd) === '{{') {
+      const coords = getCaretCoordinates(target, selectionEnd);
+
+      setSuggestionPos({
+        top: target.offsetTop + coords.top + coords.height,
+        left: target.offsetLeft + coords.left,
+      });
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const insertVariable = (varName: string) => {
+    const currentValue = data.comment_body || '';
+    const textarea = commentBodyRef.current;
+
+    if (!textarea) return;
+
+    const selectionEnd = textarea.selectionEnd;
+    const lastOpen = currentValue.lastIndexOf('{{', selectionEnd);
+
+    if (lastOpen !== -1) {
+      const prefix = currentValue.substring(0, lastOpen);
+      const suffix = currentValue.substring(selectionEnd);
+
+      const newValue = `${prefix}{{ ${varName} }}${suffix}`;
+
+      handleUpdateData('comment_body', newValue);
+      setShowSuggestions(false);
+
+      setTimeout(() => {
+        const newCursorPos = prefix.length + varName.length + 5;
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -160,7 +247,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
                 </div>
 
                 <div className="flex flex-row gap-2 items-center">
-                  {/* (1) Variable Name Input */}
+                  {/* 변수명 입력 */}
                   <div className="flex-[2]">
                     <input
                       type="text"
@@ -173,7 +260,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
                     />
                   </div>
 
-                  {/* (2) Node Selection Dropdown */}
+                  {/* 노드 선택 드롭다운 */}
                   <div className="flex-[3]">
                     <select
                       className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
@@ -191,7 +278,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
                     </select>
                   </div>
 
-                  {/* (3) Output Selection */}
+                  {/* 출력 선택 */}
                   <div className="flex-[3] relative">
                     <select
                       className={`w-full rounded border p-1.5 text-xs truncate ${
@@ -268,16 +355,45 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
       {/* 4. Comment Body (Only for comment_pr action) */}
       {data.action === 'comment_pr' && (
         <CollapsibleSection title="Comment Body" defaultOpen={true}>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 relative">
             <textarea
+              ref={commentBodyRef}
               className="w-full h-32 rounded border border-gray-300 p-2 text-xs font-mono focus:outline-none focus:border-blue-500 resize-y"
               placeholder="Enter comment text..."
               value={data.comment_body || ''}
               onChange={(e) => handleUpdateData('comment_body', e.target.value)}
+              onKeyUp={handleKeyUp}
             />
             <div className="text-[10px] text-gray-500">
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능
             </div>
+
+            {/* 자동완성 suggestions */}
+            {showSuggestions && (
+              <div
+                className="absolute z-10 w-48 rounded border border-gray-200 bg-white shadow-lg"
+                style={{
+                  top: suggestionPos.top,
+                  left: suggestionPos.left,
+                }}
+              >
+                {(data.referenced_variables || []).length > 0 ? (
+                  (data.referenced_variables || []).map((v, i) => (
+                    <button
+                      key={i}
+                      className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                      onClick={() => insertVariable(v.name)}
+                    >
+                      {v.name || '(No Name)'}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-2 text-sm text-gray-400">
+                    등록된 변수가 없습니다
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CollapsibleSection>
       )}
