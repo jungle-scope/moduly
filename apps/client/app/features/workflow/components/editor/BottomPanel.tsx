@@ -15,11 +15,13 @@ import { type NoteNode } from '../../types/Nodes';
 interface BottomPanelProps {
   onCenterNodes: () => void;
   isPanelOpen?: boolean;
+  onOpenAppSearch?: () => void;
 }
 
 export default function BottomPanel({
   onCenterNodes,
   isPanelOpen = false,
+  onOpenAppSearch,
 }: BottomPanelProps) {
   const {
     interactiveMode,

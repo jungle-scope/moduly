@@ -63,6 +63,11 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 export type AuthType = 'none' | 'bearer' | 'apiKey';
 
+export interface HttpVariable {
+  name: string;
+  value_selector: string[];
+}
+
 export interface HttpRequestNodeData extends BaseNodeData {
   method: HttpMethod;
   url: string;
@@ -75,6 +80,7 @@ export interface HttpRequestNodeData extends BaseNodeData {
     apiKeyHeader?: string; // API Key header name
     apiKeyValue?: string; // API Key value
   };
+  referenced_variables: HttpVariable[];
 }
 // ============================================================================
 
@@ -230,6 +236,42 @@ export interface GithubNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ========================= [Mail Node] ======================================
+export type EmailProvider = 'gmail' | 'naver' | 'daum' | 'outlook' | 'custom';
+
+export interface MailVariable {
+  name: string;
+  value_selector: string[];
+}
+
+export interface MailNodeData extends BaseNodeData {
+  // Account
+  email: string;
+  password: string;
+
+  // Server
+  provider: EmailProvider;
+  imap_server: string;
+  imap_port: number;
+  use_ssl: boolean;
+
+  // 검색 설정
+  keyword?: string;
+  sender?: string;
+  subject?: string;
+  start_date?: string;
+  end_date?: string;
+
+  // Options
+  folder: string;
+  max_results?: number; // Optional: 기본값 10
+  unread_only: boolean;
+  mark_as_read: boolean;
+
+  // Variables
+  referenced_variables: MailVariable[];
+}
+
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
 export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
@@ -254,6 +296,9 @@ export type WebhookTriggerNode = ReactFlowNode<
 >;
 export type GithubNode = ReactFlowNode<GithubNodeData, 'githubNode'>;
 
+export type MailNode = ReactFlowNode<MailNodeData, 'mailNode'>;
+// ============================================================================
+
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
 export type AppNode =
@@ -267,6 +312,7 @@ export type AppNode =
   | FileExtractionNode
   | WebhookTriggerNode
   | GithubNode
+  | MailNode
   | NoteNode
   | KnowledgeNode
   | WorkflowNode;

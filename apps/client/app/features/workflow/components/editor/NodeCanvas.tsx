@@ -39,6 +39,7 @@ import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePane
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
 import { KnowledgeNodePanel } from '../nodes/knowledge/components/KnowledgeNodePanel';
 import { GithubNodePanel } from '../nodes/github/components/GithubNodePanel';
+import { MailNodePanel } from '../nodes/mail/components/MailNodePanel';
 
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
@@ -526,6 +527,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'githubNode' && (
             <GithubNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'mailNode' && (
+            <MailNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />
