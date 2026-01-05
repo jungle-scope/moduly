@@ -149,7 +149,7 @@ export default function KnowledgeSearchModal({
           <div className="flex items-center justify-between p-4 pb-2">
             <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <Bot className="w-5 h-5 text-blue-600" />
-              지식 베이스 테스트
+              참고자료 테스트
             </h3>
             <button
               onClick={onClose}

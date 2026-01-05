@@ -1,3 +1,5 @@
+export type SourceType = 'FILE' | 'API' | 'DB';
+
 export interface IngestionResponse {
   knowledge_base_id: string;
   document_id: string;
@@ -6,7 +8,7 @@ export interface IngestionResponse {
 }
 
 export interface KnowledgeCreateRequest {
-  sourceType?: 'FILE' | 'API' | 'DB';
+  sourceType?: SourceType;
   file?: File;
   apiUrl?: string;
   apiMethod?: string;
@@ -34,6 +36,7 @@ export interface KnowledgeBaseResponse {
 }
 
 export interface DocumentResponse {
+  updated_at: string;
   id: string;
   filename: string;
   status:
@@ -49,7 +52,7 @@ export interface DocumentResponse {
   chunk_size?: number;
 
   chunk_overlap?: number;
-  source_type?: 'FILE' | 'API' | 'DB';
+  source_type?: SourceType;
   meta_info?: {
     cost_estimate?: {
       pages: number;

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   knowledgeApi,
@@ -36,7 +35,10 @@ export function useDocumentProcess({
   settings,
   connectionId: connectionIdOverride,
 }: UseDocumentProcessProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzingAction, setAnalyzingAction] = useState<
+    'preview' | 'save' | null
+  >(null);
+  const isAnalyzing = analyzingAction !== null;
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [showCostConfirm, setShowCostConfirm] = useState(false);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResponse | null>(
@@ -46,8 +48,6 @@ export function useDocumentProcess({
     null,
   );
   const [previewSegments, setPreviewSegments] = useState<DocumentSegment[]>([]);
-
-  const router = useRouter();
 
   // 1. 공통 Request Data 생성 함수
   const createRequestData = (
@@ -97,14 +97,20 @@ export function useDocumentProcess({
 
       setStatus('indexing');
       setProgress(0);
-      toast.success(
-        strategy === 'general'
-          ? '일반 파싱으로 처리를 시작합니다.'
-          : 'LlamaParse로 처리를 시작합니다.',
-      );
+      setStatus('indexing');
+      setProgress(0);
 
-      // 저장 성공 후 지식 베이스 페이지로 리다이렉션
-      router.push(`/dashboard/knowledge/${kbId}`);
+      const isFile = document.source_type === 'FILE' || !document.source_type;
+
+      if (isFile) {
+        toast.success(
+          strategy === 'general'
+            ? '일반 파싱으로 처리를 시작합니다.'
+            : 'LlamaParse로 처리를 시작합니다.',
+        );
+      } else {
+        toast.success('데이터 처리를 시작합니다.');
+      }
     } catch (error: any) {
       console.error('[Debug] Save failed:', error);
       console.error('[Debug] Error details:', error.response?.data);
@@ -138,7 +144,7 @@ export function useDocumentProcess({
 
   // 4. 비용 승인 핸들러
   const handleAnalyzeAndProceed = async (action: 'preview' | 'save') => {
-    setIsAnalyzing(true);
+    setAnalyzingAction(action);
     try {
       const result = await knowledgeApi.analyzeDocument(documentId);
       setAnalyzeResult(result);
@@ -154,7 +160,7 @@ export function useDocumentProcess({
       console.error(error);
       toast.error('문서 분석에 실패했습니다.');
     } finally {
-      setIsAnalyzing(false);
+      setAnalyzingAction(null);
     }
   };
 
@@ -211,6 +217,7 @@ export function useDocumentProcess({
 
   return {
     isAnalyzing,
+    analyzingAction,
     isPreviewLoading,
     showCostConfirm,
     setShowCostConfirm,

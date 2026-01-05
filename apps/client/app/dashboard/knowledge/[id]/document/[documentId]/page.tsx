@@ -33,6 +33,7 @@ export default function DocumentSettingsPage() {
   // 상태 관리
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<string>(''); // 문서 상태
+  const [errorMessage, setErrorMessage] = useState<string | null>(null); // [추가] 에러 메시지 상태
   const [document, setDocument] = useState<DocumentResponse | null>(null);
   const [selectedDbItems, setSelectedDbItems] = useState<
     Record<string, string[]>
@@ -105,6 +106,7 @@ export default function DocumentSettingsPage() {
         if (targetDoc) {
           setDocument(targetDoc);
           setStatus(targetDoc.status);
+          setErrorMessage(targetDoc.error_message || null); // [추가] 초기 에러 메시지 로드
           setChunkSize(targetDoc.chunk_size || 1000);
           setChunkOverlap(targetDoc.chunk_overlap || 200);
           if (targetDoc.meta_info) {
@@ -171,6 +173,7 @@ export default function DocumentSettingsPage() {
   // useDocumentProcess Hook 사용
   const {
     isAnalyzing,
+    analyzingAction, // [NEW]
     isPreviewLoading,
     showCostConfirm,
     setShowCostConfirm,
@@ -242,11 +245,7 @@ export default function DocumentSettingsPage() {
   // 상태 폴링
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-    if (
-      status === 'pending' ||
-      status === 'indexing' ||
-      status === 'waiting_for_approval'
-    ) {
+    if (status === 'indexing' || status === 'waiting_for_approval') {
       intervalId = setInterval(async () => {
         try {
           const doc = await knowledgeApi.getDocument(
@@ -273,6 +272,12 @@ export default function DocumentSettingsPage() {
 
           if (doc.status === 'completed' || doc.status === 'failed') {
             clearInterval(intervalId);
+            if (doc.status === 'failed') {
+              setErrorMessage(
+                doc.error_message || '처리 중 오류가 발생했습니다.',
+              );
+              toast.error(doc.error_message || '처리 실패');
+            }
           }
 
           if (doc.meta_info) {
@@ -403,18 +408,63 @@ export default function DocumentSettingsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* 에러 메시지 표시 */}
+          {status === 'failed' && (
+            <div className="relative group mr-4 cursor-help flex items-center">
+              <div className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-md border border-red-200 dark:border-red-800 flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span className="max-w-[200px] truncate">
+                  {errorMessage || '처리 실패'}
+                </span>
+              </div>
+              {/* Custom Tooltip on Hover */}
+              <div className="absolute top-full right-0 mt-2 w-max max-w-[500px] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <p className="whitespace-pre-wrap break-all leading-relaxed">
+                  {errorMessage || '처리 실패'}
+                </p>
+                {/* Arrow */}
+                <div className="absolute -top-1 right-6 w-2 h-2 bg-gray-900 rotate-45" />
+              </div>
+            </div>
+          )}
+
+          {/* 진행률 표시 */}
+          {status === 'indexing' && (
+            <div className="flex items-center gap-3 mr-2 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="text-sm font-medium text-blue-600 dark:text-blue-400 w-10 text-right">
+                {`${Math.round(progress)}%`}
+              </div>
+              <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-600 dark:bg-blue-500 transition-all duration-500 ease-out"
+                  style={{
+                    width: `${Math.round(progress)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="relative group">
             <button
               onClick={handleSaveClick}
-              disabled={isAnalyzing || status === 'completed'}
+              disabled={
+                isAnalyzing || status === 'completed' || status === 'indexing'
+              }
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isAnalyzing ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              {analyzingAction === 'save' || status === 'indexing' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              저장 및 처리 시작
+              {status === 'indexing'
+                ? '처리 중...'
+                : status === 'pending'
+                  ? '저장 및 처리 시작'
+                  : status === 'completed'
+                    ? '완료됨'
+                    : '저장 및 처리 시작'}
             </button>
             {status === 'completed' && (
               <div className="absolute top-full right-0 mt-2 w-max max-w-[250px] p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 text-center break-keep">
@@ -454,7 +504,7 @@ export default function DocumentSettingsPage() {
               disabled={isPreviewLoading || isAnalyzing}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isPreviewLoading || isAnalyzing ? (
+              {isPreviewLoading || analyzingAction === 'preview' ? ( // [MODIFIED] Check specific action
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <RefreshCw className="w-4 h-4" />
