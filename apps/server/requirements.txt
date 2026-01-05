@@ -67,3 +67,4 @@ llama-parse
 pandas
 openpyxl
 python-docx
+PyGithub

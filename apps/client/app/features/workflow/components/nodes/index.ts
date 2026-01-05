@@ -9,8 +9,7 @@ import { WorkflowNode } from './workflow/components/WorkflowNode';
 import { FileExtractionNode } from './file_extraction/components/FileExtractionNode';
 import { WebhookTriggerNode } from './webhook/components/WebhookTriggerNode';
 import { KnowledgeNode } from './knowledge/components/KnowledgeNode';
-
-// import EndNode from './EndNode';
+import { GithubNode } from './github/components/GithubNode';
 
 // NOTE: ReactFlow에 등록할 노드 타입 맵
 export const nodeTypes = {
@@ -25,5 +24,5 @@ export const nodeTypes = {
   fileExtractionNode: FileExtractionNode,
   webhookTrigger: WebhookTriggerNode,
   knowledgeNode: KnowledgeNode,
-  // endNode: EndNode,
+  githubNode: GithubNode,
 };

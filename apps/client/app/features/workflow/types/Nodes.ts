@@ -211,6 +211,25 @@ export interface FileExtractionNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ======================== [GithubNode] ======================================
+export type GithubAction = 'get_pr' | 'comment_pr';
+
+export interface GithubVariable {
+  name: string;
+  value_selector: string[]; // [node_id, output_key]
+}
+
+export interface GithubNodeData extends BaseNodeData {
+  action: GithubAction;
+  api_token: string;
+  repo_owner: string;
+  repo_name: string;
+  pr_number: number;
+  comment_body?: string;
+  referenced_variables: GithubVariable[];
+}
+// ============================================================================
+
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
 export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
@@ -233,6 +252,7 @@ export type WebhookTriggerNode = ReactFlowNode<
   WebhookTriggerNodeData,
   'webhookTrigger'
 >;
+export type GithubNode = ReactFlowNode<GithubNodeData, 'githubNode'>;
 
 // 4. 전체 노드 유니온 (AppNode)
 // 이 타입을 메인 워크플로우에서 사용합니다.
@@ -246,6 +266,7 @@ export type AppNode =
   | TemplateNode
   | FileExtractionNode
   | WebhookTriggerNode
+  | GithubNode
   | NoteNode
   | KnowledgeNode
   | WorkflowNode;
