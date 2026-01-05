@@ -7,13 +7,15 @@ import {
   DocumentResponse,
 } from '../types/Knowledge';
 
+export type SourceType = 'FILE' | 'API' | 'DB';
+
 export interface DocumentPreviewRequest {
   chunk_size: number;
   chunk_overlap: number;
   segment_identifier: string;
   remove_urls_emails?: boolean;
   remove_whitespace?: boolean;
-  source_type: 'FILE' | 'API' | 'DB';
+  source_type: SourceType;
   strategy?: 'general' | 'llamaparse';
   db_config?: {
     selections: { table_name: string; columns: string[] }[];
@@ -21,6 +23,8 @@ export interface DocumentPreviewRequest {
 }
 
 export interface DocumentSegment {
+  created_at: string;
+  updated_at?: string;
   content: string;
   token_count: number;
   char_count: number;
@@ -72,7 +76,7 @@ api.interceptors.response.use(
 );
 
 export const knowledgeApi = {
-  // 지식 베이스 생성 및 파일 업로드
+  // 참고자료 생성 및 파일 업로드
   uploadKnowledgeBase: async (
     data: KnowledgeCreateRequest,
   ): Promise<IngestionResponse> => {
@@ -102,7 +106,7 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 지식 베이스 목록 조회
+  // 참고자료 목록 조회
   getKnowledgeBases: async (): Promise<KnowledgeBaseResponse[]> => {
     // console.log('[knowledgeApi] Fetching knowledge bases...');
     try {
@@ -116,7 +120,7 @@ export const knowledgeApi = {
     }
   },
 
-  // 지식 베이스 상세 조회
+  // 참고자료 상세 조회
   getKnowledgeBase: async (
     id: string,
   ): Promise<KnowledgeBaseDetailResponse> => {
@@ -135,13 +139,18 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 지식 베이스 수정 (이름, 설명)
+  // 참고자료 수정 (이름, 설명)
   updateKnowledgeBase: async (
     id: string,
     data: { name?: string; description?: string },
   ): Promise<KnowledgeBaseResponse> => {
     const response = await api.patch(`/knowledge/${id}`, data);
     return response.data;
+  },
+
+  // 참고자료 그룹 삭제
+  deleteKnowledgeBase: async (id: string): Promise<void> => {
+    await api.delete(`/knowledge/${id}`);
   },
 
   // 문서 파싱 승인 (LlamaParse 비용 발생 등)

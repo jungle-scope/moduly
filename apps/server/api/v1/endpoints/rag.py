@@ -46,7 +46,7 @@ async def upload_document(
     api_headers: Optional[str] = Form(None, alias="apiHeaders"),
     api_body: Optional[str] = Form(None, alias="apiBody"),
     connection_id: Optional[UUID] = Form(None, alias="connectionId"),
-    # 지식베이스 신규 생성일 때만 필요한 정보들
+    # 참고자료그룹 신규 생성일 때만 필요한 정보들
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     ai_model: Optional[str] = Form(None, alias="embeddingModel"),
@@ -65,7 +65,7 @@ async def upload_document(
     ingestion_mode = os.getenv("RAG_INGESTION_MODE", "LOCAL").upper()
     print(f"=== [upload_document] Request Received (Mode: {ingestion_mode}) ===")
 
-    # 1. 지식 베이스 확인 또는 생성
+    # 1. 자료 확인 또는 생성
     target_kb_id, target_ai_model = _get_or_create_knowledge_base(
         db,
         current_user,
@@ -123,7 +123,7 @@ async def upload_document(
         knowledge_base_id=target_kb_id,
         document_id=doc_id,
         status="pending",
-        message="문서가 등록되었습니다. 설정을 확인하고 처리를 시작해주세요.",
+        message="자료가 등록되었습니다. 설정을 확인하고 처리를 시작해주세요.",
     )
 
 
@@ -403,7 +403,7 @@ def _get_or_create_knowledge_base(
     similarity_threshold: float,
     file: Optional[UploadFile],
 ) -> tuple[UUID, str]:
-    """지식 베이스를 조회하거나 새로 생성합니다."""
+    """자료를 조회하거나 새로 생성합니다."""
     if not kb_id:
         if not ai_model:
             raise HTTPException(

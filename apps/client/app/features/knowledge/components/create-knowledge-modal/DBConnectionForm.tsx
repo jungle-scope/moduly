@@ -32,21 +32,21 @@ export default function DBConnectionForm({
     'idle',
   );
   const [config, setConfig] = useState<DBConfig>({
-    connectionName: initialConfig?.connectionName || '',
-    type: initialConfig?.type || SUPPORTED_DB_TYPES[0].value,
-    host: initialConfig?.host || '',
+    connectionName: initialConfig?.connectionName || '외부DB 테스트',
+    type: initialConfig?.type || 'postgres',
+    host: initialConfig?.host || '127.0.0.1',
     port: initialConfig?.port || 5432,
-    database: initialConfig?.database || '',
-    username: initialConfig?.username || '',
-    password: '', // 비밀번호는 항상 빈 값으로 시작
+    database: initialConfig?.database || 'kb_test_db',
+    username: initialConfig?.username || 'kb_user',
+    password: 'admin123',
     ssh: {
-      enabled: initialConfig?.ssh?.enabled || false,
-      host: initialConfig?.ssh?.host || '',
+      enabled: initialConfig?.ssh?.enabled ?? true,
+      host: initialConfig?.ssh?.host || '54.180.250.3',
       port: initialConfig?.ssh?.port || 22,
-      username: initialConfig?.ssh?.username || '',
-      authType: initialConfig?.ssh?.authType || 'password',
-      password: '', // SSH 비밀번호도 항상 빈 값
-      privateKey: '', // SSH 키도 항상 빈 값
+      username: initialConfig?.ssh?.username || 'ubuntu',
+      authType: initialConfig?.ssh?.authType || 'key',
+      password: '',
+      privateKey: '',
     },
   });
 
@@ -197,16 +197,18 @@ export default function DBConnectionForm({
 
       {/* 2. SSH 터널링 섹션 */}
       <div className="pt-2">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-            <Shield className="w-4 h-4" /> SSH 사용
+        <div className="flex items-center mb-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="toggle checkbox-primary"
+              checked={config.ssh.enabled}
+              onChange={(e) => handleChange('enabled', e.target.checked, true)}
+            />
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4" /> SSH 사용
+            </div>
           </label>
-          <input
-            type="checkbox"
-            className="toggle checkbox-primary"
-            checked={config.ssh.enabled}
-            onChange={(e) => handleChange('enabled', e.target.checked, true)}
-          />
         </div>
 
         {config.ssh.enabled && (
@@ -277,7 +279,7 @@ export default function DBConnectionForm({
                     className="text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-xs text-gray-700 dark:text-gray-300">
-                    Private Key
+                    Private Key (RSA)
                   </span>
                 </label>
               </div>

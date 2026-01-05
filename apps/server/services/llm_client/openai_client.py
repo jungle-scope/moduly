@@ -42,30 +42,29 @@ class OpenAIClient(BaseLLMClient):
         """
         OpenAI Embeddings API 호출.
         """
-        payload = {
-            "model": self.model_id,
-            "input": text
-        }
-        
+        payload = {"model": self.model_id, "input": text}
+
         try:
             resp = requests.post(
-                self.embedding_url, 
-                headers=self._build_headers(), 
-                json=payload, 
-                timeout=30
+                self.embedding_url,
+                headers=self._build_headers(),
+                json=payload,
+                timeout=30,
             )
         except requests.RequestException as exc:
             raise ValueError(f"OpenAI 임베딩 호출 실패: {exc}") from exc
 
         if resp.status_code >= 400:
-             raise ValueError(f"OpenAI 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}")
+            raise ValueError(
+                f"OpenAI 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
+            )
 
         try:
             data = resp.json()
             # OpenAI response format: { "data": [ { "embedding": [...] } ] }
             return data["data"][0]["embedding"]
         except (ValueError, KeyError, IndexError) as exc:
-             raise ValueError("OpenAI 임베딩 응답 파싱 실패") from exc
+            raise ValueError("OpenAI 임베딩 응답 파싱 실패") from exc
 
     def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
@@ -85,14 +84,14 @@ class OpenAIClient(BaseLLMClient):
             "model": self.model_id,
             "messages": messages,
         }
-        
+
         # [Fix] O1/O3 models use 'max_completion_tokens' instead of 'max_tokens'
         if self.model_id.startswith(("o1", "o3")):
             if "max_tokens" in kwargs:
                 kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
 
         payload.update(kwargs)
-        
+
         try:
             resp = requests.post(
                 self.chat_url, headers=self._build_headers(), json=payload, timeout=60
