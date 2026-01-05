@@ -66,10 +66,10 @@ export const workflowApi = {
       isFormData ? 'FormData (파일 포함)' : JSON.stringify(userInput || {}),
     );
 
-    // [FIX] fetch는 상대 경로 사용 시 일부 환경(Node 등)에서 프로토콜 누락 에러가 발생할 수 있음
-    // 브라우저에서도 명시적으로 Origin을 붙여주는 것이 안전함
+    // [FIX] Next.js rewrites는 /api/* 경로를 모두 가로채므로,
+    // 스트리밍은 /stream-api/* 경로로 분리하여 Next.js API Route에서 처리
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const fetchUrl = `${baseUrl}${API_BASE_URL}/workflows/${workflowId}/stream`;
+    const fetchUrl = `${baseUrl}/stream-api/workflows/${workflowId}`;
 
     const response = await fetch(fetchUrl, {
       method: 'POST',
@@ -189,8 +189,10 @@ export const workflowApi = {
     return response.data as DeploymentResponse;
   },
 
-  listWorkflowNodes: async () => {
-    const response = await api.get('/deployments/nodes');
+  listWorkflowNodes: async (excludedAppId?: string) => {
+    const response = await api.get('/deployments/nodes', {
+      params: { excluded_app_id: excludedAppId },
+    });
     return response.data as {
       deployment_id: string;
       app_id: string;

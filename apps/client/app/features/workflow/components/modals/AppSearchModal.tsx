@@ -35,13 +35,8 @@ export function AppSearchModal({
         try {
           // 백엔드에서 사용 가능한 "Workflow Nodes"를 직접 가져옵니다.
           // 버전, 스키마, deployment_id가 포함된 배포 정보를 반환합니다.
-          const validApps = await workflowApi.listWorkflowNodes();
-
-          // 현재 앱을 제외합니다 (순환 참조 방지).
-          // app_id를 비교합니다.
-          const filtered = validApps.filter(
-            (node) => node.app_id !== excludedAppId,
-          );
+          // excludedAppId를 전달하여 백엔드에서 순환 참조를 방지합니다.
+          const validApps = await workflowApi.listWorkflowNodes(excludedAppId);
 
           // UI 렌더링에 적합한 구조로 매핑합니다.
           // 현재는 node 구조를 그대로 사용하거나 필요한 인터페이스로 매핑합니다.
@@ -51,7 +46,7 @@ export function AppSearchModal({
           // 'icon'이 없으므로 백엔드에도 추가해야 할 수 있습니다.
           // 현재는 누락된 경우 기본 아이콘을 사용합니다.
 
-          const mappedApps = filtered.map((node) => ({
+          const mappedApps = validApps.map((node) => ({
             ...node,
             id: node.app_id, // 키 값으로 사용
             icon: { content: '⚡️', background_color: '#f3f4f6' }, // 백엔드에서 아직 아이콘을 보내지 않으므로 기본 아이콘 사용
