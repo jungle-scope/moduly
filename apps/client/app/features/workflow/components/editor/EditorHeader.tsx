@@ -7,7 +7,7 @@ import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeftIcon,
   ClockIcon,
-} from '@/app/features/workflow/components/icons';
+} from '@/app/features/workflow/components/nodes/icons';
 // [NEW] 로그 뷰어 모달 Import
 import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
 // [NEW] 모니터링 대시보드 모달 Import

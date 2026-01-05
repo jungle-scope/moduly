@@ -12,22 +12,24 @@ export const KnowledgeNode = memo(
     const extraCount = Math.max(knowledgeBases.length - 1, 0);
 
     return (
-      <BaseNode data={data} selected={selected}>
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded bg-indigo-600 text-sm font-bold text-white">
-            <BookOpen className="w-4 h-4" />
+      <BaseNode
+        data={data}
+        selected={selected}
+        icon={<BookOpen className="text-white" />}
+        iconColor="#6366f1"
+      >
+        <div className="flex flex-col gap-1">
+          <div className="text-xs text-gray-500 font-medium">
+            Knowledge Base
           </div>
-          <div className="flex flex-col gap-1">
-            <div className="text-xs text-gray-500">Knowledge Base</div>
-            <div className="text-sm font-semibold text-gray-900 truncate">
-              {primaryName}
+          <div className="text-sm font-semibold text-gray-900 truncate">
+            {primaryName}
+          </div>
+          {extraCount > 0 && (
+            <div className="text-[11px] text-gray-500">
+              외 {extraCount}개 선택됨
             </div>
-            {extraCount > 0 && (
-              <div className="text-[11px] text-gray-500">
-                외 {extraCount}개 선택됨
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </BaseNode>
     );
