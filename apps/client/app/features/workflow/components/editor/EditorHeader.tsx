@@ -503,7 +503,14 @@ export default function EditorHeader() {
         const payload =
           inputs instanceof FormData
             ? (() => {
-                const formCopy = new FormData(inputs);
+                const formCopy = new FormData();
+                inputs.forEach((value, key) => {
+                  if (value instanceof File) {
+                    formCopy.append(key, value);
+                  } else {
+                    formCopy.append(key, value as string);
+                  }
+                });
                 formCopy.append('memory_mode', String(isMemoryModeEnabled));
                 return formCopy;
               })()
