@@ -143,10 +143,10 @@ export default function KnowledgeDetailPage() {
     try {
       await knowledgeApi.syncDocument(id, documentId);
       fetchKnowledgeBase();
-      toast.success('문서 동기화가 시작되었습니다.');
+      toast.success('API 동기화가 시작되었습니다.');
     } catch (error) {
       console.error('Failed to sync document:', error);
-      toast.error('문서 동기화 실패');
+      toast.error('API 동기화 실패');
     }
   };
 
@@ -326,7 +326,12 @@ export default function KnowledgeDetailPage() {
                     className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
                     <td className="px-6 py-4">
-                      {doc.source_type === 'API' ? (
+                      {doc.source_type === 'DB' ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 text-xs font-semibold">
+                          <Database className="w-3.5 h-3.5" />
+                          DB
+                        </div>
+                      ) : doc.source_type === 'API' ? (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-xs font-semibold">
                           <Globe className="w-3.5 h-3.5" />
                           API

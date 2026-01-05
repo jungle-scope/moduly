@@ -12,15 +12,25 @@ import {
   Code,
   ChevronRight,
   ChevronDown,
+  Database,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
+import DBConnectionForm from './DBConnectionForm';
+import {
+  DBConfig,
+  SUPPORTED_DB_TYPES,
+} from '@/app/features/knowledge/types/DB';
+import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 
 interface CreateKnowledgeModalProps {
   isOpen: boolean;
   onClose: () => void;
   knowledgeBaseId?: string;
 }
+
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 export default function CreateKnowledgeModal({
   isOpen,
@@ -29,12 +39,24 @@ export default function CreateKnowledgeModal({
 }: CreateKnowledgeModalProps) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
-  const [sourceType, setSourceType] = useState<'FILE' | 'API'>('FILE');
+  const [sourceType, setSourceType] = useState<'FILE' | 'API' | 'DB'>('FILE');
   const [apiConfig, setApiConfig] = useState({
     url: '',
     method: 'GET',
     headers: '',
     body: '',
+  });
+  const [dbConfig, setDbConfig] = useState<DBConfig>({
+    connectionName: '',
+    type: SUPPORTED_DB_TYPES[0].value,
+    host: '',
+    port: 5432,
+    database: '',
+    username: '',
+    password: '',
+    ssh: {
+      enabled: false,
+    },
   });
 
   const [formData, setFormData] = useState({
@@ -135,6 +157,52 @@ export default function CreateKnowledgeModal({
     }
   };
 
+  // DB Connection Test
+  const handleTestDBConnection = async (config: DBConfig): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/connectors/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          connection_name: config.connectionName,
+          type: config.type,
+          host: config.host,
+          port: config.port,
+          database: config.database,
+          username: config.username,
+          password: config.password,
+          ssh: config.ssh.enabled
+            ? {
+                enabled: config.ssh.enabled,
+                host: config.ssh.host,
+                port: config.ssh.port,
+                username: config.ssh.username,
+                auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
+                password: config.ssh.password,
+                private_key: config.ssh.privateKey,
+              }
+            : null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        //HTTP status 200번대, success가 true일때
+        return true;
+      } else {
+        console.error('Connection failed:', result);
+        return false;
+      }
+    } catch (err) {
+      console.error('DB Connection Test Error', err);
+      return false;
+    }
+  };
+
   const handleSubmit = async () => {
     if (sourceType === 'FILE' && !file) {
       alert('파일을 업로드해주세요.');
@@ -144,10 +212,42 @@ export default function CreateKnowledgeModal({
       alert('API URL을 입력해주세요.');
       return;
     }
+    if (
+      sourceType === 'DB' &&
+      (!dbConfig.host ||
+        !dbConfig.port ||
+        !dbConfig.database ||
+        !dbConfig.username ||
+        !dbConfig.password)
+    ) {
+      alert('DB 정보를 입력해주세요.');
+      return;
+    }
 
     try {
       setIsLoading(true);
 
+      let connectionId = undefined;
+
+      // DB 타입이면, 커넥터 생성 API 호출하여 ID 발급 받습니다
+      if (sourceType === 'DB') {
+        try {
+          const connectorRes = await connectorApi.createConnector(dbConfig);
+          if (connectorRes.success && connectorRes.id) {
+            connectionId = connectorRes.id;
+            console.log('Connector created: ', connectionId);
+          } else {
+            throw new Error('커넥터 생성에 실패했습니다. ID 반환 안 됨');
+          }
+        } catch (err) {
+          console.error('Connector creation failed:', err);
+          toast.error('DB 연결 정보 저장에 실패했습니다.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 지식 베이스 생성
       const response = await knowledgeApi.uploadKnowledgeBase({
         sourceType: sourceType,
         file: sourceType === 'FILE' && file ? file : undefined,
@@ -163,7 +263,9 @@ export default function CreateKnowledgeModal({
         chunkSize: formData.chunkSize,
         chunkOverlap: formData.chunkOverlap,
         knowledgeBaseId: knowledgeBaseId,
+        connectionId: connectionId,
       });
+
       // console.log(JSON.stringify(response));
       // 성공 시 모달 닫기 및 문서 설정 페이지로 이동
       onClose();
@@ -187,10 +289,6 @@ export default function CreateKnowledgeModal({
     try {
       setIsFetchingApi(true);
       setApiPreviewData(null);
-
-      // TODO: 백엔드 프록시 API를 사용하는 것이 안전하지만, 테스트를 위해 직접 호출하거나
-      // 혹은 knowledgeApi에 미리보기/테스트 엔드포인트를 추가해야 함.
-      // 현재는 간단히 fetch를 사용 (CORS 문제가 발생할 수 있음)
 
       let headers = {};
       try {
@@ -336,7 +434,7 @@ export default function CreateKnowledgeModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {knowledgeBaseId ? '문서 추가' : '지식 베이스 생성'}
+            {knowledgeBaseId ? '소스 추가' : '지식 베이스 생성'}
           </h2>
           <button
             onClick={onClose}
@@ -348,7 +446,7 @@ export default function CreateKnowledgeModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Source Type Selector */}
+          {/* 소스타입 선택 */}
           <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
             <button
               onClick={() => setSourceType('FILE')}
@@ -372,11 +470,21 @@ export default function CreateKnowledgeModal({
               <Globe className="w-5 h-5" />
               <span className="font-medium">API 연동</span>
             </button>
+            <button
+              onClick={() => setSourceType('DB')}
+              className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
+                sourceType === 'DB'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500'
+              }`}
+            >
+              <Database className="w-5 h-5" />
+              <span className="font-medium">DB 연동</span>
+            </button>
           </div>
 
-          {/* Source Content */}
           <div>
-            {sourceType === 'FILE' ? (
+            {sourceType === 'FILE' && (
               <>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   📁 파일 선택
@@ -412,7 +520,8 @@ export default function CreateKnowledgeModal({
                   />
                 </div>
               </>
-            ) : (
+            )}
+            {sourceType === 'API' && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -505,6 +614,12 @@ export default function CreateKnowledgeModal({
                   </div>
                 )}
               </div>
+            )}
+            {sourceType === 'DB' && (
+              <DBConnectionForm
+                onChange={setDbConfig}
+                onTestConnection={handleTestDBConnection}
+              />
             )}
           </div>
 
