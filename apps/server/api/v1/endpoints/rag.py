@@ -123,7 +123,7 @@ async def upload_document(
         knowledge_base_id=target_kb_id,
         document_id=doc_id,
         status="pending",
-        message="문서가 등록되었습니다. 설정을 확인하고 처리를 시작해주세요.",
+        message="자료가 등록되었습니다. 설정을 확인하고 처리를 시작해주세요.",
     )
 
 

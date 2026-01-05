@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -369,4 +370,5 @@ class IngestionOrchestrator:
         if doc:
             doc.status = status
             doc.error_message = error_message
+            doc.updated_at = datetime.now(timezone.utc)
             self.db.commit()

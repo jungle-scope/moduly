@@ -14,7 +14,7 @@ import {
   Clock,
   Settings,
   Trash2,
-  RefreshCw,
+  RotateCw,
   Bot,
   Globe,
 } from 'lucide-react';
@@ -22,6 +22,10 @@ import {
   knowledgeApi,
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
+import {
+  DocumentResponse,
+  SourceType,
+} from '@/app/features/knowledge/types/Knowledge';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
 import { toast } from 'sonner';
@@ -74,12 +78,12 @@ export default function KnowledgeDetailPage() {
 
   // 문서 상태 자동 갱신 (Polling)
   useEffect(() => {
-    // 처리 중(indexing, processing, pending)인 문서가 존재하는지 확인
+    // 처리 중(indexing, processing, pending)인 자료가 존재하는지 확인
     const hasProcessingDocs = knowledgeBase?.documents.some((doc) =>
       ['indexing', 'processing', 'pending'].includes(doc.status),
     );
 
-    // 처리 중인 문서가 있다면 3초마다 상태 갱신
+    // 처리 중인 자료가 있다면 3초마다 상태 갱신
     if (hasProcessingDocs) {
       const intervalId = setInterval(() => {
         fetchKnowledgeBase();
@@ -89,7 +93,8 @@ export default function KnowledgeDetailPage() {
   }, [knowledgeBase, id]);
 
   // 날짜 포맷팅
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'long',
@@ -153,21 +158,28 @@ export default function KnowledgeDetailPage() {
       await knowledgeApi.deleteDocument(documentId);
       // 성공 시 목록 새로고침
       fetchKnowledgeBase();
-      toast.success('문서가 삭제되었습니다.');
+      toast.success('자료가 삭제되었습니다.');
     } catch (error) {
       console.error('Failed to delete document:', error);
-      toast.error('문서 삭제에 실패했습니다.');
+      toast.error('자료 삭제에 실패했습니다.');
     }
   };
 
-  const handleSyncDocument = async (documentId: string) => {
+  const handleSyncDocument = async (
+    documentId: string,
+    sourceType: SourceType,
+  ) => {
     try {
       await knowledgeApi.syncDocument(id, documentId);
       fetchKnowledgeBase();
-      toast.success('API 동기화가 시작되었습니다.');
+      const message =
+        sourceType === 'DB'
+          ? 'DB 동기화가 시작되었습니다.'
+          : 'API 동기화가 시작되었습니다.';
+      toast.success(message);
     } catch (error) {
       console.error('Failed to sync document:', error);
-      toast.error('API 동기화 실패');
+      toast.error('동기화 실패');
     }
   };
 
@@ -334,7 +346,7 @@ export default function KnowledgeDetailPage() {
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/50">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Database className="w-5 h-5 text-gray-500" />
-            데이터 소스 목록
+            자료 목록
             <span className="ml-2 text-sm font-normal text-gray-500 bg-white dark:bg-gray-600 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-500">
               {knowledgeBase.documents.length}개
             </span>
@@ -349,7 +361,7 @@ export default function KnowledgeDetailPage() {
                 <th className="px-6 py-4">파일명 / 소스명</th>
                 <th className="px-6 py-4">상태</th>
                 <th className="px-6 py-4">청크 수</th>
-                <th className="px-6 py-4">업로드 일시</th>
+                <th className="px-6 py-4">업데이트 일시</th>
                 <th className="px-6 py-4 text-right">작업</th>
               </tr>
             </thead>
@@ -362,7 +374,7 @@ export default function KnowledgeDetailPage() {
                   >
                     <div className="flex flex-col items-center gap-2">
                       <FileText className="w-8 h-8 opacity-20" />
-                      <p>아직 등록된 문서가 없습니다.</p>
+                      <p>아직 등록된 자료가 없습니다.</p>
                     </div>
                   </td>
                 </tr>
@@ -417,24 +429,36 @@ export default function KnowledgeDetailPage() {
                         : '-'}
                     </td>
                     <td className="px-6 py-4 text-gray-500 text-sm">
-                      {formatDate(doc.created_at)}
+                      {formatDate(doc.updated_at || doc.created_at)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {doc.source_type === 'API' && (
+                      <div className="flex items-center justify-end">
+                        {doc.source_type &&
+                          ['API', 'DB'].includes(doc.source_type) && (
+                            <>
+                              <button
+                                className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                onClick={() =>
+                                  handleSyncDocument(
+                                    doc.id,
+                                    doc.source_type as SourceType,
+                                  )
+                                }
+                                title="최신 데이터 동기화"
+                              >
+                                <RotateCw className="h-4 w-4" />
+                              </button>
+                              <div className="w-px h-3 bg-gray-200 dark:bg-gray-700 mx-3" />
+                            </>
+                          )}
                         <button
-                          className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-colors mr-2"
-                          onClick={() => handleSyncDocument(doc.id)}
-                          title="API 데이터 동기화"
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          title="삭제"
                         >
-                          <RefreshCw className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
-                      )}
-                      <button
-                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
-                        onClick={() => handleDeleteDocument(doc.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -7,13 +7,15 @@ import {
   DocumentResponse,
 } from '../types/Knowledge';
 
+export type SourceType = 'FILE' | 'API' | 'DB';
+
 export interface DocumentPreviewRequest {
   chunk_size: number;
   chunk_overlap: number;
   segment_identifier: string;
   remove_urls_emails?: boolean;
   remove_whitespace?: boolean;
-  source_type: 'FILE' | 'API' | 'DB';
+  source_type: SourceType;
   strategy?: 'general' | 'llamaparse';
   db_config?: {
     selections: { table_name: string; columns: string[] }[];
@@ -21,6 +23,8 @@ export interface DocumentPreviewRequest {
 }
 
 export interface DocumentSegment {
+  created_at: string;
+  updated_at?: string;
   content: string;
   token_count: number;
   char_count: number;

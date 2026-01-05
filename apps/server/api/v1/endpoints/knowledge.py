@@ -88,6 +88,7 @@ def get_knowledge_base(
                 filename=doc.filename,
                 status=doc.status,
                 created_at=doc.created_at,
+                updated_at=doc.updated_at,
                 error_message=doc.error_message,
                 chunk_count=len(doc.chunks),  # N+1 발생 가능, 추후 최적화
                 token_count=0,  # 우선 0으로 반환
@@ -193,6 +194,7 @@ def get_document(
         filename=doc.filename,
         status=doc.status,
         created_at=doc.created_at,
+        updated_at=doc.updated_at,
         error_message=doc.error_message,
         chunk_count=len(doc.chunks),
         # token_count=doc.token_count,
