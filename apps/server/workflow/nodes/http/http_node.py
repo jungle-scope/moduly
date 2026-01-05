@@ -47,33 +47,70 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
             if api_key_value:
                 headers[api_key_header] = api_key_value
 
-        # 3. Body Type 처리 (현재는 JSON만 지원)
-        # Body가 있다면 무조건 Content-Type: application/json 추가
+        # 3. Body 처리
+        # 현재는 JSON만 지원 (추후 form-data, XML 등 확장 가능)
         if body:
-            # 사용자가 이미 설정했는지 확인
+            # Content-Type이 명시되지 않은 경우 기본값으로 JSON 설정
             content_type_keys = [
                 k for k in headers.keys() if k.lower() == "content-type"
             ]
             if not content_type_keys:
                 headers["Content-Type"] = "application/json"
 
-            # JSON 유효성 검사 (실패 시 에러 발생 대신 원본 전송 시도하거나 로그 남김 등 선택 가능)
-            # 여기서는 편의를 위해 만약 JSON 형식이 아니라면 그대로 전송 (사용자 책임을 남겨둠)
-
-        # 3. HTTP 요청 실행
+        # 4. HTTP 요청 실행
         method = data.method.value
         timeout = data.timeout / 1000.0  # ms -> seconds
 
         try:
             with httpx.Client(timeout=timeout) as client:
-                response = client.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    content=body,  # httpx는 'content' 인자에 문자열/바이트를 받음
-                )
+                # 현재는 JSON만 지원
+                # TODO: 추후 다른 Content-Type 지원 시 여기에 분기 추가
+                # - application/x-www-form-urlencoded
+                # - multipart/form-data
+                # - text/xml
+                # - text/plain
 
-                # 결과 반환
+                if body:
+                    try:
+                        # JSON 파싱 전에 제어 문자 이스케이프
+                        escaped_body = (
+                            body.replace("\n", "\\n")
+                            .replace("\r", "\\r")
+                            .replace("\t", "\\t")
+                        )
+
+                        # JSON 문자열을 파싱
+                        json_body = json.loads(escaped_body)
+
+                        # httpx의 json 파라미터 사용
+                        # - 자동으로 JSON 직렬화
+                        # - Content-Type: application/json; charset=utf-8 설정
+                        # - 특수문자 이스케이프
+                        response = client.request(
+                            method=method,
+                            url=url,
+                            headers={
+                                k: v
+                                for k, v in headers.items()
+                                if k.lower() != "content-type"
+                            },
+                            json=json_body,
+                        )
+                    except json.JSONDecodeError as e:
+                        # JSON 파싱 실패 시 에러 발생
+                        raise ValueError(
+                            f"Body는 유효한 JSON 형식이어야 합니다: {str(e)}"
+                        )
+                else:
+                    # Body가 없는 경우 (GET 요청 등)
+                    response = client.request(
+                        method=method,
+                        url=url,
+                        headers=headers,
+                        content=None,
+                    )
+
+                # 5. 응답 처리
                 try:
                     response_body = response.json()
                 except json.JSONDecodeError:
