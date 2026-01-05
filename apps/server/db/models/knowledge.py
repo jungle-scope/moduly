@@ -51,6 +51,7 @@ class KnowledgeBase(Base):
 class SourceType(str, enum.Enum):
     FILE = "FILE"
     API = "API"
+    DB = "DB"
 
 
 class Document(Base):

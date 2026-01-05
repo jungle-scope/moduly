@@ -41,12 +41,16 @@ class KnowledgeNodeData(BaseNodeData):
     return max(1, min(20, val))
 
   def validate(self) -> None:
-    # 빈 변수를 미리 정리 (이름/selector 모두 비어있는 경우)
+    # 빈 변수를 미리 정리 (이름/selector 모두 비어있거나 불완전한 경우)
     cleaned_vars = []
     for var in self.queryVariables:
       name = (var.name or "").strip()
       selector = var.value_selector or []
-      if not name and (not selector or len(selector) == 0):
+      # 이름과 selector가 모두 비어있으면 무시
+      if not name and (not selector or len(selector) < 2):
+        continue
+      # 이름은 있지만 selector가 불완전하면 무시
+      if name and (not selector or len(selector) < 2):
         continue
       cleaned_vars.append(var)
     self.queryVariables = cleaned_vars
@@ -57,9 +61,3 @@ class KnowledgeNodeData(BaseNodeData):
     query = (self.userQuery or "").strip()
     if not query:
       raise ValueError("입력 쿼리를 입력하세요.")
-
-    for var in self.queryVariables:
-      if not var.name or not var.name.strip():
-        raise ValueError("변수명이 비어 있습니다.")
-      if not var.value_selector or len(var.value_selector) < 1:
-        raise ValueError(f"변수 '{var.name}'의 value_selector가 비어 있습니다.")

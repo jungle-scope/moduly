@@ -85,8 +85,14 @@ class OpenAIClient(BaseLLMClient):
             "model": self.model_id,
             "messages": messages,
         }
-        payload.update(kwargs)
+        
+        # [Fix] O1/O3 models use 'max_completion_tokens' instead of 'max_tokens'
+        if self.model_id.startswith(("o1", "o3")):
+            if "max_tokens" in kwargs:
+                kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
 
+        payload.update(kwargs)
+        
         try:
             resp = requests.post(
                 self.chat_url, headers=self._build_headers(), json=payload, timeout=60

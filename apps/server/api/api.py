@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from api.v1.endpoints import (
     app,
     auth,
+    connectors,
     deployment,
     health,
     knowledge,
@@ -34,6 +35,7 @@ api_router.include_router(llm.router, prefix="/llm", tags=["llm"])
 # Knowledge & RAG (Dev A)
 api_router.include_router(knowledge.router, prefix="/knowledge", tags=["knowledge"])
 api_router.include_router(rag.router, prefix="/rag", tags=["rag"])
+api_router.include_router(connectors.router, prefix="/connectors", tags=["connectors"])
 
 # Deployment & Run (Dev B)
 api_router.include_router(

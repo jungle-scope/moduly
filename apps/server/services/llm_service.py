@@ -123,8 +123,12 @@ class LLMService:
         Returns a list of raw model dicts from the provider.
         """
         remote_models = []
+        remote_models = []
+        
+        provider = provider_type.lower()
+        
         # Google supports OpenAI-compatible /models endpoint validation
-        if provider_type.lower() in ["openai", "google"]:
+        if provider in ["openai", "google"]:
             url = base_url.rstrip("/") + "/models"
             try:
                 resp = requests.get(
@@ -136,12 +140,73 @@ class LLMService:
                     data = resp.json()
                     # OpenAI returns { "data": [ { "id": "model-id", ... }, ... ] }
                     remote_models = data.get("data", [])
+                elif resp.status_code in [401, 403]:
+                    # Explicitly raise error for auth failure
+                    raise ValueError(f"유효하지 않은 API Key입니다. 정확한 키를 입력했는지 확인해주세요. (Provider: {provider})")
                 else:
-                    # Log warning but don't fail registration
-                    print(f"[Warning] Failed to fetch models: {resp.status_code} {resp.text}")
+                    # Treat other errors as failure during registration
+                    raise ValueError(f"Failed to fetch models from {provider}: {resp.status_code} {resp.text}")
+            except ValueError:
+                raise # Re-raise known ValueErrors
             except Exception as e:
-                print(f"[Warning] Failed to fetch models (Network): {e}")
+                # Catch network/timeout errors
+                raise ValueError(f"Network error verifying {provider} key: {str(e)}")
+
+        # Anthropic
+        elif provider == "anthropic":
+            url = base_url.rstrip("/") + "/models"
+            try:
+                resp = requests.get(
+                    url,
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01" 
+                    },
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # Anthropic returns { "data": [ { "id": "claude-...", ... }, ... ] }
+                    remote_models = data.get("data", [])
+                elif resp.status_code in [401, 403]:
+                    raise ValueError(f"유효하지 않은 API Key입니다. 정확한 키를 입력했는지 확인해주세요. (Provider: Anthropic)")
+                else:
+                    raise ValueError(f"Failed to fetch models from Anthropic: {resp.status_code} {resp.text}")
+            except ValueError:
+                raise
+            except Exception as e:
+                raise ValueError(f"Network error verifying Anthropic key: {str(e)}")
+
+        # LlamaParse
+        elif provider == "llamaparse":
+            # LlamaCloud API Validation (Check projects access)
+            # base_url is typically https://api.cloud.llamaindex.ai
+            url = base_url.rstrip("/") + "/api/v1/projects"
+            try:
+                resp = requests.get(
+                    url,
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    # Authentication successful
+                    # LlamaParse doesn't provide "models" for LLM nodes, so return empty
+                    remote_models = []
+                elif resp.status_code in [401, 403]:
+                    raise ValueError(f"유효하지 않은 API Key입니다. 정확한 키를 입력했는지 확인해주세요. (Provider: LlamaParse)")
+                else:
+                    raise ValueError(f"Failed to verify LlamaParse key: {resp.status_code} {resp.text}")
+            except ValueError:
+                raise
+            except Exception as e:
+                raise ValueError(f"Network error verifying LlamaParse key: {str(e)}")
+        # For now, just return empty, but ideally we should validate if we support them.
         
+        if not remote_models and provider in ["openai", "google", "anthropic"]:
+             # If we got 200 OK but no models, that's suspicious but technically success.
+             # However, usually there should be models.
+             pass
+
         return remote_models
 
     @staticmethod
@@ -195,12 +260,30 @@ class LLMService:
                 synced_models.append(model)
             else:
                 # Create new model
-                # Heuristic for type and context (naive)
-                m_type = "chat"
-                if "embedding" in mid: m_type = "embedding"
+                # Model type detection based on model ID
+                mid_lower = mid.lower()
+                m_type = "chat"  # 기본값
+                
+                # Embedding 모델
+                if "embedding" in mid_lower:
+                    m_type = "embedding"
+                # Audio 모델 (TTS, Whisper, Audio)
+                elif "tts" in mid_lower or "whisper" in mid_lower or "audio" in mid_lower:
+                    m_type = "audio"
+                # Image 생성 모델
+                elif "dall-e" in mid_lower or "image" in mid_lower:
+                    m_type = "image"
+                # Realtime 모델
+                elif "realtime" in mid_lower:
+                    m_type = "realtime"
+                # Moderation 모델
+                elif "moderation" in mid_lower:
+                    m_type = "moderation"
+                # Chat 모델 (gpt, o1, o3, claude, gemini 등)
+                # else: 기본값 "chat" 유지
                 
                 # Default context window is unknown for dynamic discovery, set safe default or specific rules
-                ctx = 4096 
+                ctx = 4096
                 if "gpt-4" in mid: ctx = 8192
                 if "128k" in mid or "gpt-4o" in mid: ctx = 128000
                 
