@@ -12,6 +12,14 @@ export default function DbSourceViewer({
   selectedDbItems,
   onChange,
 }: DbSourceViewerProps) {
+  if (!connectionId) {
+    return (
+      <div className="flex items-center justify-center p-8 text-gray-400">
+        <p>DB 연결 정보가 없습니다.</p>
+      </div>
+    );
+  }
+
   return (
     <DBSchemaSelector
       connectionId={connectionId}
