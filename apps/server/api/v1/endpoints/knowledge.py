@@ -4,7 +4,14 @@ from typing import List
 from uuid import UUID
 
 import pandas as pd
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Response,
+    status,
+)
 from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -112,11 +119,12 @@ def get_knowledge_base(
 def update_knowledge_base(
     kb_id: UUID,
     update_data: KnowledgeUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    참고자료 그룹의 설정을 수정합니다. (이름, 설명)
+    참고자료 그룹의 설정을 수정합니다. (이름, 설명, 즐겨찾기 임베딩 모델)
     """
     kb = (
         db.query(KnowledgeBase)
@@ -131,6 +139,22 @@ def update_knowledge_base(
         kb.name = update_data.name
     if update_data.description is not None:
         kb.description = update_data.description
+
+    # 임베딩 모델 변경 및 재인덱싱 트리거
+    if (
+        update_data.embedding_model is not None
+        and update_data.embedding_model != kb.embedding_model
+    ):
+        print(
+            f"Updating embedding model from {kb.embedding_model} to {update_data.embedding_model}"
+        )
+        kb.embedding_model = update_data.embedding_model
+
+        # 재인덱싱 트리거
+        orchestrator = IngestionService(db, current_user.id)
+        background_tasks.add_task(
+            orchestrator.reindex_knowledge_base, kb.id, update_data.embedding_model
+        )
 
     db.commit()
     db.refresh(kb)
@@ -230,8 +254,6 @@ def get_document_content(
 
     # API 소스는 파일이 없으므로 미리보기 불가 처리
     if doc.source_type == "API" or not doc.file_path:
-        # 204 No Content를 주면 브라우저가 아무것도 안할 수 있으니
-        # 명확하게 파일이 없음을 알리는게 낫습니다.
         raise HTTPException(
             status_code=400,
             detail="API로 받은 응답은 원문 보기를 제공하지 않습니다.",

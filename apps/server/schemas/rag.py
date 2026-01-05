@@ -25,6 +25,7 @@ class KnowledgeBaseResponse(BaseModel):
 class KnowledgeUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    embedding_model: Optional[str] = None
 
 
 class DocumentResponse(BaseModel):

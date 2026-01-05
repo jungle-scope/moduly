@@ -22,12 +22,10 @@ import {
   knowledgeApi,
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
-import {
-  DocumentResponse,
-  SourceType,
-} from '@/app/features/knowledge/types/Knowledge';
+import { SourceType } from '@/app/features/knowledge/types/Knowledge';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
+import ChangeEmbeddingModelModal from '@/app/features/knowledge/components/change-embedding-model-modal';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -51,6 +49,9 @@ export default function KnowledgeDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Embedding Model Change Modal State
+  const [isModelModalOpen, setIsModelModalOpen] = useState(false);
 
   // 데이터 조회
   const fetchKnowledgeBase = async () => {
@@ -234,6 +235,19 @@ export default function KnowledgeDetailPage() {
     }
   };
 
+  // 임베딩 모델 변경 핸들러
+  const handleModelChange = async (newModel: string) => {
+    try {
+      await knowledgeApi.updateKnowledgeBase(id, { embedding_model: newModel });
+      toast.success('임베딩 모델이 변경되었습니다. 재인덱싱이 시작됩니다.');
+      fetchKnowledgeBase();
+    } catch (error) {
+      console.error('Failed to update embedding model:', error);
+      toast.error('모델 변경 실패');
+      throw error;
+    }
+  };
+
   if (isLoading || !knowledgeBase) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -309,10 +323,17 @@ export default function KnowledgeDetailPage() {
               <Calendar className="w-4 h-4" />
               <span>생성: {formatDate(knowledgeBase.created_at)}</span>
             </div>
-            <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+            <button
+              onClick={() => setIsModelModalOpen(true)}
+              className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors group"
+              title="클릭하여 모델 변경"
+            >
               <Settings className="w-4 h-4" />
               <span>모델: {knowledgeBase.embedding_model}</span>
-            </div>
+              <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                ✏️
+              </span>
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -550,6 +571,14 @@ export default function KnowledgeDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Embedding Model Change Modal */}
+      <ChangeEmbeddingModelModal
+        isOpen={isModelModalOpen}
+        onClose={() => setIsModelModalOpen(false)}
+        currentModel={knowledgeBase?.embedding_model || ''}
+        onConfirm={handleModelChange}
+      />
     </div>
   );
 }
