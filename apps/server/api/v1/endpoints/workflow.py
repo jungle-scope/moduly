@@ -474,6 +474,11 @@ async def execute_workflow(
     if workflow.created_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="Forbidden")
 
+    memory_mode_enabled = False
+    if isinstance(user_input, dict):
+        # 프론트 토글 상태가 실행 입력에 섞여 올 수 있으므로 분리해서 컨텍스트에만 전달
+        memory_mode_enabled = bool(user_input.pop("memory_mode", False))
+
     # 2. 데이터 조회 및 실행
     try:
         graph = WorkflowService.get_draft(db, workflow_id)
@@ -495,6 +500,7 @@ async def execute_workflow(
             execution_context={
                 "user_id": str(current_user.id),
                 "workflow_id": workflow_id,
+                "memory_mode": memory_mode_enabled,
             },
             db=db,
         )
@@ -529,6 +535,7 @@ async def stream_workflow(
     - file_변수명: 업로드된 파일들
     """
 
+    memory_mode_enabled = False
     # 1. 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
@@ -577,11 +584,16 @@ async def stream_workflow(
 
                     user_input[var_name] = file_path
                     print(f"[DEBUG] 파일 저장: {var_name} -> {file_path}")
+
+        # 토글 값 분리 (문자열 true/false 허용)
+        memory_mode_enabled = str(form.get("memory_mode", "")).lower() == "true"
     else:
         # JSON 방식 (기존)
         try:
             body = await request.json()
             user_input = body if isinstance(body, dict) else {}
+            if isinstance(user_input, dict):
+                memory_mode_enabled = bool(user_input.pop("memory_mode", False))
         except:
             user_input = {}
 
@@ -599,6 +611,7 @@ async def stream_workflow(
             execution_context={
                 "user_id": str(current_user.id),
                 "workflow_id": workflow_id,
+                "memory_mode": memory_mode_enabled,
             },
             db=db,
         )

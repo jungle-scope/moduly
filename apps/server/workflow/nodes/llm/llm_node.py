@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Optional
 import uuid
 
@@ -5,11 +6,19 @@ from jinja2 import Environment
 
 from db.session import SessionLocal  # 임시 세션 생성용 (TODO: 엔진 주입으로 교체)
 from services.llm_service import LLMService
+from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
+from db.models.llm import LLMModel
 
 from ..base.node import Node
 from .entities import LLMNodeData
 
 _jinja_env = Environment(autoescape=False)
+MEMORY_RUN_LIMIT = 5  # 최근 실행 몇 건을 기억 컨텍스트에 반영할지 결정
+SUMMARY_MODEL_PREFS = {
+    "openai": ["gpt-4.1-mini", "gpt-4o-mini", "gpt-3.5-turbo"],
+    "google": ["gemini-1.5-flash", "gemini-1.5-pro"],
+    "anthropic": ["claude-3-haiku-20240307", "claude-3-5-sonnet-20240620"],
+}
 
 
 def _get_nested_value(data: Any, keys: List[str]) -> Any:
@@ -81,6 +90,13 @@ class LLMNode(Node[LLMNodeData]):
                 if temp_session is not None:
                     temp_session.close()
 
+        memory_summary = None
+        try:
+            memory_summary = self._build_memory_summary()
+        except Exception as e:
+            # 기억 모드 실패는 실행을 막지 않음 (비용만 스킵)
+            print(f"[LLMNode] memory summary skipped: {e}")
+
         # STEP 3. 프롬프트 빌드 ------------------------------------------------
         messages = [
             {
@@ -97,6 +113,15 @@ class LLMNode(Node[LLMNodeData]):
             },
         ]
         messages = [m for m in messages if m["content"]]  # 비어있는 메시지 제외
+        if memory_summary:
+            # 이전 실행 요약을 시스템 레이어에 앞단 삽입 (사용자 프롬프트 오염 방지)
+            messages.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": f"[이전 실행 요약]\n{memory_summary}",
+                },
+            )
 
         if not messages:
             raise ValueError("프롬프트 렌더링 결과가 모두 비어있습니다. 입력 변수가 올바르게 전달되었는지 확인해주세요.")
@@ -206,3 +231,128 @@ class LLMNode(Node[LLMNodeData]):
             return _jinja_env.from_string(template).render(**context)
         except Exception as e:
             raise ValueError(f"프롬프트 렌더링 실패: {e}")
+
+    def _build_memory_summary(self) -> Optional[str]:
+        """
+        최근 워크플로우 실행에서 LLM 노드 입출력을 요약해 시스템 프롬프트에 넣습니다.
+        - 키가 없거나 히스토리가 없으면 조용히 None 반환
+        - 요약 실패 시 워크플로우 실행은 그대로 진행
+        """
+        if not self.execution_context.get("memory_mode"):
+            return None
+
+        try:
+            workflow_id = uuid.UUID(str(self.execution_context.get("workflow_id")))
+            user_id = uuid.UUID(str(self.execution_context.get("user_id")))
+        except Exception:
+            return None
+
+        session = SessionLocal()
+        try:
+            current_run_id = self.execution_context.get("workflow_run_id")
+            # 최근 실행 N건 조회 (본 실행 제외)
+            run_query = (
+                session.query(WorkflowRun)
+                .filter(
+                    WorkflowRun.workflow_id == workflow_id,
+                    WorkflowRun.user_id == user_id,
+                    WorkflowRun.status == "success",
+                )
+                .order_by(WorkflowRun.started_at.desc())
+                .limit(MEMORY_RUN_LIMIT + 1)
+            )
+            runs = run_query.all()
+            if current_run_id:
+                runs = [r for r in runs if str(r.id) != str(current_run_id)]
+            runs = runs[:MEMORY_RUN_LIMIT]
+            run_ids = [r.id for r in runs]
+            if not run_ids:
+                return None
+
+            node_runs = (
+                session.query(WorkflowNodeRun)
+                .filter(
+                    WorkflowNodeRun.workflow_run_id.in_(run_ids),
+                    WorkflowNodeRun.node_type == "llmNode",
+                )
+                .order_by(WorkflowNodeRun.started_at.desc())
+                .limit(MEMORY_RUN_LIMIT)
+                .all()
+            )
+            if not node_runs:
+                return None
+
+            history_lines = []
+            for idx, nr in enumerate(node_runs):
+                history_lines.append(
+                    f"- #{idx + 1} [{nr.node_id}] input={self._shorten(nr.inputs)} | output={self._shorten(nr.outputs)}"
+                )
+
+            summary_model_id = self._pick_summary_model(session, self.data.model_id)
+            summary_client = LLMService.get_client_for_user(
+                session,
+                user_id=user_id,
+                model_id=summary_model_id,
+            )
+            summary_messages = [
+                {
+                    "role": "system",
+                    "content": "아래는 이전 실행의 LLM 입력/출력 기록입니다. 핵심 사실만 3~5줄로 짧게 요약하고, 반복 설명을 줄일 수 있게 맥락을 남겨주세요.",
+                },
+                {"role": "user", "content": "\n".join(history_lines)},
+            ]
+            summary_response = summary_client.invoke(
+                messages=summary_messages,
+                temperature=0.2,
+                max_tokens=512,
+            )
+            try:
+                return (
+                    summary_response.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                ) or None
+            except Exception:
+                return None
+        finally:
+            session.close()
+
+    def _shorten(self, payload: Any, limit: int = 360) -> str:
+        """LLM 히스토리 문자열을 과하지 않게 자르는 헬퍼 (한국어 포함)"""
+        if payload is None:
+            return ""
+        try:
+            if isinstance(payload, str):
+                text = payload
+            else:
+                text = json.dumps(payload, ensure_ascii=False)
+        except Exception:
+            text = str(payload)
+        if len(text) > limit:
+            return text[:limit] + "..."
+        return text
+
+    def _pick_summary_model(self, session, fallback_model: str) -> str:
+        """요약 전용으로 가성비 좋은 모델을 선택 (사용자 키가 있는 같은 프로바이더 우선)"""
+        provider_name = None
+        try:
+            base_model = (
+                session.query(LLMModel)
+                .filter(LLMModel.model_id_for_api_call == fallback_model)
+                .first()
+            )
+            if base_model and base_model.provider:
+                provider_name = base_model.provider.name.lower()
+        except Exception:
+            provider_name = None
+
+        candidates = SUMMARY_MODEL_PREFS.get(provider_name, [])
+        for mid in candidates:
+            exists = (
+                session.query(LLMModel.id)
+                .filter(LLMModel.model_id_for_api_call == mid)
+                .first()
+            )
+            if exists:
+                return mid
+        return fallback_model

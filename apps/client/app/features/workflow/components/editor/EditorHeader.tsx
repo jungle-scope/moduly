@@ -500,6 +500,15 @@ export default function EditorHeader() {
           }
         }
 
+        const payload =
+          inputs instanceof FormData
+            ? (() => {
+                const formCopy = new FormData(inputs);
+                formCopy.append('memory_mode', String(isMemoryModeEnabled));
+                return formCopy;
+              })()
+            : { ...(inputs as Record<string, any>), memory_mode: isMemoryModeEnabled };
+
         // 1. 초기화: 모든 노드 상태 초기화
         const initialNodes = nodes.map((node) => ({
           ...node,
@@ -514,7 +523,7 @@ export default function EditorHeader() {
         // 여기서 async 콜백을 사용하여 의도적인 지연(Delay)을 만듭니다.
         await workflowApi.executeWorkflowStream(
           workflowId,
-          inputs,
+          payload,
           async (event) => {
             // 시각적 피드백을 위한 지연 (너무 빠르면 사용자가 인지하기 힘듦)
             await new Promise((resolve) => setTimeout(resolve, 500));
