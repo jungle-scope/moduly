@@ -98,11 +98,14 @@ class WorkflowNode(Node[WorkflowNodeData]):
 
         # is_deployed=True로 설정하여 AnswerNode의 결과만 반환받도록 함
         # user_id 등 context 전달
+        # parent_run_id를 전달하여 서브 워크플로우의 노드 실행 기록이 부모 워크플로우와 연결되도록 함
+        parent_run_id = self.execution_context.get("workflow_run_id")
         engine = WorkflowEngine(
             graph,
             sub_workflow_inputs,
             execution_context=self.execution_context,
             is_deployed=True,
+            parent_run_id=parent_run_id,
         )
 
         result = asyncio.run(engine.execute())
