@@ -32,6 +32,7 @@ import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
 import { KnowledgeNodePanel } from '../nodes/knowledge/components/KnowledgeNodePanel';
+import { GithubNodePanel } from '../nodes/github/components/GithubNodePanel';
 
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
@@ -151,17 +152,20 @@ export default function NodeCanvas() {
   );
 
   // 노드 클릭 시 세부 정보 패널 표시 처리
-  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
-    if (node.type && node.type !== 'note') {
-      // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
-      if (selectedNodeId !== node.id) {
-        setIsParamPanelOpen(false);
+  const handleNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
+      if (node.type && node.type !== 'note') {
+        // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
+        if (selectedNodeId !== node.id) {
+          setIsParamPanelOpen(false);
+        }
+        setSelectedNodeId(node.id);
+        setSelectedNodeType(node.type);
       }
-      setSelectedNodeId(node.id);
-      setSelectedNodeType(node.type);
-    }
-  }, [selectedNodeId]);
+    },
+    [selectedNodeId],
+  );
 
   // 세부 정보 패널 닫기
   // 세부 정보 패널 닫기
@@ -383,6 +387,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'webhookTrigger' && (
             <WebhookTriggerNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'githubNode' && (
+            <GithubNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

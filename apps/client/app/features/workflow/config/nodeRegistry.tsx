@@ -12,6 +12,7 @@ import {
   Plug,
   BookOpen,
   Webhook,
+  Github,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -255,6 +256,26 @@ export const nodeRegistry: NodeDefinition[] = [
       title: '템플릿',
       template: '',
       variables: [],
+    }),
+  },
+  {
+    id: 'github',
+    type: 'githubNode',
+    name: 'GitHub',
+    category: 'plugin',
+    color: '#333', // GitHub black
+    icon: <Github className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description: 'GitHub PR과 상호작용합니다 (Diff 조회, 댓글 작성).',
+    defaultData: () => ({
+      title: 'GitHub',
+      action: 'get_pr',
+      api_token: '',
+      repo_owner: '',
+      repo_name: '',
+      pr_number: 0,
+      comment_body: '',
+      referenced_variables: [],
     }),
   },
 ];
