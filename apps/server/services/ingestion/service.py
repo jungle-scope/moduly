@@ -1,8 +1,5 @@
 import hashlib
-import os
 import re
-import shutil
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -14,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from db.models.knowledge import Document, DocumentChunk, SourceType
 from services.ingestion.factory import IngestionFactory
+from services.storage import get_storage_service  # [NEW]
 
 
 class IngestionOrchestrator:
@@ -37,13 +35,12 @@ class IngestionOrchestrator:
         )
 
     def save_temp_file(self, file: UploadFile) -> str:
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
-        unique_filename = f"{uuid.uuid4()}_{file.filename}"
-        file_path = os.path.join(upload_dir, unique_filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        return file_path
+        """
+        StorageService를 사용하여 파일을 저장하고 경로를 반환합니다.
+        (Local: 파일 경로, S3: s3://...)
+        """
+        storage = get_storage_service()
+        return storage.upload(file)
 
     def create_pending_document(
         self,

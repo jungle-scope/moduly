@@ -54,9 +54,9 @@ export default function KnowledgeDetailPage() {
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
 
   // 데이터 조회
-  const fetchKnowledgeBase = async () => {
+  const fetchKnowledgeBase = async (isBackground = false) => {
     try {
-      setIsLoading(true);
+      if (!isBackground) setIsLoading(true);
       const data = await knowledgeApi.getKnowledgeBase(id);
       setKnowledgeBase(data);
 
@@ -87,7 +87,7 @@ export default function KnowledgeDetailPage() {
     // 처리 중인 자료가 있다면 3초마다 상태 갱신
     if (hasProcessingDocs) {
       const intervalId = setInterval(() => {
-        fetchKnowledgeBase();
+        fetchKnowledgeBase(true);
       }, 3000);
       return () => clearInterval(intervalId);
     }
