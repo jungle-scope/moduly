@@ -169,7 +169,17 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
         <select
           className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
           value={data.action || 'get_pr'}
-          onChange={(e) => handleUpdateData('action', e.target.value)}
+          onChange={(e) => {
+            const newAction = e.target.value;
+            handleUpdateData('action', newAction);
+
+            // Action에 따라 title 자동 변경
+            const titleMap: Record<string, string> = {
+              get_pr: 'Get PR Diff',
+              comment_pr: 'Comment on PR',
+            };
+            handleUpdateData('title', titleMap[newAction] || 'GitHub');
+          }}
         >
           <option value="get_pr">Get PR Diff</option>
           <option value="comment_pr">Comment on PR</option>
