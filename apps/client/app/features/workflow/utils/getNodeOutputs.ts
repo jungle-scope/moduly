@@ -44,6 +44,8 @@ export const getNodeOutputs = (node: Node): string[] => {
         'comment_url',
         'comment_body',
       ];
+    case 'mailNode':
+      return ['emails', 'total_count', 'folder'];
     default:
       return ['result'];
   }

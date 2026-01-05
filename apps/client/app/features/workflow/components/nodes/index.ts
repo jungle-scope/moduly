@@ -10,6 +10,7 @@ import { FileExtractionNode } from './file_extraction/components/FileExtractionN
 import { WebhookTriggerNode } from './webhook/components/WebhookTriggerNode';
 import { KnowledgeNode } from './knowledge/components/KnowledgeNode';
 import { GithubNode } from './github/components/GithubNode';
+import { MailNode } from './mail/components/MailNode';
 
 // NOTE: ReactFlow에 등록할 노드 타입 맵
 export const nodeTypes = {
@@ -25,4 +26,5 @@ export const nodeTypes = {
   webhookTrigger: WebhookTriggerNode,
   knowledgeNode: KnowledgeNode,
   githubNode: GithubNode,
+  mailNode: MailNode,
 };
