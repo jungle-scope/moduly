@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 종속성 설치 (캐싱 최적화)
-# 루트 기준 경로를 사용합니다.
+# Docker build context는 프로젝트 루트입니다.
 COPY apps/server/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /install /usr/local
 
 # [중요] 앱 코드 복사 (모노레포 구조 유지)
-# 루트에서 apps/server 폴더 전체를 컨테이너 내부의 동일한 경로로 복사합니다.
+# Docker build context는 프로젝트 루트이므로 apps/server를 복사합니다.
 COPY apps/server /app/apps/server
 
 # 보안: Root가 아닌 일반 유저로 실행

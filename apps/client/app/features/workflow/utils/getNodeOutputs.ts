@@ -24,7 +24,7 @@ export const getNodeOutputs = (node: Node): string[] => {
     case 'answerNode':
       return [];
     case 'workflowNode':
-      return (node.data as any).outputs || [];
+      return ['result'];
     case 'fileExtractionNode':
       return ['result', 'page_count'];
     case 'knowledgeNode':
