@@ -111,9 +111,6 @@ export function useDocumentProcess({
       } else {
         toast.success('데이터 처리를 시작합니다.');
       }
-
-      // 저장 성공 후 지식 베이스 페이지로 리다이렉션 하지 않음 (Polling으로 상태 확인 후 이동)
-      // router.push(`/dashboard/knowledge/${kbId}`);
     } catch (error: any) {
       console.error('[Debug] Save failed:', error);
       console.error('[Debug] Error details:', error.response?.data);

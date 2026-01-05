@@ -59,7 +59,7 @@ export default function KnowledgeDetailPage() {
       setEditDesc(data.description || '');
     } catch (error) {
       console.error('Failed to fetch knowledge base', error);
-      alert('지식 베이스를 불러오는데 실패했습니다.');
+      alert('참고자료 그룹을 불러오는데 실패했습니다.');
       router.push('/dashboard/knowledge');
     } finally {
       setIsLoading(false);
@@ -204,20 +204,20 @@ export default function KnowledgeDetailPage() {
     }
   };
 
-  // 지식 베이스 삭제 핸들러
+  // 참고자료 그룹 삭제 핸들러
   const handleDeleteKnowledgeBase = async () => {
     if (deleteConfirmName !== knowledgeBase?.name) {
-      toast.error('지식 베이스 이름이 일치하지 않습니다.');
+      toast.error('참고자료 그룹 이름이 일치하지 않습니다.');
       return;
     }
     try {
       setIsDeleting(true);
       await knowledgeApi.deleteKnowledgeBase(id);
-      toast.success('지식 베이스가 삭제되었습니다.');
+      toast.success('참고자료 그룹이 삭제되었습니다.');
       router.push('/dashboard/knowledge');
     } catch (error) {
       console.error('Failed to delete kb:', error);
-      toast.error('지식 베이스 삭제 실패');
+      toast.error('참고자료 그룹 삭제 실패');
       setIsDeleting(false);
     }
   };
@@ -303,7 +303,15 @@ export default function KnowledgeDetailPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            title="참고자료 그룹 삭제"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+          <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button
             onClick={() => setIsSearchModalOpen(true)}
             className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-white rounded-lg transition-colors mr-3 shadow-sm"
@@ -453,34 +461,6 @@ export default function KnowledgeDetailPage() {
         onClose={() => setIsSearchModalOpen(false)}
       />
 
-      {/* Danger Zone */}
-      <div className="mt-12 border border-red-200 dark:border-red-900/50 rounded-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-        <div className="bg-red-50 dark:bg-red-900/20 px-6 py-4 border-b border-red-200 dark:border-red-900/50">
-          <h3 className="text-red-800 dark:text-red-400 font-semibold flex items-center gap-2">
-            <Trash2 className="w-5 h-5" />
-            Danger Zone
-          </h3>
-        </div>
-        <div className="p-6 bg-white dark:bg-gray-800 flex items-center justify-between">
-          <div>
-            <h4 className="text-gray-900 dark:text-gray-100 font-medium mb-1">
-              지식 베이스 삭제
-            </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              이 지식 베이스와 관련된 모든 문서 및 임베딩 데이터가 영구적으로
-              삭제됩니다.
-              <br />이 작업은 되돌릴 수 없습니다.
-            </p>
-          </div>
-          <button
-            onClick={() => setIsDeleteModalOpen(true)}
-            className="px-4 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
-          >
-            지식 베이스 삭제
-          </button>
-        </div>
-      </div>
-
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
@@ -488,7 +468,7 @@ export default function KnowledgeDetailPage() {
             <div className="flex justify-between items-start">
               <h3 className="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
                 <Trash2 className="w-5 h-5" />
-                지식 베이스 삭제
+                참고자료 그룹 삭제
               </h3>
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
@@ -502,11 +482,11 @@ export default function KnowledgeDetailPage() {
               <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-800 dark:text-red-300">
                 <p className="font-semibold mb-1">경고: 복구할 수 없습니다.</p>
                 <p>
-                  삭제하시려면 지식 베이스 이름{' '}
+                  삭제하시려면 참고자료 그룹 이름{' '}
                   <span className="font-bold underline">
                     {knowledgeBase.name}
                   </span>
-                  을 똑같이 입력해주세요.
+                  과 똑같이 입력해주세요.
                 </p>
               </div>
 
@@ -515,7 +495,7 @@ export default function KnowledgeDetailPage() {
                 value={deleteConfirmName}
                 onChange={(e) => setDeleteConfirmName(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
-                placeholder="지식 베이스 이름 입력"
+                placeholder="참고자료 그룹 이름 입력"
               />
 
               <div className="flex justify-end gap-3 pt-2">

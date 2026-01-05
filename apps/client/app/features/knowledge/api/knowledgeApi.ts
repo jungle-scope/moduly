@@ -72,7 +72,7 @@ api.interceptors.response.use(
 );
 
 export const knowledgeApi = {
-  // 지식 베이스 생성 및 파일 업로드
+  // 참고자료 생성 및 파일 업로드
   uploadKnowledgeBase: async (
     data: KnowledgeCreateRequest,
   ): Promise<IngestionResponse> => {
@@ -102,7 +102,7 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 지식 베이스 목록 조회
+  // 참고자료 목록 조회
   getKnowledgeBases: async (): Promise<KnowledgeBaseResponse[]> => {
     // console.log('[knowledgeApi] Fetching knowledge bases...');
     try {
@@ -116,7 +116,7 @@ export const knowledgeApi = {
     }
   },
 
-  // 지식 베이스 상세 조회
+  // 참고자료 상세 조회
   getKnowledgeBase: async (
     id: string,
   ): Promise<KnowledgeBaseDetailResponse> => {
@@ -135,7 +135,7 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 지식 베이스 수정 (이름, 설명)
+  // 참고자료 수정 (이름, 설명)
   updateKnowledgeBase: async (
     id: string,
     data: { name?: string; description?: string },
@@ -144,7 +144,7 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 지식 베이스 삭제
+  // 참고자료 그룹 삭제
   deleteKnowledgeBase: async (id: string): Promise<void> => {
     await api.delete(`/knowledge/${id}`);
   },

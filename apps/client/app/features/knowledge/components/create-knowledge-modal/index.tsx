@@ -60,8 +60,8 @@ export default function CreateKnowledgeModal({
   });
 
   const [formData, setFormData] = useState({
-    name: '지식베이스 테스트',
-    description: `지식베이스 테스트입니다 ${new Date().toLocaleString()}`,
+    name: '참고자료 생성 테스트',
+    description: `참고자료 생성 테스트입니다 ${new Date().toLocaleString()}`,
     chunkSize: 500,
     chunkOverlap: 50,
     embeddingModel: 'text-embedding-3-small',
@@ -247,7 +247,7 @@ export default function CreateKnowledgeModal({
         }
       }
 
-      // 지식 베이스 생성
+      // 참고자료 생성
       const response = await knowledgeApi.uploadKnowledgeBase({
         sourceType: sourceType,
         file: sourceType === 'FILE' && file ? file : undefined,
@@ -434,7 +434,7 @@ export default function CreateKnowledgeModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {knowledgeBaseId ? '소스 추가' : '지식 베이스 생성'}
+            {knowledgeBaseId ? '자료 추가' : '참고자료 그룹 생성'}
           </h2>
           <button
             type="button"
@@ -659,7 +659,7 @@ export default function CreateKnowledgeModal({
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
-                    placeholder="이 지식 베이스에 대한 설명을 입력하세요"
+                    placeholder="이 참고자료 그룹에 대한 설명을 입력하세요"
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                   />

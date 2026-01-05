@@ -32,8 +32,8 @@ def list_knowledge_bases(
     current_user: User = Depends(get_current_user),
 ):
     """
-    사용자의 지식 베이스 목록을 조회합니다.
-    각 지식 베이스에 포함된 문서 개수도 함께 반환합니다.
+    사용자의 자료 목록을 조회합니다.
+    각 참고자료 그룹에 포함된 문서 개수도 함께 반환합니다.
     """
     results = (
         db.query(KnowledgeBase, func.count(Document.id).label("document_count"))
@@ -66,8 +66,8 @@ def get_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    특전 지식 베이스의 상세 정보를 조회합니다.
-    포함된 문서 목록과 각 문서의 상태를 함께 반환합니다.
+    참고자료 그룹의 상세 정보를 조회합니다.
+    포함된 자료 목록과 각 자료의 상태를 함께 반환합니다.
     """
     kb = (
         db.query(KnowledgeBase)
@@ -115,7 +115,7 @@ def update_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    지식 베이스의 설정을 수정합니다. (이름, 설명)
+    참고자료 그룹의 설정을 수정합니다. (이름, 설명)
     """
     kb = (
         db.query(KnowledgeBase)
@@ -144,7 +144,7 @@ def delete_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    지식 베이스를 삭제합니다.
+    참고자료 그룹을 삭제합니다.
     연결된 문서 및 임베딩 데이터는 DB Cascade 설정에 따라 함께 삭제됩니다.
     """
     kb = (

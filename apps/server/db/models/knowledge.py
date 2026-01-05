@@ -13,7 +13,7 @@ from db.base import Base
 
 class KnowledgeBase(Base):
     """
-    지식 베이스 모델: 여러 문서를 그룹화하는 최상위 개념
+    참고자료그룹 모델: 여러 문서를 그룹화하는 최상위 개념
     """
 
     __tablename__ = "knowledge_bases"
@@ -64,7 +64,7 @@ class Document(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    # 어떤 지식 베이스에 속했는지 연결
+    # 어떤 참고자료 그룹에 속했는지 연결
     knowledge_base_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("knowledge_bases.id"), nullable=False
     )
