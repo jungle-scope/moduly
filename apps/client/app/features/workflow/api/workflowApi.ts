@@ -189,8 +189,10 @@ export const workflowApi = {
     return response.data as DeploymentResponse;
   },
 
-  listWorkflowNodes: async () => {
-    const response = await api.get('/deployments/nodes');
+  listWorkflowNodes: async (excludedAppId?: string) => {
+    const response = await api.get('/deployments/nodes', {
+      params: { excluded_app_id: excludedAppId },
+    });
     return response.data as {
       deployment_id: string;
       app_id: string;
