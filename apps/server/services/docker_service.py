@@ -9,9 +9,19 @@ Sandbox Service for secure Python code execution via Dify Sandbox API
 """
 
 import json
+import logging
+import os
 from typing import Any, Dict
 
 import httpx
+
+logger = logging.getLogger(__name__)
+
+
+class CodeExecutionError(Exception):
+    """코드 실행 중 발생한 에러"""
+
+    pass
 
 
 class DockerSandboxService:
@@ -19,16 +29,18 @@ class DockerSandboxService:
 
     def __init__(
         self,
-        sandbox_url: str = "http://sandbox.local:8194",
-        api_key: str = "Modulycallsandbox306",
+        sandbox_url: str = None,
+        api_key: str = None,
     ):
         """
         Args:
-            sandbox_url: Dify Sandbox API URL
-            api_key: API 인증 키
+            sandbox_url: Dify Sandbox API URL (기본값: 환경변수 SANDBOX_URL)
+            api_key: API 인증 키 (기본값: 환경변수 SANDBOX_API_KEY)
         """
-        self.sandbox_url = sandbox_url
-        self.api_key = api_key
+        self.sandbox_url = sandbox_url or os.getenv(
+            "SANDBOX_URL", "http://sandbox.local:8194"
+        )
+        self.api_key = api_key or os.getenv("SANDBOX_API_KEY", "Modulycallsandbox306")
 
     def execute_python_code(
         self,
@@ -54,54 +66,113 @@ class DockerSandboxService:
         # 실행 래퍼 스크립트 생성
         wrapper = self._create_wrapper(code, inputs)
 
+        # URL 구성
+        url = f"{self.sandbox_url}/v1/sandbox/run"
+
+        # 헤더 설정
+        headers = {
+            "Content-Type": "application/json",
+            "X-Api-Key": self.api_key,
+        }
+
+        # 요청 데이터
+        request_data = {
+            "language": "python3",
+            "code": wrapper,
+            "preload": "",
+            "enable_network": True,
+        }
+
+        # 로깅: 요청 정보
+        logger.info(f"🚀 Sandbox API 요청: {url}")
+        logger.debug(
+            f"📦 Request data: {json.dumps(request_data, ensure_ascii=False, indent=2)}"
+        )
+
+        # 타임아웃 설정
+        timeout_config = httpx.Timeout(
+            connect=5.0,
+            read=float(timeout),
+            write=5.0,
+            pool=None,
+        )
+
         try:
-            # Dify Sandbox API 요청
-            with httpx.Client(timeout=timeout + 5) as client:
-                response = client.post(
-                    f"{self.sandbox_url}/v1/sandbox/run",
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {self.api_key}",
-                    },
-                    json={
-                        "language": "python3",
-                        "code": wrapper,
-                        "preload": "",
-                        "enable_network": True,
-                    },
-                )
+            # HTTP POST 요청
+            with httpx.Client(timeout=timeout_config) as client:
+                response = client.post(url, json=request_data, headers=headers)
 
-                # 응답 확인
+                # 로깅: 응답 상태
+                logger.info(f"📨 Response status: {response.status_code}")
+
+                # 에러 체크: 서비스 불가
+                if response.status_code == 503:
+                    logger.error("❌ Sandbox 서비스 unavailable (503)")
+                    return {"error": "Code execution service is unavailable"}
+
+                # 에러 체크: 기타 HTTP 에러
                 if response.status_code != 200:
-                    return {
-                        "error": f"Sandbox API 오류 ({response.status_code}): {response.text}"
-                    }
+                    error_msg = f"Failed to execute code, status {response.status_code}: {response.text}"
+                    logger.error(f"❌ {error_msg}")
+                    return {"error": error_msg}
 
-                # 결과 파싱
-                result_data = response.json()
+                # 응답 파싱
+                try:
+                    response_data = response.json()
+                    logger.debug(
+                        f"📥 Response data: {json.dumps(response_data, ensure_ascii=False, indent=2)}"
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Failed to parse response: {e}")
+                    return {"error": "Failed to parse sandbox response"}
 
                 # Dify Sandbox 응답 형식 처리
-                if "error" in result_data:
-                    return {"error": result_data["error"]}
+                # 응답 형식: {"code": 0, "message": "...", "data": {"stdout": "...", "error": "..."}}
+                response_code = response_data.get("code")
+                if response_code != 0:
+                    error_msg = response_data.get("message", "Unknown error")
+                    logger.error(f"❌ Sandbox error code {response_code}: {error_msg}")
+                    return {"error": f"Sandbox error: {error_msg}"}
+
+                # data 추출
+                data = response_data.get("data", {})
+
+                # 실행 중 에러 확인
+                if data.get("error"):
+                    logger.error(f"❌ Code execution error: {data['error']}")
+                    return {"error": data["error"]}
 
                 # stdout에서 JSON 결과 추출
-                stdout = result_data.get("data", {}).get("stdout", "")
+                stdout = data.get("stdout", "")
                 if not stdout:
+                    logger.warning("⚠️ No output from code execution")
                     return {"error": "No output from code execution"}
 
+                logger.info("✅ Code executed successfully")
+                logger.debug(f"📤 Output: {stdout[:200]}...")
+
+                # JSON 파싱
                 try:
-                    return json.loads(stdout.strip())
-                except json.JSONDecodeError:
-                    return {"error": f"Invalid JSON output: {stdout}"}
+                    result = json.loads(stdout.strip())
+                    return result
+                except json.JSONDecodeError as e:
+                    logger.error(f"❌ Invalid JSON output: {e}")
+                    return {"error": f"Invalid JSON output: {stdout[:100]}..."}
 
         except httpx.TimeoutException:
-            return {"error": f"실행 시간 초과 ({timeout}초)"}
+            error_msg = f"실행 시간 초과 ({timeout}초)"
+            logger.error(f"❌ {error_msg}")
+            return {"error": error_msg}
 
         except httpx.RequestError as e:
-            return {"error": f"Sandbox API 연결 오류: {str(e)}"}
+            error_msg = f"Sandbox API 연결 오류: {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            return {"error": error_msg}
 
         except Exception as e:
-            return {"error": f"예상치 못한 오류: {str(e)}"}
+            error_msg = f"예상치 못한 오류: {str(e)}"
+            logger.error(f"❌ {error_msg}", exc_info=True)
+            return {"error": error_msg}
 
     def _create_wrapper(self, user_code: str, inputs: Dict[str, Any]) -> str:
         """
