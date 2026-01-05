@@ -114,7 +114,8 @@ export function DeploymentResultModal({ onClose, result }: Props) {
   }
 
   // 성공 케이스
-  const API_URL = `/api/v1/run/${result.url_slug}`;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_URL = `${baseUrl}/api/v1/run/${result.url_slug}`;
 
   return (
     <>
