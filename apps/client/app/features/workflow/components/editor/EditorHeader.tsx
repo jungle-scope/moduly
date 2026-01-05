@@ -2,7 +2,7 @@
 
 import { toast } from 'sonner';
 import { useReactFlow } from '@xyflow/react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeftIcon,
@@ -66,6 +66,8 @@ export default function EditorHeader() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [isMemoryModeEnabled, setIsMemoryModeEnabled] = useState(false);
   const [showMemoryConfirm, setShowMemoryConfirm] = useState(false);
+  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
+  const [hasProviderKey, setHasProviderKey] = useState<boolean | null>(null);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false); // [NEW] 로그 뷰어 모달 상태
   const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null); // [NEW] 로그 뷰어 초기 진입 ID
   const [isMonitoringOpen, setIsMonitoringOpen] = useState(false); // [NEW] 모니터링 모달 상태
@@ -88,7 +90,38 @@ export default function EditorHeader() {
     'api' | 'webapp' | 'widget' | 'workflow_node'
   >('api'); // 배포 타입 추적
 
+  useEffect(() => {
+    const fetchKeyStatus = async () => {
+      try {
+        const res = await fetch('/api/v1/llm/credentials', {
+          credentials: 'include',
+        });
+        if (!res.ok) throw new Error('Failed to fetch credentials');
+        const data = await res.json();
+        setHasProviderKey(Array.isArray(data) && data.length > 0);
+      } catch (error) {
+        console.error('Failed to check provider key:', error);
+        setHasProviderKey(false);
+      }
+    };
+    fetchKeyStatus();
+  }, []);
+
+  useEffect(() => {
+    if (hasProviderKey === false && isMemoryModeEnabled) {
+      setIsMemoryModeEnabled(false);
+      setShowMemoryConfirm(false);
+      toast.info('프로바이더 키가 없어 기억모드를 끕니다.', { duration: 2000 });
+    }
+  }, [hasProviderKey, isMemoryModeEnabled]);
+
   const toggleMemoryMode = useCallback(() => {
+    if (hasProviderKey === false) {
+      setShowKeyPrompt(true);
+      return;
+    }
+    if (hasProviderKey === null) return; // still loading
+
     setShowMemoryConfirm((prev) => {
       if (!isMemoryModeEnabled) {
         return true;
@@ -96,7 +129,7 @@ export default function EditorHeader() {
       setIsMemoryModeEnabled(false);
       return prev;
     });
-  }, [isMemoryModeEnabled]);
+  }, [hasProviderKey, isMemoryModeEnabled]);
 
   const handleConfirmMemoryMode = useCallback(() => {
     setIsMemoryModeEnabled(true);
@@ -107,6 +140,11 @@ export default function EditorHeader() {
     setIsMemoryModeEnabled(false);
     setShowMemoryConfirm(false);
   }, []);
+
+  const handleGoToProviderSettings = useCallback(() => {
+    setShowKeyPrompt(false);
+    router.push('/settings/provider');
+  }, [router]);
 
   const memoryModeDescription =
     '최근 실행 기록을 요약해 다음 실행에 컨텍스트로 반영합니다. 추가 LLM 호출로 비용이 늘 수 있으니 켜기 전에 확인해주세요.';
@@ -594,12 +632,17 @@ export default function EditorHeader() {
                 기억모드
               </span>
               <MemoryTooltip text={memoryModeDescription} />
+              {hasProviderKey === false && (
+                <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full font-medium">
+                  키 필요
+                </span>
+              )}
             </div>
             <button
               onClick={toggleMemoryMode}
               className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
                 isMemoryModeEnabled ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
+              } ${hasProviderKey === false ? 'opacity-60 cursor-not-allowed' : ''}`}
               aria-pressed={isMemoryModeEnabled}
             >
               <span
@@ -900,6 +943,41 @@ export default function EditorHeader() {
                 className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
               >
                 취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Provider Key Prompt */}
+      {showKeyPrompt && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                🔑
+              </div>
+              <div>
+                <p className="text-base font-semibold text-gray-900 leading-relaxed">
+                  LLM Provider 키를 등록해야 기억모드를 켤 수 있습니다.
+                </p>
+                <p className="text-sm text-gray-600 mt-1">
+                  설정에서 키를 등록하면 비용 동의 후 기억모드를 사용할 수 있습니다.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={handleGoToProviderSettings}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                키 등록하기
+              </button>
+              <button
+                onClick={() => setShowKeyPrompt(false)}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                나중에 할게요
               </button>
             </div>
           </div>
