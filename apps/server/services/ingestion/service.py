@@ -16,11 +16,6 @@ from services.ingestion.factory import IngestionFactory
 
 
 class IngestionOrchestrator:
-    """
-    [IngestionOrchestrator]
-    기존 IngestionService의 역할을 대체하는 새로운 서비스 클래스입니다.
-    """
-
     def __init__(
         self,
         db: Session,
@@ -85,6 +80,9 @@ class IngestionOrchestrator:
         print(f"[DEBUG] Document found - source_type: {doc.source_type}")
         print(f"[DEBUG] meta_info: {doc.meta_info}")
 
+        # [NEW] 초기 상태 저장 (업데이트 전)
+        initial_status = doc.status
+
         try:
             self._update_status(document_id, "indexing")
             processor = IngestionFactory.get_processor(
@@ -111,7 +109,8 @@ class IngestionOrchestrator:
 
             full_text = "".join([b["content"] for b in raw_blocks])
             new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
-            if doc.content_hash == new_hash:
+            # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
+            if doc.content_hash == new_hash and initial_status != "failed":
                 print("Content unchanged. Skipping.")
                 self._update_status(document_id, "completed")
                 return
@@ -121,10 +120,14 @@ class IngestionOrchestrator:
 
             final_chunks = self._refine_chunks(raw_blocks)
             self._save_to_vector_db(doc, final_chunks)
+            print(
+                f"[IngestionOrchestrator] Document processing completed successfully: {doc.filename} ({document_id})"
+            )
             self._update_status(document_id, "completed")
 
         except Exception as e:
             print(f"[IngestionOrchestrator] Failed: {e}")
+            self.db.rollback()
             self._update_status(document_id, "failed", str(e))
 
     def resume_processing(self, document_id: UUID, strategy: str):
@@ -303,6 +306,7 @@ class IngestionOrchestrator:
             DocumentChunk.document_id == doc.id
         ).delete()
         new_chunks = []
+        print(f"[DEBUG] 시작 : _save_to_vector_db, 청크수: {len(chunks)} chunks")
 
         # LLM 클라이언트 초기화 (임베딩 생성용)
         llm_client = None
@@ -313,21 +317,24 @@ class IngestionOrchestrator:
                     user_id=self.user_id,
                     model_id=self.ai_model,  # 예: "text-embedding-3-small"
                 )
-                print("[DEBUG] LLM client initialized for embedding generation")
+                print("[DEBUG] 임베딩 모델이 입력된 llm_client 생성 완료")
             except Exception as e:
                 print(f"[ERROR] Failed to get LLM client: {e}")
                 print("[WARNING] Falling back to dummy vectors")
         else:
-            print("[WARNING] No user_id provided, using dummy vectors")
+            print("[WARNING] No user_id provided.")
 
         for i, chunk in enumerate(chunks):
-            # [NEW] 실제 임베딩 생성
+            if (i + 1) % 5 == 0:
+                print(f"[DEBUG] {i + 1}/{len(chunks)} 개의 청크 처리 중...")
+            # 실제 임베딩 생성
             if llm_client:
                 try:
                     embedding = llm_client.embed(chunk["content"])
                 except Exception as e:
                     print(f"[ERROR] Embedding failed for chunk {i}: {e}")
-                    embedding = [0.1] * 1536  # Fallback
+                    raise Exception(f"OpenAI Embedding Error: {str(e)}")
+                # print(f"[DEBUG] Embedding generated for chunk {i + 1}")
             else:
                 embedding = [0.1] * 1536  # Fallback
 
@@ -341,6 +348,18 @@ class IngestionOrchestrator:
                 embedding=embedding,
             )
             new_chunks.append(new_chunk)
+
+            # Progress polling을 위해 청크를 20%씩 처리
+            update_interval = max(1, int(len(chunks) * 0.1))
+            if (i + 1) % update_interval == 0 or (i + 1) == len(chunks):
+                progress = ((i + 1) / len(chunks)) * 100
+                # 메타데이터 업데이트 (DB commit 포함)
+                new_meta = dict(doc.meta_info or {})
+                new_meta["processing_progress"] = progress
+                doc.meta_info = new_meta
+                self.db.add(doc)  # Ensure doc is attached
+                self.db.commit()
+                print(f"[DEBUG] Progress updated: {progress:.1f}%")
         self.db.bulk_save_objects(new_chunks)
         self.db.commit()
         print(f"Saved {len(new_chunks)} chunks to Vector DB.")

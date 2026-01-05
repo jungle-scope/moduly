@@ -60,8 +60,8 @@ export default function CreateKnowledgeModal({
   });
 
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
+    name: '지식베이스 테스트',
+    description: `지식베이스 테스트입니다 ${new Date().toLocaleString()}`,
     chunkSize: 500,
     chunkOverlap: 50,
     embeddingModel: 'text-embedding-3-small',
@@ -437,6 +437,7 @@ export default function CreateKnowledgeModal({
             {knowledgeBaseId ? '소스 추가' : '지식 베이스 생성'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
@@ -449,6 +450,7 @@ export default function CreateKnowledgeModal({
           {/* 소스타입 선택 */}
           <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
             <button
+              type="button"
               onClick={() => setSourceType('FILE')}
               className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
                 sourceType === 'FILE'
@@ -460,6 +462,7 @@ export default function CreateKnowledgeModal({
               <span className="font-medium">파일 업로드</span>
             </button>
             <button
+              type="button"
               onClick={() => setSourceType('API')}
               className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
                 sourceType === 'API'
@@ -471,6 +474,7 @@ export default function CreateKnowledgeModal({
               <span className="font-medium">API 연동</span>
             </button>
             <button
+              type="button"
               onClick={() => setSourceType('DB')}
               className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
                 sourceType === 'DB'
@@ -583,6 +587,7 @@ export default function CreateKnowledgeModal({
 
                 <div className="pt-2">
                   <button
+                    type="button"
                     onClick={fetchApiData}
                     disabled={isFetchingApi || !apiConfig.url}
                     className="w-full py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -604,6 +609,7 @@ export default function CreateKnowledgeModal({
                         Response Preview
                       </h4>
                       <button
+                        type="button"
                         onClick={() => setApiPreviewData(null)}
                         className="text-xs text-gray-400 hover:text-gray-600"
                       >
@@ -811,12 +817,14 @@ export default function CreateKnowledgeModal({
         {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             취소
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={isLoading || embeddingModels.length === 0}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"

@@ -67,6 +67,22 @@ export default function KnowledgeDetailPage() {
     }
   }, [id]);
 
+  // 문서 상태 자동 갱신 (Polling)
+  useEffect(() => {
+    // 처리 중(indexing, processing, pending)인 문서가 존재하는지 확인
+    const hasProcessingDocs = knowledgeBase?.documents.some((doc) =>
+      ['indexing', 'processing', 'pending'].includes(doc.status),
+    );
+
+    // 처리 중인 문서가 있다면 3초마다 상태 갱신
+    if (hasProcessingDocs) {
+      const intervalId = setInterval(() => {
+        fetchKnowledgeBase();
+      }, 3000);
+      return () => clearInterval(intervalId);
+    }
+  }, [knowledgeBase, id]);
+
   // 날짜 포맷팅
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ko-KR', {

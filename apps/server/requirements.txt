@@ -67,3 +67,5 @@ llama-parse
 pandas
 openpyxl
 python-docx
+sshtunnel
+paramiko<3.0
