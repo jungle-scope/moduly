@@ -6,12 +6,13 @@ export interface IngestionResponse {
 }
 
 export interface KnowledgeCreateRequest {
-  sourceType?: 'FILE' | 'API';
+  sourceType?: 'FILE' | 'API' | 'DB';
   file?: File;
   apiUrl?: string;
   apiMethod?: string;
   apiHeaders?: string;
   apiBody?: string;
+  connectionId?: string;
 
   name?: string;
   description?: string;
@@ -48,7 +49,7 @@ export interface DocumentResponse {
   chunk_size?: number;
 
   chunk_overlap?: number;
-  source_type?: 'FILE' | 'API';
+  source_type?: 'FILE' | 'API' | 'DB';
   meta_info?: {
     cost_estimate?: {
       pages: number;
