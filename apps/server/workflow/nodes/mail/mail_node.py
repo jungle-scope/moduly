@@ -116,15 +116,24 @@ class MailNode(Node[MailNodeData]):
         if subject:
             criteria.append(f'SUBJECT "{subject}"')
 
-        if self.data.after_date:
+        # 날짜 필터: after_date가 없으면 기본 7일 전으로 설정
+        after_date = self.data.after_date
+        if not after_date:
+            # 7일 전 날짜 계산
+            from datetime import timedelta
+
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            after_date = seven_days_ago.strftime("%Y-%m-%d")
+
+        if after_date:
             # IMAP 날짜 형식: DD-Mon-YYYY
             try:
-                date_obj = datetime.strptime(self.data.after_date, "%Y-%m-%d")
+                date_obj = datetime.strptime(after_date, "%Y-%m-%d")
                 imap_date = date_obj.strftime("%d-%b-%Y")
                 criteria.append(f"SINCE {imap_date}")
             except ValueError:
                 raise ValueError(
-                    f"잘못된 날짜 형식: {self.data.after_date}. YYYY-MM-DD 형식을 사용하세요."
+                    f"잘못된 날짜 형식: {after_date}. YYYY-MM-DD 형식을 사용하세요."
                 )
 
         if self.data.before_date:

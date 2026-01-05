@@ -512,6 +512,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
                 value={data.after_date || ''}
                 onChange={(e) => handleUpdateData('after_date', e.target.value)}
               />
+              <p className="text-[10px] text-gray-500">
+                💡 Default: 7 days ago
+              </p>
             </div>
 
             <div className="flex flex-col gap-1">
