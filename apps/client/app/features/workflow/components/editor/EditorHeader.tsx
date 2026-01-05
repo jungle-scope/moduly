@@ -12,7 +12,7 @@ import {
 import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
 // [NEW] 모니터링 대시보드 모달 Import
 import { MonitoringDashboardModal } from '@/app/features/workflow/components/monitoring/MonitoringDashboardModal';
-import { ScrollText, BarChart3, Play } from 'lucide-react'; // [NEW] 아이콘 추가
+import { ScrollText, BarChart3, Play, HelpCircle } from 'lucide-react'; // [NEW] 아이콘 추가
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   validateVariableName,
@@ -64,6 +64,8 @@ export default function EditorHeader() {
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isMemoryModeEnabled, setIsMemoryModeEnabled] = useState(false);
+  const [showMemoryConfirm, setShowMemoryConfirm] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false); // [NEW] 로그 뷰어 모달 상태
   const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null); // [NEW] 로그 뷰어 초기 진입 ID
   const [isMonitoringOpen, setIsMonitoringOpen] = useState(false); // [NEW] 모니터링 모달 상태
@@ -85,6 +87,39 @@ export default function EditorHeader() {
   const [deploymentType, setDeploymentType] = useState<
     'api' | 'webapp' | 'widget' | 'workflow_node'
   >('api'); // 배포 타입 추적
+
+  const toggleMemoryMode = useCallback(() => {
+    setShowMemoryConfirm((prev) => {
+      if (!isMemoryModeEnabled) {
+        return true;
+      }
+      setIsMemoryModeEnabled(false);
+      return prev;
+    });
+  }, [isMemoryModeEnabled]);
+
+  const handleConfirmMemoryMode = useCallback(() => {
+    setIsMemoryModeEnabled(true);
+    setShowMemoryConfirm(false);
+  }, []);
+
+  const handleCancelMemoryMode = useCallback(() => {
+    setIsMemoryModeEnabled(false);
+    setShowMemoryConfirm(false);
+  }, []);
+
+  const memoryModeDescription =
+    '최근 실행 기록을 요약해 다음 실행에 컨텍스트로 반영합니다. 추가 LLM 호출로 비용이 늘 수 있으니 켜기 전에 확인해주세요.';
+
+  const MemoryTooltip = ({ text }: { text: string }) => (
+    <div className="group relative inline-block">
+      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+      <div className="absolute z-50 hidden group-hover:block w-60 p-2 text-[11px] leading-relaxed text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+        {text}
+        <div className="absolute -top-1 left-3 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+      </div>
+    </div>
+  );
 
   const handleBack = useCallback(() => {
     router.push('/dashboard');
@@ -553,6 +588,27 @@ export default function EditorHeader() {
               {isExecuting ? '실행 중...' : '테스트'}
             </span>
           </button>
+          <div className="flex items-center gap-2 px-3 py-2 bg-white/80 border border-gray-200 rounded-lg shadow-sm">
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-semibold text-gray-700">
+                기억모드
+              </span>
+              <MemoryTooltip text={memoryModeDescription} />
+            </div>
+            <button
+              onClick={toggleMemoryMode}
+              className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
+                isMemoryModeEnabled ? 'bg-blue-600' : 'bg-gray-200'
+              }`}
+              aria-pressed={isMemoryModeEnabled}
+            >
+              <span
+                className={`absolute top-[2px] left-[2px] h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  isMemoryModeEnabled ? 'translate-x-6' : ''
+                }`}
+              />
+            </button>
+          </div>
           {/* [NEW] 로그 및 모니터링 버튼 */}
           <button
             onClick={() => setIsLogViewerOpen(true)}
@@ -781,11 +837,11 @@ export default function EditorHeader() {
       <VersionHistorySidebar />
 
       {/* Preview Mode Banner */}
-      {previewingVersion && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
-          <div className="flex flex-col">
-            <span className="text-xs text-blue-200 font-medium">
-              현재 미리보기 중
+        {previewingVersion && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
+            <div className="flex flex-col">
+              <span className="text-xs text-blue-200 font-medium">
+                현재 미리보기 중
             </span>
             <span className="font-bold text-sm">
               v{previewingVersion.version} -{' '}
@@ -806,6 +862,46 @@ export default function EditorHeader() {
             >
               종료
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Memory Mode Confirm Modal */}
+      {showMemoryConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                🧠
+              </div>
+              <div>
+                <p className="text-base font-semibold text-gray-900 leading-relaxed">
+                  추가 LLM 호출이 발생해 비용이 증가할 수 있습니다.
+                  <br />
+                  동의하시면 계속 진행합니다.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span className="text-amber-600">⚠️</span>
+              <span>
+                기억 기능을 켜면 최근 실행을 요약해 다음 실행 흐름을 이어줍니다.
+              </span>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={handleConfirmMemoryMode}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                사용하겠습니다
+              </button>
+              <button
+                onClick={handleCancelMemoryMode}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                취소
+              </button>
+            </div>
           </div>
         </div>
       )}
