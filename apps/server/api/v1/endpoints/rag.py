@@ -437,7 +437,7 @@ def _get_or_create_knowledge_base(
 
 
 def _prepare_file_source(local_service: IngestionService, file: Optional[UploadFile]):
-    """파일 소스 처리를 위한 데이터 준비"""
+    """파일 자료 처리를 위한 데이터 준비"""
     if not file:
         raise HTTPException(status_code=400, detail="File is required for FILE source")
 
@@ -452,7 +452,7 @@ def _prepare_api_source(
     api_headers: Optional[str],
     api_body: Optional[str],
 ):
-    """API 소스 처리를 위한 데이터 준비"""
+    """API 자료 처리를 위한 데이터 준비"""
     if not api_url:
         raise HTTPException(status_code=400, detail="API URL is required")
 

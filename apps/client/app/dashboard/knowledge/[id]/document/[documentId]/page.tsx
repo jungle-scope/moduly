@@ -53,12 +53,19 @@ export default function DocumentSettingsPage() {
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
 
-  // [추가] DB 연결 수정 관련 상태
+  // DB 연결 수정 관련 상태
   const [connectionId, setConnectionId] = useState<string>('');
   const [isEditingConnection, setIsEditingConnection] = useState(false);
   const [formKey, setFormKey] = useState(0); // 폼 강제 리셋용 키
   const [connectionDetails, setConnectionDetails] = useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // 범위 선택 관련 상태
+  const [selectionMode, setSelectionMode] = useState<
+    'all' | 'range' | 'keyword'
+  >('all');
+  const [chunkRange, setChunkRange] = useState<string>(''); // "1-100, 500-600" 형식
+  const [keywordFilter, setKeywordFilter] = useState<string>('');
 
   // SSE 연결 (Indexing 상태일 때)
   useEffect(() => {
@@ -173,7 +180,7 @@ export default function DocumentSettingsPage() {
   // useDocumentProcess Hook 사용
   const {
     isAnalyzing,
-    analyzingAction, // [NEW]
+    analyzingAction,
     isPreviewLoading,
     showCostConfirm,
     setShowCostConfirm,
@@ -200,6 +207,10 @@ export default function DocumentSettingsPage() {
       selectedDbItems,
     },
     connectionId: connectionId,
+    // 범위 선택
+    selectionMode,
+    chunkRange,
+    keywordFilter,
   });
 
   // DB 연결 저장 핸들러
@@ -403,7 +414,7 @@ export default function DocumentSettingsPage() {
               {document?.filename || '문서 설정'}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              소스 처리 방식 및 청킹 설정을 조정합니다.
+              자료 처리 방식 및 청킹 설정을 조정합니다.
             </p>
           </div>
         </div>
@@ -499,6 +510,93 @@ export default function DocumentSettingsPage() {
               removeUrlsEmails={removeUrlsEmails}
               setRemoveUrlsEmails={setRemoveUrlsEmails}
             />
+
+            {/* 범위 선택 UI */}
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                🎯 청크 선택 범위
+              </h4>
+
+              {/* 모드 선택 라디오 버튼 */}
+              <div className="space-y-2 mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="all"
+                    checked={selectionMode === 'all'}
+                    onChange={(e) => setSelectionMode(e.target.value as any)}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    전체 선택 (기본)
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="range"
+                    checked={selectionMode === 'range'}
+                    onChange={(e) => setSelectionMode(e.target.value as any)}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    청크 범위 지정
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="keyword"
+                    checked={selectionMode === 'keyword'}
+                    onChange={(e) => setSelectionMode(e.target.value as any)}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    키워드 검색
+                  </span>
+                </label>
+              </div>
+
+              {/* 조건부 입력 폼 */}
+              {selectionMode === 'range' && (
+                <div>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    청크 범위 (예: 1-100, 500-600)
+                  </label>
+                  <input
+                    type="text"
+                    value={chunkRange}
+                    onChange={(e) => setChunkRange(e.target.value)}
+                    placeholder="1-100, 500-600"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    쉼표로 구분하여 여러 범위 입력 가능
+                  </p>
+                </div>
+              )}
+
+              {selectionMode === 'keyword' && (
+                <div>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    키워드
+                  </label>
+                  <input
+                    type="text"
+                    value={keywordFilter}
+                    onChange={(e) => setKeywordFilter(e.target.value)}
+                    placeholder="검색할 키워드 입력"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    입력한 키워드를 포함하는 청크만 표시
+                  </p>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={handlePreviewClick}
               disabled={isPreviewLoading || isAnalyzing}
