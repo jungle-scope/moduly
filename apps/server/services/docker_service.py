@@ -1,44 +1,46 @@
 """
-Docker Sandbox Service for secure Python code execution
+Sandbox Service for secure Python code execution via Dify Sandbox API
 
 보안 기능:
-- stdin으로 코드 전달 (프로세스 리스트 노출 방지)
-- 비root 사용자로 실행 (nobody)
-- 읽기 전용 파일시스템 + tmpfs (Python 임시 파일 지원)
-- 네트워크 완전 차단
-- CPU/Memory/Swap/PIDs 제한
+- Dify Sandbox 컨테이너에서 격리된 실행 환경
+- HTTP API를 통한 코드 실행
 - 타임아웃 설정
-- 일회용 컨테이너 (실행 후 즉시 삭제)
+- 네트워크 프록시를 통한 외부 요청 제어
 """
 
 import json
+import logging
+import os
 from typing import Any, Dict
 
-import docker
-from docker.errors import ImageNotFound
+import httpx
+
+logger = logging.getLogger(__name__)
+
+
+class CodeExecutionError(Exception):
+    """코드 실행 중 발생한 에러"""
+
+    pass
 
 
 class DockerSandboxService:
-    """Docker 컨테이너에서 파이썬 코드를 안전하게 실행하는 서비스"""
+    """Dify Sandbox API를 통해 파이썬 코드를 안전하게 실행하는 서비스"""
 
-    def __init__(self, image: str = "python:3.10-slim"):
+    def __init__(
+        self,
+        sandbox_url: str = None,
+        api_key: str = None,
+    ):
         """
         Args:
-            image: 사용할 Docker 이미지 (기본값: python:3.10-slim)
+            sandbox_url: Dify Sandbox API URL (기본값: 환경변수 SANDBOX_URL)
+            api_key: API 인증 키 (기본값: 환경변수 SANDBOX_API_KEY)
         """
-        self.client = docker.from_env()
-        self.image = image
-        self._ensure_image_exists()
-
-    def _ensure_image_exists(self):
-        """Docker 이미지가 로컬에 없으면 pull"""
-        try:
-            self.client.images.get(self.image)
-            print(f"이미지 {self.image} 확인됨")
-        except ImageNotFound:
-            print(f"이미지 {self.image}를 다운로드 중...")
-            self.client.images.pull(self.image)
-            print("다운로드 완료")
+        self.sandbox_url = sandbox_url or os.getenv(
+            "SANDBOX_URL", "http://sandbox.local:8194"
+        )
+        self.api_key = api_key or os.getenv("SANDBOX_API_KEY", "Modulycallsandbox306")
 
     def execute_python_code(
         self,
@@ -49,14 +51,14 @@ class DockerSandboxService:
         cpu_quota: int = 50000,
     ) -> Dict[str, Any]:
         """
-        파이썬 코드를 Docker 컨테이너에서 안전하게 실행
+        파이썬 코드를 Dify Sandbox API에서 안전하게 실행
 
         Args:
             code: 실행할 파이썬 코드 (def main(inputs): ... 형태)
             inputs: 코드에 전달할 입력 딕셔너리
             timeout: 실행 타임아웃 (초)
-            mem_limit: 메모리 제한 (예: "128m", "256m")
-            cpu_quota: CPU 할당량 (100000 = 1 CPU)
+            mem_limit: 메모리 제한 (미사용, API 호환성 유지)
+            cpu_quota: CPU 할당량 (미사용, API 호환성 유지)
 
         Returns:
             실행 결과 딕셔너리 또는 에러 딕셔너리
@@ -64,48 +66,91 @@ class DockerSandboxService:
         # 실행 래퍼 스크립트 생성
         wrapper = self._create_wrapper(code, inputs)
 
+        # URL 구성
+        url = f"{self.sandbox_url}/v1/sandbox/run"
+
+        # 헤더 설정
+        headers = {
+            "Content-Type": "application/json",
+            "X-Api-Key": self.api_key,
+        }
+
+        # 요청 데이터
+        request_data = {
+            "language": "python3",
+            "code": wrapper,
+            "preload": "",
+            "enable_network": True,
+        }
+
+        # 타임아웃 설정
+        timeout_config = httpx.Timeout(
+            connect=5.0,
+            read=float(timeout),
+            write=5.0,
+            pool=None,
+        )
+
         try:
-            # 컨테이너 실행 (command에 직접 전달하는 간단한 방식)
-            # 보안: code는 환경 변수로 전달하지 않고 command에 직접 포함
-            output = self.client.containers.run(
-                image=self.image,
-                command=["python", "-c", wrapper],
-                # 🔒 보안 설정
-                user="nobody",  # 비root 사용자
-                read_only=True,  # 읽기 전용 파일시스템
-                network_mode="none",  # 네트워크 차단
-                remove=True,  # 자동 삭제
-                # tmpfs: Python 임시 파일 공간 (메모리 기반, 휘발성)
-                tmpfs={"/tmp": "size=10m,mode=1777"},
-                # 리소스 제한
-                mem_limit=mem_limit,
-                memswap_limit=mem_limit,  # 스왑 메모리까지 제한
-                cpu_quota=cpu_quota,
-                pids_limit=20,  # 포크 폭탄 방지
-                # 타임아웃 (seconds단위로 변환되지 않으므로 컨테이너 wait에서 처리)
-                stdout=True,
-                stderr=True,
-            )
+            # HTTP POST 요청
+            with httpx.Client(timeout=timeout_config) as client:
+                response = client.post(url, json=request_data, headers=headers)
 
-            # 결과 파싱
-            result_text = output.decode("utf-8").strip()
-            try:
-                return json.loads(result_text)
-            except json.JSONDecodeError:
-                return {"error": f"Invalid JSON output: {result_text}"}
+                # 에러 체크: 서비스 불가
+                if response.status_code == 503:
+                    return {"error": "Code execution service is unavailable"}
 
-        except docker.errors.ContainerError as e:
-            # 컨테이너 실행 중 에러
-            stderr = e.stderr.decode("utf-8") if e.stderr else str(e)
-            return {"error": f"실행 오류: {stderr}"}
+                # 에러 체크: 기타 HTTP 에러
+                if response.status_code != 200:
+                    error_msg = f"Failed to execute code, status {response.status_code}: {response.text}"
+                    return {"error": f"{error_msg}"}
 
-        except docker.errors.APIError as e:
-            # Docker API 에러
-            return {"error": f"Docker API 오류: {str(e)}"}
+                # 응답 파싱
+                try:
+                    response_data = response.json()
+                except Exception:
+                    return {"error": "Failed to parse sandbox response"}
+
+                # Dify Sandbox 응답 형식 처리
+                # 응답 형식: {"code": 0, "message": "...", "data": {"stdout": "...", "error": "..."}}
+                response_code = response_data.get("code")
+                if response_code != 0:
+                    error_msg = response_data.get("message", "Unknown error")
+                    return {"error": f"Sandbox error: {error_msg}"}
+
+                # data 추출
+                data = response_data.get("data", {})
+
+                # 실행 중 에러 확인
+                if data.get("error"):
+                    return {"error": data["error"]}
+
+                # stdout에서 JSON 결과 추출
+                stdout = data.get("stdout", "")
+                if not stdout:
+                    return {"error": "No output from code execution"}
+
+                # JSON 파싱
+                try:
+                    result = json.loads(stdout.strip())
+                    return result
+                except json.JSONDecodeError:
+                    return {"error": f"Invalid JSON output: {stdout[:100]}..."}
+
+        except httpx.TimeoutException:
+            error_msg = f"실행 시간 초과 ({timeout}초)"
+            return {"error": error_msg}
+
+        except httpx.RequestError as e:
+            error_msg = f"Sandbox API 연결 오류: {str(e)}"
+            return {"error": error_msg}
 
         except Exception as e:
-            # 기타 에러
-            return {"error": f"예상치 못한 오류: {str(e)}"}
+            error_msg = f"예상치 못한 오류: {str(e)}"
+            import traceback
+
+            traceback.print_exc()
+            return {"error": error_msg}
 
     def _create_wrapper(self, user_code: str, inputs: Dict[str, Any]) -> str:
         """
