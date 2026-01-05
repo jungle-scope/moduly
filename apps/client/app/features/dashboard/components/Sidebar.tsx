@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Search, Wrench, BookOpen, Pencil, BarChart3 } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Search, Wrench, BookOpen, BarChart3, Plus, Home } from 'lucide-react';
 
 const navigationItems = [
   {
-    name: '스튜디오',
+    name: '대시보드',
     href: '/dashboard',
-    icon: Pencil,
+    icon: Home,
   },
   {
     name: '탐색',
@@ -34,18 +34,29 @@ const navigationItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleCreateApp = () => {
+    router.push('/dashboard');
+    // Trigger the create app modal
+    const event = new CustomEvent('openCreateAppModal');
+    window.dispatchEvent(event);
+  };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
-      {/* Logo/Brand */}
-      <div className="flex h-16 items-center border-b border-gray-200 px-6 dark:border-gray-800">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-          Moduly
-        </h1>
+    <aside className="flex h-full w-60 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30">
+      <div className="px-4 py-3 mt-4">
+        <button
+          onClick={handleCreateApp}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium text-gray-700 "
+        >
+          <Plus className="w-4 h-4" />
+          Create
+        </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      {/* Main Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1">
         {navigationItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -54,25 +65,18 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                 isActive
-                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-white'
+                  ? 'bg-white text-gray-900 font-medium shadow-sm'
+                  : 'text-gray-600 hover:bg-white hover:text-gray-900'
               }`}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-4 w-4" />
               {item.name}
             </Link>
           );
         })}
       </nav>
-
-      {/* Footer */}
-      <div className="border-t border-gray-200 p-4 dark:border-gray-800">
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          © 2025 Moduly
-        </p>
-      </div>
     </aside>
   );
 }
