@@ -132,6 +132,7 @@ class WorkflowEngine:
         """
         핵심 실행 로직 - 스트리밍/배포 모드 공용
         [성능 개선] AsyncIO를 이용한 비동기/병렬 실행
+        [실시간 스트리밍] asyncio.Queue를 사용하여 node_start/node_finish 이벤트 즉시 전달
         """
         # ============================================================
         # [NEW] 실행 로그 시작
@@ -166,7 +167,9 @@ class WorkflowEngine:
         # Max Workers (AsyncIO Semaphore로 제어)
         max_concurrent_tasks = 10
         semaphore = asyncio.Semaphore(max_concurrent_tasks)
-        loop = asyncio.get_running_loop()
+
+        # [실시간 스트리밍] 이벤트 큐 생성 - node_start/node_finish 이벤트를 즉시 전달하기 위함
+        event_queue: asyncio.Queue = asyncio.Queue() if stream_mode else None
 
         try:
             # 1. 워크플로우 시작 이벤트 (스트림 모드만)
@@ -175,16 +178,32 @@ class WorkflowEngine:
 
             # 초기 시작 노드 실행 태스크 생성
             await self._submit_node(
-                start_node, results, running_tasks, stream_mode, loop, semaphore
+                start_node, results, running_tasks, stream_mode, semaphore, event_queue
             )
 
             while running_tasks:
-                # 완료된 작업 대기 (하나라도 완료되면 리턴)
+                # [실시간 스트리밍] 이벤트 큐에서 대기 중인 이벤트를 먼저 모두 전달
+                if stream_mode and event_queue:
+                    while not event_queue.empty():
+                        event = event_queue.get_nowait()
+                        yield event
+
+                # 완료된 작업 대기 (짧은 타임아웃으로 이벤트 큐도 주기적으로 확인)
                 # asyncio.wait는 (done, pending) 튜플 반환
-                done, _ = await asyncio.wait(
-                    running_tasks.keys(),
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
+                try:
+                    done, _ = await asyncio.wait(
+                        running_tasks.keys(),
+                        timeout=0.05
+                        if stream_mode
+                        else None,  # 스트림 모드: 50ms 타임아웃으로 이벤트 큐 확인
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                except asyncio.CancelledError:
+                    raise
+
+                # 타임아웃으로 done이 비어있을 수 있음 (스트림 모드에서 이벤트 처리용)
+                if not done:
+                    continue
 
                 for task in done:
                     node_id = running_tasks.pop(task)
@@ -197,11 +216,6 @@ class WorkflowEngine:
 
                         # 결과 저장
                         results[node_id] = node_result
-
-                        # 스트리밍 이벤트 전달
-                        if stream_mode:
-                            for event in result_data["events"]:
-                                yield event
 
                     except Exception as e:
                         # 에러 처리
@@ -236,9 +250,15 @@ class WorkflowEngine:
                                 results,
                                 running_tasks,
                                 stream_mode,
-                                loop,
                                 semaphore,
+                                event_queue,
                             )
+
+            # [실시간 스트리밍] 남은 이벤트 모두 전달
+            if stream_mode and event_queue:
+                while not event_queue.empty():
+                    event = event_queue.get_nowait()
+                    yield event
 
             # 4. 워크플로우 종료
             if stream_mode:
@@ -263,10 +283,11 @@ class WorkflowEngine:
             self.logger.shutdown()
 
     async def _submit_node(
-        self, node_id, results, running_tasks, stream_mode, loop, semaphore
+        self, node_id, results, running_tasks, stream_mode, semaphore, event_queue
     ):
         """
         개별 노드를 실행하기 위해 AsyncIO Task 생성
+        [실시간 스트리밍] node_start 이벤트를 즉시 전송
         """
         # node_id 검증
         if node_id not in self.node_instances:
@@ -278,8 +299,19 @@ class WorkflowEngine:
         # 컨텍스트 복사 (스레드 안전성 보장 필요 시)
         inputs = self._get_context(node_id, results)
 
+        # [실시간 스트리밍] node_start 이벤트를 Task 생성 시점(실행 시작 전)에 즉시 전송
+        self.logger.create_node_log(node_id, node_schema.type, inputs)
+        if stream_mode and event_queue:
+            await event_queue.put(
+                {
+                    "type": "node_start",
+                    "data": {"node_id": node_id, "node_type": node_schema.type},
+                }
+            )
+
         async def _task_wrapper():
             async with semaphore:
+                loop = asyncio.get_running_loop()
                 # 동기 노드 실행을 스레드 풀에서 실행하여 이벤트 루프 블로킹 방지
                 return await loop.run_in_executor(
                     None,
@@ -288,40 +320,15 @@ class WorkflowEngine:
                     node_schema,
                     node_instance,
                     inputs,
-                    stream_mode,
                 )
 
-        # Task 생성 및 등록
-        task = asyncio.create_task(_task_wrapper())
-        running_tasks[task] = node_id
+        # [실시간 스트리밍] node_finish 이벤트를 완료 시점에 즉시 전송하는 래퍼
+        async def _task_wrapper_with_event():
+            result = await _task_wrapper()
 
-    def _execute_node_task_sync(
-        self, node_id, node_schema, node_instance, inputs, stream_mode
-    ):
-        """
-        개별 노드를 실행하는 작업 (Worker Thread에서 실행됨)
-        반환값: {"result": ..., "events": [...]}
-        """
-        events = []
-
-        # 1. 노드 시작 로깅 & 이벤트
-        self.logger.create_node_log(node_id, node_schema.type, inputs)
-        if stream_mode:
-            events.append(
-                {
-                    "type": "node_start",
-                    "data": {"node_id": node_id, "node_type": node_schema.type},
-                }
-            )
-
-        try:
-            # 2. 노드 실행 (핵심) - 동기 실행
-            result = node_instance.execute(inputs)
-
-            # 3. 노드 완료 로깅 & 이벤트
-            self.logger.update_node_log_finish(node_id, result)
-            if stream_mode:
-                events.append(
+            # node_finish 이벤트를 즉시 큐에 전송
+            if stream_mode and event_queue:
+                await event_queue.put(
                     {
                         "type": "node_finish",
                         "data": {
@@ -332,7 +339,26 @@ class WorkflowEngine:
                     }
                 )
 
-            return {"result": result, "events": events}
+            return {"result": result}
+
+        # Task 생성 및 등록
+        task = asyncio.create_task(_task_wrapper_with_event())
+        running_tasks[task] = node_id
+
+    def _execute_node_task_sync(self, node_id, node_schema, node_instance, inputs):
+        """
+        개별 노드를 실행하는 작업 (Worker Thread에서 실행됨)
+        [실시간 스트리밍] 이벤트는 _submit_node에서 처리하므로 결과만 반환
+        반환값: 노드 실행 결과 (Dict)
+        """
+        try:
+            # 노드 실행 (핵심) - 동기 실행
+            result = node_instance.execute(inputs)
+
+            # 노드 완료 로깅
+            self.logger.update_node_log_finish(node_id, result)
+
+            return result
 
         except Exception as e:
             error_msg = str(e)
