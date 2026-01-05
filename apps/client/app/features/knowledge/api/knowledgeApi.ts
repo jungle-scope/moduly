@@ -13,8 +13,11 @@ export interface DocumentPreviewRequest {
   segment_identifier: string;
   remove_urls_emails?: boolean;
   remove_whitespace?: boolean;
-  source_type: 'FILE' | 'API';
+  source_type: 'FILE' | 'API' | 'DB';
   strategy?: 'general' | 'llamaparse';
+  db_config?: {
+    selections: { table_name: string; columns: string[] }[];
+  } | null;
 }
 
 export interface DocumentSegment {
@@ -80,6 +83,7 @@ export const knowledgeApi = {
     if (data.apiMethod) formData.append('apiMethod', data.apiMethod);
     if (data.apiHeaders) formData.append('apiHeaders', data.apiHeaders);
     if (data.apiBody) formData.append('apiBody', data.apiBody);
+    if (data.connectionId) formData.append('connectionId', data.connectionId);
     if (data.name) formData.append('name', data.name);
     if (data.description) formData.append('description', data.description);
     formData.append('embeddingModel', data.embeddingModel);
@@ -173,7 +177,7 @@ export const knowledgeApi = {
       `/knowledge/${kbId}/documents/${documentId}/preview`,
       data,
     );
-    console.log('[previewDocumentChunking] ', response.data);
+    // console.log('[previewDocumentChunking] ', response.data);
     return response.data;
   },
 

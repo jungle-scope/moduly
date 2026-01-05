@@ -74,6 +74,7 @@ class DocumentPreviewRequest(BaseModel):
     remove_whitespace: bool = True
     strategy: str = "general"  # "general" or "llamaparse"
     source_type: str = "FILE"  # FILE or API
+    db_config: Optional[Dict[str, Any]] = None
 
 
 class DocumentProcessRequest(DocumentPreviewRequest):

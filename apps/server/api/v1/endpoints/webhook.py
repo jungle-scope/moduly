@@ -16,7 +16,9 @@ router = APIRouter()
 CAPTURE_SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 
-def run_webhook_workflow(deployment_id: str, payload: Dict[str, Any], db: Session):
+async def run_webhook_workflow(
+    deployment_id: str, payload: Dict[str, Any], db: Session
+):
     """
     백그라운드에서 워크플로우를 실행하는 함수
 
@@ -44,7 +46,7 @@ def run_webhook_workflow(deployment_id: str, payload: Dict[str, Any], db: Sessio
             is_deployed=True,
         )
 
-        result = engine.execute()
+        result = await engine.execute()
         print(f"[Webhook Success] Workflow executed: {result}")
 
     except Exception as e:
