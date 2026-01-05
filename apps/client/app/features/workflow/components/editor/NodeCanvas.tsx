@@ -32,10 +32,12 @@ import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
 import { KnowledgeNodePanel } from '../nodes/knowledge/components/KnowledgeNodePanel';
+import { GithubNodePanel } from '../nodes/github/components/GithubNodePanel';
 
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
+import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
 import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTriggerNodePanel';
 import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
@@ -52,6 +54,7 @@ export default function NodeCanvas() {
     activeWorkflowId,
     updateWorkflowViewport,
     setNodes,
+    updateNodeData,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
@@ -77,7 +80,7 @@ export default function NodeCanvas() {
 
   // 앱 선택 처리: 워크플로우 노드 추가
   const handleSelectApp = useCallback(
-    (app: App & { active_deployment_id?: string; version?: number }) => {
+    async (app: App & { active_deployment_id?: string; version?: number }) => {
       // 화면 중앙 위치 계산
       const centerPos = screenToFlowPosition({
         x: window.innerWidth / 2,
@@ -99,13 +102,30 @@ export default function NodeCanvas() {
           version: app.version || 0,
           deployment_id: app.active_deployment_id,
           expanded: false,
+          outputs: [], // 초기값 설정 (API 응답 전까지 빈 배열)
         } as WorkflowNodeData,
       };
 
       setNodes([...nodes, newNode]);
       setIsSearchModalOpen(false);
+
+      // 배포 정보 조회하여 outputs 초기화 (패널을 열지 않아도 후속 노드에서 참조 가능)
+      if (app.active_deployment_id) {
+        try {
+          const deployment = await workflowApi.getDeployment(
+            app.active_deployment_id,
+          );
+          const outputKeys =
+            deployment.output_schema?.outputs?.map(
+              (o: { variable: string }) => o.variable,
+            ) || [];
+          updateNodeData(newNode.id, { outputs: outputKeys });
+        } catch (err) {
+          console.error('Failed to load workflow outputs:', err);
+        }
+      }
     },
-    [nodes, setNodes, screenToFlowPosition],
+    [nodes, setNodes, screenToFlowPosition, updateNodeData],
   );
 
   const nodeTypes = useMemo(
@@ -151,17 +171,20 @@ export default function NodeCanvas() {
   );
 
   // 노드 클릭 시 세부 정보 패널 표시 처리
-  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
-    if (node.type && node.type !== 'note') {
-      // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
-      if (selectedNodeId !== node.id) {
-        setIsParamPanelOpen(false);
+  const handleNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
+      if (node.type && node.type !== 'note') {
+        // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
+        if (selectedNodeId !== node.id) {
+          setIsParamPanelOpen(false);
+        }
+        setSelectedNodeId(node.id);
+        setSelectedNodeType(node.type);
       }
-      setSelectedNodeId(node.id);
-      setSelectedNodeType(node.type);
-    }
-  }, [selectedNodeId]);
+    },
+    [selectedNodeId],
+  );
 
   // 세부 정보 패널 닫기
   // 세부 정보 패널 닫기
@@ -383,6 +406,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'webhookTrigger' && (
             <WebhookTriggerNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'githubNode' && (
+            <GithubNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

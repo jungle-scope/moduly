@@ -6,10 +6,10 @@ from workflow.nodes.base.node import Node
 
 from .entities import WorkflowNodeData
 
-# Note: Import WorkflowEngine inside method to avoid circular import if possible,
-# but WorkflowEngine depends on NodeFactory which depends on Node...
-# Circular dependency is likely.
-# We will handle import inside _run.
+# 참고: 순환 참조를 피하기 위해 WorkflowEngine은 메서드 내부에서 임포트합니다.
+# 하지만 WorkflowEngine은 NodeFactory에 의존하고, NodeFactory는 Node에 의존합니다...
+# 순환 의존성이 발생할 가능성이 높습니다.
+# 따라서 _run 메서드 내부에서 임포트를 처리합니다.
 
 
 def _get_nested_value(data: Any, keys: List[str]) -> Any:
@@ -110,5 +110,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
 
         result = asyncio.run(engine.execute())
 
+        # 출력 통일: 항상 'result' 키로 반환
+        # 서브 워크플로우의 출력값 구조와 관계없이 일관된 출력 제공
         print(f"[WorkflowNode] Sub-workflow result: {result}")
-        return result
+        return {"result": result}
