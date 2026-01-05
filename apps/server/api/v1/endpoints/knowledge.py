@@ -137,6 +137,32 @@ def update_knowledge_base(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.delete("/{kb_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_knowledge_base(
+    kb_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    지식 베이스를 삭제합니다.
+    연결된 문서 및 임베딩 데이터는 DB Cascade 설정에 따라 함께 삭제됩니다.
+    """
+    kb = (
+        db.query(KnowledgeBase)
+        .filter(KnowledgeBase.id == kb_id, KnowledgeBase.user_id == current_user.id)
+        .first()
+    )
+
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge Base not found")
+
+    # Cascade 삭제
+    db.delete(kb)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/{kb_id}/documents/{document_id}", response_model=DocumentResponse)
 def get_document(
     kb_id: UUID,

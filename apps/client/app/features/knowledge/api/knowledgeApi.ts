@@ -144,6 +144,11 @@ export const knowledgeApi = {
     return response.data;
   },
 
+  // 지식 베이스 삭제
+  deleteKnowledgeBase: async (id: string): Promise<void> => {
+    await api.delete(`/knowledge/${id}`);
+  },
+
   // 문서 파싱 승인 (LlamaParse 비용 발생 등)
   confirmDocumentParsing: async (
     documentId: string,

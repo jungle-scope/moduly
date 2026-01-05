@@ -43,6 +43,11 @@ export default function KnowledgeDetailPage() {
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
 
+  // Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // 데이터 조회
   const fetchKnowledgeBase = async () => {
     try {
@@ -196,6 +201,24 @@ export default function KnowledgeDetailPage() {
       fetchKnowledgeBase();
     } catch {
       alert('설명 수정 실패');
+    }
+  };
+
+  // 지식 베이스 삭제 핸들러
+  const handleDeleteKnowledgeBase = async () => {
+    if (deleteConfirmName !== knowledgeBase?.name) {
+      toast.error('지식 베이스 이름이 일치하지 않습니다.');
+      return;
+    }
+    try {
+      setIsDeleting(true);
+      await knowledgeApi.deleteKnowledgeBase(id);
+      toast.success('지식 베이스가 삭제되었습니다.');
+      router.push('/dashboard/knowledge');
+    } catch (error) {
+      console.error('Failed to delete kb:', error);
+      toast.error('지식 베이스 삭제 실패');
+      setIsDeleting(false);
     }
   };
 
@@ -429,6 +452,100 @@ export default function KnowledgeDetailPage() {
         knowledgeBaseId={id}
         onClose={() => setIsSearchModalOpen(false)}
       />
+
+      {/* Danger Zone */}
+      <div className="mt-12 border border-red-200 dark:border-red-900/50 rounded-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+        <div className="bg-red-50 dark:bg-red-900/20 px-6 py-4 border-b border-red-200 dark:border-red-900/50">
+          <h3 className="text-red-800 dark:text-red-400 font-semibold flex items-center gap-2">
+            <Trash2 className="w-5 h-5" />
+            Danger Zone
+          </h3>
+        </div>
+        <div className="p-6 bg-white dark:bg-gray-800 flex items-center justify-between">
+          <div>
+            <h4 className="text-gray-900 dark:text-gray-100 font-medium mb-1">
+              지식 베이스 삭제
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              이 지식 베이스와 관련된 모든 문서 및 임베딩 데이터가 영구적으로
+              삭제됩니다.
+              <br />이 작업은 되돌릴 수 없습니다.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="px-4 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
+          >
+            지식 베이스 삭제
+          </button>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex justify-between items-start">
+              <h3 className="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+                <Trash2 className="w-5 h-5" />
+                지식 베이스 삭제
+              </h3>
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-800 dark:text-red-300">
+                <p className="font-semibold mb-1">경고: 복구할 수 없습니다.</p>
+                <p>
+                  삭제하시려면 지식 베이스 이름{' '}
+                  <span className="font-bold underline">
+                    {knowledgeBase.name}
+                  </span>
+                  을 똑같이 입력해주세요.
+                </p>
+              </div>
+
+              <input
+                type="text"
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
+                placeholder="지식 베이스 이름 입력"
+              />
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleDeleteKnowledgeBase}
+                  disabled={
+                    deleteConfirmName !== knowledgeBase.name || isDeleting
+                  }
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      삭제 중...
+                    </>
+                  ) : (
+                    '삭제 확인'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
