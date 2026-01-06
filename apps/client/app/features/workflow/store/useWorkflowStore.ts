@@ -137,6 +137,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   projectName: '',
   projectIcon: { type: 'emoji', content: '�', background_color: '#3b82f6' },
   projectDescription: '',
+  projectApp: null,
   interactiveMode: 'mouse',
   isFullscreen: false,
 

@@ -81,7 +81,14 @@ export default function NodeCanvas() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   // [LLM] 파라미터 패널 상태
+  // [LLM] 파라미터 패널 상태
   const [isParamPanelOpen, setIsParamPanelOpen] = useState(false);
+
+  // [LLM] 참고 자료 패널 상태
+  const [isRefPanelOpen, setIsRefPanelOpen] = useState(false);
+
+  // 노드 라이브러리 사이드바 상태 (기본적으로 열림)
+  const [isNodeLibraryOpen, setIsNodeLibraryOpen] = useState(true);
 
   // 키보드 단축키: 검색 모달을 열기 위한 Cmd+K
   useKeyboardShortcut(
@@ -599,12 +606,7 @@ export default function NodeCanvas() {
                 data={selectedNode.data as any}
               />
             )}
-            {selectedNode && selectedNodeType === 'knowledgeNode' && (
-              <KnowledgeNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
+
             {selectedNode && selectedNodeType === 'fileExtractionNode' && (
               <FileExtractionNodePanel
                 nodeId={selectedNode.id}
@@ -630,6 +632,26 @@ export default function NodeCanvas() {
               />
             )}
           </NodeDetailsPanel>
+
+          {/* [LLM] Parameter Side Panel */}
+          {isParamPanelOpen &&
+            selectedNodeType === 'llmNode' &&
+            selectedNode && (
+              <LLMParameterSidePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+                onClose={() => setIsParamPanelOpen(false)}
+              />
+            )}
+
+          {/* [LLM] Reference Side Panel */}
+          {isRefPanelOpen && selectedNodeType === 'llmNode' && selectedNode && (
+            <LLMReferenceSidePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+              onClose={() => setIsRefPanelOpen(false)}
+            />
+          )}
 
           {/* Context Menu UI */}
           {contextMenu && (
