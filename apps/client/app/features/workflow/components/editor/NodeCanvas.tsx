@@ -32,6 +32,7 @@ import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
+import { SlackPostNodePanel } from '../nodes/slack/components/SlackPostNodePanel';
 import { CodeNodePanel } from '../nodes/code/components/CodeNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
@@ -493,6 +494,12 @@ export default function NodeCanvas() {
           )}
           {selectedNode && selectedNodeType === 'httpRequestNode' && (
             <HttpRequestNodePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+            />
+          )}
+          {selectedNode && selectedNodeType === 'slackPostNode' && (
+            <SlackPostNodePanel
               nodeId={selectedNode.id}
               data={selectedNode.data as any}
             />

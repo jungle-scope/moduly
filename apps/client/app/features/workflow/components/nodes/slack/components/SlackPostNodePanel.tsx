@@ -1,0 +1,710 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import {
+  HttpVariable,
+  SlackPostNodeData,
+} from '../../../../types/Nodes';
+import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
+
+const getCaretCoordinates = (
+  element: HTMLTextAreaElement,
+  position: number,
+) => {
+  const div = document.createElement('div');
+  const style = window.getComputedStyle(element);
+
+  Array.from(style).forEach((prop) => {
+    div.style.setProperty(prop, style.getPropertyValue(prop));
+  });
+
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.top = '0';
+  div.style.left = '0';
+
+  const textContent = element.value.substring(0, position);
+  div.innerHTML =
+    textContent.replace(/\n/g, '<br>') + '<span id="caret-marker">|</span>';
+
+  document.body.appendChild(div);
+
+  const marker = div.querySelector('#caret-marker');
+  const coordinates = {
+    top: marker
+      ? marker.getBoundingClientRect().top - div.getBoundingClientRect().top
+      : 0,
+    left: marker
+      ? marker.getBoundingClientRect().left - div.getBoundingClientRect().left
+      : 0,
+    height: parseInt(style.lineHeight) || 20,
+  };
+
+  document.body.removeChild(div);
+  return coordinates;
+};
+
+interface SlackPostNodePanelProps {
+  nodeId: string;
+  data: SlackPostNodeData;
+}
+
+export function SlackPostNodePanel({
+  nodeId,
+  data,
+}: SlackPostNodePanelProps) {
+  const { updateNodeData, nodes, edges } = useWorkflowStore();
+  const mode = data.slackMode || 'webhook';
+  const messageRef = useRef<HTMLTextAreaElement>(null);
+  const blocksRef = useRef<HTMLTextAreaElement>(null);
+
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionPos, setSuggestionPos] = useState({ top: 0, left: 0 });
+  const [activeField, setActiveField] = useState<'message' | 'blocks' | null>(
+    null,
+  );
+
+  const upstreamNodes = useMemo(
+    () => getUpstreamNodes(nodeId, nodes, edges),
+    [nodeId, nodes, edges],
+  );
+
+  const handleUpdateData = useCallback(
+    (key: keyof SlackPostNodeData, value: unknown) => {
+      updateNodeData(nodeId, { [key]: value });
+    },
+    [nodeId, updateNodeData],
+  );
+
+  // 기본값 보정 (method, mode)
+  useEffect(() => {
+    if (data.method !== 'POST') {
+      updateNodeData(nodeId, { method: 'POST' });
+    }
+    if (!data.slackMode) {
+      updateNodeData(nodeId, { slackMode: 'webhook' });
+    }
+  }, [data.method, data.slackMode, nodeId, updateNodeData]);
+
+  const payloadInfo = useMemo(() => {
+    const payload: Record<string, any> = {
+      text: data.message || '',
+    };
+    const warnings: string[] = [];
+
+    if (mode === 'api' && data.channel?.trim()) {
+      payload.channel = data.channel.trim();
+    }
+
+    if (data.blocks?.trim()) {
+      try {
+        payload.blocks = JSON.parse(data.blocks);
+      } catch {
+        warnings.push('Blocks JSON을 해석할 수 없어 제외했습니다.');
+      }
+    }
+
+    return {
+      preview: JSON.stringify(payload, null, 2),
+      warnings,
+    };
+  }, [
+    data.message,
+    data.blocks,
+    data.channel,
+    mode,
+  ]);
+
+  const availableVariables = useMemo(
+    () =>
+      (data.referenced_variables || [])
+        .map((v) => (v.name || '').trim())
+        .filter(Boolean),
+    [data.referenced_variables],
+  );
+
+  const missingVariables = useMemo(() => {
+    const regex = /{{\s*([^}]+?)\s*}}/g;
+    const combined = (data.message || '') + (data.blocks || '');
+    const missing = new Set<string>();
+    let match;
+    while ((match = regex.exec(combined)) !== null) {
+      const varName = match[1].trim();
+      if (varName && !availableVariables.includes(varName)) {
+        missing.add(varName);
+      }
+    }
+    return Array.from(missing);
+  }, [data.message, data.blocks, availableVariables]);
+  const validationErrors = missingVariables;
+
+  // Slack 전용 필드로 구성된 payload를 HTTP body에 자동 반영
+  useEffect(() => {
+    if (payloadInfo.preview !== data.body) {
+      updateNodeData(nodeId, { body: payloadInfo.preview });
+    }
+  }, [payloadInfo.preview, data.body, nodeId, updateNodeData]);
+
+  // Header handlers
+  const handleAddHeader = useCallback(() => {
+    const newHeaders = [...(data.headers || []), { key: '', value: '' }];
+    updateNodeData(nodeId, { headers: newHeaders });
+  }, [data.headers, nodeId, updateNodeData]);
+
+  const handleRemoveHeader = useCallback(
+    (index: number) => {
+      const newHeaders = [...(data.headers || [])];
+      newHeaders.splice(index, 1);
+      updateNodeData(nodeId, { headers: newHeaders });
+    },
+    [data.headers, nodeId, updateNodeData],
+  );
+
+  const handleUpdateHeader = useCallback(
+    (index: number, key: 'key' | 'value', value: string) => {
+      const newHeaders = [...(data.headers || [])];
+      newHeaders[index] = { ...newHeaders[index], [key]: value };
+      updateNodeData(nodeId, { headers: newHeaders });
+    },
+    [data.headers, nodeId, updateNodeData],
+  );
+
+  // Referenced variables handlers
+  const handleAddVariable = useCallback(() => {
+    const newVars = [
+      ...(data.referenced_variables || []),
+      { name: '', value_selector: [] },
+    ];
+    updateNodeData(nodeId, { referenced_variables: newVars });
+  }, [data.referenced_variables, nodeId, updateNodeData]);
+
+  const handleRemoveVariable = useCallback(
+    (index: number) => {
+      const newVars = [...(data.referenced_variables || [])];
+      newVars.splice(index, 1);
+      updateNodeData(nodeId, { referenced_variables: newVars });
+    },
+    [data.referenced_variables, nodeId, updateNodeData],
+  );
+
+  const handleUpdateVariable = useCallback(
+    (index: number, key: keyof HttpVariable, value: any) => {
+      const newVars = [...(data.referenced_variables || [])];
+      newVars[index] = { ...newVars[index], [key]: value };
+      updateNodeData(nodeId, { referenced_variables: newVars });
+    },
+    [data.referenced_variables, nodeId, updateNodeData],
+  );
+
+  const handleSelectorUpdate = useCallback(
+    (varIndex: number, selectorIndex: number, value: string) => {
+      const newVars = [...(data.referenced_variables || [])];
+      const newSelector = [...(newVars[varIndex].value_selector || [])];
+      newSelector[selectorIndex] = value;
+      if (selectorIndex === 0) {
+        newSelector[1] = '';
+      }
+      newVars[varIndex] = { ...newVars[varIndex], value_selector: newSelector };
+      updateNodeData(nodeId, { referenced_variables: newVars });
+    },
+    [data.referenced_variables, nodeId, updateNodeData],
+  );
+
+  const handleModeChange = useCallback(
+    (nextMode: 'webhook' | 'api') => {
+      if (nextMode === mode) return;
+      if (nextMode === 'webhook') {
+        updateNodeData(nodeId, {
+          slackMode: 'webhook',
+          url: 'https://hooks.slack.com/services/XXX/YYY/ZZZ',
+          authType: 'none',
+          authConfig: {},
+        });
+      } else {
+        updateNodeData(nodeId, {
+          slackMode: 'api',
+          url: 'https://slack.com/api/chat.postMessage',
+          authType: 'bearer',
+          authConfig: { token: data.authConfig?.token || '' },
+        });
+      }
+    },
+    [mode, updateNodeData, nodeId, data.authConfig],
+  );
+
+  const insertVariable = useCallback(
+    (varName: string) => {
+      const textarea =
+        activeField === 'blocks' ? blocksRef.current : messageRef.current;
+      if (!textarea) return;
+
+      const selectionEnd = textarea.selectionEnd;
+      const value = textarea.value;
+
+      // 가장 가까운 "{{"를 찾아 그 위치를 기준으로 치환
+      const lastOpen = value.lastIndexOf('{{', selectionEnd);
+      const prefix =
+        lastOpen !== -1 ? value.substring(0, lastOpen) : value.substring(0, selectionEnd);
+      const suffix = value.substring(selectionEnd);
+      const newValue = `${prefix}{{ ${varName} }}${suffix}`;
+
+      if (activeField === 'blocks') {
+        handleUpdateData('blocks', newValue);
+      } else {
+        handleUpdateData('message', newValue);
+      }
+      setShowSuggestions(false);
+
+      requestAnimationFrame(() => {
+        const newCursorPos = prefix.length + varName.length + 5;
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      });
+    },
+    [activeField, handleUpdateData],
+  );
+
+  const handleTemplateKeyUp = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>, field: 'message' | 'blocks') => {
+      const target = e.target as HTMLTextAreaElement;
+      const value = target.value;
+      const selectionEnd = target.selectionEnd;
+
+      setActiveField(field);
+
+      if (value.substring(selectionEnd - 2, selectionEnd) === '{{') {
+        const coords = getCaretCoordinates(target, selectionEnd);
+        setSuggestionPos({
+          top: target.offsetTop + coords.top + coords.height,
+          left: target.offsetLeft + coords.left,
+        });
+        setShowSuggestions(true);
+      } else {
+        setShowSuggestions(false);
+      }
+    },
+    [],
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-medium text-gray-700">전송 방식</label>
+        <div className="bg-gray-100 p-1 rounded-lg inline-flex w-full gap-1">
+          <button
+            className={`flex-1 px-3 py-2 text-sm rounded-md transition-colors ${
+              mode === 'api'
+                ? 'bg-white shadow-sm text-[#4A154B] font-semibold'
+                : 'text-gray-700 hover:bg-white/70'
+            }`}
+            onClick={() => handleModeChange('api')}
+            type="button"
+          >
+            Slack API
+          </button>
+          <button
+            className={`flex-1 px-3 py-2 text-sm rounded-md transition-colors ${
+              mode === 'webhook'
+                ? 'bg-white shadow-sm text-[#4A154B] font-semibold'
+                : 'text-gray-700 hover:bg-white/70'
+            }`}
+            onClick={() => handleModeChange('webhook')}
+            type="button"
+          >
+            Webhook
+          </button>
+        </div>
+        <p className="text-[11px] text-gray-600">
+          Webhook 또는 API 모드를 고르고, URL/토큰을 붙여넣으면 요청이 자동 구성됩니다.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-gray-700">
+          {mode === 'api' ? 'Slack API 엔드포인트' : 'Webhook URL'}
+        </label>
+        <div className="flex gap-2 items-center">
+          <span className="px-2 py-1 rounded-md bg-[#4A154B]/10 text-[#4A154B] text-[11px] font-bold">
+            POST
+          </span>
+          <input
+            className="h-9 flex-1 rounded-md border border-gray-300 px-3 py-1 text-sm shadow-sm focus:border-[#4A154B] focus:outline-none focus:ring-1 focus:ring-[#4A154B] font-mono"
+            placeholder={
+              mode === 'api'
+                ? 'https://slack.com/api/chat.postMessage'
+                : 'https://hooks.slack.com'
+            }
+            value={data.url || ''}
+            onChange={(e) => handleUpdateData('url', e.target.value)}
+          />
+        </div>
+        {mode === 'webhook' ? (
+          <div className="space-y-1 text-[10px] text-gray-500">
+            <p>Incoming Webhook URL만 붙여넣으면 됩니다. URL 자체가 시크릿입니다.</p>
+            <a
+              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white text-[#4A154B] border border-[#4A154B]/40 text-xs font-semibold hover:bg-[#4A154B]/10 transition-colors"
+              href="https://api.slack.com/messaging/webhooks"
+              target="_blank"
+              rel="noreferrer"
+            >
+              🔗 Slack Webhook 발급 가이드
+            </a>
+          </div>
+        ) : (
+          <p className="text-[10px] text-gray-500">
+            chat.postMessage 기본값입니다. 필요하면 다른 Slack API로 변경하세요.
+          </p>
+        )}
+      </div>
+
+      {mode === 'api' && (
+        <CollapsibleSection title="Slack API 인증" defaultOpen>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-gray-700">
+              Bot Token (Bearer)
+            </label>
+            <input
+              type="password"
+              className="h-9 w-full rounded border border-gray-300 px-3 text-sm font-mono focus:outline-none focus:border-[#4A154B]"
+              placeholder="xoxb-..."
+              value={data.authConfig?.token || ''}
+              onChange={(e) =>
+                updateNodeData(nodeId, {
+                  authType: 'bearer',
+                  authConfig: { ...data.authConfig, token: e.target.value },
+                })
+              }
+            />
+            <a
+              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white text-[#4A154B] border border-[#4A154B]/40 text-xs font-semibold hover:bg-[#4A154B]/10 transition-colors w-fit"
+              href="https://api.slack.com/authentication/token-types#bot"
+              target="_blank"
+              rel="noreferrer"
+            >
+              🔗 Slack Bot Token 발급 가이드
+            </a>
+
+            <label className="text-xs font-medium text-gray-700">
+              채널 ID
+            </label>
+            <input
+              className="h-9 w-full rounded border border-gray-300 px-3 text-sm font-mono focus:outline-none focus:border-[#4A154B]"
+              placeholder="C0123456789 (채널 ID)"
+              value={data.channel || ''}
+              onChange={(e) => handleUpdateData('channel', e.target.value)}
+            />
+            <p className="text-[10px] text-gray-500">
+              공개/비공개 채널 ID를 입력하세요. # 없이 ID 형태로 넣는 것이 안전합니다.
+            </p>
+          </div>
+        </CollapsibleSection>
+      )}
+
+      <CollapsibleSection
+        title="헤더 / 타임아웃"
+        icon={
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddHeader();
+            }}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="Add Header"
+          >
+            <Plus className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-[10px] text-gray-500">
+            기본 <code>Content-Type: application/json</code> 이 자동 적용됩니다. 추가로 필요한 헤더만 입력하세요.
+          </p>
+          <div className="flex flex-col gap-2">
+            {data.headers?.map((header, index) => (
+              <div key={index} className="flex gap-2 items-center">
+                <input
+                  className="h-8 w-1/3 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-[#4A154B]"
+                  placeholder="Key"
+                  value={header.key}
+                  onChange={(e) =>
+                    handleUpdateHeader(index, 'key', e.target.value)
+                  }
+                />
+                <input
+                  className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-[#4A154B]"
+                  placeholder="Value"
+                  value={header.value}
+                  onChange={(e) =>
+                    handleUpdateHeader(index, 'value', e.target.value)
+                  }
+                />
+                <button
+                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                  onClick={() => handleRemoveHeader(index)}
+                  title="Remove"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            {(!data.headers || data.headers.length === 0) && (
+              <div className="text-center text-xs text-gray-400 py-2 border border-dashed border-gray-200 rounded">
+                기본 Content-Type: application/json 이 자동 적용됩니다.
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-700">
+              타임아웃 (ms)
+            </label>
+            <input
+              type="number"
+              className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-[#4A154B]"
+              placeholder="5000"
+              value={data.timeout || 5000}
+              onChange={(e) =>
+                handleUpdateData('timeout', parseInt(e.target.value) || 0)
+              }
+            />
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="변수 매핑"
+        icon={
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddVariable();
+            }}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="Add Variable"
+          >
+            <Plus className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+        }
+      >
+        <div className="flex flex-col gap-2">
+          {data.referenced_variables?.map((variable, index) => {
+            const selectedSourceNodeId = variable.value_selector?.[0] || '';
+            const selectedVarKey = variable.value_selector?.[1] || '';
+
+            const selectedNode = upstreamNodes.find(
+              (n) => n.id === selectedSourceNodeId,
+            );
+            const availableOutputs = selectedNode
+              ? getNodeOutputs(selectedNode)
+              : [];
+
+            return (
+              <div
+                key={index}
+                className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-gray-700">
+                    Variable {index + 1}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveVariable(index)}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div className="flex flex-row gap-2 items-center">
+                  <div className="flex-2">
+                    <input
+                      type="text"
+                      className="w-full rounded border border-gray-300 p-1.5 text-xs"
+                      placeholder="Variable name"
+                      value={variable.name}
+                      onChange={(e) =>
+                        handleUpdateVariable(index, 'name', e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="flex-3">
+                    <select
+                      className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
+                      value={selectedSourceNodeId}
+                      onChange={(e) =>
+                        handleSelectorUpdate(index, 0, e.target.value)
+                      }
+                    >
+                      <option value="">노드 선택</option>
+                      {upstreamNodes.map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {(n.data as { title?: string })?.title || n.type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex-3 relative">
+                    <select
+                      className={`w-full rounded border p-1.5 text-xs truncate ${
+                        !selectedSourceNodeId
+                          ? 'bg-gray-100 text-gray-400 border-gray-200'
+                          : 'border-gray-300 bg-white'
+                      }`}
+                      value={selectedVarKey}
+                      onChange={(e) =>
+                        handleSelectorUpdate(index, 1, e.target.value)
+                      }
+                      disabled={!selectedSourceNodeId}
+                    >
+                      <option value="">출력 선택</option>
+                      {availableOutputs.map((output) => (
+                        <option key={output} value={output}>
+                          {output}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {(!data.referenced_variables || data.referenced_variables.length === 0) && (
+            <div className="text-center text-xs text-gray-400 py-2 border border-dashed border-gray-200 rounded">
+              추가된 변수가 없습니다.
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="메시지" defaultOpen={true}>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <div className="relative">
+              <textarea
+                ref={messageRef}
+                className="w-full h-24 rounded border border-gray-300 p-2 text-sm shadow-sm focus:border-[#4A154B] focus:outline-none focus:ring-1 focus:ring-[#4A154B] resize-y"
+                placeholder="예) :tada: 새 알림이 도착했어요! {{ 변수명 }} 로 치환 가능"
+                value={data.message || ''}
+                onChange={(e) => handleUpdateData('message', e.target.value)}
+                onKeyUp={(e) => handleTemplateKeyUp(e, 'message')}
+              />
+              {showSuggestions &&
+                availableVariables.length > 0 &&
+                activeField === 'message' && (
+                  <div
+                    className="absolute z-20 bg-white border border-gray-200 rounded shadow-md text-xs py-1"
+                    style={{ top: suggestionPos.top, left: suggestionPos.left }}
+                  >
+                    {availableVariables.map((name) => (
+                      <button
+                        key={name}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100"
+                        onClick={() => insertVariable(name)}
+                        type="button"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+            </div>
+            {missingVariables.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
+                <p className="font-semibold mb-1">⚠️ 등록되지 않은 변수:</p>
+                <ul className="list-disc list-inside">
+                  {missingVariables.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-[10px] text-red-500">
+                  변수 매핑에 추가하거나 템플릿에서 제거하세요.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Blocks (선택)" defaultOpen={false}>
+        <div className="flex flex-col gap-3">
+          <div className="rounded border border-dashed border-[#4A154B]/30 bg-[#4A154B]/5 p-3 text-[11px] text-gray-700 space-y-2">
+            <div className="font-semibold text-[#4A154B] flex items-center gap-2">
+              <span aria-hidden>🎯</span>
+              <span>Slack 고급 메시지 구성 (선택 사항)</span>
+            </div>
+            <p>
+              Block Kit Builder에서 메시지를 설계한 뒤, 생성된 JSON을 아래에 붙여넣어 주세요.
+            </p>
+            <a
+              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white text-[#4A154B] border border-[#4A154B]/40 text-xs font-semibold hover:bg-[#4A154B]/10 transition-colors"
+              href="https://app.slack.com/block-kit-builder"
+              target="_blank"
+              rel="noreferrer"
+            >
+              🔗 Block Kit Builder 열기
+            </a>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-700">Blocks</label>
+            <div className="relative">
+              <textarea
+                ref={blocksRef}
+                className="w-full h-28 rounded border border-gray-300 p-2 text-xs font-mono shadow-sm focus:border-[#4A154B] focus:outline-none focus:ring-1 focus:ring-[#4A154B] resize-y"
+                placeholder='[ { "type": "section", "text": { "type": "mrkdwn", "text": "*Hello*" } } ]'
+                value={data.blocks || ''}
+                onChange={(e) => handleUpdateData('blocks', e.target.value)}
+                onKeyUp={(e) => handleTemplateKeyUp(e, 'blocks')}
+              />
+              {showSuggestions &&
+                availableVariables.length > 0 &&
+                activeField === 'blocks' && (
+                  <div
+                    className="absolute z-20 bg-white border border-gray-200 rounded shadow-md text-xs py-1"
+                    style={{ top: suggestionPos.top, left: suggestionPos.left }}
+                  >
+                    {availableVariables.map((name) => (
+                      <button
+                        key={name}
+                        className="block w-full text-left px-3 py-1 hover:bg-gray-100"
+                        onClick={() => insertVariable(name)}
+                        type="button"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-500">
+            JSON이 유효하지 않으면 payload에서 제외되고 경고가 표시됩니다.
+          </p>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Payload Preview (HTTP Body)" defaultOpen>
+        <div className="flex flex-col gap-2">
+          <textarea
+            className="w-full h-32 rounded border border-gray-300 p-2 text-xs font-mono shadow-sm bg-gray-50"
+            readOnly
+            value={payloadInfo.preview}
+            spellCheck={false}
+          />
+          {payloadInfo.warnings.length > 0 && (
+            <div className="text-[10px] text-red-600 bg-red-50 border border-red-100 rounded p-2">
+              {payloadInfo.warnings.map((warning, idx) => (
+                <div key={idx}>• {warning}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+}
