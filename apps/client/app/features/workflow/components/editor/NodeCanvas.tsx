@@ -69,6 +69,7 @@ export default function NodeCanvas() {
     projectName, // 워크플로우 이름
     projectIcon, // 워크플로우 아이콘
     projectDescription, // 워크플로우 설명
+    isFullscreen,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
@@ -89,6 +90,15 @@ export default function NodeCanvas() {
 
   // 노드 라이브러리 사이드바 상태 (기본적으로 열림)
   const [isNodeLibraryOpen, setIsNodeLibraryOpen] = useState(true);
+
+  // 전체화면 모드 변경 시 사이드바 자동 토글
+  useEffect(() => {
+    if (isFullscreen) {
+      setIsNodeLibraryOpen(false);
+    } else {
+      setIsNodeLibraryOpen(true);
+    }
+  }, [isFullscreen]);
 
   // 키보드 단축키: 검색 모달을 열기 위한 Cmd+K
   useKeyboardShortcut(

@@ -59,6 +59,7 @@ export default function EditorHeader() {
     restoreVersion,
     toggleVersionHistory,
     runTrigger,
+    isFullscreen,
   } = useWorkflowStore();
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -532,7 +533,11 @@ export default function EditorHeader() {
 
   return (
     <div>
-      <div className="absolute top-16 right-6 z-50 flex items-center gap-2 pointer-events-auto">
+      <div
+        className={`absolute right-6 z-50 flex items-center gap-2 pointer-events-auto transition-all duration-300 ${
+          isFullscreen ? 'top-4' : 'top-16'
+        }`}
+      >
         {/* 1. 로그 버튼 */}
         <button
           onClick={() => setIsLogViewerOpen(true)}
