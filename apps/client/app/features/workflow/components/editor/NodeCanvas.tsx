@@ -96,7 +96,8 @@ export default function NodeCanvas() {
     const handleOpenRefPanel = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (detail?.nodeId === selectedNodeId) {
-        setIsRefPanelOpen(true);
+        setIsRefPanelOpen((prev) => !prev);
+        setIsParamPanelOpen(false);
       }
     };
     window.addEventListener('openLLMReferencePanel', handleOpenRefPanel);
@@ -217,6 +218,7 @@ export default function NodeCanvas() {
         // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
         if (selectedNodeId !== node.id) {
           setIsParamPanelOpen(false);
+          setIsRefPanelOpen(false);
         }
         setSelectedNodeId(node.id);
         setSelectedNodeType(node.type);
@@ -231,6 +233,7 @@ export default function NodeCanvas() {
     setSelectedNodeId(null);
     setSelectedNodeType(null);
     setIsParamPanelOpen(false);
+    setIsRefPanelOpen(false);
   }, []);
 
   // 선택된 노드 데이터 가져오기
@@ -466,7 +469,10 @@ export default function NodeCanvas() {
           headerActions={
             selectedNodeType === 'llmNode' ? (
               <button
-                onClick={() => setIsParamPanelOpen((prev) => !prev)}
+                onClick={() => {
+                  setIsRefPanelOpen(false);
+                  setIsParamPanelOpen((prev) => !prev);
+                }}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
                   isParamPanelOpen
                     ? 'bg-blue-100 text-blue-600'
