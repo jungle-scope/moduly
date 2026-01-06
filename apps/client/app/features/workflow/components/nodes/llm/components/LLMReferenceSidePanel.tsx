@@ -117,7 +117,7 @@ export function LLMReferenceSidePanel({
 
   return (
     <div
-      className="absolute right-[400px] top-20 bottom-0 w-[360px] bg-white shadow-xl z-40 flex flex-col border-l border-gray-200"
+      className="absolute right-[400px] top-14 bottom-0 w-[360px] bg-white shadow-xl z-40 flex flex-col border-l border-gray-200"
       style={{ transition: 'transform 0.3s ease-in-out' }}
     >
       {/* Header */}
