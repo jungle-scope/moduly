@@ -61,7 +61,7 @@ origins = origins_str.split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # .env에서 CORS_ORIGINS로 설정 가능
-    allow_credentials=True,  # 쿠키 전송 허용
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
