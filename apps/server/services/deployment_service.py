@@ -108,6 +108,15 @@ class DeploymentService:
             db.add(db_obj)
             db.flush()
 
+            # 8.1. 같은 앱의 기존 배포를 모두 비활성화 (단일 활성화 정책)
+            if db_obj.is_active:
+                from services.scheduler_service import get_scheduler_service
+
+                scheduler_service = get_scheduler_service()
+                DeploymentService._deactivate_other_deployments(
+                    db, app.id, db_obj.id, scheduler_service
+                )
+
             # 9. App의 active_deployment_id 업데이트
             app.active_deployment_id = db_obj.id
 
@@ -116,7 +125,6 @@ class DeploymentService:
                 graph_snapshot
             )
             if schedule_trigger_node:
-                from db.models.schedule import Schedule
                 from services.scheduler_service import get_scheduler_service
 
                 # Schedule 레코드 생성
@@ -486,11 +494,52 @@ class DeploymentService:
         return None
 
     @staticmethod
+    def _deactivate_other_deployments(
+        db: Session,
+        app_id: uuid.UUID,
+        current_deployment_id: uuid.UUID,
+        scheduler_service=None,
+    ):
+        """
+        같은 앱의 다른 활성 배포들을 모두 비활성화, 핼퍼 함수로 사용
+
+        Args:
+            db: 데이터베이스 세션
+            app_id: 앱 ID
+            current_deployment_id: 현재 배포 ID (제외할 배포)
+            scheduler_service: SchedulerService 인스턴스
+        """
+        other_deployments = (
+            db.query(WorkflowDeployment)
+            .filter(
+                WorkflowDeployment.app_id == app_id,
+                WorkflowDeployment.id != current_deployment_id,
+                WorkflowDeployment.is_active.is_(True),
+            )
+            .all()
+        )
+
+        for other in other_deployments:
+            other.is_active = False
+
+            # Schedule Job 제거
+            other_schedule = (
+                db.query(Schedule).filter(Schedule.deployment_id == other.id).first()
+            )
+            if other_schedule and scheduler_service:
+                try:
+                    scheduler_service.remove_schedule(other_schedule.id)
+                except Exception as e:
+                    print(f"[Deployment] ✗ 스케줄 제거 실패: {e}")
+
+    @staticmethod
     def toggle_deployment(
         db: Session, deployment_id: uuid.UUID, scheduler_service=None
     ) -> WorkflowDeployment:
         """
         배포의 is_active 상태를 토글합니다.
+
+        활성화 시: 같은 앱의 다른 모든 배포를 비활성화합니다 (단일 활성화 정책)
 
         Args:
             db: 데이터베이스 세션
@@ -513,9 +562,16 @@ class DeploymentService:
             raise HTTPException(status_code=404, detail="Deployment not found")
 
         # 2. is_active 토글
-        deployment.is_active = not deployment.is_active
+        new_state = not deployment.is_active
+        deployment.is_active = new_state
 
-        # 3. Schedule 처리
+        # 3. 활성화하는 경우: 같은 앱의 다른 배포를 모두 비활성화
+        if new_state:
+            DeploymentService._deactivate_other_deployments(
+                db, deployment.app_id, deployment_id, scheduler_service
+            )
+
+        # 4. 현재 배포의 Schedule 처리
         schedule = (
             db.query(Schedule).filter(Schedule.deployment_id == deployment_id).first()
         )
