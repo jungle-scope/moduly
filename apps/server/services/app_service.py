@@ -36,6 +36,14 @@ class AppService:
         url_slug = AppService._generate_url_slug(db, request.name)
         auth_secret = f"sk-{secrets.token_hex(24)}"
 
+        # 이름 중복 체크
+        if (
+            db.query(App)
+            .filter(App.tenant_id == tenant_id, App.name == request.name)
+            .first()
+        ):
+            raise ValueError("App with this name already exists.")
+
         # App 생성
         app = App(
             tenant_id=tenant_id,
@@ -152,6 +160,17 @@ class AppService:
 
         # 필드 업데이트
         if request.name is not None:
+            # 이름 중복 체크
+            if (
+                db.query(App)
+                .filter(
+                    App.tenant_id == app.tenant_id,
+                    App.name == request.name,
+                    App.id != app_id,
+                )
+                .first()
+            ):
+                raise ValueError("App with this name already exists.")
             app.name = request.name
         if request.description is not None:
             app.description = request.description
