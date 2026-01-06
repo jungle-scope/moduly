@@ -36,7 +36,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-60 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30">
+    <aside className="flex h-full w-52 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30">
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navigationItems.map((item) => {
