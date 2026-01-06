@@ -46,6 +46,14 @@ spec:
           value: "https://moduly-ai.cloud,https://www.moduly-ai.cloud,http://localhost:3000,http://127.0.0.1:3000"
         - name: SECRET_KEY
           value: "your_random_secret_key_for_jwt_or_sessions_moduly"
+        # Sandbox 설정
+        - name: SANDBOX_URL
+          value: "http://sandbox-service:8194"
+        - name: SANDBOX_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: SANDBOX_API_KEY
         resources:
           requests:
             cpu: 200m
