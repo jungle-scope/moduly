@@ -33,6 +33,7 @@ import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
+import { SlackPostNodePanel } from '../nodes/slack/components/SlackPostNodePanel';
 import { CodeNodePanel } from '../nodes/code/components/CodeNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
@@ -392,6 +393,7 @@ export default function NodeCanvas() {
         type: nodeDef.type as any,
         data: nodeDef.defaultData() as any,
         position,
+        style: { width: 200, height: 100 },
       };
 
       setNodes([...nodes, newNode]);
@@ -429,6 +431,7 @@ export default function NodeCanvas() {
         type: nodeDef.type as any,
         data: nodeDef.defaultData() as any,
         position,
+        style: { width: 200, height: 100 },
       };
 
       setNodes([...nodes, newNode]);
@@ -565,6 +568,7 @@ export default function NodeCanvas() {
               ) : undefined
             }
           >
+            {/* 기존 노드들 */}
             {selectedNode && selectedNodeType === 'startNode' && (
               <StartNodePanel
                 nodeId={selectedNode.id}
@@ -602,21 +606,19 @@ export default function NodeCanvas() {
               />
             )}
 
-            {/* NOTE: [TemplateNode] TemplateNode 선택 시 패널 렌더링 추가 */}
+            {/* develop 브랜치에서 추가된 노드들 */}
             {selectedNode && selectedNodeType === 'templateNode' && (
               <TemplateNodePanel
                 nodeId={selectedNode.id}
                 data={selectedNode.data as any}
               />
             )}
-            {/* [WorkflowNode] 모듈 입력 매핑 패널 추가 */}
             {selectedNode && selectedNodeType === 'workflowNode' && (
               <WorkflowNodePanel
                 nodeId={selectedNode.id}
                 data={selectedNode.data as any}
               />
             )}
-
             {selectedNode && selectedNodeType === 'fileExtractionNode' && (
               <FileExtractionNodePanel
                 nodeId={selectedNode.id}
@@ -637,6 +639,12 @@ export default function NodeCanvas() {
             )}
             {selectedNode && selectedNodeType === 'mailNode' && (
               <MailNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'slackPostNode' && (
+              <SlackPostNodePanel
                 nodeId={selectedNode.id}
                 data={selectedNode.data as any}
               />

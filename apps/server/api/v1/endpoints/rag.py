@@ -30,6 +30,7 @@ from schemas.rag import (
 # from services.ingestion_local_service import IngestionService
 from services.ingestion.service import IngestionOrchestrator as IngestionService
 from services.retrieval import RetrievalService
+from services.storage import get_storage_service
 
 router = APIRouter()
 
@@ -222,11 +223,15 @@ def delete_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # 2. 파일 삭제 (TODO: S3파일도 지우려면 로직 추가 필요함)
-    import os
-
-    if doc.file_path and os.path.exists(doc.file_path):
-        os.remove(doc.file_path)
+    # 2. 파일 삭제 (S3/Local 자동 분기)
+    if doc.file_path:
+        storage = get_storage_service()
+        try:
+            storage.delete(doc.file_path)
+            print(f"[Info] Deleted file: {doc.file_path}")
+        except Exception as e:
+            print(f"[Warning] Failed to delete file {doc.file_path}: {e}")
+            # 파일 삭제 실패해도 DB는 삭제 진행
 
     # 3. DB 삭제 (Cascade로 청크도 같이 삭제됨)
     db.delete(doc)
@@ -437,11 +442,12 @@ def _get_or_create_knowledge_base(
 
 
 def _prepare_file_source(local_service: IngestionService, file: Optional[UploadFile]):
-    """파일 소스 처리를 위한 데이터 준비"""
+    """파일 자료 처리를 위한 데이터 준비"""
     if not file:
         raise HTTPException(status_code=400, detail="File is required for FILE source")
 
     file_path = local_service.save_temp_file(file)
+    print("-------->", file_path)
     filename = file.filename
     return file_path, filename, {}
 
@@ -452,7 +458,7 @@ def _prepare_api_source(
     api_headers: Optional[str],
     api_body: Optional[str],
 ):
-    """API 소스 처리를 위한 데이터 준비"""
+    """API 자료 처리를 위한 데이터 준비"""
     if not api_url:
         raise HTTPException(status_code=400, detail="API URL is required")
 

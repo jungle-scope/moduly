@@ -14,6 +14,7 @@ import {
   Webhook,
   Github,
   Mail,
+  Slack,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -223,6 +224,37 @@ export const nodeRegistry: NodeDefinition[] = [
       headers: [],
       body: '',
       timeout: 5000,
+    }),
+  },
+  {
+    id: 'slack-post',
+    type: 'slackPostNode',
+    name: 'Slack Post',
+    category: 'plugin',
+    color: '#4A154B', // Slack purple
+    icon: <Slack className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description: 'Slack으로 메시지를 전송합니다.',
+    defaultData: () => ({
+      title: 'Slack Post',
+      method: 'POST',
+      url: '',
+      headers: [{ key: 'Content-Type', value: 'application/json' }],
+      body: JSON.stringify(
+        {
+          text: '',
+        },
+        null,
+        2,
+      ),
+      timeout: 5000,
+      authType: 'none',
+      authConfig: {},
+      referenced_variables: [],
+      message: '',
+      channel: '',
+      blocks: '',
+      slackMode: 'webhook',
     }),
   },
   {
