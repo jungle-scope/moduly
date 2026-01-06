@@ -32,9 +32,6 @@ interface CreateKnowledgeModalProps {
   initialTab?: 'FILE' | 'API' | 'DB';
 }
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-
 export default function CreateKnowledgeModal({
   isOpen,
   onClose,
@@ -173,45 +170,19 @@ export default function CreateKnowledgeModal({
   // DB Connection Test
   const handleTestDBConnection = async (config: DBConfig): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/v1/connectors/test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          connection_name: config.connectionName,
-          type: config.type,
-          host: config.host,
-          port: config.port,
-          database: config.database,
-          username: config.username,
-          password: config.password,
-          ssh: config.ssh.enabled
-            ? {
-                enabled: config.ssh.enabled,
-                host: config.ssh.host,
-                port: config.ssh.port,
-                username: config.ssh.username,
-                auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
-                password: config.ssh.password,
-                private_key: config.ssh.privateKey,
-              }
-            : null,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        //HTTP status 200번대, success가 true일때
+      const result = await connectorApi.testConnection(config);
+      if (result.success) {
+        toast.success(result.message || 'DB 연결 테스트 성공!');
         return true;
       } else {
-        console.error('Connection failed:', result);
+        toast.error(result.message || 'DB 연결에 실패했습니다.');
         return false;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('DB Connection Test Error', err);
+      toast.error(
+        err.message || 'DB 연결 테스트 중 알 수 없는 오류가 발생했습니다.',
+      );
       return false;
     }
   };
@@ -250,11 +221,18 @@ export default function CreateKnowledgeModal({
             connectionId = connectorRes.id;
             console.log('Connector created: ', connectionId);
           } else {
-            throw new Error('커넥터 생성에 실패했습니다. ID 반환 안 됨');
+            console.error('Connector creation failed:', connectorRes.message);
+            toast.error(
+              connectorRes.message || 'DB 연결 정보 저장에 실패했습니다.',
+            );
+            setIsLoading(false);
+            return;
           }
-        } catch (err) {
-          console.error('Connector creation failed:', err);
-          toast.error('DB 연결 정보 저장에 실패했습니다.');
+        } catch (err: any) {
+          console.error('Connector creation error:', err);
+          toast.error(
+            err.message || 'DB 연결 정보 저장 중 오류가 발생했습니다.',
+          );
           setIsLoading(false);
           return;
         }
@@ -285,9 +263,18 @@ export default function CreateKnowledgeModal({
       router.push(
         `/dashboard/knowledge/${response.knowledge_base_id}/document/${response.document_id}`,
       );
-    } catch (error) {
+    } catch (error: any) {
+      console.group('[CreateKnowledgeModal] Submission failed');
+      console.error('Error object:', error);
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+      }
+      console.groupEnd();
       console.error('Failed to create/upload knowledge base:', error);
-      alert('요청 처리에 실패했습니다.');
+      alert(
+        `요청 처리에 실패했습니다: ${error.response?.data?.detail || error.message}`,
+      );
     } finally {
       setIsLoading(false);
     }

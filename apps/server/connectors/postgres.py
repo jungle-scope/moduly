@@ -66,7 +66,7 @@ class PostgresConnector(BaseConnector):
             return True
         except Exception as e:
             print(f"Postgres Connection failed: {e}")
-            return False
+            raise e
         finally:
             if engine:
                 engine.dispose()

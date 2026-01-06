@@ -87,8 +87,17 @@ export const knowledgeApi = {
     formData.append('chunkOverlap', data.chunkOverlap.toString());
     if (data.knowledgeBaseId)
       formData.append('knowledgeBaseId', data.knowledgeBaseId);
-    const response = await api.post('/rag/upload', formData);
-    return response.data;
+    try {
+      const response = await api.post('/rag/upload', formData);
+      return response.data;
+    } catch (error: any) {
+      console.group('[knowledgeApi] uploadKnowledgeBase failed');
+      console.error('Error object:', error);
+      console.error('Response data:', error.response?.data);
+      console.error('Response status:', error.response?.status);
+      console.groupEnd();
+      throw error;
+    }
   },
 
   // 참고자료 목록 조회

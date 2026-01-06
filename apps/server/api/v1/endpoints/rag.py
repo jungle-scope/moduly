@@ -341,9 +341,9 @@ async def proxy_api_preview(
 ):
     """
     프론트엔드 CORS 문제 해결을 위한 API 프록시 엔드포인트
+    requests -> httpx (Async) 로 변경 (timeout 이슈 해결을 위해)
     """
-    import requests
-    from requests.exceptions import ConnectionError, HTTPError, Timeout
+    import httpx
 
     print(f"[Proxy] URL: {request.url}")
     print(f"[Proxy] Headers: {request.headers}")
@@ -356,42 +356,49 @@ async def proxy_api_preview(
         )
 
     try:
-        response = requests.request(
-            method=request.method,
-            url=request.url,
-            headers=headers,
-            json=request.body if request.method != "GET" else None,
-            timeout=120,  # 60초 타임아웃
-        )
-        # print(f"[debug Proxy] response: {response}")
-        response.raise_for_status()
+        # 비동기 클라이언트 사용 (http_node.py 참조)
+        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+            response = await client.request(
+                method=request.method,
+                url=request.url,
+                headers=headers,
+                json=request.body if request.method != "GET" else None,
+            )
 
-        try:
-            data = response.json()
-        except ValueError:
-            data = response.text
+            # 4xx, 5xx 에러 발생 시 예외 발생
+            response.raise_for_status()
 
-        return {
-            "status": response.status_code,
-            "data": data,
-            "headers": dict(response.headers),
-        }
-    except HTTPError as e:
+            try:
+                data = response.json()
+            except Exception:
+                data = response.text
+
+            return {
+                "status": response.status_code,
+                "data": data,
+                "headers": dict(response.headers),
+            }
+
+    except httpx.HTTPStatusError as e:
         # 외부 API가 에러 응답(4xx, 5xx)을 준 경우
         print(f"[Proxy Log] 외부 API 에러: {e}")
-        status_code = e.response.status_code if e.response else 400
+        status_code = e.response.status_code
         try:
             detail = e.response.json()
         except Exception:
-            detail = e.response.text if e.response else str(e)
-
+            detail = e.response.text
         raise HTTPException(status_code=status_code, detail=detail)
-    except Timeout:
+
+    except httpx.TimeoutException:
         print("[Proxy Log] 타임아웃 발생 (Timeout)")
         raise HTTPException(status_code=504, detail="External API Timeout")
-    except ConnectionError:
-        print("[Proxy Log] 연결 실패 (ConnectionError)")
-        raise HTTPException(status_code=502, detail="External API Connection Error")
+
+    except httpx.RequestError as e:
+        print(f"[Proxy Log] 연결 실패 (RequestError): {e}")
+        raise HTTPException(
+            status_code=502, detail=f"External API Connection Error: {str(e)}"
+        )
+
     except Exception as e:
         print(f"[Proxy Log] 기타 오류 발생: {type(e).__name__} - {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
