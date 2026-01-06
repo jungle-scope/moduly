@@ -13,29 +13,42 @@ export const connectorApi = {
   createConnector: async (
     config: DBConfig,
   ): Promise<{ id: string; success: boolean; message: string }> => {
-    const payload = {
-      connection_name: config.connectionName,
-      type: config.type,
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      username: config.username,
-      password: config.password,
-      ssh: config.ssh?.enabled
-        ? {
-            enabled: true,
-            host: config.ssh.host,
-            port: config.ssh.port,
-            username: config.ssh.username,
-            auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
-            password: config.ssh.password,
-            private_key: config.ssh.privateKey,
-          }
-        : null,
-    };
+    try {
+      const payload = {
+        connection_name: config.connectionName,
+        type: config.type,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: config.username,
+        password: config.password,
+        ssh: config.ssh?.enabled
+          ? {
+              enabled: true,
+              host: config.ssh.host,
+              port: config.ssh.port,
+              username: config.ssh.username,
+              auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
+              password: config.ssh.password,
+              private_key: config.ssh.privateKey,
+            }
+          : null,
+      };
 
-    const response = await api.post('/connectors', payload);
-    return response.data;
+      const response = await api.post('/connectors', payload);
+      return response.data;
+    } catch (error: any) {
+      console.error('Connector creation failed:', error);
+      return {
+        id: '',
+        success: false,
+        message:
+          error.response?.data?.detail ||
+          error.response?.data?.message ||
+          error.message ||
+          '커넥터 생성 실패',
+      };
+    }
   },
 
   /**

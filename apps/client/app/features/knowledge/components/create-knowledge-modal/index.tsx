@@ -221,11 +221,18 @@ export default function CreateKnowledgeModal({
             connectionId = connectorRes.id;
             console.log('Connector created: ', connectionId);
           } else {
-            throw new Error('커넥터 생성에 실패했습니다. ID 반환 안 됨');
+            console.error('Connector creation failed:', connectorRes.message);
+            toast.error(
+              connectorRes.message || 'DB 연결 정보 저장에 실패했습니다.',
+            );
+            setIsLoading(false);
+            return;
           }
-        } catch (err) {
-          console.error('Connector creation failed:', err);
-          toast.error('DB 연결 정보 저장에 실패했습니다.');
+        } catch (err: any) {
+          console.error('Connector creation error:', err);
+          toast.error(
+            err.message || 'DB 연결 정보 저장 중 오류가 발생했습니다.',
+          );
           setIsLoading(false);
           return;
         }
