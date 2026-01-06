@@ -24,9 +24,9 @@ import React, { ReactNode } from 'react';
  * 향후 DB에서 가져올 노드 정보의 구조를 정의합니다.
  */
 export interface NodeDefinition {
-  id: string; // 'start', 'end', 'llm', etc.
-  type: string; // React Flow node type: 'startNode', 'endNode', etc.
-  name: string; // Display name
+  id: string; // 'start', 'end', 'llm' 등
+  type: string; // React Flow 노드 타입: 'startNode', 'endNode' 등
+  name: string; // 표시 이름
   category:
     | 'trigger'
     | 'llm'
@@ -35,8 +35,8 @@ export interface NodeDefinition {
     | 'logic'
     | 'database'
     | 'data';
-  color: string; // Tailwind class OR Hex color
-  icon?: ReactNode | string; // Icon component or Emoji
+  color: string; // Tailwind 클래스 또는 Hex 색상
+  icon?: ReactNode | string; // 아이콘 컴포넌트 또는 이모지
   implemented: boolean; // 현재 구현 여부
   unique?: boolean; // 워크플로우당 하나만 허용
   description?: string; // 노드 설명
@@ -47,13 +47,13 @@ export interface NodeDefinition {
  * Node Registry
  */
 export const nodeRegistry: NodeDefinition[] = [
-  // Trigger Category
+  // 트리거 카테고리
   {
     id: 'start',
     type: 'startNode',
     name: '시작',
     category: 'trigger',
-    color: '#3b82f6', // blue-500
+    color: '#3b82f6', // blue-500 색상
     icon: <Play className="w-3.5 h-3.5 text-white fill-current" />,
     implemented: true,
     unique: true, // 워크플로우당 하나만 허용
@@ -67,14 +67,14 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'webhook-trigger',
     type: 'webhookTrigger',
-    name: 'Webhook Trigger',
+    name: '웹훅 트리거',
     category: 'trigger',
-    color: '#a855f7', // purple-500
+    color: '#a855f7', // purple-500 색상
     icon: <Webhook className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '외부 Webhook으로 워크플로우를 시작합니다.',
     defaultData: () => ({
-      title: 'Webhook Trigger',
+      title: '웹훅 트리거',
       provider: 'custom',
       variable_mappings: [],
     }),
@@ -82,26 +82,26 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'schedule-trigger',
     type: 'scheduleTrigger',
-    name: 'Schedule Trigger',
+    name: '알람 트리거',
     category: 'trigger',
-    color: '#8b5cf6', // violet-500
+    color: '#8b5cf6', // violet-500 색상
     icon: <Clock className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '지정된 시간에 워크플로우를 자동으로 시작합니다.',
     defaultData: () => ({
-      title: 'Schedule Trigger',
+      title: '알람 트리거',
       cron_expression: '0 9 * * *',
       timezone: 'UTC',
     }),
   },
 
-  // LLM Category
+  // LLM 카테고리
   {
     id: 'llm',
     type: 'llmNode',
     name: 'LLM',
     category: 'llm',
-    color: '#9333ea', // purple-600
+    color: '#9333ea', // purple-600 색상
     icon: <Bot className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: 'LLM 모델을 호출합니다.',
@@ -118,7 +118,7 @@ export const nodeRegistry: NodeDefinition[] = [
     }),
   },
 
-  // Plugin Category
+  // 플러그인 카테고리
   {
     id: 'plugin',
     type: 'pluginNode',
@@ -134,18 +134,18 @@ export const nodeRegistry: NodeDefinition[] = [
     }),
   },
 
-  // Workflow Category
+  // 서브 모듈 카테고리
   {
     id: 'workflow',
     type: 'workflowNode',
-    name: '워크플로우',
+    name: '서브 모듈',
     category: 'workflow',
-    color: '#14b8a6', // teal-500
+    color: '#14b8a6', // teal-500 색상
     icon: <Puzzle className="w-3.5 h-3.5 text-white" />,
     implemented: true,
-    description: '다른 워크플로우(App)를 모듈로 실행합니다.',
+    description: '다른 워크플로우(App)를 서브 모듈로 실행합니다.',
     defaultData: () => ({
-      title: '워크플로우 모듈',
+      title: '서브 모듈',
       workflowId: '',
       appId: '',
       inputs: [],
@@ -153,13 +153,13 @@ export const nodeRegistry: NodeDefinition[] = [
     }),
   },
 
-  // Logic Category
+  // 로직 카테고리
   {
     id: 'code',
     type: 'codeNode',
     name: '코드 실행',
     category: 'logic',
-    color: '#3b82f6', // blue-500
+    color: '#3b82f6', // blue-500 색상
     icon: <Code className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: 'Python 코드를 Docker 샌드박스에서 안전하게 실행합니다',
@@ -184,14 +184,14 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'condition',
     type: 'conditionNode',
-    name: '분기',
+    name: 'IF/ELSE',
     category: 'logic',
-    color: '#f97316', // orange-500
+    color: '#f97316', // orange-500 색상
     icon: <GitFork className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '조건에 따라 분기합니다.',
     defaultData: () => ({
-      title: '분기',
+      title: 'IF/ELSE',
       conditions: [],
     }),
   },
@@ -201,7 +201,7 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'fileExtractionNode',
     name: 'PDF 텍스트 추출',
     category: 'logic',
-    color: '#4f46e5', // indigo-600
+    color: '#4f46e5', // indigo-600 색상
     icon: <FileText className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: 'PDF 파일에서 텍스트를 추출합니다.',
@@ -215,7 +215,7 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'answerNode',
     name: '응답',
     category: 'logic',
-    color: '#10b981', // green-500
+    color: '#10b981', // green-500 색상
     icon: <MessageSquare className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '워크플로우의 최종 결과를 수집합니다.',
@@ -229,7 +229,7 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'httpRequestNode',
     name: 'HTTP 요청',
     category: 'plugin',
-    color: '#0ea5e9', // sky-500
+    color: '#0ea5e9', // sky-500 색상
     icon: <Globe className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '외부 API로 HTTP 요청을 보냅니다.',
@@ -245,14 +245,14 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'slack-post',
     type: 'slackPostNode',
-    name: 'Slack Post',
+    name: '슬랙',
     category: 'plugin',
-    color: '#4A154B', // Slack purple
+    color: '#4A154B', // Slack 공식 색상
     icon: <Slack className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: 'Slack으로 메시지를 전송합니다.',
     defaultData: () => ({
-      title: 'Slack Post',
+      title: '슬랙',
       method: 'POST',
       url: '',
       headers: [{ key: 'Content-Type', value: 'application/json' }],
@@ -278,7 +278,7 @@ export const nodeRegistry: NodeDefinition[] = [
     type: 'templateNode',
     name: '템플릿',
     category: 'logic',
-    color: '#db2777', // pink-600
+    color: '#db2777', // pink-600 색상
     icon: <LayoutTemplate className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: '여러 변수를 조합하여 텍스트를 생성합니다.',
@@ -291,14 +291,14 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'github',
     type: 'githubNode',
-    name: 'GitHub',
+    name: '깃허브',
     category: 'plugin',
-    color: '#333', // GitHub black
+    color: '#333', // GitHub 공식 색상
     icon: <Github className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: 'GitHub PR과 상호작용합니다 (Diff 조회, 댓글 작성).',
     defaultData: () => ({
-      title: 'GitHub',
+      title: '깃허브',
       action: 'get_pr',
       api_token: '',
       repo_owner: '',
@@ -311,7 +311,7 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'mail',
     type: 'mailNode',
-    name: 'Mail',
+    name: '메일 검색',
     category: 'plugin',
     color: '#EA4335',
     icon: <Mail className="w-3.5 h-3.5 text-white" />,
@@ -319,7 +319,7 @@ export const nodeRegistry: NodeDefinition[] = [
     description:
       'IMAP을 통해 이메일을 검색합니다 (Gmail, Naver, Daum, Outlook 등)',
     defaultData: () => ({
-      title: 'Mail Search',
+      title: '메일 검색',
       email: '',
       password: '',
       provider: 'gmail',
