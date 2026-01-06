@@ -10,11 +10,16 @@ interface LLMParameterSidePanelProps {
 
 // 파라미터 설명 (한국어)
 const PARAM_DESCRIPTIONS = {
-  temperature: '값이 낮을수록 일관된 답변, 높을수록 창의적인 답변을 생성합니다.',
-  top_p: '상위 확률 범위 내 단어에서만 선택합니다. Temperature와 함께 조절하세요.',
-  max_tokens: '응답의 최대 길이를 제한합니다. 비용과 응답 시간에 영향을 줍니다.',
-  presence_penalty: '새로운 주제로 전환하도록 유도합니다. 값이 높을수록 효과가 강합니다.',
-  frequency_penalty: '같은 단어 반복을 억제합니다. 값이 높을수록 효과가 강합니다.',
+  temperature:
+    '값이 낮을수록 일관된 답변, 높을수록 창의적인 답변을 생성합니다.',
+  top_p:
+    '상위 확률 범위 내 단어에서만 선택합니다. Temperature와 함께 조절하세요.',
+  max_tokens:
+    '응답의 최대 길이를 제한합니다. 비용과 응답 시간에 영향을 줍니다.',
+  presence_penalty:
+    '새로운 주제로 전환하도록 유도합니다. 값이 높을수록 효과가 강합니다.',
+  frequency_penalty:
+    '같은 단어 반복을 억제합니다. 값이 높을수록 효과가 강합니다.',
   stop: '지정된 문자열이 나타나면 응답 생성을 즉시 중단합니다. (예: ###, END)',
 };
 
@@ -152,7 +157,9 @@ export function LLMParameterSidePanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
         <div>
           <h3 className="font-semibold text-gray-800 text-sm">LLM 파라미터</h3>
-          <p className="text-[10px] text-gray-400 mt-0.5">모델 응답 특성을 조절합니다</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            모델 응답 특성을 조절합니다
+          </p>
         </div>
         <button
           onClick={onClose}
@@ -167,7 +174,9 @@ export function LLMParameterSidePanel({
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">Temperature</label>
+              <label className="text-xs font-medium text-gray-700">
+                Temperature
+              </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.temperature} />
             </div>
             <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
@@ -177,7 +186,9 @@ export function LLMParameterSidePanel({
           {renderSlider('temperature', temperature, 0, 2, 0.1, recommendTemp)}
           <div className="flex items-center justify-between text-[10px] text-gray-400">
             <span>일관적</span>
-            <span className="text-blue-500 font-medium">권장: {recommendTemp[0]}~{recommendTemp[1]}</span>
+            <span className="text-blue-500 font-medium">
+              권장: {recommendTemp[0]}~{recommendTemp[1]}
+            </span>
             <span>창의적</span>
           </div>
         </div>
@@ -196,7 +207,9 @@ export function LLMParameterSidePanel({
           {renderSlider('top_p', topP, 0, 1, 0.05, recommendTopP)}
           <div className="flex items-center justify-between text-[10px] text-gray-400">
             <span className="whitespace-nowrap">집중</span>
-            <span className="text-blue-500 font-medium">권장: {recommendTopP[0]}~{recommendTopP[1]}</span>
+            <span className="text-blue-500 font-medium">
+              권장: {recommendTopP[0]}~{recommendTopP[1]}
+            </span>
             <span className="whitespace-nowrap">다양</span>
           </div>
         </div>
@@ -205,7 +218,9 @@ export function LLMParameterSidePanel({
         <div className="space-y-2">
           <div className="flex justify-between items.center">
             <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">Max Tokens</label>
+              <label className="text-xs font-medium text-gray-700">
+                Max Tokens
+              </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.max_tokens} />
             </div>
             <input
@@ -217,7 +232,14 @@ export function LLMParameterSidePanel({
               }
             />
           </div>
-          {renderSlider('max_tokens', maxTokens, 1, 8192, 1, recommendMaxTokens)}
+          {renderSlider(
+            'max_tokens',
+            maxTokens,
+            1,
+            8192,
+            1,
+            recommendMaxTokens,
+          )}
           <div className="flex justify-center text-[10px] text-blue-500 font-medium">
             권장: {recommendMaxTokens[0]} ~ {recommendMaxTokens[1]}
           </div>
@@ -227,17 +249,28 @@ export function LLMParameterSidePanel({
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">Presence Penalty</label>
+              <label className="text-xs font-medium text-gray-700">
+                Presence Penalty
+              </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.presence_penalty} />
             </div>
             <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
               {presencePenalty.toFixed(1)}
             </span>
           </div>
-          {renderSlider('presence_penalty', presencePenalty, -2, 2, 0.1, recommendPresence)}
+          {renderSlider(
+            'presence_penalty',
+            presencePenalty,
+            -2,
+            2,
+            0.1,
+            recommendPresence,
+          )}
           <div className="flex items-center justify-between text-[10px] text-gray-400">
             <span className="whitespace-nowrap">반복 장려</span>
-            <span className="text-blue-500 font-medium">권장: {recommendPresence[0]} ~ {recommendPresence[1]}</span>
+            <span className="text-blue-500 font-medium">
+              권장: {recommendPresence[0]} ~ {recommendPresence[1]}
+            </span>
             <span className="whitespace-nowrap">새 주제</span>
           </div>
         </div>
@@ -246,17 +279,28 @@ export function LLMParameterSidePanel({
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">Frequency Penalty</label>
+              <label className="text-xs font-medium text-gray-700">
+                Frequency Penalty
+              </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.frequency_penalty} />
             </div>
             <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
               {frequencyPenalty.toFixed(1)}
             </span>
           </div>
-          {renderSlider('frequency_penalty', frequencyPenalty, -2, 2, 0.1, recommendFrequency)}
+          {renderSlider(
+            'frequency_penalty',
+            frequencyPenalty,
+            -2,
+            2,
+            0.1,
+            recommendFrequency,
+          )}
           <div className="flex items-center justify-between text-[10px] text-gray-400">
             <span className="whitespace-nowrap">반복 장려</span>
-            <span className="text-blue-500 font-medium">권장: {recommendFrequency[0]} ~ {recommendFrequency[1]}</span>
+            <span className="text-blue-500 font-medium">
+              권장: {recommendFrequency[0]} ~ {recommendFrequency[1]}
+            </span>
             <span className="whitespace-nowrap">반복 금지</span>
           </div>
         </div>
@@ -265,7 +309,9 @@ export function LLMParameterSidePanel({
         <div className="space-y-2 border-t border-gray-100 pt-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">Stop Sequences</label>
+              <label className="text-xs font-medium text-gray-700">
+                Stop Sequences
+              </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.stop} />
             </div>
             <button
@@ -281,7 +327,7 @@ export function LLMParameterSidePanel({
               추가
             </button>
           </div>
-          
+
           {stopSequences.length === 0 ? (
             <p className="text-[10px] text-gray-400 text-center py-2 border border-dashed border-gray-200 rounded">
               설정된 종료 문자열이 없습니다
@@ -293,7 +339,9 @@ export function LLMParameterSidePanel({
                   <input
                     type="text"
                     value={seq}
-                    onChange={(e) => handleUpdateStopSequence(index, e.target.value)}
+                    onChange={(e) =>
+                      handleUpdateStopSequence(index, e.target.value)
+                    }
                     placeholder={`종료 문자열 ${index + 1}`}
                     className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:border-blue-500 focus:outline-none"
                   />
@@ -309,7 +357,6 @@ export function LLMParameterSidePanel({
           )}
           <p className="text-[10px] text-gray-400">최대 4개까지 설정 가능</p>
         </div>
-
       </div>
     </div>
   );

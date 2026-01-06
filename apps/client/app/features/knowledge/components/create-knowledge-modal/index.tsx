@@ -9,10 +9,12 @@ import {
   Settings,
   Loader2,
   Globe,
-  Code,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Database,
+  HelpCircle,
+  Play,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
@@ -27,6 +29,7 @@ interface CreateKnowledgeModalProps {
   isOpen: boolean;
   onClose: () => void;
   knowledgeBaseId?: string;
+  initialTab?: 'FILE' | 'API' | 'DB';
 }
 
 const BASE_URL =
@@ -36,10 +39,13 @@ export default function CreateKnowledgeModal({
   isOpen,
   onClose,
   knowledgeBaseId,
+  initialTab,
 }: CreateKnowledgeModalProps) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
-  const [sourceType, setSourceType] = useState<'FILE' | 'API' | 'DB'>('FILE');
+  const [sourceType, setSourceType] = useState<'FILE' | 'API' | 'DB'>(
+    initialTab || 'FILE',
+  );
   const [apiConfig, setApiConfig] = useState({
     url: '',
     method: 'GET',
@@ -82,6 +88,9 @@ export default function CreateKnowledgeModal({
   };
   const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+
+  // UX: Advanced Settings Toggle
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -126,8 +135,12 @@ export default function CreateKnowledgeModal({
 
     if (isOpen) {
       fetchEmbeddingModels();
+      // initialTab이 변경되면 sourceType 업데이트 (모달이 열릴 때마다 초기화되지 않도록 주의 필요, 여기서는 isOpen시 fetch와 함께 처리)
+      if (initialTab) {
+        setSourceType(initialTab);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialTab]); // initialTab dependency added
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -447,71 +460,103 @@ export default function CreateKnowledgeModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* 소스타입 선택 */}
-          <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
-            <button
-              type="button"
-              onClick={() => setSourceType('FILE')}
-              className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
-                sourceType === 'FILE'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500'
-              }`}
-            >
-              <FileText className="w-5 h-5" />
-              <span className="font-medium">파일 업로드</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSourceType('API')}
-              className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
-                sourceType === 'API'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500'
-              }`}
-            >
-              <Globe className="w-5 h-5" />
-              <span className="font-medium">API 연동</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSourceType('DB')}
-              className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
-                sourceType === 'DB'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500'
-              }`}
-            >
-              <Database className="w-5 h-5" />
-              <span className="font-medium">DB 연동</span>
-            </button>
-          </div>
+          {/* 소스타입 선택 - initialTab이 없을 때만 표시 */}
+          {!initialTab && (
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <button
+                type="button"
+                onClick={() => setSourceType('FILE')}
+                className={`group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 transition-all ${
+                  sourceType === 'FILE'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-400/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500'
+                }`}
+              >
+                <div
+                  className={`p-3 rounded-full ${
+                    sourceType === 'FILE'
+                      ? 'bg-blue-100 dark:bg-blue-900/30'
+                      : 'bg-gray-100 dark:bg-gray-800 group-hover:bg-white dark:group-hover:bg-gray-700'
+                  }`}
+                >
+                  <FileText className="w-6 h-6" />
+                </div>
+                <span className="font-semibold">파일 업로드</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSourceType('API')}
+                className={`group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 transition-all ${
+                  sourceType === 'API'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-400/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500'
+                }`}
+              >
+                <div
+                  className={`p-3 rounded-full ${
+                    sourceType === 'API'
+                      ? 'bg-blue-100 dark:bg-blue-900/30'
+                      : 'bg-gray-100 dark:bg-gray-800 group-hover:bg-white dark:group-hover:bg-gray-700'
+                  }`}
+                >
+                  <Globe className="w-6 h-6" />
+                </div>
+                <span className="font-semibold">API 연동</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSourceType('DB')}
+                className={`group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 transition-all ${
+                  sourceType === 'DB'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-400/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500'
+                }`}
+              >
+                <div
+                  className={`p-3 rounded-full ${
+                    sourceType === 'DB'
+                      ? 'bg-blue-100 dark:bg-blue-900/30'
+                      : 'bg-gray-100 dark:bg-gray-800 group-hover:bg-white dark:group-hover:bg-gray-700'
+                  }`}
+                >
+                  <Database className="w-6 h-6" />
+                </div>
+                <span className="font-semibold">외부 DB 연결</span>
+              </button>
+            </div>
+          )}
 
           <div>
             {sourceType === 'FILE' && (
               <>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  📁 파일 선택
-                </label>
                 <div
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
-                  className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-10 text-center hover:border-blue-500 hover:bg-blue-50/50 dark:hover:border-blue-400 dark:hover:bg-blue-900/10 transition-all cursor-pointer group"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-200 shadow-sm">
+                    <Upload className="w-8 h-8 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                  </div>
+
                   {file ? (
-                    <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
-                      <FileText className="w-5 h-5" />
-                      <span className="font-medium">{file.name}</span>
+                    <div className="animate-in fade-in zoom-in duration-200">
+                      <p className="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-1">
+                        {file.name}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-gray-600 dark:text-gray-400 mb-1">
-                        파일을 드래그하거나 클릭하여 선택하세요
+                      <p className="text-base font-medium text-gray-900 dark:text-white mb-2">
+                        파일을 여기로 드래그하거나 클릭하세요
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-500">
-                        PDF, Excel, Word, TXT/MD 등 (최대 50MB)
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        지원 형식: PDF, Excel, Word, TXT, MD 등 (최대 50MB)
                       </p>
                     </div>
                   )}
@@ -528,9 +573,6 @@ export default function CreateKnowledgeModal({
             {sourceType === 'API' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    🔗 API 설정
-                  </label>
                   <div className="flex gap-2 mb-2">
                     <select
                       value={apiConfig.method}
@@ -557,7 +599,8 @@ export default function CreateKnowledgeModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      Headers (JSON)
+                      Headers (JSON){' '}
+                      <span className="text-gray-400">(선택)</span>
                     </label>
                     <textarea
                       value={apiConfig.headers}
@@ -571,7 +614,7 @@ export default function CreateKnowledgeModal({
                   </div>
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      Body (JSON)
+                      Body (JSON) <span className="text-gray-400">(선택)</span>
                     </label>
                     <textarea
                       value={apiConfig.body}
@@ -590,14 +633,14 @@ export default function CreateKnowledgeModal({
                     type="button"
                     onClick={fetchApiData}
                     disabled={isFetchingApi || !apiConfig.url}
-                    className="w-full py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 px-4 border-2 border-blue-100 dark:border-blue-900/30 hover:border-blue-500 dark:hover:border-blue-400 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 rounded-xl transition-all flex items-center justify-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isFetchingApi ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Code className="w-4 h-4" />
+                      <Play className="w-4 h-4 fill-current" />
                     )}
-                    데이터 불러오기 (Preview)
+                    연결 테스트 및 미리보기
                   </button>
                 </div>
 
@@ -638,7 +681,7 @@ export default function CreateKnowledgeModal({
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                    이름
+                    자료 그룹 이름
                   </label>
                   <input
                     type="text"
@@ -646,20 +689,20 @@ export default function CreateKnowledgeModal({
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    placeholder="예: 제품 매뉴얼"
+                    placeholder="예: 제품 매뉴얼, 사내 규정 등"
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                    설명
+                    설명 (선택)
                   </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
-                    placeholder="이 참고자료 그룹에 대한 설명을 입력하세요"
+                    placeholder="어떤 자료들이 모여있나요?"
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                   />
@@ -669,150 +712,219 @@ export default function CreateKnowledgeModal({
           )}
 
           {/* Advanced Settings */}
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              <Settings className="w-4 h-4" />
-              고급 설정
-            </label>
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <button
+              type="button"
+              onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+              className="flex items-center justify-between w-full text-left group"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <Settings className="w-4 h-4" />
+                고급 설정
+              </span>
+              {isAdvancedOpen ? (
+                <ChevronUp className="w-4 h-4 text-gray-500 group-hover:text-blue-600 transition-colors" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-blue-600 transition-colors" />
+              )}
+            </button>
 
-            <div className="space-y-4 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
-              {/* Chunk Settings */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  청크 설정
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      크기 (토큰)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.chunkSize}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          chunkSize: parseInt(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      오버랩 (토큰)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.chunkOverlap}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          chunkOverlap: parseInt(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Embedding Settings - 새로운 참고자료그룹 생성시에만 임베딩 설정 가능 */}
-              {!knowledgeBaseId && (
+            {isAdvancedOpen && (
+              <div className="mt-4 space-y-4 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg animate-in slide-in-from-top-2 fade-in duration-200">
+                {/* Chunk Settings */}
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    임베딩 설정
+                    청크 설정
                   </h4>
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      모델
-                    </label>
-                    {loadingModels ? (
-                      <div className="text-xs text-gray-400 p-2">
-                        모델 로딩 중...
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="group relative">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 mb-1 cursor-help">
+                        청크 (정보 조각 크기)
+                        <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+                      </label>
+                      <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-20 leading-relaxed pointer-events-none">
+                        <div className="font-semibold text-blue-300 mb-1">
+                          값을 높이면?
+                        </div>
+                        <div className="mb-2">
+                          한 번에 많은 내용을 이해해요.
+                        </div>
+                        <div className="font-semibold text-red-300 mb-1">
+                          값을 낮추면?
+                        </div>
+                        <div>세밀하고 정확하게 정보를 찾아요.</div>
+                        <div className="absolute bottom-[-6px] left-4 w-3 h-3 bg-gray-900 transform rotate-45"></div>
                       </div>
-                    ) : embeddingModels.length === 0 ? (
-                      <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
-                        <span>사용 가능한 임베딩 모델이 없습니다.</span>
-                        <a
-                          href="/settings/provider"
-                          className="ml-2 underline hover:text-amber-700 dark:hover:text-amber-300"
-                        >
-                          API 키 등록하기
-                        </a>
-                      </div>
-                    ) : (
-                      <select
-                        value={formData.embeddingModel}
+                      <input
+                        type="number"
+                        value={formData.chunkSize}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            embeddingModel: e.target.value,
+                            chunkSize: parseInt(e.target.value),
                           })
                         }
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
-                        {embeddingModels.map((model) => (
-                          <option
-                            key={model.id}
-                            value={model.model_id_for_api_call}
-                          >
-                            {model.name}{' '}
-                            {model.provider_name
-                              ? `(${model.provider_name})`
-                              : ''}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                      />
+                    </div>
+                    <div className="group relative">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 mb-1 cursor-help">
+                        오버랩 (문맥 연결량)
+                        <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+                      </label>
+                      <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-20 leading-relaxed pointer-events-none">
+                        <div className="font-semibold text-blue-300 mb-1">
+                          값을 높이면?
+                        </div>
+                        <div className="mb-2">
+                          앞뒤 맥락을 더 풍부하게 파악해요.
+                        </div>
+                        <div className="font-semibold text-red-300 mb-1">
+                          값을 낮추면?
+                        </div>
+                        <div>중복 없이 깔끔하게 정보를 처리해요.</div>
+                        <div className="absolute bottom-[-6px] left-4 w-3 h-3 bg-gray-900 transform rotate-45"></div>
+                      </div>
+                      <input
+                        type="number"
+                        value={formData.chunkOverlap}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            chunkOverlap: parseInt(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Search Settings */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  검색 설정
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
+                {/* Embedding Settings - 새로운 참고자료그룹 생성시에만 임베딩 설정 가능 */}
+                {!knowledgeBaseId && (
                   <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      Top K
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.topK}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          topK: parseInt(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      임베딩 설정
+                    </h4>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                        모델
+                      </label>
+                      {loadingModels ? (
+                        <div className="text-xs text-gray-400 p-2">
+                          모델 로딩 중...
+                        </div>
+                      ) : embeddingModels.length === 0 ? (
+                        <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
+                          <span>사용 가능한 임베딩 모델이 없습니다.</span>
+                          <a
+                            href="/settings/provider"
+                            className="ml-2 underline hover:text-amber-700 dark:hover:text-amber-300"
+                          >
+                            API 키 등록하기
+                          </a>
+                        </div>
+                      ) : (
+                        <select
+                          value={formData.embeddingModel}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              embeddingModel: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        >
+                          {embeddingModels.map((model) => (
+                            <option
+                              key={model.id}
+                              value={model.model_id_for_api_call}
+                            >
+                              {model.name}{' '}
+                              {model.provider_name
+                                ? `(${model.provider_name})`
+                                : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      유사도 임계값
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="1"
-                      value={formData.similarity}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          similarity: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                )}
+
+                {/* Search Settings */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    검색 설정
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="group relative">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 mb-1 cursor-help">
+                        Top K (참고 자료 수)
+                        <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+                      </label>
+                      <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-20 leading-relaxed pointer-events-none">
+                        <div className="font-semibold text-blue-300 mb-1">
+                          값을 높이면?
+                        </div>
+                        <div className="mb-2">
+                          다양한 근거를 바탕으로 대답해요.
+                        </div>
+                        <div className="font-semibold text-red-300 mb-1">
+                          값을 낮추면?
+                        </div>
+                        <div>핵심적인 근거로 빠르게 대답해요.</div>
+                        <div className="absolute bottom-[-6px] left-4 w-3 h-3 bg-gray-900 transform rotate-45"></div>
+                      </div>
+                      <input
+                        type="number"
+                        value={formData.topK}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            topK: parseInt(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div className="group relative">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 mb-1 cursor-help">
+                        유사도 임계값 (답변의 정확도)
+                        <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+                      </label>
+                      <div className="hidden group-hover:block absolute bottom-full right-0 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-20 leading-relaxed pointer-events-none">
+                        <div className="font-semibold text-blue-300 mb-1">
+                          값을 높이면?
+                        </div>
+                        <div className="mb-2">
+                          엉뚱한 대답을 하지 않고 깐깐해져요.
+                        </div>
+                        <div className="font-semibold text-red-300 mb-1">
+                          값을 낮추면?
+                        </div>
+                        <div>조금 부족한 정보라도 최대한 찾아내요.</div>
+                        <div className="absolute bottom-[-6px] right-4 w-3 h-3 bg-gray-900 transform rotate-45"></div>
+                      </div>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        value={formData.similarity}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            similarity: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

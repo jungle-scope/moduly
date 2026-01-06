@@ -8,8 +8,12 @@ export const useWorkflowAppSync = () => {
   const params = useParams();
   const workflowId = params.id as string;
   const [currentAppId, setCurrentAppId] = useState<string>('');
-  const { loadWorkflowsByApp, setProjectInfo, setActiveWorkflowIdSafe } =
-    useWorkflowStore();
+  const {
+    loadWorkflowsByApp,
+    setProjectInfo,
+    setActiveWorkflowIdSafe,
+    setProjectApp,
+  } = useWorkflowStore();
 
   useEffect(() => {
     const loadWorkflowAppId = async () => {
@@ -21,7 +25,8 @@ export const useWorkflowAppSync = () => {
           // 앱 정보 가져오기 (이름, 아이콘)
           try {
             const app = await appApi.getApp(data.app_id);
-            setProjectInfo(app.name, app.icon);
+            setProjectInfo(app.name, app.icon, app.description);
+            setProjectApp(app);
           } catch (appError) {
             console.error('Failed to load app details:', appError);
           }
@@ -36,7 +41,7 @@ export const useWorkflowAppSync = () => {
     if (workflowId) {
       loadWorkflowAppId();
     }
-  }, [workflowId, setProjectInfo, setActiveWorkflowIdSafe]);
+  }, [workflowId, setProjectInfo, setActiveWorkflowIdSafe, setProjectApp]);
 
   useEffect(() => {
     const initWorkflows = async () => {

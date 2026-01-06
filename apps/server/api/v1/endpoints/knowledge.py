@@ -15,7 +15,12 @@ from fastapi import (
     Response,
     status,
 )
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 
@@ -51,7 +56,7 @@ def list_knowledge_bases(
     ).label("document_count")
 
     results = (
-        db.query(KnowledgeBase, completed_count)
+        db.query(KnowledgeBase, func.count(Document.id).label("document_count"))
         .outerjoin(Document, KnowledgeBase.id == Document.knowledge_base_id)
         .filter(KnowledgeBase.user_id == current_user.id)
         .group_by(KnowledgeBase.id)
@@ -60,7 +65,16 @@ def list_knowledge_bases(
     )
 
     response = []
-    for kb, doc_count in results:
+    for kb, doc_count, last_updated_at, source_types in results:
+        # source_types가 [None]인 경우 (문서가 없을 때) 빈 리스트로 처리
+        clean_source_types = [st for st in source_types if st is not None]
+
+        # KB 업데이트 시간과 문서 최신 업데이트 시간 중 더 최신을 선택
+        # 문서가 없으면 KB 업데이트 시간 사용
+        final_updated_at = (
+            max(kb.updated_at, last_updated_at) if last_updated_at else kb.updated_at
+        )
+
         response.append(
             KnowledgeBaseResponse(
                 id=kb.id,
@@ -68,6 +82,8 @@ def list_knowledge_bases(
                 description=kb.description,
                 document_count=doc_count,
                 created_at=kb.created_at,
+                updated_at=final_updated_at,
+                source_types=clean_source_types,
                 embedding_model=kb.embedding_model,
             )
         )
@@ -399,7 +415,27 @@ def get_document_content(
 
     # 브라우저가 s3에서 파일을 직접 받아온다.
     if is_s3_file:
-        return RedirectResponse(url=doc.file_path)
+        try:
+            # 1. 서버가 S3에서 파일 스트림을 가져옴
+            external_res = requests.get(doc.file_path, stream=True)
+            external_res.raise_for_status()
+
+            # 2. 클라이언트에게 스트리밍 전송 함수 정의
+            def iterfile():
+                yield from external_res.iter_content(chunk_size=8192)
+
+            # 3. StreamingResponse 반환
+            return StreamingResponse(
+                iterfile(),
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f"inline; filename={requests.utils.quote(doc.filename)}"
+                },
+            )
+        except Exception as e:
+            print(f"[Error] Failed to proxy S3 file: {e}")
+            # 실패 시 Fallback (혹은 에러처리)
+            return RedirectResponse(url=doc.file_path)
 
     return FileResponse(
         doc.file_path,

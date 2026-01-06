@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { Search, Wrench, BookOpen, BarChart3, Plus, Home } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Search, Wrench, BookOpen, BarChart3, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigationItems = [
@@ -35,51 +35,9 @@ const navigationItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-
-  const handleCreateApp = () => {
-    router.push('/dashboard');
-    // Trigger the create app modal
-    const event = new CustomEvent('openCreateAppModal');
-    window.dispatchEvent(event);
-  };
 
   return (
-    <aside
-      className={cn(
-        'relative flex h-screen flex-col border-r border-gray-200 bg-white transition-all duration-300 dark:border-gray-800 dark:bg-gray-950 w-64',
-      )}
-    >
-      {/* Logo/Brand */}
-      <div
-        className={cn(
-          'flex h-16 items-center border-b border-gray-200 dark:border-gray-800 px-6',
-        )}
-      >
-        <h1
-          className={cn(
-            'font-bold text-gray-900 dark:text-white transition-all duration-300 text-xl',
-          )}
-        >
-          Moduly
-        </h1>
-      </div>
-
-      {/* Create Button Section */}
-      <div className={cn('px-4 py-3 mt-4')}>
-        <button
-          onClick={handleCreateApp}
-          className={cn(
-            'w-full flex items-center justify-center gap-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 px-4 py-2',
-          )}
-          title="Create App"
-          aria-label="Create App"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create</span>
-        </button>
-      </div>
-
+    <aside className="flex h-full w-52 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30">
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navigationItems.map((item) => {

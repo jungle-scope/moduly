@@ -2,17 +2,21 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   FileText,
   Save,
   AlertTriangle,
-  RefreshCw,
   Loader2,
+  ChevronRight,
+  Home,
+  Database,
+  Calendar,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
 import { DocumentResponse } from '@/app/features/knowledge/types/Knowledge';
 import { useDocumentProcess } from '@/app/features/knowledge/hooks/useDocumentProcess';
+import Link from 'next/link'; // Added for Breadcrumb
 // Separated Components
 import FileSourceViewer from '@/app/features/knowledge/components/ingestion-views/FileSourceViewer';
 import ApiSourceViewer from '@/app/features/knowledge/components/ingestion-views/ApiSourceViewer';
@@ -324,9 +328,12 @@ export default function DocumentSettingsPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+
+        {/* CSS import for next/link compatibility if needed, though usually automatic */}
       </div>
     );
   }
+
   // 중앙 패널 렌더러
   const renderCenterPanel = () => {
     if (!document) return null;
@@ -400,69 +407,110 @@ export default function DocumentSettingsPage() {
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="flex-none px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push(`/dashboard/knowledge/${kbId}`)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+      <header className="flex-none bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        {/* Breadcrumb - Top Bar */}
+        <div className="px-6 py-2 border-b border-gray-50 dark:border-gray-700/50 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <Link
+            href="/dashboard"
+            className="hover:text-blue-600 flex items-center gap-1"
           >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-500" />
-              {document?.filename || '문서 설정'}
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              자료 처리 방식 및 청킹 설정을 조정합니다.
-            </p>
-          </div>
+            <Home className="w-3 h-3" />
+            <span>대시보드</span>
+          </Link>
+          <ChevronRight className="w-3 h-3 text-gray-300" />
+          <Link
+            href={`/dashboard/knowledge/${kbId}`}
+            className="hover:text-blue-600"
+          >
+            자료 목록
+          </Link>
+          <ChevronRight className="w-3 h-3 text-gray-300" />
+          <span className="text-gray-900 dark:text-white font-medium">
+            문서 설정
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          {/* 에러 메시지 표시 */}
-          {status === 'failed' && (
-            <div className="relative group mr-4 cursor-help flex items-center">
-              <div className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-md border border-red-200 dark:border-red-800 flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                <span className="max-w-[200px] truncate">
-                  {errorMessage || '처리 실패'}
-                </span>
-              </div>
-              {/* Custom Tooltip on Hover */}
-              <div className="absolute top-full right-0 mt-2 w-max max-w-[500px] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <p className="whitespace-pre-wrap break-all leading-relaxed">
-                  {errorMessage || '처리 실패'}
-                </p>
-                {/* Arrow */}
-                <div className="absolute -top-1 right-6 w-2 h-2 bg-gray-900 rotate-45" />
+
+        {/* Main Title Area */}
+        <div className="px-6 py-5 flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400 mt-1">
+              <FileText className="w-8 h-8" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">
+                {document?.filename || '문서 설정'}
+              </h1>
+
+              {/* Metadata Badges */}
+              <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium">
+                  {document?.source_type === 'API' && (
+                    <>
+                      <RefreshCw className="w-3 h-3" /> API Source
+                    </>
+                  )}
+                  {document?.source_type === 'DB' && (
+                    <>
+                      <Database className="w-3 h-3" /> Database Source
+                    </>
+                  )}
+                  {(!document?.source_type ||
+                    document?.source_type === 'FILE') && (
+                    <>
+                      <FileText className="w-3 h-3" /> File Source
+                    </>
+                  )}
+                </div>
+                {document?.created_at && (
+                  <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-xs">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(document.created_at).toLocaleDateString('ko-KR')}
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
-          {/* 진행률 표시 */}
-          {status === 'indexing' && (
-            <div className="flex items-center gap-3 mr-2 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="text-sm font-medium text-blue-600 dark:text-blue-400 w-10 text-right">
-                {`${Math.round(progress)}%`}
+          <div className="flex items-center gap-2">
+            {/* 에러 메시지 */}
+            {status === 'failed' && (
+              <div className="relative group mr-2 cursor-help flex items-center">
+                <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-200 dark:border-red-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="font-medium max-w-[200px] truncate">
+                    {errorMessage || '처리 실패'}
+                  </span>
+                </div>
+                <div className="absolute top-full right-0 mt-2 w-max max-w-[400px] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                  {errorMessage}
+                </div>
               </div>
-              <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-600 dark:bg-blue-500 transition-all duration-500 ease-out"
-                  style={{
-                    width: `${Math.round(progress)}%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
+            )}
 
-          <div className="relative group">
+            {/* 진행률 표시 */}
+            {status === 'indexing' && (
+              <div className="flex flex-col items-end mr-4 min-w-[120px]">
+                <div className="flex items-center gap-2 mb-1">
+                  <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
+                  <span className="text-blue-600 font-bold text-sm tracking-tight">
+                    {Math.round(progress)}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 transition-all duration-300"
+                    style={{ width: `${Math.round(progress)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             <button
               onClick={handleSaveClick}
               disabled={
                 isAnalyzing || status === 'completed' || status === 'indexing'
               }
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
               {analyzingAction === 'save' || status === 'indexing' ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -472,17 +520,11 @@ export default function DocumentSettingsPage() {
               {status === 'indexing'
                 ? '처리 중...'
                 : status === 'pending'
-                  ? '저장 및 처리 시작'
+                  ? '설정 저장 및 처리 시작'
                   : status === 'completed'
-                    ? '완료됨'
+                    ? '처리 완료됨'
                     : '저장 및 처리 시작'}
             </button>
-            {status === 'completed' && (
-              <div className="absolute top-full right-0 mt-2 w-max max-w-[250px] p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 text-center break-keep">
-                재인덱싱이 필요하여 파일을 삭제하고 다시 추가해야 합니다.
-                <div className="absolute -top-1 right-6 w-2 h-2 bg-gray-900 rotate-45" />
-              </div>
-            )}
           </div>
         </div>
       </header>
@@ -600,14 +642,14 @@ export default function DocumentSettingsPage() {
             <button
               onClick={handlePreviewClick}
               disabled={isPreviewLoading || isAnalyzing}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {isPreviewLoading || analyzingAction === 'preview' ? ( // [MODIFIED] Check specific action
+              {isPreviewLoading || analyzingAction === 'preview' ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              Preview Chunking
+              설정 적용 및 결과 미리보기
             </button>
           </div>
         </div>
@@ -617,10 +659,10 @@ export default function DocumentSettingsPage() {
             <h3 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
               <FileText className="w-4 h-4" />
               {document?.source_type === 'API'
-                ? 'Extracted Text Preview'
+                ? 'API 데이터 원본 확인'
                 : document?.source_type === 'DB'
-                  ? 'Select Tables & Columns'
-                  : 'Original Document'}
+                  ? '테이블 및 컬럼 선택'
+                  : '원본 문서 확인'}
             </h3>
             {document?.source_type !== 'DB' && (
               <span className="text-xs text-gray-500">Read-only</span>
