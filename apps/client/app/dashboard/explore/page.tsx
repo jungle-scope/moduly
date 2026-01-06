@@ -92,22 +92,24 @@ export default function ExplorePage() {
           >
             {/* 모듈 정보 */}
             <div className="flex-1">
-              <div
-                className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg"
-                style={{
-                  backgroundColor: app.icon?.background_color || '#f3f4f6',
-                }}
-              >
-                {app.icon?.content ? (
-                  <span className="text-xl">{app.icon.content}</span>
-                ) : (
-                  <div className="h-full w-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-600" />
-                )}
+              <div className="flex items-center gap-3 mb-2">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                  style={{
+                    backgroundColor: app.icon?.background_color || '#f3f4f6',
+                  }}
+                >
+                  {app.icon?.content ? (
+                    <span className="text-xl">{app.icon.content}</span>
+                  ) : (
+                    <div className="h-full w-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-600" />
+                  )}
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 transition-colors group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
+                  {app.name}
+                </h3>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 transition-colors group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
-                {app.name}
-              </h3>
-              <p className="mt-2 text-sm text-gray-600 line-clamp-2 dark:text-gray-400">
+              <p className="mt-1 text-sm text-gray-600 line-clamp-2 dark:text-gray-400">
                 {app.description || '설명이 없습니다.'}
               </p>
             </div>
