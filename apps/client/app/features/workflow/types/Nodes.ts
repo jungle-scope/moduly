@@ -124,7 +124,7 @@ export interface LLMNodeData extends BaseNodeData {
   referenced_variables: LLMVariable[];
   context_variable?: string;
   parameters: Record<string, unknown>;
-  
+
   // 참고 자료 (Knowledge) 통합 필드
   knowledgeBases?: { id: string; name: string }[];
   scoreThreshold?: number;
@@ -200,7 +200,12 @@ export interface WebhookTriggerNodeData extends BaseNodeData {
 }
 // ============================================================================
 
-
+// ==================== [ScheduleTriggerNode] =================================
+export interface ScheduleTriggerNodeData extends BaseNodeData {
+  cron_expression: string; // Cron 표현식 (예: "0 9 * * *")
+  timezone: string; // 타임존 (예: "Asia/Seoul", "UTC")
+}
+// ============================================================================
 
 // ==================== [FileExtractionNode] ==================================
 export interface FileExtractionNodeData extends BaseNodeData {
@@ -285,6 +290,10 @@ export type WebhookTriggerNode = ReactFlowNode<
   WebhookTriggerNodeData,
   'webhookTrigger'
 >;
+export type ScheduleTriggerNode = ReactFlowNode<
+  ScheduleTriggerNodeData,
+  'scheduleTrigger'
+>;
 export type GithubNode = ReactFlowNode<GithubNodeData, 'githubNode'>;
 
 export type MailNode = ReactFlowNode<MailNodeData, 'mailNode'>;
@@ -302,10 +311,10 @@ export type AppNode =
   | TemplateNode
   | FileExtractionNode
   | WebhookTriggerNode
+  | ScheduleTriggerNode
   | GithubNode
   | MailNode
   | NoteNode
-
   | WorkflowNode;
 
 // 하위 호환성 (필요시)
