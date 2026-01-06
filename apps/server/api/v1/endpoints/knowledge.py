@@ -15,7 +15,12 @@ from fastapi import (
     Response,
     status,
 )
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -410,7 +415,27 @@ def get_document_content(
 
     # 브라우저가 s3에서 파일을 직접 받아온다.
     if is_s3_file:
-        return RedirectResponse(url=doc.file_path)
+        try:
+            # 1. 서버가 S3에서 파일 스트림을 가져옴
+            external_res = requests.get(doc.file_path, stream=True)
+            external_res.raise_for_status()
+
+            # 2. 클라이언트에게 스트리밍 전송 함수 정의
+            def iterfile():
+                yield from external_res.iter_content(chunk_size=8192)
+
+            # 3. StreamingResponse 반환
+            return StreamingResponse(
+                iterfile(),
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f"inline; filename={requests.utils.quote(doc.filename)}"
+                },
+            )
+        except Exception as e:
+            print(f"[Error] Failed to proxy S3 file: {e}")
+            # 실패 시 Fallback (혹은 에러처리)
+            return RedirectResponse(url=doc.file_path)
 
     return FileResponse(
         doc.file_path,
