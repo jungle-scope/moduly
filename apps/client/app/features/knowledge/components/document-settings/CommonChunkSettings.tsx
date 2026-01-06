@@ -32,11 +32,11 @@ export default function CommonChunkSettings({
       <section className="space-y-4">
         <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium pb-2 border-b border-gray-100 dark:border-gray-700">
           <Split className="w-4 h-4" />
-          <h3>청킹 설정 (Chunking)</h3>
+          <h3>청크 설정 (Chunking)</h3>
         </div>
         <div className="space-y-3">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Chunk Size
+            청크 크기 (자료 조각 당 글자 수)
           </label>
           <input
             type="number"
@@ -45,12 +45,13 @@ export default function CommonChunkSettings({
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
           />
           <p className="text-xs text-gray-500">
-            한 청크에 포함될 최대 글자 수입니다.
+            하나의 정보 조각에 포함될 최대 글자 수입니다. <br />
+            (권장: 500~1000)
           </p>
         </div>
         <div className="space-y-3">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Chunk Overlap
+            오버랩 (문맥 유지를 위한 중복 구간)
           </label>
           <input
             type="number"
@@ -59,12 +60,13 @@ export default function CommonChunkSettings({
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
           />
           <p className="text-xs text-gray-500">
-            청크 간 중첩되는 글자 구간입니다.
+            정보 조각 간의 내용을 자연스럽게 연결하기 위해 중복되는 글자
+            수입니다.
           </p>
         </div>
         <div className="space-y-3">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Segment Identifier
+            문단 구분자 (Segment Identifier)
           </label>
           <input
             type="text"
@@ -73,7 +75,10 @@ export default function CommonChunkSettings({
             placeholder="예: \n\n"
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-transparent text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono"
           />
-          <p className="text-xs text-gray-500">문단을 구분하는 문자입니다.</p>
+          <p className="text-xs text-gray-500">
+            문서를 나눌 때 기준이 되는 문자입니다. <br />
+            (기본값: 줄바꿈 2번)
+          </p>
         </div>
       </section>
       {/* Preprocessing Settings Section */}

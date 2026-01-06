@@ -46,7 +46,8 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
 
         headers = {}
         for h in data.headers:
-            headers[h.key] = self._render_template(h.value, inputs)
+            if h.key and h.key.strip():
+                headers[h.key] = self._render_template(h.value, inputs)
 
         # 2. Authentication 처리
         auth_type = getattr(data, "authType", "none")

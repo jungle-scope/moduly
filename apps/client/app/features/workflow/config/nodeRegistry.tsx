@@ -14,6 +14,8 @@ import {
   Webhook,
   Github,
   Mail,
+  Clock,
+  Slack,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -75,6 +77,21 @@ export const nodeRegistry: NodeDefinition[] = [
       title: 'Webhook Trigger',
       provider: 'custom',
       variable_mappings: [],
+    }),
+  },
+  {
+    id: 'schedule-trigger',
+    type: 'scheduleTrigger',
+    name: 'Schedule Trigger',
+    category: 'trigger',
+    color: '#8b5cf6', // violet-500
+    icon: <Clock className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description: '지정된 시간에 워크플로우를 자동으로 시작합니다.',
+    defaultData: () => ({
+      title: 'Schedule Trigger',
+      cron_expression: '0 9 * * *',
+      timezone: 'UTC',
     }),
   },
 
@@ -178,26 +195,7 @@ export const nodeRegistry: NodeDefinition[] = [
       conditions: [],
     }),
   },
-  {
-    id: 'knowledge',
-    type: 'knowledgeNode',
-    name: '지식',
-    category: 'data',
-    color: '#6366f1', // indigo-500
-    icon: <BookOpen className="w-3.5 h-3.5 text-white" />,
-    implemented: true,
-    description: '지식 베이스를 조회하고 검색합니다.',
-    defaultData: () => ({
-      title: '지식',
-      description: '지식 베이스 검색',
-      knowledgeBases: [],
-      queryVariable: undefined,
-      scoreThreshold: 0.5,
-      topK: 3,
-      queryVariables: [],
-      userQuery: '',
-    }),
-  },
+
   {
     id: 'file-extraction',
     type: 'fileExtractionNode',
@@ -242,6 +240,37 @@ export const nodeRegistry: NodeDefinition[] = [
       headers: [],
       body: '',
       timeout: 5000,
+    }),
+  },
+  {
+    id: 'slack-post',
+    type: 'slackPostNode',
+    name: 'Slack Post',
+    category: 'plugin',
+    color: '#4A154B', // Slack purple
+    icon: <Slack className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description: 'Slack으로 메시지를 전송합니다.',
+    defaultData: () => ({
+      title: 'Slack Post',
+      method: 'POST',
+      url: '',
+      headers: [{ key: 'Content-Type', value: 'application/json' }],
+      body: JSON.stringify(
+        {
+          text: '',
+        },
+        null,
+        2,
+      ),
+      timeout: 5000,
+      authType: 'none',
+      authConfig: {},
+      referenced_variables: [],
+      message: '',
+      channel: '',
+      blocks: '',
+      slackMode: 'webhook',
     }),
   },
   {

@@ -19,9 +19,12 @@ export default function FileSourceViewer({
     );
   }
 
+  // Next.js Rewrite(Proxy)를 타도록 상대 경로 사용 (쿠키 전달 문제 해결)
+  const baseUrl = '';
+
   return (
     <iframe
-      src={`http://localhost:8000/api/v1/knowledge/${kbId}/documents/${documentId}/content`}
+      src={`${baseUrl}/api/v1/knowledge/${kbId}/documents/${documentId}/content`}
       className="w-full h-full bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800"
       title="Original Document Preview"
     />

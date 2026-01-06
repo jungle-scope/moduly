@@ -4,8 +4,10 @@ import uuid
 
 from jinja2 import Environment
 
-from db.session import SessionLocal  # 임시 세션 생성용 (TODO: 엔진 주입으로 교체)
+from db.session import SessionLocal  # 임시 세션 생성용
 from services.llm_service import LLMService
+from services.retrieval import RetrievalService
+from schemas.rag import ChunkPreview
 from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
 from db.models.llm import LLMModel
 
@@ -97,11 +99,33 @@ class LLMNode(Node[LLMNodeData]):
             # 기억 모드 실패는 실행을 막지 않음 (비용만 스킵)
             print(f"[LLMNode] memory summary skipped: {e}")
 
+        # STEP 2.5 Knowledge 검색 (RAG) ---------------------------------------
+        knowledge_context = ""
+        knowledge_metadata = []
+        if self.data.knowledgeBases and len(self.data.knowledgeBases) > 0:
+            try:
+                # User Prompt를 검색 쿼리로 사용 (렌더링 후)
+                rendered_user_prompt = self._render_prompt(self.data.user_prompt, inputs)
+                if rendered_user_prompt:
+                    knowledge_context, knowledge_metadata = self._execute_knowledge_search(
+                        query=rendered_user_prompt,
+                        db_session=db_session
+                    )
+            except Exception as e:
+                print(f"[LLMNode] Knowledge search failed: {e}")
+
         # STEP 3. 프롬프트 빌드 ------------------------------------------------
+        system_content = self._render_prompt(self.data.system_prompt, inputs)
+        
+        # Knowledge Context 주입 (System Prompt 최상단)
+        if knowledge_context:
+            rag_header = f"[참고 자료]\n아래 제공된 참고 자료를 바탕으로 답변하세요:\n\n{knowledge_context}\n\n---\n"
+            system_content = rag_header + system_content
+
         messages = [
             {
                 "role": "system",
-                "content": self._render_prompt(self.data.system_prompt, inputs),
+                "content": system_content,
             },
             {
                 "role": "user",
@@ -184,7 +208,10 @@ class LLMNode(Node[LLMNodeData]):
             "text": text, 
             "usage": usage, 
             "model": self.data.model_id,
-            "cost": cost 
+            "cost": cost,
+            "metadata": {
+                "knowledge_search": knowledge_metadata if knowledge_metadata else None
+            }
         }
 
     def _render_prompt(self, template: Optional[str], inputs: Dict[str, Any]) -> str:
@@ -356,3 +383,68 @@ class LLMNode(Node[LLMNodeData]):
             if exists:
                 return mid
         return fallback_model
+        return fallback_model
+    
+    def _execute_knowledge_search(self, query: str, db_session) -> tuple[str, List[Dict[str, Any]]]:
+        """
+        연결된 지식 베이스에서 문서를 검색합니다.
+        KnowledgeNode 로직을 재사용.
+        """
+        user_id_str = self.execution_context.get("user_id")
+        user_id = None
+        if user_id_str:
+            try:
+                user_id = uuid.UUID(user_id_str)
+            except Exception:
+                pass
+        
+        if not user_id:
+            return "", []
+
+        retrieval = RetrievalService(db_session, user_id)
+        
+        kb_ids = [kb.id for kb in self.data.knowledgeBases if kb.id]
+        top_k = self.data.topK or 3
+        threshold = self.data.scoreThreshold or 0.5
+
+        all_chunks: List[tuple[str, ChunkPreview]] = []
+        
+        for kb_id in kb_ids:
+            chunks = retrieval.search_documents(
+                query,
+                knowledge_base_id=kb_id,
+                top_k=top_k,
+                threshold=threshold,
+            )
+            for chunk in chunks:
+                all_chunks.append((kb_id, chunk))
+
+        # 유사도 순 정렬
+        sorted_chunks = sorted(
+            all_chunks,
+            key=lambda item: getattr(item[1], "similarity_score", 0),
+            reverse=True,
+        )
+        top_chunks = sorted_chunks[:top_k] if top_k else sorted_chunks
+
+        if not top_chunks:
+            return "", []
+
+        # 컨텍스트 조립
+        context_parts = []
+        metadata_list = []
+
+        for kb_id, chunk in top_chunks:
+            # 예: [파일명] 내용...
+            context_parts.append(f"[파일: {chunk.filename}]\n{chunk.content}")
+            
+            # 메타데이터 직렬화
+            meta = chunk.dict()
+            for key, value in list(meta.items()):
+                if isinstance(value, uuid.UUID):
+                    meta[key] = str(value)
+            meta["knowledge_base_id"] = str(kb_id)
+            metadata_list.append(meta)
+
+        combined_context = "\n\n".join(context_parts)
+        return combined_context, metadata_list

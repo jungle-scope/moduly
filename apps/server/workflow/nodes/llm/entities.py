@@ -16,6 +16,12 @@ class LLMVariable(BaseModel):
     )
 
 
+
+class KnowledgeBaseRef(BaseModel):
+    id: str
+    name: str
+
+
 class LLMNodeData(BaseNodeData):
     """
     개요: LLM 노드에서 사용할 설정/입력값 정의.
@@ -31,6 +37,11 @@ class LLMNodeData(BaseNodeData):
     referenced_variables: List[LLMVariable] = Field(default_factory=list)
     context_variable: Optional[str] = None
     parameters: Dict[str, Any] = Field(default_factory=dict, description="LLM API 파라미터 (temperature, top_p, max_tokens 등)")
+    
+    # [NEW] Knowledge Search Integration
+    knowledgeBases: List[KnowledgeBaseRef] = Field(default_factory=list, description="검색할 지식 베이스 목록")
+    scoreThreshold: float = Field(default=0.5, description="유사도 점수 임계값")
+    topK: int = Field(default=3, description="상위 K개 문서 반환")
 
     def validate(self) -> None:
         # 모델은 필수

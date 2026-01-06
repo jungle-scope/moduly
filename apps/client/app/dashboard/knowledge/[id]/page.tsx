@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
-  Calendar,
   Database,
   FileText,
   Plus,
@@ -16,18 +15,18 @@ import {
   Trash2,
   RotateCw,
   Bot,
-  Globe,
+  FolderOpen,
+  Webhook,
+  MoreVertical,
 } from 'lucide-react';
 import {
   knowledgeApi,
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
-import {
-  DocumentResponse,
-  SourceType,
-} from '@/app/features/knowledge/types/Knowledge';
+import { SourceType } from '@/app/features/knowledge/types/Knowledge';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
+import ChangeEmbeddingModelModal from '@/app/features/knowledge/components/change-embedding-model-modal';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -52,29 +51,43 @@ export default function KnowledgeDetailPage() {
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // 데이터 조회
-  const fetchKnowledgeBase = async () => {
-    try {
-      setIsLoading(true);
-      const data = await knowledgeApi.getKnowledgeBase(id);
-      setKnowledgeBase(data);
+  // Embedding Model Change Modal State
+  const [isModelModalOpen, setIsModelModalOpen] = useState(false);
 
-      setEditName(data.name);
-      setEditDesc(data.description || '');
-    } catch (error) {
-      console.error('Failed to fetch knowledge base', error);
-      alert('참고자료 그룹을 불러오는데 실패했습니다.');
-      router.push('/dashboard/knowledge');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Menu State
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // 데이터 조회
+  const fetchKnowledgeBase = useCallback(
+    async (isBackground = false) => {
+      try {
+        if (!isBackground) setIsLoading(true);
+        const data = await knowledgeApi.getKnowledgeBase(id);
+        setKnowledgeBase(data);
+
+        // 수정 중이 아닐 때만 필드 업데이트
+        if (!isEditingName) {
+          setEditName(data.name);
+        }
+        if (!isEditingDesc) {
+          setEditDesc(data.description || '');
+        }
+      } catch (error) {
+        console.error('Failed to fetch knowledge base', error);
+        alert('자료 그룹을 불러오는데 실패했습니다.');
+        router.push('/dashboard/knowledge');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [id, isEditingName, isEditingDesc, router],
+  );
 
   useEffect(() => {
     if (id) {
       fetchKnowledgeBase();
     }
-  }, [id]);
+  }, [id, fetchKnowledgeBase]);
 
   // 문서 상태 자동 갱신 (Polling)
   useEffect(() => {
@@ -86,11 +99,11 @@ export default function KnowledgeDetailPage() {
     // 처리 중인 자료가 있다면 3초마다 상태 갱신
     if (hasProcessingDocs) {
       const intervalId = setInterval(() => {
-        fetchKnowledgeBase();
+        fetchKnowledgeBase(true);
       }, 3000);
       return () => clearInterval(intervalId);
     }
-  }, [knowledgeBase, id]);
+  }, [knowledgeBase, id, fetchKnowledgeBase]);
 
   // 날짜 포맷팅
   const formatDate = (dateString?: string) => {
@@ -219,18 +232,31 @@ export default function KnowledgeDetailPage() {
   // 참고자료 그룹 삭제 핸들러
   const handleDeleteKnowledgeBase = async () => {
     if (deleteConfirmName !== knowledgeBase?.name) {
-      toast.error('참고자료 그룹 이름이 일치하지 않습니다.');
+      toast.error('자료 그룹 이름이 일치하지 않습니다.');
       return;
     }
     try {
       setIsDeleting(true);
       await knowledgeApi.deleteKnowledgeBase(id);
-      toast.success('참고자료 그룹이 삭제되었습니다.');
+      toast.success('자료 그룹이 삭제되었습니다.');
       router.push('/dashboard/knowledge');
     } catch (error) {
       console.error('Failed to delete kb:', error);
-      toast.error('참고자료 그룹 삭제 실패');
+      toast.error('자료 그룹 삭제 실패');
       setIsDeleting(false);
+    }
+  };
+
+  // 임베딩 모델 변경 핸들러
+  const handleModelChange = async (newModel: string) => {
+    try {
+      await knowledgeApi.updateKnowledgeBase(id, { embedding_model: newModel });
+      toast.success('임베딩 모델이 변경되었습니다. 재인덱싱이 시작됩니다.');
+      fetchKnowledgeBase();
+    } catch (error) {
+      console.error('Failed to update embedding model:', error);
+      toast.error('모델 변경 실패');
+      throw error;
     }
   };
 
@@ -246,97 +272,146 @@ export default function KnowledgeDetailPage() {
     <div className="p-8 max-w-7xl mx-auto">
       {/* Header Navigation */}
       <button
-        onClick={() => router.back()}
-        className="flex items-center text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mb-6 transition-colors"
+        onClick={() => router.push('/dashboard/knowledge')}
+        className="flex items-center text-sm text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 mb-6 transition-colors group"
       >
-        <ArrowLeft className="w-4 h-4 mr-1" />
+        <ArrowLeft className="w-4 h-4 mr-1 group-hover:-translate-x-1 transition-transform" />
         목록으로 돌아가기
       </button>
 
       {/* Title Header */}
       <div className="flex justify-between items-start mb-8">
-        <div className="flex-1 mr-4">
-          <div className="flex items-center gap-3">
-            <Database className="w-8 h-8 text-blue-600 flex-shrink-0" />
-            {isEditingName ? (
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                onBlur={handleNameUpdate}
-                onKeyDown={(e) => e.key === 'Enter' && handleNameUpdate()}
-                autoFocus
-                className="text-3xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
-              />
-            ) : (
-              <h1
-                onClick={() => setIsEditingName(true)}
-                className="text-3xl font-bold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors"
-                title="클릭하여 이름 수정"
-              >
-                {knowledgeBase.name}
-              </h1>
-            )}
-          </div>
-          <div className="mt-2 ml-11">
-            {isEditingDesc ? (
-              <textarea
-                value={editDesc}
-                onChange={(e) => setEditDesc(e.target.value)}
-                onBlur={handleDescUpdate}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleDescUpdate();
-                  }
-                }}
-                autoFocus
-                rows={2}
-                className="text-gray-600 dark:text-gray-400 bg-transparent border-b-2 border-blue-500 focus:outline-none w-full resize-none"
-              />
-            ) : (
-              <p
-                onClick={() => setIsEditingDesc(true)}
-                className="text-gray-600 dark:text-gray-400 max-w-3xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors min-h-6"
-                title="클릭하여 설명 수정"
-              >
-                {knowledgeBase.description || '설명 없음 (클릭하여 추가)'}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-4 mt-4 ml-11 text-sm text-gray-500 dark:text-gray-400">
-            <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
-              <Calendar className="w-4 h-4" />
-              <span>생성: {formatDate(knowledgeBase.created_at)}</span>
+        {/* Left: Icon + Title Group */}
+        <div className="flex flex-1 gap-5">
+          {/* Main Icon */}
+          <div className="flex-shrink-0 pt-1">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400">
+              <FolderOpen className="w-8 h-8" />
             </div>
-            <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
-              <Settings className="w-4 h-4" />
-              <span>모델: {knowledgeBase.embedding_model}</span>
+          </div>
+
+          {/* Text Content */}
+          <div className="flex-1 min-w-0 pt-1">
+            {/* Title Row */}
+            <div className="flex items-center gap-2 mb-1">
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={handleNameUpdate}
+                  onKeyDown={(e) => e.key === 'Enter' && handleNameUpdate()}
+                  autoFocus
+                  className="text-2xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
+                />
+              ) : (
+                <h1
+                  onClick={() => setIsEditingName(true)}
+                  className="text-2xl font-bold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors truncate"
+                  title="클릭하여 이름 수정"
+                >
+                  {knowledgeBase.name}
+                </h1>
+              )}
+            </div>
+
+            {/* Description Row */}
+            <div className="mb-1">
+              {isEditingDesc ? (
+                <input
+                  type="text"
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  onBlur={handleDescUpdate}
+                  onKeyDown={(e) => e.key === 'Enter' && handleDescUpdate()}
+                  autoFocus
+                  placeholder="설명을 입력하세요"
+                  className="text-gray-500 dark:text-gray-400 bg-transparent border-b border-blue-500 focus:outline-none w-full"
+                />
+              ) : (
+                <p
+                  onClick={() => setIsEditingDesc(true)}
+                  className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors truncate ${
+                    knowledgeBase.description
+                      ? 'text-gray-500 dark:text-gray-400'
+                      : 'text-gray-400 dark:text-gray-500 italic'
+                  }`}
+                  title="클릭하여 설명 수정"
+                >
+                  {knowledgeBase.description || '설명을 입력하세요'}
+                </p>
+              )}
+            </div>
+            {/* Metadata Row */}
+            <div className="flex items-center gap-4 mt-3 text-sm text-gray-500 dark:text-gray-400">
+              <button
+                onClick={() => setIsModelModalOpen(true)}
+                className="flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group relative"
+                title="클릭하여 모델 변경"
+              >
+                <Settings className="w-4 h-4" />
+                <span>
+                  모델:{' '}
+                  <span className="font-medium text-gray-700 dark:text-gray-300">
+                    {knowledgeBase.embedding_model}
+                  </span>
+                </span>
+                <span className="opacity-0 group-hover:opacity-100 transition-opacity absolute -right-5 text-xs">
+                  ✏️
+                </span>
+              </button>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsDeleteModalOpen(true)}
-            className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-            title="참고자료 그룹 삭제"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+
+        {/* Right: Action Buttons */}
+        <div className="flex items-center gap-2 flex-shrink-0 ml-4 pt-1">
+          {/* More Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors mr-1"
+              title="더보기"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+
+            {isMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsMenuOpen(false)}
+                />
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-20 overflow-hidden py-1">
+                  <button
+                    onClick={() => {
+                      setIsDeleteModalOpen(true);
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    자료 그룹 삭제
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button
             onClick={() => setIsSearchModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-white rounded-lg transition-colors mr-3 shadow-sm"
+            className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-white rounded-lg transition-colors mr-2 shadow-sm"
           >
             <Bot className="w-5 h-5 mr-1.5 text-blue-600 dark:text-blue-400" />
-            검색 테스트
+            AI 답변 테스트
           </button>
           <button
             onClick={() => setIsUploadModalOpen(true)}
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5 mr-1.5" />
-            추가
+            자료 추가
           </button>
         </div>
       </div>
@@ -372,9 +447,20 @@ export default function KnowledgeDetailPage() {
                     colSpan={6}
                     className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
                   >
-                    <div className="flex flex-col items-center gap-2">
-                      <FileText className="w-8 h-8 opacity-20" />
-                      <p>아직 등록된 자료가 없습니다.</p>
+                    <div className="flex flex-col items-center justify-center">
+                      <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-2" />
+                      <p className="text-gray-900 dark:text-gray-200 font-medium mb-1">
+                        아직 등록된 자료가 없습니다.
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        AI가 학습할 문서를 추가해보세요.
+                      </p>
+                      <button
+                        onClick={() => setIsUploadModalOpen(true)}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                      >
+                        <Plus className="w-4 h-4 mr-1.5" />첫 번째 자료 추가하기
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -386,17 +472,17 @@ export default function KnowledgeDetailPage() {
                   >
                     <td className="px-6 py-4">
                       {doc.source_type === 'DB' ? (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 text-xs font-semibold">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 text-xs font-semibold border border-purple-100 dark:border-purple-800">
                           <Database className="w-3.5 h-3.5" />
                           DB
                         </div>
                       ) : doc.source_type === 'API' ? (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-xs font-semibold">
-                          <Globe className="w-3.5 h-3.5" />
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300 text-xs font-semibold border border-green-100 dark:border-green-800">
+                          <Webhook className="w-3.5 h-3.5" />
                           API
                         </div>
                       ) : (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-semibold">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 text-xs font-semibold border border-blue-100 dark:border-blue-800">
                           <FileText className="w-3.5 h-3.5" />
                           FILE
                         </div>
@@ -492,7 +578,7 @@ export default function KnowledgeDetailPage() {
             <div className="flex justify-between items-start">
               <h3 className="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
                 <Trash2 className="w-5 h-5" />
-                참고자료 그룹 삭제
+                자료 그룹 삭제
               </h3>
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
@@ -506,7 +592,7 @@ export default function KnowledgeDetailPage() {
               <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-800 dark:text-red-300">
                 <p className="font-semibold mb-1">경고: 복구할 수 없습니다.</p>
                 <p>
-                  삭제하시려면 참고자료 그룹 이름{' '}
+                  삭제하시려면 자료 그룹 이름{' '}
                   <span className="font-bold underline">
                     {knowledgeBase.name}
                   </span>
@@ -519,7 +605,7 @@ export default function KnowledgeDetailPage() {
                 value={deleteConfirmName}
                 onChange={(e) => setDeleteConfirmName(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
-                placeholder="참고자료 그룹 이름 입력"
+                placeholder="자료 그룹 이름 입력"
               />
 
               <div className="flex justify-end gap-3 pt-2">
@@ -550,6 +636,14 @@ export default function KnowledgeDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Embedding Model Change Modal */}
+      <ChangeEmbeddingModelModal
+        isOpen={isModelModalOpen}
+        onClose={() => setIsModelModalOpen(false)}
+        currentModel={knowledgeBase?.embedding_model || ''}
+        onConfirm={handleModelChange}
+      />
     </div>
   );
 }
