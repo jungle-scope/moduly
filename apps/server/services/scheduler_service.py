@@ -33,11 +33,18 @@ class SchedulerService:
     def load_schedules_from_db(self, db: Session):
         """
         서버 시작 시 DB에서 모든 스케줄을 로드하여 메모리에 등록
+        활성 배포(is_active=True)의 스케줄만 로드합니다.
 
         Args:
             db: 데이터베이스 세션
         """
-        schedules = db.query(Schedule).all()
+        # 활성 배포만 필터링
+        schedules = (
+            db.query(Schedule)
+            .join(WorkflowDeployment, Schedule.deployment_id == WorkflowDeployment.id)
+            .filter(WorkflowDeployment.is_active.is_(True))
+            .all()
+        )
 
         for schedule in schedules:
             try:

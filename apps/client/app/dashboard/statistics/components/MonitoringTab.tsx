@@ -1,6 +1,7 @@
 
 import { useGlobalStats } from '../hooks/useGlobalStats';
 import { RunsOverTimeChart } from '@/app/features/workflow/components/monitoring/charts/RunsOverTimeChart';
+import { getNodeDisplayInfo } from '@/app/features/workflow/utils/nodeDisplayUtils';
 import { AlertCircle, Box, Coins, TrendingUp, Activity, ArrowRight, DollarSign, Zap, Layers } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
@@ -261,12 +262,14 @@ export const MonitoringTab = () => {
                             <tr>
                                 <th className="px-4 py-3 rounded-l-lg">발생 시간</th>
                                 <th className="px-4 py-3">서비스명</th>
-                                <th className="px-4 py-3">노드 ID</th>
+                                <th className="px-4 py-3">실패 노드</th>
                                 <th className="px-4 py-3 rounded-r-lg">에러 메시지</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {stats.recentFailures.map((fail) => (
+                            {stats.recentFailures.map((fail) => {
+                                const nodeDisplay = getNodeDisplayInfo(fail.node_id);
+                                return (
                                 <tr 
                                     key={fail.run_id + fail.node_id} 
                                     className="hover:bg-gray-50 cursor-pointer transition-colors"
@@ -278,14 +281,18 @@ export const MonitoringTab = () => {
                                     <td className="px-4 py-3 font-medium text-gray-900">
                                         {fail.workflow_name}
                                     </td>
-                                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">
-                                        {fail.node_id}
+                                    <td className="px-4 py-3">
+                                        <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-sm font-medium ${nodeDisplay.color}`}>
+                                            {nodeDisplay.icon}
+                                            {nodeDisplay.label}
+                                        </span>
                                     </td>
                                     <td className="px-4 py-3 text-red-600 truncate max-w-xs" title={fail.error_message}>
                                         {fail.error_message}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                         </table>
                 </div>

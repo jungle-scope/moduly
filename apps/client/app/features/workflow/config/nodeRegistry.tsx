@@ -51,7 +51,7 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'start',
     type: 'startNode',
-    name: '시작',
+    name: '입력',
     category: 'trigger',
     color: '#3b82f6', // blue-500 색상
     icon: <Play className="w-3.5 h-3.5 text-white fill-current" />,
@@ -59,7 +59,7 @@ export const nodeRegistry: NodeDefinition[] = [
     unique: true, // 워크플로우당 하나만 허용
     description: '워크플로우의 시작점. 입력 변수를 정의합니다.',
     defaultData: (): StartNodeData => ({
-      title: '시작',
+      title: '입력',
       triggerType: 'manual' as TriggerType,
       variables: [],
     }),

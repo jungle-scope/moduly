@@ -171,11 +171,11 @@ def get_workflow_stats(
             if total_runs > 0
             else 0.0,
             avgDuration=round(avg_duration, 2),
-            totalCost=round(total_cost, 4),
+            totalCost=round(total_cost, 8),
             avgTokenPerRun=round(total_tokens / total_runs, 1)
             if total_runs > 0
             else 0.0,
-            avgCostPerRun=round(total_cost / total_runs, 5) if total_runs > 0 else 0.0,
+            avgCostPerRun=round(total_cost / total_runs, 8) if total_runs > 0 else 0.0,
         )
 
         # === 2. Runs Over Time (Extended) ===

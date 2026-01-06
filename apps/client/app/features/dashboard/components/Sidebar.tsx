@@ -12,7 +12,7 @@ const navigationItems = [
     icon: Home,
   },
   {
-    name: '탐색',
+    name: '마켓플레이스',
     href: '/dashboard/explore',
     icon: Search,
   },
@@ -51,7 +51,7 @@ export default function Sidebar() {
               className={cn(
                 'flex items-center rounded-lg py-2.5 text-sm font-medium transition-colors gap-3 px-3',
                 isActive
-                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-white',
               )}
             >
