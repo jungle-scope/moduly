@@ -45,6 +45,7 @@ import { App } from '@/app/features/app/api/appApi';
 import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
 import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTriggerNodePanel';
+import { ScheduleTriggerNodePanel } from '../nodes/schedule/components/ScheduleTriggerNodePanel';
 import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
 import { LLMReferenceSidePanel } from '../nodes/llm/components/LLMReferenceSidePanel';
 
@@ -590,6 +591,12 @@ export default function NodeCanvas() {
             )}
             {selectedNode && selectedNodeType === 'webhookTrigger' && (
               <WebhookTriggerNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'scheduleTrigger' && (
+              <ScheduleTriggerNodePanel
                 nodeId={selectedNode.id}
                 data={selectedNode.data as any}
               />

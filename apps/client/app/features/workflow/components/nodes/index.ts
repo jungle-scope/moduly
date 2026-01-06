@@ -9,6 +9,7 @@ import { TemplateNode } from './template/components/TemplateNode';
 import { WorkflowNode } from './workflow/components/WorkflowNode';
 import { FileExtractionNode } from './file_extraction/components/FileExtractionNode';
 import { WebhookTriggerNode } from './webhook/components/WebhookTriggerNode';
+import { ScheduleTriggerNode } from './schedule/components/ScheduleTriggerNode';
 
 import { GithubNode } from './github/components/GithubNode';
 import { MailNode } from './mail/components/MailNode';
@@ -26,6 +27,7 @@ export const nodeTypes = {
   workflowNode: WorkflowNode,
   fileExtractionNode: FileExtractionNode,
   webhookTrigger: WebhookTriggerNode,
+  scheduleTrigger: ScheduleTriggerNode,
 
   githubNode: GithubNode,
   mailNode: MailNode,
