@@ -393,6 +393,7 @@ export default function NodeCanvas() {
         type: nodeDef.type as any,
         data: nodeDef.defaultData() as any,
         position,
+        style: { width: 200, height: 100 },
       };
 
       setNodes([...nodes, newNode]);
@@ -430,6 +431,7 @@ export default function NodeCanvas() {
         type: nodeDef.type as any,
         data: nodeDef.defaultData() as any,
         position,
+        style: { width: 200, height: 100 },
       };
 
       setNodes([...nodes, newNode]);
