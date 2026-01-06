@@ -20,6 +20,7 @@ export const getNodeOutputs = (node: Node): string[] => {
     case 'codeNode':
       return ['result'];
     case 'httpRequestNode':
+    case 'slackPostNode':
       return ['status', 'data', 'headers'];
     case 'answerNode':
       return [];

@@ -69,3 +69,5 @@ python-docx
 sshtunnel
 paramiko<3.0
 PyGithub
+pydantic-settings
+boto3

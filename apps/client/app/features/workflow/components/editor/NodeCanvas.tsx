@@ -1,12 +1,11 @@
 'use client';
 
-import { Sliders, Plus, StickyNote, Play, BookOpen } from 'lucide-react';
+import { Sliders, Plus, StickyNote, Play } from 'lucide-react';
 import { NodeSelector } from './NodeSelector';
 import NodeLibrarySidebar from './NodeLibrarySidebar';
 import {
   type NodeDefinition,
   getNodeDefinition,
-  getNodesByCategory,
 } from '../../config/nodeRegistry';
 import { NoteNode, AppNode } from '../../types/Nodes';
 
@@ -18,7 +17,6 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
-  // type Node, // 충돌 방지를 위해 제거됨
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -33,15 +31,14 @@ import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
+import { SlackPostNodePanel } from '../nodes/slack/components/SlackPostNodePanel';
 import { CodeNodePanel } from '../nodes/code/components/CodeNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
-
 import { GithubNodePanel } from '../nodes/github/components/GithubNodePanel';
 import { MailNodePanel } from '../nodes/mail/components/MailNodePanel';
-
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
@@ -63,32 +60,22 @@ export default function NodeCanvas() {
     activeWorkflowId,
     updateWorkflowViewport,
     setNodes,
-    updateNodeData, // [FIX] ReferenceError: updateNodeData is not defined 오류 수정
-    isVersionHistoryOpen, // [FIX] 버전 기록 패널 상호 배타적 동작 복구
-    toggleVersionHistory, // [FIX] 버전 기록 패널 상호 배타적 동작 복구
-    projectName, // 워크플로우 이름
-    projectIcon, // 워크플로우 아이콘
-    projectDescription, // 워크플로우 설명
+    updateNodeData,
+    isVersionHistoryOpen,
+    toggleVersionHistory,
+    projectName,
+    projectIcon,
+    projectDescription,
     isFullscreen,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
     useReactFlow();
-  // 세부 정보 패널을 위한 선택된 노드 추적
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
-
-  // 앱 검색 모달 상태
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-
-  // [LLM] 파라미터 패널 상태
-  // [LLM] 파라미터 패널 상태
   const [isParamPanelOpen, setIsParamPanelOpen] = useState(false);
-
-  // [LLM] 참고 자료 패널 상태
   const [isRefPanelOpen, setIsRefPanelOpen] = useState(false);
-
-  // 노드 라이브러리 사이드바 상태 (기본적으로 열림)
   const [isNodeLibraryOpen, setIsNodeLibraryOpen] = useState(true);
 
   // 전체화면 모드 변경 시 사이드바 자동 토글
@@ -100,7 +87,6 @@ export default function NodeCanvas() {
     }
   }, [isFullscreen]);
 
-  // 키보드 단축키: 검색 모달을 열기 위한 Cmd+K
   useKeyboardShortcut(
     ['Meta', 'k'],
     () => {
@@ -109,7 +95,6 @@ export default function NodeCanvas() {
     { preventDefault: true },
   );
 
-  // [LLM] 참고 자료 패널 열기 이벤트 수신
   useEffect(() => {
     const handleOpenRefPanel = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -122,10 +107,8 @@ export default function NodeCanvas() {
       window.removeEventListener('openLLMReferencePanel', handleOpenRefPanel);
   }, [selectedNodeId]);
 
-  // 앱 선택 처리: 워크플로우 노드 추가
   const handleSelectApp = useCallback(
     async (app: App & { active_deployment_id?: string; version?: number }) => {
-      // 화면 중앙 위치 계산
       const centerPos = screenToFlowPosition({
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
@@ -146,14 +129,13 @@ export default function NodeCanvas() {
           version: app.version || 0,
           deployment_id: app.active_deployment_id,
           expanded: false,
-          outputs: [], // 초기값 설정 (API 응답 전까지 빈 배열)
+          outputs: [],
         } as WorkflowNodeData,
       };
 
       setNodes([...nodes, newNode]);
       setIsSearchModalOpen(false);
 
-      // 배포 정보 조회하여 outputs 초기화 (패널을 열지 않아도 후속 노드에서 참조 가능)
       if (app.active_deployment_id) {
         try {
           const deployment = await workflowApi.getDeployment(
@@ -190,13 +172,11 @@ export default function NodeCanvas() {
     [],
   );
 
-  // 워크플로우 전환 시 뷰포트 복원
   const prevActiveWorkflowId = useRef(activeWorkflowId);
 
   useEffect(() => {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
 
-    // 워크플로우 ID가 바뀌었을 때만 뷰포트 복원
     if (prevActiveWorkflowId.current !== activeWorkflowId) {
       if (activeWorkflow?.viewport) {
         setViewport(activeWorkflow.viewport);
@@ -205,16 +185,13 @@ export default function NodeCanvas() {
     }
   }, [activeWorkflowId, workflows, setViewport]);
 
-  // 활성 워크플로우에 대한 뷰포트 변경 사항 저장
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {
-      // Zustand에 저장 → useAutoSync가 자동으로 감지하여 서버에 저장
       updateWorkflowViewport(activeWorkflowId, viewport);
     },
     [activeWorkflowId, updateWorkflowViewport],
   );
 
-  // 버전 기록이 열리면 노드 상세 패널 닫기 (상호 배타적)
   useEffect(() => {
     if (isVersionHistoryOpen) {
       setSelectedNodeId(null);
@@ -223,17 +200,13 @@ export default function NodeCanvas() {
     }
   }, [isVersionHistoryOpen]);
 
-  // 노드 클릭 시 세부 정보 패널 표시 처리
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
       if (node.type && node.type !== 'note') {
-        // 버전 기록이 열려있으면 닫기
         if (isVersionHistoryOpen) {
           toggleVersionHistory();
         }
 
-        // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
         if (selectedNodeId !== node.id) {
           setIsParamPanelOpen(false);
         }
@@ -244,15 +217,12 @@ export default function NodeCanvas() {
     [selectedNodeId, isVersionHistoryOpen, toggleVersionHistory],
   );
 
-  // 세부 정보 패널 닫기
-  // 세부 정보 패널 닫기
   const handleClosePanel = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedNodeType(null);
     setIsParamPanelOpen(false);
   }, []);
 
-  // 선택된 노드 데이터 가져오기
   const selectedNode = useMemo(() => {
     if (!selectedNodeId) return null;
     return nodes.find((n) => n.id === selectedNodeId);
@@ -261,7 +231,6 @@ export default function NodeCanvas() {
   const panelHeader = useMemo(() => {
     if (!selectedNodeType) return undefined;
     const def = getNodeDefinitionByType(selectedNodeType);
-    // Workflow Node의 경우 아이콘과 제목을 동적으로 설정할 수 있음
     if (selectedNodeType === 'workflowNode' && selectedNode) {
       return {
         icon: (selectedNode.data as unknown as WorkflowNodeData).icon || '🔄',
@@ -279,23 +248,21 @@ export default function NodeCanvas() {
     };
   }, [selectedNodeType, selectedNode]);
 
-  // 인터랙티브 모드에 따라 ReactFlow 구성
   const reactFlowConfig = useMemo(() => {
     if (interactiveMode === 'touchpad') {
       return {
-        panOnDrag: [1, 2], // 두 손가락으로 이동 (중간 및 오른쪽 마우스 버튼으로 시뮬레이션)
-        panOnScroll: true, // 스크롤로 이동 활성화
-        zoomOnScroll: false, // 스크롤로 줌 비활성화
-        zoomOnPinch: true, // 핀치 줌 활성화
-        selectionOnDrag: true, // 왼쪽 클릭으로 노드 선택 및 드래그 허용
+        panOnDrag: [1, 2],
+        panOnScroll: true,
+        zoomOnScroll: false,
+        zoomOnPinch: true,
+        selectionOnDrag: true,
       };
     } else {
-      // 마우스 친화적 모드
       return {
-        panOnDrag: true, // 왼쪽 클릭 드래그로 이동
-        panOnScroll: false, // 스크롤 시 이동하지 않음
-        zoomOnScroll: true, // 스크롤 휠로 줌
-        zoomOnPinch: true, // 핀치 줌도 지원
+        panOnDrag: true,
+        panOnScroll: false,
+        zoomOnScroll: true,
+        zoomOnPinch: true,
         selectionOnDrag: false,
       };
     }
@@ -303,27 +270,23 @@ export default function NodeCanvas() {
 
   const centerNodes = useCallback(() => {
     fitView({ padding: 0.2, duration: 300 });
-    // 중앙 정렬 후 새로운 뷰포트 저장
     setTimeout(() => {
       const viewport = getViewport();
       updateWorkflowViewport(activeWorkflowId, viewport);
     }, 300);
   }, [fitView, getViewport, activeWorkflowId, updateWorkflowViewport]);
 
-  // 현재 워크플로우의 앱 ID 찾기
   const currentAppId = useMemo(() => {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
     return activeWorkflow?.appId;
   }, [workflows, activeWorkflowId]);
 
-  // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     isOpen: boolean;
   } | null>(null);
 
-  // Node Selector Modal specific to Context Menu
   const [isContextNodeSelectorOpen, setIsContextNodeSelectorOpen] =
     useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
@@ -331,7 +294,6 @@ export default function NodeCanvas() {
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
       event.preventDefault();
-      // Calculate position relative to container
       const x = event.clientX;
       const y = event.clientY;
 
@@ -400,14 +362,12 @@ export default function NodeCanvas() {
     [contextMenuPos, screenToFlowPosition, setNodes, nodes],
   );
 
-  // Close context menu on click elsewhere
   useEffect(() => {
     const handleClick = () => handleCloseContextMenu();
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, [handleCloseContextMenu]);
 
-  // Node Library Sidebar: Handle drag and drop
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
@@ -418,7 +378,6 @@ export default function NodeCanvas() {
       const nodeDef = getNodeDefinition(nodeDefId);
       if (!nodeDef) return;
 
-      // Get drop position
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -441,13 +400,11 @@ export default function NodeCanvas() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  // Node Library Sidebar: Handle click to add
   const handleAddNodeFromLibrary = useCallback(
     (nodeDefId: string) => {
       const nodeDef = getNodeDefinition(nodeDefId);
       if (!nodeDef) return;
 
-      // Add node at center of viewport
       const centerPos = screenToFlowPosition({
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
@@ -510,7 +467,7 @@ export default function NodeCanvas() {
               strokeWidth: 10,
               stroke: '#d1d5db',
               strokeLinecap: 'round',
-              strokeDasharray: '0 20', // 점선 미리보기 (PuzzleEdge와 동일한 스타일)
+              strokeDasharray: '0 20',
             }}
             fitView
             attributionPosition="bottom-right"
@@ -525,15 +482,14 @@ export default function NodeCanvas() {
             />
           </ReactFlow>
 
-          {/* 플로팅 하단 패널 - 사이드 패널에 따라 위치 조정 */}
+          {/* 플로팅 하단 패널 */}
           <BottomPanel
             onCenterNodes={centerNodes}
             isPanelOpen={!!selectedNodeId}
             onOpenAppSearch={() => setIsSearchModalOpen(true)}
           />
 
-          {/* 노드 상세 패널 - ReactFlow 컨테이너 기준으로 위치 */}
-          {/* [LLM] 파라미터 사이드 패널 (NodeDetailsPanel 왼쪽에 위치) */}
+          {/* [LLM] 파라미터 사이드 패널 */}
           {isParamPanelOpen &&
             selectedNodeType === 'llmNode' &&
             selectedNode && (
@@ -544,6 +500,7 @@ export default function NodeCanvas() {
               />
             )}
 
+          {/* 노드 상세 패널 */}
           <NodeDetailsPanel
             nodeId={selectedNodeId}
             onClose={handleClosePanel}
@@ -583,6 +540,12 @@ export default function NodeCanvas() {
                 data={selectedNode.data as any}
               />
             )}
+            {selectedNode && selectedNodeType === 'slackPostNode' && (
+              <SlackPostNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
             {selectedNode && selectedNodeType === 'codeNode' && (
               <CodeNodePanel
                 nodeId={selectedNode.id}
@@ -601,22 +564,18 @@ export default function NodeCanvas() {
                 data={selectedNode.data as any}
               />
             )}
-
-            {/* NOTE: [TemplateNode] TemplateNode 선택 시 패널 렌더링 추가 */}
             {selectedNode && selectedNodeType === 'templateNode' && (
               <TemplateNodePanel
                 nodeId={selectedNode.id}
                 data={selectedNode.data as any}
               />
             )}
-            {/* [WorkflowNode] 모듈 입력 매핑 패널 추가 */}
             {selectedNode && selectedNodeType === 'workflowNode' && (
               <WorkflowNodePanel
                 nodeId={selectedNode.id}
                 data={selectedNode.data as any}
               />
             )}
-
             {selectedNode && selectedNodeType === 'fileExtractionNode' && (
               <FileExtractionNodePanel
                 nodeId={selectedNode.id}
@@ -642,17 +601,6 @@ export default function NodeCanvas() {
               />
             )}
           </NodeDetailsPanel>
-
-          {/* [LLM] Parameter Side Panel */}
-          {isParamPanelOpen &&
-            selectedNodeType === 'llmNode' &&
-            selectedNode && (
-              <LLMParameterSidePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-                onClose={() => setIsParamPanelOpen(false)}
-              />
-            )}
 
           {/* [LLM] Reference Side Panel */}
           {isRefPanelOpen && selectedNodeType === 'llmNode' && selectedNode && (
@@ -701,7 +649,6 @@ export default function NodeCanvas() {
               className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-[320px] max-h-[400px] overflow-y-auto"
               style={{
                 left: contextMenuPos.x,
-                // 화면 하단 여유 공간이 420px 미만이면 위쪽으로 표시
                 top:
                   typeof window !== 'undefined' &&
                   window.innerHeight - contextMenuPos.y < 420

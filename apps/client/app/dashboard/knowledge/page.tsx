@@ -53,10 +53,10 @@ export default function KnowledgePage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          지식
+          참고자료
         </h1>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
-          AI가 활용할 지식 베이스를 관리하세요.
+          AI가 활용할 참고자료를 관리하세요.
         </p>
       </div>
 

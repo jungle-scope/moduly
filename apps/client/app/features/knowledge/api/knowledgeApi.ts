@@ -20,6 +20,10 @@ export interface DocumentPreviewRequest {
   db_config?: {
     selections: { table_name: string; columns: string[] }[];
   } | null;
+  // [추가] 필터링 파라미터
+  selection_mode?: 'all' | 'range' | 'keyword';
+  chunk_range?: string;
+  keyword_filter?: string;
 }
 
 export interface DocumentSegment {
@@ -139,10 +143,10 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 참고자료 수정 (이름, 설명)
+  // 참고자료 수정, 재인덱싱
   updateKnowledgeBase: async (
     id: string,
-    data: { name?: string; description?: string },
+    data: { name?: string; description?: string; embedding_model?: string },
   ): Promise<KnowledgeBaseResponse> => {
     const response = await api.patch(`/knowledge/${id}`, data);
     return response.data;

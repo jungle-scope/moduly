@@ -21,7 +21,7 @@ const navigationItems = [
     icon: BarChart3,
   },
   {
-    name: '지식',
+    name: '참고자료',
     href: '/dashboard/knowledge',
     icon: BookOpen,
   },
@@ -47,18 +47,26 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={cn(
+                'flex items-center rounded-lg py-2.5 text-sm font-medium transition-colors gap-3 px-3',
                 isActive
-                  ? 'bg-white text-gray-900 font-medium shadow-sm'
-                  : 'text-gray-600 hover:bg-white hover:text-gray-900'
-              }`}
+                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-white',
+              )}
             >
-              <Icon className="h-4 w-4" />
-              {item.name}
+              <Icon className="h-5 w-5 shrink-0" />
+              <span>{item.name}</span>
             </Link>
           );
         })}
       </nav>
+
+      {/* Footer */}
+      <div className="border-t border-gray-200 p-4 dark:border-gray-800 mb-safe">
+        <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+          © 2025 Moduly
+        </p>
+      </div>
     </aside>
   );
 }
