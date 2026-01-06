@@ -349,7 +349,7 @@ export default function EditorHeader() {
     );
     if (!startNode) {
       const errorContent =
-        '시작 노드를 찾을 수 없습니다. 워크플로우에 시작 노드, 웹훅 트리거, 또는 스케줄 트리거를 추가해주세요.';
+        '시작 노드를 찾을 수 없습니다. 워크플로우에 입력 노드, 웹훅 트리거, 또는 스케줄 트리거를 추가해주세요.';
       console.warn('start node가 없습니다.');
       setErrorMsg(errorContent);
       return;

@@ -113,85 +113,91 @@ export const ReferencedVariablesControl: React.FC<
         return (
           <div
             key={index}
-            className="flex flex-col gap-1 rounded border border-gray-200 bg-gray-50 p-2"
+            className="group flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-all hover:border-gray-300 hover:shadow-md"
           >
-            {/* 아이템 헤더 */}
+            {/* 아이템 헤더 (옵션) */}
             {(showItemLabel || showRemoveButton) && (
-              <div className="flex items-center justify-between mb-1">
-                {showItemLabel ? (
-                  <span className="text-[10px] uppercase font-bold text-gray-400">
-                    Var #{index + 1}
-                  </span>
-                ) : (
-                  <span />
+              <div className="flex items-center justify-between">
+                {showItemLabel && (
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500/50" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Variable #{index + 1}
+                    </span>
+                  </div>
                 )}
+                <div className="flex-1" />
                 {showRemoveButton && (
                   <button
                     onClick={() => onRemove(index)}
-                    className="text-xs text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
+                    className="flex h-5 w-5 items-center justify-center rounded text-gray-400 opacity-0 bg-transparent transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                    title="Remove variable"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="h-3 w-3" />
                   </button>
                 )}
               </div>
             )}
 
-            <div className="flex flex-row gap-2 items-center">
-              {/* (1) 노드 선택 드롭다운 */}
-              <div className="flex-[2]">
-                <select
-                  className="w-full rounded border border-gray-300 p-1.5 text-xs truncate focus:border-blue-500 focus:outline-none"
-                  value={selectedSourceNodeId}
-                  onChange={(e) =>
-                    handleSelectorUpdate(index, 0, e.target.value)
-                  }
-                >
-                  <option value="">노드 선택</option>
-                  {upstreamNodes.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {(n.data as { title?: string })?.title || n.type}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex flex-row items-center gap-2">
+              {/* (1) Source Group: Node & Output */}
+              <div className="flex flex-[4] flex-col gap-1 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <select
+                    className="w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
+                    value={selectedSourceNodeId}
+                    onChange={(e) =>
+                      handleSelectorUpdate(index, 0, e.target.value)
+                    }
+                  >
+                    <option value="">노드 선택</option>
+                    {upstreamNodes.map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {(n.data as { title?: string })?.title || n.type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* (2) 출력값 선택 */}
-              <div className="flex-[2] relative">
-                <select
-                  className={`w-full rounded border p-1.5 text-xs truncate focus:border-blue-500 focus:outline-none ${
-                    !selectedSourceNodeId
-                      ? 'bg-gray-100 text-gray-400 border-gray-200'
-                      : 'border-gray-300 bg-white'
-                  }`}
-                  value={selectedVarKey}
-                  onChange={(e) =>
-                    handleSelectorUpdate(index, 1, e.target.value)
-                  }
-                  disabled={!selectedSourceNodeId}
-                >
-                  <option value="">
-                    {!selectedSourceNodeId ? '출력 선택' : '출력값 선택'}
-                  </option>
-                  {availableOutputs.map((outKey: string) => (
-                    <option key={outKey} value={outKey}>
-                      {outKey}
+                <div className="relative flex-1">
+                  <select
+                    className={`w-full appearance-none rounded-md border px-2 py-1.5 text-xs font-medium transition-colors focus:border-blue-500 focus:outline-none ${
+                      !selectedSourceNodeId
+                        ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300'
+                        : 'border-gray-200 bg-gray-50 text-gray-700 focus:bg-white'
+                    }`}
+                    value={selectedVarKey}
+                    onChange={(e) =>
+                      handleSelectorUpdate(index, 1, e.target.value)
+                    }
+                    disabled={!selectedSourceNodeId}
+                  >
+                    <option value="">
+                      {!selectedSourceNodeId ? '출력 선택' : '출력값 선택'}
                     </option>
-                  ))}
-                </select>
+                    {availableOutputs.map((outKey: string) => (
+                      <option key={outKey} value={outKey}>
+                        {outKey}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {!hideAlias && (
                 <>
                   {/* 화살표 아이콘 */}
-                  <div className="flex-none text-gray-400">
-                    <ArrowRight className="w-3 h-3" />
+                  <div className="flex flex-none items-center justify-center text-gray-400">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100">
+                      <ArrowRight className="h-3 w-3 text-gray-500" />
+                    </div>
                   </div>
 
                   {/* (3) 변수명 (별칭) 입력 */}
                   <div className="flex-[3]">
                     <input
                       type="text"
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-blue-600 placeholder:font-normal placeholder:text-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
                       placeholder={placeholder}
                       value={variable.name}
                       onChange={(e) => onUpdate(index, 'name', e.target.value)}
