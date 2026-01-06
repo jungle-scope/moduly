@@ -41,9 +41,11 @@ export const connectorApi = {
   /**
    * DB 연결 테스트
    * @param config - DB 연결 정보
-   * @returns 성공 여부
+   * @returns 성공 여부 및 메시지
    */
-  testConnection: async (config: DBConfig): Promise<boolean> => {
+  testConnection: async (
+    config: DBConfig,
+  ): Promise<{ success: boolean; message: string }> => {
     try {
       const payload = {
         connection_name: config.connectionName,
@@ -67,10 +69,17 @@ export const connectorApi = {
       };
 
       const response = await api.post('/connectors/test', payload);
-      return response.data.success;
-    } catch (error) {
+      return {
+        success: response.data.success,
+        message: response.data.message,
+      };
+    } catch (error: any) {
       console.error('DB Connection Test Error', error);
-      return false;
+      return {
+        success: false,
+        message:
+          error.response?.data?.message || error.message || 'Unknown Error',
+      };
     }
   },
 

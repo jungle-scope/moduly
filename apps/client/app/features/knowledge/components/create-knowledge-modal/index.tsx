@@ -170,10 +170,19 @@ export default function CreateKnowledgeModal({
   // DB Connection Test
   const handleTestDBConnection = async (config: DBConfig): Promise<boolean> => {
     try {
-      return await connectorApi.testConnection(config);
-    } catch (err) {
+      const result = await connectorApi.testConnection(config);
+      if (result.success) {
+        toast.success(result.message || 'DB 연결 테스트 성공!');
+        return true;
+      } else {
+        toast.error(result.message || 'DB 연결에 실패했습니다.');
+        return false;
+      }
+    } catch (err: any) {
       console.error('DB Connection Test Error', err);
-      toast.error('DB 연결 테스트 중 오류가 발생했습니다.');
+      toast.error(
+        err.message || 'DB 연결 테스트 중 알 수 없는 오류가 발생했습니다.',
+      );
       return false;
     }
   };
