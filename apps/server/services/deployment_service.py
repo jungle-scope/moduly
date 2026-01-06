@@ -9,6 +9,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from db.models.app import App
+from db.models.schedule import Schedule
 from db.models.workflow import Workflow
 from db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from schemas.deployment import DeploymentCreate
@@ -483,3 +484,110 @@ class DeploymentService:
                 return node
 
         return None
+
+    @staticmethod
+    def toggle_deployment(
+        db: Session, deployment_id: uuid.UUID, scheduler_service=None
+    ) -> WorkflowDeployment:
+        """
+        배포의 is_active 상태를 토글합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            deployment_id: 배포 ID
+            scheduler_service: SchedulerService 인스턴스 (스케줄 관리용)
+
+        Returns:
+            업데이트된 WorkflowDeployment 객체
+
+        Raises:
+            HTTPException: 배포를 찾을 수 없는 경우
+        """
+        # 1. 배포 조회
+        deployment = (
+            db.query(WorkflowDeployment)
+            .filter(WorkflowDeployment.id == deployment_id)
+            .first()
+        )
+        if not deployment:
+            raise HTTPException(status_code=404, detail="Deployment not found")
+
+        # 2. is_active 토글
+        deployment.is_active = not deployment.is_active
+
+        # 3. Schedule 처리
+        schedule = (
+            db.query(Schedule).filter(Schedule.deployment_id == deployment_id).first()
+        )
+
+        if schedule and scheduler_service:
+            if deployment.is_active:
+                # 활성화: Schedule Job 재등록
+                scheduler_service.add_schedule(schedule, db)
+            else:
+                # 비활성화: Schedule Job 제거
+                scheduler_service.remove_schedule(schedule.id)
+
+        db.commit()
+        db.refresh(deployment)
+
+        return deployment
+
+    @staticmethod
+    def delete_deployment(
+        db: Session, deployment_id: uuid.UUID, scheduler_service=None
+    ) -> Dict[str, str]:
+        """
+        배포를 삭제합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            deployment_id: 배포 ID
+            scheduler_service: SchedulerService 인스턴스 (스케줄 관리용)
+
+        Returns:
+            삭제 결과 메시지
+
+        Raises:
+            HTTPException: 배포를 찾을 수 없는 경우
+        """
+        # 1. 배포 조회
+        deployment = (
+            db.query(WorkflowDeployment)
+            .filter(WorkflowDeployment.id == deployment_id)
+            .first()
+        )
+        if not deployment:
+            raise HTTPException(status_code=404, detail="Deployment not found")
+
+        # 2. Schedule 제거
+        schedule = (
+            db.query(Schedule).filter(Schedule.deployment_id == deployment_id).first()
+        )
+        if schedule:
+            if scheduler_service:
+                scheduler_service.remove_schedule(schedule.id)
+            db.delete(schedule)
+
+        # 3. App의 active_deployment_id 업데이트
+        app = db.query(App).filter(App.id == deployment.app_id).first()
+        if app and app.active_deployment_id == deployment_id:
+            # 다른 활성 배포 찾기 (최신 버전 우선)
+            other_deployment = (
+                db.query(WorkflowDeployment)
+                .filter(
+                    WorkflowDeployment.app_id == app.id,
+                    WorkflowDeployment.id != deployment_id,
+                    WorkflowDeployment.is_active == True,
+                )
+                .order_by(WorkflowDeployment.version.desc())
+                .first()
+            )
+
+            app.active_deployment_id = other_deployment.id if other_deployment else None
+
+        # 4. 배포 레코드 삭제
+        db.delete(deployment)
+        db.commit()
+
+        return {"message": f"Deployment {deployment_id} deleted successfully"}
