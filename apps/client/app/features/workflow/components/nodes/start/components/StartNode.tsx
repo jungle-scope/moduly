@@ -13,7 +13,7 @@ export const StartNode = memo(
         selected={selected}
         puzzleType="start"
         showTargetHandle={false} // StartNode has no input
-        icon={<Play className="text-white fill-current" />}
+        icon={<Play className="text-white" fill="currentColor" />}
         iconColor="#3b82f6" // blue-500
       />
     );

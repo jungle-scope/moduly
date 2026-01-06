@@ -468,10 +468,9 @@ export default function NodeCanvas() {
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOptions}
             connectionLineStyle={{
-              strokeWidth: 10,
-              stroke: '#d1d5db',
+              strokeWidth: 2,
+              stroke: '#9ca3af',
               strokeLinecap: 'round',
-              strokeDasharray: '0 20',
             }}
             fitView
             attributionPosition="bottom-right"
