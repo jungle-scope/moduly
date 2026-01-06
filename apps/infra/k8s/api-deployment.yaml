@@ -14,6 +14,7 @@ spec:
       labels:
         app: api-server
     spec:
+      serviceAccountName: api-server-sa  # IRSA 연결
       containers:
       - name: api-server
         image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:eks-latest
@@ -54,6 +55,13 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: SANDBOX_API_KEY
+        # S3 설정 (IRSA)
+        - name: RAG_INGESTION_MODE
+          value: "PROD"
+        - name: S3_BUCKET_NAME
+          value: "moduly-dev-file-upload"
+        - name: AWS_REGION
+          value: "ap-northeast-2"
         resources:
           requests:
             cpu: 200m
