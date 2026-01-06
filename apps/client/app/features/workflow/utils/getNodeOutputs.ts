@@ -27,8 +27,7 @@ export const getNodeOutputs = (node: Node): string[] => {
       return ['result'];
     case 'fileExtractionNode':
       return ['result', 'page_count'];
-    case 'knowledgeNode':
-      return ['context', 'metadata'];
+
     case 'githubNode':
       // Get PR: pr_title, pr_body, pr_state, pr_number, files_count, files, diff_url
       // Comment PR: comment_id, comment_url, comment_body
@@ -44,6 +43,8 @@ export const getNodeOutputs = (node: Node): string[] => {
         'comment_url',
         'comment_body',
       ];
+    case 'mailNode':
+      return ['emails', 'total_count', 'folder'];
     default:
       return ['result'];
   }

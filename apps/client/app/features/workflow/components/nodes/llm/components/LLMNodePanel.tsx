@@ -6,7 +6,7 @@ import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
-import { Plus, Trash2, HelpCircle } from 'lucide-react';
+import { Plus, Trash2, HelpCircle, BookOpen, MousePointerClick } from 'lucide-react';
 
 // Backend Response Type matches LLMModelResponse
 type ModelOption = {
@@ -508,6 +508,50 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           })}
         </div>
       </CollapsibleSection>
+
+      {/* 2.5 참고 자료 버튼 (참고 자료 그룹 통합) */}
+      <div className="my-2 group">
+        <button
+          type="button"
+          onClick={() => {
+            // 부모 컴포넌트에서 사이드 패널 열기
+            const event = new CustomEvent('openLLMReferencePanel', { detail: { nodeId } });
+            window.dispatchEvent(event);
+          }}
+          className={`relative w-full py-4 px-5 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center gap-4 active:scale-[0.98] ${
+            (data.knowledgeBases?.length ?? 0) > 0
+              ? 'border-indigo-400 bg-indigo-50/80 text-indigo-800 shadow-sm hover:shadow-md hover:bg-indigo-50 hover:border-indigo-500'
+              : 'border-gray-300 bg-gray-50/50 text-gray-600 hover:border-indigo-400 hover:bg-indigo-50/30 hover:text-indigo-700 hover:shadow-sm'
+          }`}
+        >
+          {/* Background Illustration Effect on Hover */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+
+          {/* Left Icon (Book) */}
+          <div className={`p-2 rounded-lg transition-colors duration-300 ${
+             (data.knowledgeBases?.length ?? 0) > 0 ? 'bg-indigo-200 text-indigo-700' : 'bg-gray-200 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'
+          }`}>
+            <BookOpen className="w-5 h-5" />
+          </div>
+
+          {/* Text Content */}
+          <div className="flex flex-col items-start flex-1 gap-0.5">
+            <span className="font-bold text-sm tracking-tight">참고 자료 그룹 설정</span>
+            <span className={`text-xs transition-colors duration-300 ${
+               (data.knowledgeBases?.length ?? 0) > 0 ? 'text-indigo-600 font-medium' : 'text-gray-400 group-hover:text-indigo-500'
+            }`}>
+              {(data.knowledgeBases?.length ?? 0) > 0
+                ? `${data.knowledgeBases!.length}개 그룹 연결됨`
+                : 'LLM에 지식을 연결하세요'}
+            </span>
+          </div>
+
+          {/* Right Icon (Click Action) */}
+          <div className="transform transition-all duration-300 group-hover:scale-110 group-hover:rotate-[-6deg] text-gray-300 group-hover:text-indigo-500">
+            <MousePointerClick className="w-6 h-6" />
+          </div>
+        </button>
+      </div>
 
       {/* 3. Prompts */}
       <CollapsibleSection title="Prompts">

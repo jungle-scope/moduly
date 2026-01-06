@@ -1,11 +1,25 @@
 import json
-import re
 from typing import Any, Dict
 
 import httpx
+from jinja2 import Environment
 
 from workflow.nodes.base.node import Node
 from workflow.nodes.http.entities import HttpRequestNodeData
+
+_jinja_env = Environment(autoescape=False)
+
+
+def _get_nested_value(data: Any, keys: list[str]) -> Any:
+    """
+    중첩된 딕셔너리에서 키 경로를 따라 값을 추출합니다.
+    """
+    for key in keys:
+        if isinstance(data, dict):
+            data = data.get(key)
+        else:
+            return None
+    return data
 
 
 class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
@@ -22,58 +36,87 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
         """
         data = self.data
 
-        # 1. 변수 치환 로직 (URL, Headers, Body)
-        url = self._substitute_variables(data.url, inputs)
-        body = self._substitute_variables(data.body, inputs) if data.body else None
+        # 1. 템플릿 렌더링 (URL, Headers, Body)
+        url = self._render_template(data.url, inputs)
+        body = (
+            self._render_template(data.body, inputs, json_context=True)
+            if data.body
+            else None
+        )
 
         headers = {}
         for h in data.headers:
-            headers[h.key] = self._substitute_variables(h.value, inputs)
+            headers[h.key] = self._render_template(h.value, inputs)
 
         # 2. Authentication 처리
         auth_type = getattr(data, "authType", "none")
         auth_config = getattr(data, "authConfig", {})
 
         if auth_type == "bearer":
-            token = self._substitute_variables(auth_config.get("token", ""), inputs)
+            token = self._render_template(auth_config.get("token", ""), inputs)
             if token:
                 headers["Authorization"] = f"Bearer {token}"
 
         elif auth_type == "apiKey":
             api_key_header = auth_config.get("apiKeyHeader", "X-API-Key")
-            api_key_value = self._substitute_variables(
+            api_key_value = self._render_template(
                 auth_config.get("apiKeyValue", ""), inputs
             )
             if api_key_value:
                 headers[api_key_header] = api_key_value
 
-        # 3. Body Type 처리 (현재는 JSON만 지원)
-        # Body가 있다면 무조건 Content-Type: application/json 추가
+        # 3. Body 처리
+        # 현재는 JSON만 지원 (추후 form-data, XML 등 확장 가능)
         if body:
-            # 사용자가 이미 설정했는지 확인
+            # Content-Type이 명시되지 않은 경우 기본값으로 JSON 설정
             content_type_keys = [
                 k for k in headers.keys() if k.lower() == "content-type"
             ]
             if not content_type_keys:
                 headers["Content-Type"] = "application/json"
 
-            # JSON 유효성 검사 (실패 시 에러 발생 대신 원본 전송 시도하거나 로그 남김 등 선택 가능)
-            # 여기서는 편의를 위해 만약 JSON 형식이 아니라면 그대로 전송 (사용자 책임을 남겨둠)
-
-        # 3. HTTP 요청 실행
+        # 4. HTTP 요청 실행
         method = data.method.value
         timeout = data.timeout / 1000.0  # ms -> seconds
 
         try:
             with httpx.Client(timeout=timeout) as client:
-                response = client.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    content=body,  # httpx는 'content' 인자에 문자열/바이트를 받음
-                )
+                # 현재는 JSON만 지원
+                # TODO: 추후 다른 Content-Type 지원 시 여기에 분기 추가
+                # - application/x-www-form-urlencoded
+                # - multipart/form-data
+                # - text/xml
+                # - text/plain
 
-                # 결과 반환
+                if body:
+                    try:
+                        json_body = json.loads(body)
+
+                        response = client.request(
+                            method=method,
+                            url=url,
+                            headers={
+                                k: v
+                                for k, v in headers.items()
+                                if k.lower() != "content-type"
+                            },
+                            json=json_body,
+                        )
+                    except json.JSONDecodeError as e:
+                        # JSON 파싱 실패 시 에러 발생
+                        raise ValueError(
+                            f"Body는 유효한 JSON 형식이어야 합니다: {str(e)}"
+                        )
+                else:
+                    # Body가 없는 경우 (GET 요청 등)
+                    response = client.request(
+                        method=method,
+                        url=url,
+                        headers=headers,
+                        content=None,
+                    )
+
+                # 5. 응답 처리
                 try:
                     response_body = response.json()
                 except json.JSONDecodeError:
@@ -87,39 +130,36 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
         except httpx.RequestError as e:
             raise RuntimeError(f"HTTP 요청 실패: {str(e)}")
 
-    def _substitute_variables(self, text: str, inputs: Dict[str, Any]) -> str:
+    def _render_template(
+        self, template_text: str, inputs: Dict[str, Any], json_context: bool = False
+    ) -> str:
         """
-        텍스트 내의 {{NodeId.variable}} 패턴을 찾아 실제 값으로 치환합니다.
-
-        Args:
-            text: 치환할 원본 문자열
-            inputs: 현재까지의 실행 결과(컨텍스트)
-
-        Returns:
-            치환된 문자열
+        Jinja2를 사용하여 템플릿 문자열을 렌더링합니다.
+        referenced_variables를 사용하여 컨텍스트를 구성합니다.
         """
-        if not text:
-            return text
+        if not template_text:
+            return ""
 
-        # 정규표현식으로 {{ pattern }} 찾기
-        # 예: {{start-1767025047109.text}} -> group(1): start-1767025047109.text
-        # 하이픈(-)을 포함한 노드 ID 지원
-        pattern = re.compile(r"\{\{\s*([\w\.\-]+)\s*\}\}")
+        context = {}
+        # data.referenced_variables가 없을 수 있음을 대비
+        referenced_variables = getattr(self.data, "referenced_variables", [])
 
-        def replace_match(match):
-            variable_path = match.group(1).strip()
+        for variable in referenced_variables:
+            val = _get_nested_value(inputs, variable.value_selector)
+            val = val if val is not None else ""
 
-            # inputs 구조: { "Start": {"query": "value"} } 형태
-            # 예: {{Start.query}} -> inputs["Start"]["query"]
+            if json_context and isinstance(val, str):
+                # JSON 문자열 내에 삽입될 경우, 따옴표와 제어문자를 이스케이프해야 함.
+                escaped_val = json.dumps(val)
+                if escaped_val.startswith('"') and escaped_val.endswith('"'):
+                    escaped_val = escaped_val[1:-1]
+                context[variable.name] = escaped_val
+            else:
+                context[variable.name] = val
 
-            # NodeId.변수명 형태를 파싱
-            if "." in variable_path:
-                node_id, var_name = variable_path.split(".", 1)
-                node_data = inputs.get(node_id)
-                if isinstance(node_data, dict) and var_name in node_data:
-                    return str(node_data[var_name])
-
-            # 값을 찾지 못하면 원본 유지
-            return match.group(0)
-
-        return pattern.sub(replace_match, text)
+        try:
+            template = _jinja_env.from_string(template_text)
+            return template.render(**context)
+        except Exception:
+            # 렌더링 실패 시 원본 텍스트 반환 (로깅 필요 시 추가)
+            return template_text

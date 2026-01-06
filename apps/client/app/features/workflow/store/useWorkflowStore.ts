@@ -73,6 +73,10 @@ type WorkflowState = {
   restoreVersion: (version: DeploymentResponse) => Promise<void>;
   notifyDeploymentComplete: () => void; // 배포 완료 알림
 
+  // === Remote Execution Trigger ===
+  runTrigger: number;
+  triggerWorkflowRun: () => void;
+
   // === Editor UI 액션 ===
 
   setProjectInfo: (name: string, icon: AppIcon) => void;
@@ -137,6 +141,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   isVersionHistoryOpen: false,
   previewingVersion: null,
   lastDeployedAt: null,
+
+  runTrigger: 0,
+  triggerWorkflowRun: () =>
+    set((state) => ({ runTrigger: state.runTrigger + 1 })),
 
   // === 그래프 데이터 ===
   nodes: initialNodes,

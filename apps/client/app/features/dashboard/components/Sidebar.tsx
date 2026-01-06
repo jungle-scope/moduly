@@ -2,23 +2,24 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Search,
   Wrench,
-  Library,
-  Pencil,
+  BookOpen, // Changed from Library to BookOpen (from remote)
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  Plus,
+  Home,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigationItems = [
   {
-    name: '스튜디오',
+    name: '대시보드',
     href: '/dashboard',
-    icon: Pencil,
+    icon: Home,
   },
   {
     name: '탐색',
@@ -33,7 +34,7 @@ const navigationItems = [
   {
     name: '참고자료',
     href: '/dashboard/knowledge',
-    icon: Library,
+    icon: BookOpen,
   },
   {
     name: '도구',
@@ -44,7 +45,15 @@ const navigationItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleCreateApp = () => {
+    router.push('/dashboard');
+    // Trigger the create app modal
+    const event = new CustomEvent('openCreateAppModal');
+    window.dispatchEvent(event);
+  };
 
   return (
     <aside
@@ -57,6 +66,7 @@ export default function Sidebar() {
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="absolute -right-3 top-20 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:text-white"
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {isCollapsed ? (
           <ChevronRight className="h-3 w-3" />
@@ -82,8 +92,24 @@ export default function Sidebar() {
         </h1>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      {/* Create Button Section */}
+      <div className={cn('px-4 py-3 mt-4', isCollapsed && 'px-2')}>
+        <button
+          onClick={handleCreateApp}
+          className={cn(
+            'w-full flex items-center justify-center gap-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700',
+            isCollapsed ? 'px-0 py-3' : 'px-4 py-2',
+          )}
+          title="Create App"
+          aria-label="Create App"
+        >
+          <Plus className="w-4 h-4" />
+          {!isCollapsed && <span>Create</span>}
+        </button>
+      </div>
+
+      {/* Main Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1">
         {navigationItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;

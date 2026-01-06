@@ -29,18 +29,13 @@ from unittest.mock import Mock, patch
 
 from workflow.nodes.base.entities import NodeStatus
 from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
-from workflow.nodes.http.entities import HttpMethod
+from workflow.nodes.http.entities import HttpMethod, HttpVariable
 
 
 class TestHttpNode(unittest.TestCase):
     def test_http_node_basic_get(self):
         """
         기본 GET 요청 테스트
-
-        [검증 포인트]
-        1. 내가 입력한 URL(https://api.example.com/users)을 정확히 들고 갔는가?
-        2. GET 메서드로 요청하려고 했는가?
-        3. 응답이 왔을 때(Mock), 그걸 내 결과 포맷({status, body})으로 잘 변환했는가?
         """
         # Given: HTTP GET 노드 생성
         node_data = HttpRequestNodeData(
@@ -48,6 +43,7 @@ class TestHttpNode(unittest.TestCase):
             method=HttpMethod.GET,
             url="https://api.example.com/users",
             timeout=5000,
+            referenced_variables=[],
         )
         node = HttpRequestNode(id="http-1", data=node_data)
 
@@ -67,7 +63,6 @@ class TestHttpNode(unittest.TestCase):
             # 노드 실행
             outputs = node.execute({})
 
-            # [중요] 실제로는 요청이 안 나가지만, "올바른 주소로 요청하려 했는지"는 Mock에게 물어볼 수 있음
             # call_args를 통해 노드가 라이브러리에게 넘긴 인자(URL 등)를 검사
             call_kwargs = (
                 mock_client.return_value.__enter__.return_value.request.call_args.kwargs
@@ -93,6 +88,7 @@ class TestHttpNode(unittest.TestCase):
             url="https://api.example.com/posts",
             body='{"title": "New Post"}',
             timeout=5000,
+            referenced_variables=[],
         )
         node = HttpRequestNode(id="http-1", data=node_data)
 
@@ -112,7 +108,7 @@ class TestHttpNode(unittest.TestCase):
             call_kwargs = (
                 mock_client.return_value.__enter__.return_value.request.call_args.kwargs
             )
-            self.assertEqual(call_kwargs["headers"]["Content-Type"], "application/json")
+            self.assertEqual(call_kwargs["json"], {"title": "New Post"})
 
         # Then
         self.assertEqual(outputs["status"], 201)
@@ -127,6 +123,7 @@ class TestHttpNode(unittest.TestCase):
             authType="bearer",
             authConfig={"token": "my-token"},
             timeout=5000,
+            referenced_variables=[],
         )
         node = HttpRequestNode(id="http-1", data=node_data)
 
@@ -157,8 +154,11 @@ class TestHttpNode(unittest.TestCase):
         node_data = HttpRequestNodeData(
             title="변수 치환",
             method=HttpMethod.GET,
-            url="https://api.example.com/users/{{Start.userId}}",
+            url="https://api.example.com/users/{{ userId }}",  # Jinja2 템플릿 사용
             timeout=5000,
+            referenced_variables=[
+                HttpVariable(name="userId", value_selector=["Start", "userId"])
+            ],
         )
         node = HttpRequestNode(id="http-1", data=node_data)
 

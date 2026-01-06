@@ -5,6 +5,7 @@ import {
   HttpRequestNodeData,
   HttpMethod,
   AuthType,
+  HttpVariable,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
@@ -25,20 +26,6 @@ export function HttpRequestNodePanel({
   const upstreamNodes = useMemo(
     () => getUpstreamNodes(nodeId, nodes, edges),
     [nodeId, nodes, edges],
-  );
-
-  // 모든 상위 노드에서 사용 가능한 변수 가져오기
-  const availableVariables = useMemo(
-    () =>
-      upstreamNodes.flatMap((n) => {
-        const outputs = getNodeOutputs(n);
-        return outputs.map((outputKey) => ({
-          id: `${n.id}.${outputKey}`,
-          label: `${(n.data as { title?: string })?.title || n.type} > ${outputKey}`,
-          value: `{{${n.id}.${outputKey}}}`,
-        }));
-      }),
-    [upstreamNodes],
   );
 
   const handleUpdateData = useCallback(
@@ -71,6 +58,48 @@ export function HttpRequestNodePanel({
     [data.headers, nodeId, updateNodeData],
   );
 
+  // Variable Handlers
+  const handleAddVariable = useCallback(() => {
+    const newVars = [
+      ...(data.referenced_variables || []),
+      { name: '', value_selector: [] },
+    ];
+    updateNodeData(nodeId, { referenced_variables: newVars });
+  }, [data.referenced_variables, nodeId, updateNodeData]);
+
+  const handleRemoveVariable = useCallback(
+    (index: number) => {
+      const newVars = [...(data.referenced_variables || [])];
+      newVars.splice(index, 1);
+      updateNodeData(nodeId, { referenced_variables: newVars });
+    },
+    [data.referenced_variables, nodeId, updateNodeData],
+  );
+
+  const handleUpdateVariable = useCallback(
+    (index: number, key: keyof HttpVariable, value: any) => {
+      const newVars = [...(data.referenced_variables || [])];
+      newVars[index] = { ...newVars[index], [key]: value };
+      updateNodeData(nodeId, { referenced_variables: newVars });
+    },
+    [data.referenced_variables, nodeId, updateNodeData],
+  );
+
+  const handleSelectorUpdate = useCallback(
+    (varIndex: number, selectorIndex: number, value: string) => {
+      const newVars = [...(data.referenced_variables || [])];
+      const newSelector = [...(newVars[varIndex].value_selector || [])];
+      newSelector[selectorIndex] = value;
+      // If changing node (index 0), reset output key (index 1)
+      if (selectorIndex === 0) {
+        newSelector[1] = '';
+      }
+      newVars[varIndex] = { ...newVars[varIndex], value_selector: newSelector };
+      updateNodeData(nodeId, { referenced_variables: newVars });
+    },
+    [data.referenced_variables, nodeId, updateNodeData],
+  );
+
   return (
     <div className="flex flex-col gap-2">
       {/* 1. Method & URL */}
@@ -98,7 +127,105 @@ export function HttpRequestNodePanel({
         />
       </div>
 
-      {/* 2. Authentication */}
+      {/* 2. Referenced Variables */}
+      <CollapsibleSection title="Referenced Variables" defaultOpen={true}>
+        <div className="flex flex-col gap-2">
+          {data.referenced_variables?.map((variable, index) => {
+            const selectedSourceNodeId = variable.value_selector?.[0] || '';
+            const selectedVarKey = variable.value_selector?.[1] || '';
+
+            const selectedNode = upstreamNodes.find(
+              (n) => n.id === selectedSourceNodeId,
+            );
+            const availableOutputs = selectedNode
+              ? getNodeOutputs(selectedNode)
+              : [];
+
+            return (
+              <div
+                key={index}
+                className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-gray-700">
+                    Variable {index + 1}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveVariable(index)}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div className="flex flex-row gap-2 items-center">
+                  {/* 변수명 입력 */}
+                  <div className="flex-2">
+                    <input
+                      type="text"
+                      className="w-full rounded border border-gray-300 p-1.5 text-xs"
+                      placeholder="Variable name"
+                      value={variable.name}
+                      onChange={(e) =>
+                        handleUpdateVariable(index, 'name', e.target.value)
+                      }
+                    />
+                  </div>
+
+                  {/* 노드 선택 드롭다운 */}
+                  <div className="flex-3">
+                    <select
+                      className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
+                      value={selectedSourceNodeId}
+                      onChange={(e) =>
+                        handleSelectorUpdate(index, 0, e.target.value)
+                      }
+                    >
+                      <option value="">노드 선택</option>
+                      {upstreamNodes.map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {(n.data as { title?: string })?.title || n.type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 출력 선택 */}
+                  <div className="flex-3 relative">
+                    <select
+                      className={`w-full rounded border p-1.5 text-xs truncate ${
+                        !selectedSourceNodeId
+                          ? 'bg-gray-100 text-gray-400 border-gray-200'
+                          : 'border-gray-300 bg-white'
+                      }`}
+                      value={selectedVarKey}
+                      onChange={(e) =>
+                        handleSelectorUpdate(index, 1, e.target.value)
+                      }
+                      disabled={!selectedSourceNodeId}
+                    >
+                      <option value="">출력 선택</option>
+                      {availableOutputs.map((output) => (
+                        <option key={output} value={output}>
+                          {output}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex justify-end">
+            <button
+              onClick={handleAddVariable}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+            >
+              <Plus className="w-3 h-3" /> Add Variable
+            </button>
+          </div>
+        </div>
+      </CollapsibleSection>
       <CollapsibleSection title="Authentication">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
@@ -268,36 +395,6 @@ export function HttpRequestNodePanel({
           />
         </div>
       </CollapsibleSection>
-
-      {/* 6. Variable Helper */}
-      {availableVariables.length > 0 && (
-        <CollapsibleSection title="Available Variables" defaultOpen={false}>
-          <div className="flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
-            {availableVariables.map((v) => (
-              <button
-                key={v.id}
-                className="flex items-center justify-between px-2 py-1.5 text-xs text-left hover:bg-gray-100 rounded border border-transparent hover:border-gray-200 transition-colors group"
-                onClick={() => {
-                  navigator.clipboard.writeText(v.value);
-                }}
-                title="Click to copy"
-              >
-                <div className="flex flex-col truncate">
-                  <span className="font-medium text-gray-700 truncate">
-                    {v.label}
-                  </span>
-                  <code className="text-gray-500 text-[10px] mt-0.5">
-                    {v.value}
-                  </code>
-                </div>
-                <span className="text-blue-500 text-[10px] opacity-0 group-hover:opacity-100 whitespace-nowrap ml-2">
-                  Copy
-                </span>
-              </button>
-            ))}
-          </div>
-        </CollapsibleSection>
-      )}
     </div>
   );
 }

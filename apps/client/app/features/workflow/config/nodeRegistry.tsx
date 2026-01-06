@@ -13,6 +13,7 @@ import {
   BookOpen,
   Webhook,
   Github,
+  Mail,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -177,26 +178,7 @@ export const nodeRegistry: NodeDefinition[] = [
       conditions: [],
     }),
   },
-  {
-    id: 'knowledge',
-    type: 'knowledgeNode',
-    name: '지식',
-    category: 'data',
-    color: '#6366f1', // indigo-500
-    icon: <BookOpen className="w-3.5 h-3.5 text-white" />,
-    implemented: true,
-    description: '지식 베이스를 조회하고 검색합니다.',
-    defaultData: () => ({
-      title: '지식',
-      description: '지식 베이스 검색',
-      knowledgeBases: [],
-      queryVariable: undefined,
-      scoreThreshold: 0.5,
-      topK: 3,
-      queryVariables: [],
-      userQuery: '',
-    }),
-  },
+
   {
     id: 'file-extraction',
     type: 'fileExtractionNode',
@@ -275,6 +257,31 @@ export const nodeRegistry: NodeDefinition[] = [
       repo_name: '',
       pr_number: 0,
       comment_body: '',
+      referenced_variables: [],
+    }),
+  },
+  {
+    id: 'mail',
+    type: 'mailNode',
+    name: 'Mail',
+    category: 'plugin',
+    color: '#EA4335',
+    icon: <Mail className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description:
+      'IMAP을 통해 이메일을 검색합니다 (Gmail, Naver, Daum, Outlook 등)',
+    defaultData: () => ({
+      title: 'Mail Search',
+      email: '',
+      password: '',
+      provider: 'gmail',
+      imap_server: 'imap.gmail.com',
+      imap_port: 993,
+      use_ssl: true,
+      folder: 'INBOX',
+      max_results: 10,
+      unread_only: false,
+      mark_as_read: false,
       referenced_variables: [],
     }),
   },
