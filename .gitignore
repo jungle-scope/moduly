@@ -25,5 +25,5 @@ apps/client/.next/
 # 맥 관련
 .DS_Store
 
-# 지식베이스 파일업로드 관련
+# 참고자료 파일업로드 관련
 apps/server/uploads
