@@ -32,6 +32,8 @@ export interface KnowledgeBaseResponse {
   description?: string;
   document_count: number;
   created_at: string;
+  updated_at?: string;
+  source_types?: SourceType[];
   embedding_model: string;
 }
 

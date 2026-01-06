@@ -19,6 +19,8 @@ class KnowledgeBaseResponse(BaseModel):
     description: Optional[str] = None
     document_count: Optional[int] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None  # 문서 최종 업데이트 시간
+    source_types: List[str] = []  # 포함된 소스 타입 목록
     embedding_model: str
 
 

@@ -46,7 +46,12 @@ def list_knowledge_bases(
     각 참고자료 그룹에 포함된 문서 개수도 함께 반환합니다.
     """
     results = (
-        db.query(KnowledgeBase, func.count(Document.id).label("document_count"))
+        db.query(
+            KnowledgeBase,
+            func.count(Document.id).label("document_count"),
+            func.max(Document.updated_at).label("last_updated_at"),
+            func.array_agg(func.distinct(Document.source_type)).label("source_types"),
+        )
         .outerjoin(Document, KnowledgeBase.id == Document.knowledge_base_id)
         .filter(KnowledgeBase.user_id == current_user.id)
         .group_by(KnowledgeBase.id)
@@ -55,7 +60,16 @@ def list_knowledge_bases(
     )
 
     response = []
-    for kb, doc_count in results:
+    for kb, doc_count, last_updated_at, source_types in results:
+        # source_types가 [None]인 경우 (문서가 없을 때) 빈 리스트로 처리
+        clean_source_types = [st for st in source_types if st is not None]
+
+        # KB 업데이트 시간과 문서 최신 업데이트 시간 중 더 최신을 선택
+        # 문서가 없으면 KB 업데이트 시간 사용
+        final_updated_at = (
+            max(kb.updated_at, last_updated_at) if last_updated_at else kb.updated_at
+        )
+
         response.append(
             KnowledgeBaseResponse(
                 id=kb.id,
@@ -63,6 +77,8 @@ def list_knowledge_bases(
                 description=kb.description,
                 document_count=doc_count,
                 created_at=kb.created_at,
+                updated_at=final_updated_at,
+                source_types=clean_source_types,
                 embedding_model=kb.embedding_model,
             )
         )
