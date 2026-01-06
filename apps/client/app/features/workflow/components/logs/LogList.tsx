@@ -96,35 +96,27 @@ export const LogList = ({ logs, onSelect, selectedLogId, className = '', selecti
                  )}
               </div>
 
-              {/* [NEW] 토큰 및 비용 표시 (가로 공간 확보를 위해 줄바꿈) */}
-              {(log.total_tokens !== undefined || log.total_cost !== undefined) && (log.total_tokens || 0) + (log.total_cost || 0) > 0 && (
-                <div className="mt-1 flex items-center gap-2">
-                    {log.total_tokens ? (
-                        <span className="text-xs text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded flex items-center gap-1 border border-gray-100">
-                            🪙 {log.total_tokens.toLocaleString()}
-                        </span>
-                    ) : null}
-                    {log.total_cost ? (
-                        <span className="text-xs text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded flex items-center gap-1 border border-gray-100">
-                            💰 ${Number(log.total_cost).toFixed(6)}
-                        </span>
-                    ) : null}
-                </div>
-              )}
+              {/* 토큰, 비용, 소요시간 표시 */}
+              <div className="mt-2 flex items-center gap-3 text-xs">
+                  {log.duration !== undefined && log.duration > 0 && (
+                      <span className="text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          소요: {log.duration.toFixed(1)}초
+                      </span>
+                  )}
+                  {log.total_tokens !== undefined && log.total_tokens > 0 && (
+                      <span className="text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                          토큰: {log.total_tokens.toLocaleString()}
+                      </span>
+                  )}
+                  {log.total_cost !== undefined && log.total_cost > 0 && (
+                      <span className="text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                          비용: ${Number(log.total_cost).toFixed(5)}
+                      </span>
+                  )}
+              </div>
             </div>
           </div>
-
-        {/* Execution Preview inside Card */}
-        <div className="mt-3 pt-3 border-t border-gray-50 flex items-center overflow-hidden">
-            <div className="transform scale-90 origin-top-left -mb-4 w-full" onClick={(e) => e.stopPropagation()}>
-                 <LogExecutionPath 
-                    nodeRuns={log.node_runs || []} 
-                    onNodeSelect={() => {}} // No-op in preview 
-                    selectedNodeId={null} 
-                    readOnly={true}
-                 />
-            </div>
-        </div>
 
         </button>
         );
