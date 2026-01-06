@@ -3,7 +3,7 @@ name: Deploy to EKS (Backend)
 on:
   push:
     branches:
-      - main  # main 브랜치 푸시 시 자동 배포
+      - test  # test 브랜치 푸시 시 자동 배포
     paths:
       - 'apps/server/**'
       - 'docker/server/**'

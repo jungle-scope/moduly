@@ -24,6 +24,8 @@ spec:
         # 같은 클러스터 내부에서는 Service 이름으로 접근
         - name: NEXT_PUBLIC_API_URL
           value: http://api-service:8000
+        - name: API_URL
+          value: "http://api-service:8000"
         resources:
           requests:
             cpu: 200m

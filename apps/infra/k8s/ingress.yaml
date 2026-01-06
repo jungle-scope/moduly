@@ -1,31 +1,41 @@
-# Ingress - 단일 도메인 전략
+# Ingress - HTTPS with Custom Domain
 # 
-# 역할: 외부 트래픽을 내부 서비스로 라우팅
+# 도메인: https://moduly-ai.cloud
 # - /api/* → API Service (Backend)
 # - /* → Frontend Service
 # 
-# AWS Load Balancer Controller가 자동으로 ALB 생성
+# Features:
+# - HTTPS (포트 443)
+# - HTTP → HTTPS 자동 리다이렉트
+# - ACM 인증서 사용
 # 
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: moduly-ingress
   annotations:
-    # ALB 설정
+    # ALB 기본 설정
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
+    
+    # HTTPS 설정 (중요!)
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:912894834396:certificate/621853e1-ec5a-4334-9c21-d774be44d965
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Health Check
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-path: /
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     alb.ingress.kubernetes.io/success-codes: '200'
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 spec:
   ingressClassName: alb
   rules:
-  - http:
+  # 1. 루트 도메인
+  - host: moduly-ai.cloud
+    http:
       paths:
-      # API 경로 (우선순위 높음 - 먼저 매칭)
       - path: /api
         pathType: Prefix
         backend:
@@ -33,7 +43,25 @@ spec:
             name: api-service
             port:
               number: 8000
-      # 프론트엔드 (기본 경로)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 3000
+  
+  # 2. www 서브도메인
+  - host: www.moduly-ai.cloud
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
       - path: /
         pathType: Prefix
         backend:
