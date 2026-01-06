@@ -10,6 +10,10 @@ from workflow.nodes.github import GithubNode, GithubNodeData
 from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
 from workflow.nodes.llm import LLMNode, LLMNodeData
 from workflow.nodes.mail import MailNode, MailNodeData
+from workflow.nodes.schedule import (
+    ScheduleTriggerNode,
+    ScheduleTriggerNodeData,
+)
 from workflow.nodes.start import StartNode, StartNodeData
 from workflow.nodes.template.entities import TemplateNodeData
 from workflow.nodes.template.template_node import TemplateNode
@@ -29,6 +33,7 @@ class NodeFactory:
     NODE_REGISTRY: Dict[str, tuple] = {
         "startNode": (StartNode, StartNodeData),
         "webhookTrigger": (WebhookTriggerNode, WebhookTriggerNodeData),
+        "scheduleTrigger": (ScheduleTriggerNode, ScheduleTriggerNodeData),
         "answerNode": (AnswerNode, AnswerNodeData),
         "codeNode": (CodeNode, CodeNodeData),
         "conditionNode": (ConditionNode, ConditionNodeData),

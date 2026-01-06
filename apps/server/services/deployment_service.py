@@ -110,6 +110,36 @@ class DeploymentService:
             # 9. App의 active_deployment_id 업데이트
             app.active_deployment_id = db_obj.id
 
+            # 10. ScheduleTrigger 노드가 있으면 스케줄 생성
+            schedule_trigger_node = DeploymentService._find_schedule_trigger_node(
+                graph_snapshot
+            )
+            if schedule_trigger_node:
+                from db.models.schedule import Schedule
+                from services.scheduler_service import get_scheduler_service
+
+                # Schedule 레코드 생성
+                schedule = Schedule(
+                    deployment_id=db_obj.id,
+                    node_id=schedule_trigger_node["id"],
+                    cron_expression=schedule_trigger_node["data"]["cron_expression"],
+                    timezone=schedule_trigger_node["data"].get("timezone", "UTC"),
+                )
+                db.add(schedule)
+                db.flush()
+
+                # APScheduler에 등록
+                try:
+                    scheduler_service = get_scheduler_service()
+                    scheduler_service.add_schedule(schedule, db)
+                    print(
+                        f"[Deployment] ✓ 스케줄 생성 완료: {schedule.id} | {schedule.cron_expression}"
+                    )
+                except Exception as e:
+                    print(f"[Deployment] ✗ 스케줄 등록 실패: {e}")
+                    # 스케줄 등록 실패해도 배포는 성공으로 처리
+                    # (나중에 수동으로 재등록 가능)
+
             db.commit()
             db.refresh(db_obj)
 
@@ -434,5 +464,22 @@ class DeploymentService:
                         if output.get("variable")
                     ]
                 }
+
+        return None
+
+    @staticmethod
+    def _find_schedule_trigger_node(graph_snapshot: dict) -> dict | None:
+        """
+        graph_snapshot에서 ScheduleTrigger 노드를 찾습니다.
+
+        Returns:
+            ScheduleTrigger 노드 객체 또는 None
+        """
+        if not graph_snapshot or not graph_snapshot.get("nodes"):
+            return None
+
+        for node in graph_snapshot["nodes"]:
+            if node.get("type") == "scheduleTrigger":
+                return node
 
         return None
