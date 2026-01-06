@@ -1,0 +1,43 @@
+# Ingress - 단일 도메인 전략
+# 
+# 역할: 외부 트래픽을 내부 서비스로 라우팅
+# - /api/* → API Service (Backend)
+# - /* → Frontend Service
+# 
+# AWS Load Balancer Controller가 자동으로 ALB 생성
+# 
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: moduly-ingress
+  annotations:
+    # ALB 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/success-codes: '200'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  ingressClassName: alb
+  rules:
+  - http:
+      paths:
+      # API 경로 (우선순위 높음 - 먼저 매칭)
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+      # 프론트엔드 (기본 경로)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 3000
