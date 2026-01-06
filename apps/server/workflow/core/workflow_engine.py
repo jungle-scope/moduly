@@ -69,6 +69,10 @@ class WorkflowEngine:
         # ============================================================
         self.logger = WorkflowLogger(db)  # 로깅 유틸리티 인스턴스
         self.parent_run_id = parent_run_id  # 서브 워크플로우용 부모 run_id
+        self.start_node_id = None  # [NEW] 시작 노드 ID 캐싱
+
+        # [VALIDATION] 그래프 구조 검증 (순환, 시작 노드 등)
+        self.validate_graph()
 
     async def execute(self) -> Dict[str, Any]:
         """
@@ -366,17 +370,53 @@ class WorkflowEngine:
             raise e
 
     # ================================================================
-    # 기존 헬퍼 메서드들 (변경 없음)
+    # [NEW] 그래프 검증 메서드
     # ================================================================
 
-    def _find_start_node(self) -> str:
-        """시작 노드 찾기 (type == "startNode" 또는 "webhookTrigger")"""
-        start_nodes = []
+    def validate_graph(self):
+        """
+        워크플로우 그래프의 구조적 유효성을 검사합니다.
+        1. 순환(Cycle) 여부 검사
+        2. 시작 노드 개수 검사 (0개 또는 2개 이상이면 에러)
+        3. 도달 불가능한 고립 노드 검사
+        """
+        self._check_cycles()
+        self._check_start_nodes()
+        self._check_isolation()
 
-        # Trigger 노드 타입 정의
+    def _check_cycles(self):
+        """DFS를 사용하여 그래프 내 순환(Cycle)을 감지합니다."""
+        visited = set()
+        recursion_stack = set()
+
+        for node_id in self.node_schemas:
+            if node_id not in visited:
+                if self._detect_cycle_dfs(node_id, visited, recursion_stack):
+                    raise ValueError(
+                        f"워크플로우에 순환(Cycle)이 감지되었습니다. 노드 ID: {node_id}"
+                    )
+
+    def _detect_cycle_dfs(self, node_id, visited, recursion_stack):
+        """순환 감지를 위한 DFS 재귀 함수"""
+        visited.add(node_id)
+        recursion_stack.add(node_id)
+
+        # 인접 노드 탐색
+        for neighbor in self.adjacency_list.get(node_id, []):
+            if neighbor not in visited:
+                if self._detect_cycle_dfs(neighbor, visited, recursion_stack):
+                    return True
+            elif neighbor in recursion_stack:
+                return True
+
+        recursion_stack.remove(node_id)
+        return False
+
+    def _check_start_nodes(self):
+        """시작 노드 유효성 검사 (0개 또는 2개 이상 불가) 및 ID 캐싱"""
+        start_nodes = []
         TRIGGER_TYPES = ["startNode", "webhookTrigger"]
 
-        # 모든 노드를 순회하면서 Trigger 타입 찾기
         for node_id, node in self.node_schemas.items():
             if node.type in TRIGGER_TYPES:
                 start_nodes.append(node_id)
@@ -385,13 +425,69 @@ class WorkflowEngine:
             raise ValueError(
                 f"워크플로우에 시작 노드가 {len(start_nodes)}개 있습니다. 시작 노드는 1개만 있어야 합니다."
             )
-
         elif len(start_nodes) == 0:
             raise ValueError(
                 "워크플로우에 시작 노드(type='startNode' or 'webhookTrigger')가 없습니다."
             )
 
-        return start_nodes[0]
+        # [NEW] 시작 노드 ID 캐싱
+        self.start_node_id = start_nodes[0]
+
+    def _check_isolation(self):
+        """
+        시작 노드에서 도달 불가능한 고립(Isolated) 노드가 있는지 검사합니다.
+        BFS를 사용하여 도달 가능한 모든 노드를 탐색하고, 전체 노드와 비교합니다.
+        """
+        start_node_id = self._find_start_node()
+        visited = {start_node_id}
+        queue = [start_node_id]
+
+        while queue:
+            current_node = queue.pop(0)
+            neighbors = self.adjacency_list.get(current_node, [])
+            for neighbor in neighbors:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+
+        # 전체 노드 집합
+        all_nodes = set(self.node_schemas.keys())
+
+        # 주석/메모 노드 제 (선택 사항이지만 보통 메모는 실행 흐름과 무관)
+        # 만약 note 타입이 node_schemas에 포함된다면 제외해야 함.
+        # 여기서는 self._build_node_instances에서 note 타입을 건너뛰지만,
+        # node_schemas에는 포함되어 있을 수 있음.
+        valid_nodes = {
+            node_id
+            for node_id in all_nodes
+            if self.node_schemas[node_id].type != "note"
+        }
+
+        # 고립된 노드 식별 (도달 불가능한 노드)
+        isolated_nodes = valid_nodes - visited
+
+        if isolated_nodes:
+            raise ValueError(
+                f"시작 노드에서 도달할 수 없는 고립된 노드가 발견되었습니다. "
+                f"노드 IDs: {list(isolated_nodes)}"
+            )
+
+    # ================================================================
+    # 기존 헬퍼 메서드들 (변경 없음)
+    # ================================================================
+
+    def _find_start_node(self) -> str:
+        """
+        시작 노드 찾기
+        validate_graph()에서 이미 검증되고 self.start_node_id에 캐싱되었으므로 바로 반환
+        """
+        if self.start_node_id is None:
+            # 혹시 모를 예외 상황 (validate_graph가 호출되지 않았거나 로직 오류)
+            raise ValueError(
+                "시작 노드가 설정되지 않았습니다. validate_graph()를 먼저 호출해주세요."
+            )
+
+        return self.start_node_id
 
     def _get_next_nodes(self, node_id: str, result: Dict[str, Any]) -> List[str]:
         """
