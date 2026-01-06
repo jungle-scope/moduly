@@ -14,6 +14,7 @@ import {
   Webhook,
   Github,
   Mail,
+  Clock,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -75,6 +76,21 @@ export const nodeRegistry: NodeDefinition[] = [
       title: 'Webhook Trigger',
       provider: 'custom',
       variable_mappings: [],
+    }),
+  },
+  {
+    id: 'schedule-trigger',
+    type: 'scheduleTrigger',
+    name: 'Schedule Trigger',
+    category: 'trigger',
+    color: '#8b5cf6', // violet-500
+    icon: <Clock className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description: '지정된 시간에 워크플로우를 자동으로 시작합니다.',
+    defaultData: () => ({
+      title: 'Schedule Trigger',
+      cron_expression: '0 9 * * *',
+      timezone: 'UTC',
     }),
   },
 
