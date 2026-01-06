@@ -114,7 +114,11 @@ export function DeploymentResultModal({ onClose, result }: Props) {
   }
 
   // 성공 케이스
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  // 브라우저에서는 현재 도메인 사용, SSR에서는 프로덕션 도메인 사용
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://moduly-ai.cloud';
   const API_URL = `${baseUrl}/api/v1/run/${result.url_slug}`;
 
   // 프론트엔드 URL (위젯이 로드할 iframe 주소)
@@ -122,7 +126,7 @@ export function DeploymentResultModal({ onClose, result }: Props) {
   const frontendUrl =
     typeof window !== 'undefined'
       ? window.location.origin
-      : 'https://www.moviepick.shop';
+      : 'https://moduly-ai.cloud';
 
   return (
     <>
