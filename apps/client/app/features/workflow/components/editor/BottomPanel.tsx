@@ -2,10 +2,7 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { toast } from 'sonner';
 import {
-  PlusIcon,
-  PlayIcon,
   TouchpadIcon,
   NoteIcon,
   LayoutIcon,
@@ -13,23 +10,7 @@ import {
   ChevronDownIcon,
 } from '../nodes/icons';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
-import {
-  getNodesByCategory,
-  getNodeDefinition,
-  type NodeDefinition,
-} from '../../config/nodeRegistry';
-import { type NoteNode, type AppNode } from '../../types/Nodes';
-
-// 카테고리 표시 이름 매핑
-const categoryDisplayNames: Record<string, string> = {
-  trigger: 'Trigger',
-  llm: 'LLM',
-  plugin: 'Plugin',
-  workflow: 'Workflow',
-  logic: 'Logic',
-  database: 'Database',
-  data: 'Data',
-};
+import { type NoteNode } from '../../types/Nodes';
 
 interface BottomPanelProps {
   onCenterNodes: () => void;
@@ -59,22 +40,14 @@ export default function BottomPanel({
   } = useReactFlow();
 
   // 한 번에 하나의 모달만 열리도록 관리하는 상태
-  const [openModal, setOpenModal] = useState<
-    'addNode' | 'interactive' | 'zoom' | null
-  >(null);
+  const [openModal, setOpenModal] = useState<'interactive' | 'zoom' | null>(
+    null,
+  );
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [notePosition, setNotePosition] = useState({ x: 0, y: 0 });
   const [currentZoom, setCurrentZoom] = useState(100);
 
-  // 노드 배치 상태
-  const [isAddingNode, setIsAddingNode] = useState(false);
-  const [selectedNodeDef, setSelectedNodeDef] = useState<NodeDefinition | null>(
-    null,
-  );
-  const [nodePosition, setNodePosition] = useState({ x: 0, y: 0 });
-
   // 외부 클릭 감지를 위한 모달 Refs
-  const addNodeModalRef = useRef<HTMLDivElement>(null);
   const interactiveModalRef = useRef<HTMLDivElement>(null);
   const zoomModalRef = useRef<HTMLDivElement>(null);
 
@@ -99,8 +72,6 @@ export default function BottomPanel({
       const target = event.target as Node;
 
       // 클릭이 모달 내부인지 확인
-      const isInsideAddNode =
-        addNodeModalRef.current && addNodeModalRef.current.contains(target);
       const isInsideInteractive =
         interactiveModalRef.current &&
         interactiveModalRef.current.contains(target);
@@ -108,7 +79,7 @@ export default function BottomPanel({
         zoomModalRef.current && zoomModalRef.current.contains(target);
 
       // 모달 내부 클릭이 아니면 현재 모달 닫기
-      if (!isInsideAddNode && !isInsideInteractive && !isInsideZoom) {
+      if (!isInsideInteractive && !isInsideZoom) {
         setOpenModal(null);
       }
     };
@@ -199,70 +170,6 @@ export default function BottomPanel({
     setOpenModal(null); // 열린 모달 닫기
   }, [toggleFullscreen]);
 
-  const handleTestRun = useCallback(() => {
-    // TODO: 테스트 실행 기능 구현
-    setOpenModal(null); // 열린 모달 닫기
-  }, []);
-
-  const handleSelectNode = useCallback(
-    (nodeDefId: string) => {
-      const nodeDef = getNodeDefinition(nodeDefId);
-      if (!nodeDef) return;
-
-      // 노드 구현 여부 확인
-      if (!nodeDef.implemented) {
-        toast.error(`${nodeDef.name} 노드는 아직 구현되지 않았습니다.`);
-        return;
-      }
-
-      // 유일성 제약 조건 확인 (예: StartNode)
-      if (nodeDef.unique) {
-        const existingNode = nodes.find((node) => node.type === nodeDef.type);
-        if (existingNode) {
-          toast.warning(
-            `${nodeDef.name} 노드는 워크플로우당 하나만 사용할 수 있습니다.`,
-          );
-          return;
-        }
-      }
-
-      // Workflow 노드에 대한 특별 처리
-      if (nodeDefId === 'workflow' && onOpenAppSearch) {
-        onOpenAppSearch();
-        setOpenModal(null);
-        return;
-      }
-
-      // 뷰포트의 중심 계산
-      const viewport = getViewport();
-      const reactFlowWrapper = document.querySelector('.react-flow');
-      let position = { x: 0, y: 0 };
-
-      if (reactFlowWrapper) {
-        const { width, height } = reactFlowWrapper.getBoundingClientRect();
-        position = {
-          x: (-viewport.x + width / 2) / viewport.zoom - 75,
-          y: (-viewport.y + height / 2) / viewport.zoom - 40,
-        };
-      } else {
-        position = { x: 0, y: 0 };
-      }
-
-      // 새 노드 직접 생성
-      const newNode = {
-        id: `${nodeDef.id}-${Date.now()}`,
-        type: nodeDef.type,
-        data: nodeDef.defaultData(),
-        position,
-      };
-
-      setNodes([...nodes, newNode] as unknown as any[]);
-      setOpenModal(null);
-      toast.success(`${nodeDef.name} 노드가 추가되었습니다.`);
-    },
-    [nodes, getViewport, setNodes, onOpenAppSearch],
-  );
-
   const selectInteractiveMode = useCallback(
     (mode: 'mouse' | 'touchpad') => {
       setInteractiveMode(mode);
@@ -270,10 +177,6 @@ export default function BottomPanel({
     },
     [setInteractiveMode],
   );
-
-  const toggleAddNodeModal = useCallback(() => {
-    setOpenModal((prev) => (prev === 'addNode' ? null : 'addNode'));
-  }, []);
 
   const toggleZoomModal = useCallback(() => {
     setOpenModal((prev) => (prev === 'zoom' ? null : 'zoom'));
@@ -301,121 +204,8 @@ export default function BottomPanel({
     setOpenModal(null);
   }, [fitView]);
 
-  // 노드 배치 효과 (노트 배치와 유사)
-  useEffect(() => {
-    if (!isAddingNode || !selectedNodeDef) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const reactFlowWrapper = document.querySelector('.react-flow');
-      if (!reactFlowWrapper) {
-        setNodePosition({ x: e.clientX, y: e.clientY });
-        return;
-      }
-
-      const rect = reactFlowWrapper.getBoundingClientRect();
-      const x = Math.max(rect.left, Math.min(e.clientX, rect.right));
-      const y = Math.max(rect.top, Math.min(e.clientY, rect.bottom));
-      setNodePosition({ x, y });
-    };
-
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('.pointer-events-auto')) {
-        return;
-      }
-
-      // Calculate center of the viewport
-      const viewport = getViewport();
-      const reactFlowWrapper = document.querySelector('.react-flow');
-
-      let position = { x: 0, y: 0 };
-
-      if (reactFlowWrapper) {
-        const { width, height } = reactFlowWrapper.getBoundingClientRect();
-        // 플로우 좌표계에서 중심 위치 계산
-        // CenterX = (-viewport.x + width / 2) / viewport.zoom
-        // CenterY = (-viewport.y + height / 2) / viewport.zoom
-        // 제대로 중앙에 맞추기 위해 표준 노드 너비/높이의 절반(약 150x80) 빼기
-        position = {
-          x: (-viewport.x + width / 2) / viewport.zoom - 75,
-          y: (-viewport.y + height / 2) / viewport.zoom - 40,
-        };
-      } else {
-        // 래퍼를 찾지 못한 경우 대체
-
-        position = screenToFlowPosition({
-          x: window.innerWidth / 2,
-          y: window.innerHeight / 2,
-        });
-      }
-
-      // 레지스트리의 데이터로 새 노드 생성
-      const newNode: AppNode = {
-        id: `${selectedNodeDef.id}-${Date.now()}`,
-        type: selectedNodeDef.type as any, // selectedNodeDef.type이 string이므로 타입 단언 필요
-        data: selectedNodeDef.defaultData() as any, // 데이터 캐스팅 필요할 수 있음
-        position,
-      };
-
-      setNodes([...nodes, newNode]);
-      setIsAddingNode(false);
-      setSelectedNodeDef(null);
-      toast.success(`${selectedNodeDef.name} 노드가 추가되었습니다.`);
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsAddingNode(false);
-        setSelectedNodeDef(null);
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('click', handleClick);
-    window.addEventListener('keydown', handleEscape);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('click', handleClick);
-      window.removeEventListener('keydown', handleEscape);
-    };
-  }, [
-    isAddingNode,
-    selectedNodeDef,
-    nodes,
-    setNodes,
-    screenToFlowPosition,
-    getViewport,
-  ]);
-
   return (
     <>
-      {/* 커서를 따라다니는 노드 미리보기 */}
-      {isAddingNode && selectedNodeDef && (
-        <div
-          className="fixed pointer-events-none z-50"
-          style={{
-            left: nodePosition.x + 10,
-            top: nodePosition.y + 10,
-          }}
-        >
-          <div className="bg-white border-2 border-blue-500 rounded-lg shadow-xl p-3 min-w-[200px]">
-            <div className="flex items-center gap-2 mb-2">
-              <div
-                className="w-4 h-4 rounded flex items-center justify-center text-xs"
-                style={{ backgroundColor: selectedNodeDef.color }}
-              >
-                {selectedNodeDef.icon}
-              </div>
-              <div className="text-sm font-semibold text-gray-700">
-                {selectedNodeDef.name}
-              </div>
-            </div>
-            <div className="text-xs text-gray-400 italic">클릭하여 배치...</div>
-          </div>
-        </div>
-      )}
-
       {/* 커서를 따라다니는 노트 미리보기 */}
       {isAddingNote && (
         <div
@@ -673,80 +463,6 @@ export default function BottomPanel({
             title="전체화면"
           >
             <FullscreenIcon className="w-4 h-4 text-gray-600" />
-          </button>
-
-          <div className="w-px h-6 bg-gray-200" />
-
-          {/* 노드 추가 */}
-          <div className="relative" ref={addNodeModalRef}>
-            <button
-              onClick={toggleAddNodeModal}
-              className="px-3 py-1.5 flex items-center gap-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
-            >
-              <PlusIcon className="w-4 h-4" />
-              <span className="text-sm font-medium">Add node</span>
-            </button>
-
-            {/* 노드 추가 모달 */}
-            {openModal === 'addNode' && (
-              <div className="absolute bottom-full left-0 mb-2 w-[320px] bg-white rounded-lg shadow-2xl border border-gray-200 p-4 max-h-[480px] overflow-y-auto">
-                <input
-                  type="text"
-                  placeholder="Search nodes, plugins, workflows"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-
-                <div className="space-y-3">
-                  {Array.from(getNodesByCategory().entries()).map(
-                    ([categoryKey, categoryNodes]) => (
-                      <div key={categoryKey}>
-                        <div className="text-xs font-semibold text-gray-500 mb-2">
-                          {categoryDisplayNames[categoryKey] || categoryKey}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {categoryNodes.map((nodeDef) => (
-                            <button
-                              key={nodeDef.id}
-                              onClick={() => handleSelectNode(nodeDef.id)}
-                              disabled={!nodeDef.implemented}
-                              className={`flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors text-left ${
-                                nodeDef.implemented
-                                  ? 'text-gray-700 hover:bg-gray-50 cursor-pointer'
-                                  : 'text-gray-400 cursor-not-allowed opacity-50'
-                              }`}
-                              title={
-                                nodeDef.implemented
-                                  ? nodeDef.description
-                                  : '아직 구현되지 않았습니다'
-                              }
-                            >
-                              <div
-                                className="w-5 h-5 rounded flex items-center justify-center text-xs shrink-0"
-                                style={{ backgroundColor: nodeDef.color }}
-                              >
-                                {nodeDef.icon}
-                              </div>
-                              <span className="truncate">{nodeDef.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="w-px h-6 bg-gray-200" />
-
-          {/* 테스트 실행 */}
-          <button
-            onClick={handleTestRun}
-            className="px-3 py-1.5 flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded transition-colors"
-          >
-            <PlayIcon className="w-4 h-4" />
-            <span className="text-sm">Test run</span>
           </button>
         </div>
       </div>
