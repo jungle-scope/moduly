@@ -8,8 +8,8 @@ import {
   HttpVariable,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
-import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
+import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 
 // [참고] 캐럿 좌표 가져오기 (LLMNodePanel에서 복사됨)
 const getCaretCoordinates = (
@@ -140,21 +140,6 @@ export function HttpRequestNodePanel({
     [data.referenced_variables, nodeId, updateNodeData],
   );
 
-  const handleSelectorUpdate = useCallback(
-    (varIndex: number, selectorIndex: number, value: string) => {
-      const newVars = [...(data.referenced_variables || [])];
-      const newSelector = [...(newVars[varIndex].value_selector || [])];
-      newSelector[selectorIndex] = value;
-      // 노드가 변경되면(인덱스 0), 출력 키(인덱스 1) 초기화
-      if (selectorIndex === 0) {
-        newSelector[1] = '';
-      }
-      newVars[varIndex] = { ...newVars[varIndex], value_selector: newSelector };
-      updateNodeData(nodeId, { referenced_variables: newVars });
-    },
-    [data.referenced_variables, nodeId, updateNodeData],
-  );
-
   // 자동완성 핸들러
   const handleKeyUp = (
     e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
@@ -238,102 +223,14 @@ export function HttpRequestNodePanel({
 
       {/* 2. 참조된 변수 */}
       <CollapsibleSection title="Referenced Variables" defaultOpen={true}>
-        <div className="flex flex-col gap-2">
-          {data.referenced_variables?.map((variable, index) => {
-            const selectedSourceNodeId = variable.value_selector?.[0] || '';
-            const selectedVarKey = variable.value_selector?.[1] || '';
-
-            const selectedNode = upstreamNodes.find(
-              (n) => n.id === selectedSourceNodeId,
-            );
-            const availableOutputs = selectedNode
-              ? getNodeOutputs(selectedNode)
-              : [];
-
-            return (
-              <div
-                key={index}
-                className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">
-                    Variable {index + 1}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveVariable(index)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                <div className="flex flex-row gap-2 items-center">
-                  {/* 변수명 입력 */}
-                  <div className="flex-2">
-                    <input
-                      type="text"
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs"
-                      placeholder="Variable name"
-                      value={variable.name}
-                      onChange={(e) =>
-                        handleUpdateVariable(index, 'name', e.target.value)
-                      }
-                    />
-                  </div>
-
-                  {/* 노드 선택 드롭다운 */}
-                  <div className="flex-3">
-                    <select
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
-                      value={selectedSourceNodeId}
-                      onChange={(e) =>
-                        handleSelectorUpdate(index, 0, e.target.value)
-                      }
-                    >
-                      <option value="">노드 선택</option>
-                      {upstreamNodes.map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {(n.data as { title?: string })?.title || n.type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* 출력 선택 */}
-                  <div className="flex-3 relative">
-                    <select
-                      className={`w-full rounded border p-1.5 text-xs truncate ${
-                        !selectedSourceNodeId
-                          ? 'bg-gray-100 text-gray-400 border-gray-200'
-                          : 'border-gray-300 bg-white'
-                      }`}
-                      value={selectedVarKey}
-                      onChange={(e) =>
-                        handleSelectorUpdate(index, 1, e.target.value)
-                      }
-                      disabled={!selectedSourceNodeId}
-                    >
-                      <option value="">출력 선택</option>
-                      {availableOutputs.map((output) => (
-                        <option key={output} value={output}>
-                          {output}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div className="flex justify-end">
-            <button
-              onClick={handleAddVariable}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-            >
-              <Plus className="w-3 h-3" /> Add Variable
-            </button>
-          </div>
-        </div>
+        <ReferencedVariablesControl
+          variables={data.referenced_variables || []}
+          upstreamNodes={upstreamNodes}
+          onUpdate={handleUpdateVariable}
+          onAdd={handleAddVariable}
+          onRemove={handleRemoveVariable}
+          title=""
+        />
       </CollapsibleSection>
       <CollapsibleSection title="Authentication">
         <div className="flex flex-col gap-3">

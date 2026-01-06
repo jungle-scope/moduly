@@ -1,11 +1,10 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { TemplateNodeData, TemplateVariable } from '../../../../types/Nodes';
-import { toast } from 'sonner';
+
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
-import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
-import { Plus } from 'lucide-react';
+import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 
 interface TemplateNodePanelProps {
   nodeId: string;
@@ -13,7 +12,7 @@ interface TemplateNodePanelProps {
 }
 
 /**
- * [NOTE] Get Caret Coordinates
+ * [참고] 캐럿 좌표 가져오기
  * Textarea의 커서 위치(top, left)를 계산하기 위해 Mirror Div를 사용합니다.
  */
 const getCaretCoordinates = (
@@ -23,7 +22,7 @@ const getCaretCoordinates = (
   const div = document.createElement('div');
   const style = window.getComputedStyle(element);
 
-  // Copy styles
+  // 스타일 복사
   Array.from(style).forEach((prop) => {
     div.style.setProperty(prop, style.getPropertyValue(prop));
   });
@@ -55,7 +54,7 @@ const getCaretCoordinates = (
     left: marker
       ? marker.getBoundingClientRect().left - div.getBoundingClientRect().left
       : 0,
-    height: parseInt(style.lineHeight) || 20, // fallback line height
+    height: parseInt(style.lineHeight) || 20, // 기본 줄 높이
   };
 
   document.body.removeChild(div);
@@ -71,17 +70,17 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionPos, setSuggestionPos] = useState({ top: 0, left: 0 });
 
-  // 1. Upstream Nodes
+  // 1. 상위 노드
   const upstreamNodes = useMemo(() => {
     return getUpstreamNodes(nodeId, nodes, edges);
   }, [nodeId, nodes, edges]);
 
-  // Handle Template Change
+  // 템플릿 변경 핸들러
   const handleTemplateChange = (value: string) => {
     updateNodeData(nodeId, { template: value });
   };
 
-  // Handle Variable Add
+  // 변수 추가 핸들러
   const handleAddVariable = () => {
     const newVar: TemplateVariable = {
       name: '',
@@ -92,14 +91,14 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     });
   };
 
-  // Handle Variable Remove
+  // 변수 삭제 핸들러
   const handleRemoveVariable = (index: number) => {
     const newVars = [...(data.variables || [])];
     newVars.splice(index, 1);
     updateNodeData(nodeId, { variables: newVars });
   };
 
-  // Handle Variable Update
+  // 변수 업데이트 핸들러
   const handleUpdateVariable = (
     index: number,
     field: keyof TemplateVariable,
@@ -110,38 +109,9 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     updateNodeData(nodeId, { variables: newVars });
   };
 
-  // Handle Selector Update
-  const handleSelectorUpdate = (
-    index: number,
-    position: 0 | 1,
-    value: string,
-  ) => {
-    const newVars = [...(data.variables || [])];
-    const currentSelector = [...(newVars[index].value_selector || [])];
+  // 선택자 업데이트 핸들러
 
-    if (currentSelector.length < 2) {
-      currentSelector[0] = currentSelector[0] || '';
-      currentSelector[1] = currentSelector[1] || '';
-    }
-
-    currentSelector[position] = value;
-    if (position === 0) {
-      currentSelector[1] = '';
-    }
-
-    newVars[index] = { ...newVars[index], value_selector: currentSelector };
-    updateNodeData(nodeId, { variables: newVars });
-  };
-
-  // Handle Disabled Selector Click
-  const handleDisabledSelectorClick = () => {
-    toast.warning('노드를 먼저 선택해주세요.', {
-      position: 'top-center',
-      duration: 2000,
-    });
-  };
-
-  // [AUTOCOMPLETE] Check for '{{' triggers
+  // [자동완성] '{{' 트리거 확인
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const target = e.target as HTMLTextAreaElement;
     const value = target.value;
@@ -169,7 +139,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     }
   };
 
-  // [AUTOCOMPLETE] Insert Variable
+  // [자동완성] 변수 삽입
   const insertVariable = (varName: string) => {
     const currentValue = data.template || '';
     const textarea = textareaRef.current;
@@ -186,17 +156,19 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
       setShowSuggestions(false);
 
       setTimeout(() => {
-        const newCursorPos = prefix.length + varName.length + 5; // {{_var_}} Length
+        const newCursorPos = prefix.length + varName.length + 5; // {{_var_}} 길이
         textarea.focus();
         textarea.setSelectionRange(newCursorPos, newCursorPos);
       }, 0);
     }
   };
 
-  // [VALIDATION] Check for unregistered variables
+  // [유효성 검사] 등록되지 않은 변수 확인
   const validationErrors = useMemo(() => {
     const template = data.template || '';
-    const registeredNames = new Set((data.variables || []).map((v) => v.name?.trim()).filter(Boolean));
+    const registeredNames = new Set(
+      (data.variables || []).map((v) => v.name?.trim()).filter(Boolean),
+    );
     const errors: string[] = [];
 
     const regex = /{{\s*([^}]+?)\s*}}/g;
@@ -212,131 +184,20 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* 1. Variables Mapping */}
-      <CollapsibleSection
-        title="Variables"
-        icon={
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddVariable();
-            }}
-            className="p-1 hover:bg-gray-200 rounded transition-colors ml-auto"
-            title="Add Variable"
-          >
-            <Plus className="w-4 h-4 text-gray-600" />
-          </button>
-        }
-      >
-        <div className="flex flex-col gap-2">
-          <p className="text-xs text-gray-500 mb-1">
-            템플릿에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요.
-          </p>
-
-          <div className="flex flex-col gap-3">
-            {(data.variables || []).map((variable, index) => {
-              const selectedNodeId = variable.value_selector?.[0] || '';
-              const selectedVarKey = variable.value_selector?.[1] || '';
-
-              const selectedNode = nodes.find((n) => n.id === selectedNodeId);
-              const availableOutputs = selectedNode
-                ? getNodeOutputs(selectedNode)
-                : [];
-
-              return (
-                <div
-                  key={index}
-                  className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] uppercase font-bold text-gray-400">
-                      Var #{index + 1}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveVariable(index)}
-                      className="text-xs text-red-500 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </div>
-
-                  <div className="flex flex-row gap-2 items-center">
-                    {/* (1) Variable Name Input */}
-                    <div className="flex-[2]">
-                      <input
-                        type="text"
-                        className="w-full rounded border border-gray-300 p-1.5 text-xs"
-                        placeholder="변수명"
-                        value={variable.name}
-                        onChange={(e) =>
-                          handleUpdateVariable(index, 'name', e.target.value)
-                        }
-                      />
-                    </div>
-
-                    {/* (2) Node Selection Dropdown */}
-                    <div className="flex-[3]">
-                      <select
-                        className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
-                        value={selectedNodeId}
-                        onChange={(e) =>
-                          handleSelectorUpdate(index, 0, e.target.value)
-                        }
-                      >
-                        <option value="">노드 선택</option>
-                        {upstreamNodes.map((n) => (
-                          <option key={n.id} value={n.id}>
-                            {(n.data.title as string) || n.type}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* (3) Output Selection */}
-                    <div className="flex-[3] relative">
-                      <select
-                        className={`w-full rounded border p-1.5 text-xs truncate ${
-                          !selectedNodeId
-                            ? 'bg-gray-100 text-gray-400 border-gray-200'
-                            : 'border-gray-300 bg-white'
-                        }`}
-                        value={selectedVarKey}
-                        onChange={(e) =>
-                          handleSelectorUpdate(index, 1, e.target.value)
-                        }
-                        disabled={!selectedNodeId}
-                      >
-                        <option value="">
-                          {!selectedNodeId ? '변수 선택' : '출력 선택'}
-                        </option>
-                        {availableOutputs.map((outKey) => (
-                          <option key={outKey} value={outKey}>
-                            {outKey}
-                          </option>
-                        ))}
-                      </select>
-                      {!selectedNodeId && (
-                        <div
-                          className="absolute inset-0 z-10 cursor-not-allowed"
-                          onClick={handleDisabledSelectorClick}
-                          title="노드를 먼저 선택해주세요"
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {(data.variables || []).length === 0 && (
-              <div className="text-center text-xs text-gray-400 py-4 border border-dashed border-gray-300 rounded">
-                추가된 변수가 없습니다.
-              </div>
-            )}
-          </div>
-        </div>
+      {/* 1. 변수 매핑 */}
+      <CollapsibleSection title="Variables">
+        <ReferencedVariablesControl
+          variables={data.variables || []}
+          upstreamNodes={upstreamNodes}
+          onUpdate={handleUpdateVariable}
+          onAdd={handleAddVariable}
+          onRemove={handleRemoveVariable}
+          title=""
+          description="템플릿에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
+        />
       </CollapsibleSection>
 
-      {/* 2. Template Editor */}
+      {/* 2. 템플릿 에디터 */}
       <CollapsibleSection title="Template">
         <div className="flex flex-col gap-2 relative">
           <p className="text-xs text-gray-500">
@@ -358,7 +219,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
               placeholder="예: 안녕하세요, {{ user_name }}님!"
             />
 
-            {/* [AUTOCOMPLETE] Dropdown Overlay */}
+            {/* [자동완성] 드롭다운 오버레이 */}
             {showSuggestions && (
               <div
                 className="absolute bg-white border border-gray-200 shadow-lg rounded z-50 w-48 max-h-40 overflow-y-auto"
@@ -386,7 +247,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
             )}
           </div>
 
-          {/* [VALIDATION] Warning Block */}
+          {/* [유효성 검사] 경고 블록 */}
           {validationErrors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
               <p className="font-semibold mb-1">

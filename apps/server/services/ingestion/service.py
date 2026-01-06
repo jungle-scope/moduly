@@ -220,16 +220,25 @@ class IngestionOrchestrator:
 
         analysis_result = processor.analyze(source_config)
 
-        # Legacy compatibility format: "cost_estimate" key
-        cost_estimate = analysis_result.get("stats", {})  # PdfParser returns stats
-        # The legacy frontend expects {"cost_estimate": {"pages": ..., "cost_usd": ...}}
-        # If new parser returns different format, we might need adapter here.
-        # But PdfParser.analyze returns: {"strategy":..., "stats":..., "pages":...}
-        # Ideally, PdfParser should return stats compatible with frontend OR we map it here.
-        # Let's trust PdfParser to return what's needed or adapt minimally.
+        pages = analysis_result.get("pages", 0)
+
+        # Pricing Policy (LlamaCloud Standard Mode - fast_mode=False):
+        # source: https://cloud.llamaindex.ai/pricing
+        # Rate: $0.003 per page for Standard Parsing (OCR enabled)
+        # Free Tier: First 1000 pages/day are free, but we calculate full potential cost here.
+
+        target_price_per_page = 0.003
+        credits_est = pages * 1  # 1 page = 1 credit unit
+        cost_usd_est = pages * target_price_per_page
+
+        cost_estimate = {
+            "pages": pages,
+            "credits": credits_est,
+            "cost_usd": cost_usd_est,
+        }
 
         return {
-            "cost_estimate": analysis_result,  # Sending raw analysis for now
+            "cost_estimate": cost_estimate,
             "filename": doc.filename,
             "is_cached": False,
         }
