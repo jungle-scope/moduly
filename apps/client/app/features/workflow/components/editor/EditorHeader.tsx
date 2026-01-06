@@ -59,6 +59,7 @@ export default function EditorHeader() {
     restoreVersion,
     toggleVersionHistory,
     runTrigger,
+    isFullscreen,
   } = useWorkflowStore();
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -532,27 +533,31 @@ export default function EditorHeader() {
 
   return (
     <div>
-      <div className="absolute top-20 right-6 z-50 flex items-center gap-2 pointer-events-auto">
+      <div
+        className={`absolute right-6 z-50 flex items-center gap-2 pointer-events-auto transition-all duration-300 ${
+          isFullscreen ? 'top-4' : 'top-16'
+        }`}
+      >
         {/* 1. 로그 버튼 */}
         <button
           onClick={() => setIsLogViewerOpen(true)}
-          className="px-4 py-2 flex items-center gap-2 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-sm font-medium"
+          className="px-3.5 py-1.5 flex items-center gap-1.5 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-[13px] font-medium"
         >
-          <ScrollText className="w-4 h-4" />
-          <span>로그</span>
+          <ScrollText className="w-3.5 h-3.5" />
+          <span className="hidden lg:inline">로그</span>
         </button>
 
         {/* 2. 모니터링 버튼 */}
         <button
           onClick={() => setIsMonitoringOpen(true)}
-          className="px-4 py-2 flex items-center gap-2 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-sm font-medium"
+          className="px-3.5 py-1.5 flex items-center gap-1.5 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-[13px] font-medium"
         >
-          <BarChart3 className="w-4 h-4" />
-          <span>모니터링</span>
+          <BarChart3 className="w-3.5 h-3.5" />
+          <span className="hidden lg:inline">모니터링</span>
         </button>
 
         {/* 3. 기억 모드 */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm">
           <MemoryModeToggle
             isEnabled={isMemoryModeEnabled}
             hasProviderKey={hasProviderKey}
@@ -565,14 +570,14 @@ export default function EditorHeader() {
         <button
           onClick={handleTestRun}
           disabled={isExecuting}
-          className={`px-4 py-2 flex items-center gap-2 rounded-lg transition-colors border shadow-sm ${
+          className={`px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border shadow-sm ${
             isExecuting
               ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
               : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
           }`}
         >
-          <Play className="w-4 h-4" />
-          <span className="text-sm font-medium">
+          <Play className="w-3.5 h-3.5" />
+          <span className="text-[13px] font-medium hidden lg:inline">
             {isExecuting ? '실행 중...' : '미리보기'}
           </span>
         </button>
@@ -581,11 +586,11 @@ export default function EditorHeader() {
         <div className="relative">
           <button
             onClick={() => setShowDeployDropdown(!showDeployDropdown)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm flex items-center gap-2 text-sm"
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm flex items-center gap-1.5 text-[13px]"
           >
             게시하기
             <svg
-              className={`w-4 h-4 transition-transform ${showDeployDropdown ? 'rotate-180' : ''}`}
+              className={`w-3.5 h-3.5 transition-transform ${showDeployDropdown ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -674,10 +679,10 @@ export default function EditorHeader() {
         {/* 6. 버전 기록 (아이콘만) */}
         <button
           onClick={handleVersionHistory}
-          className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200 rounded-full shadow-sm transition-colors text-gray-600"
+          className="w-9 h-9 flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200 rounded-full shadow-sm transition-colors text-gray-600"
           title="버전 기록"
         >
-          <ClockIcon className="w-5 h-5" />
+          <ClockIcon className="w-4 h-4" />
         </button>
 
         {/* [NEW] 로그 뷰어 모달 렌더링 */}

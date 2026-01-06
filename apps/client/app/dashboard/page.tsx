@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Pencil } from 'lucide-react';
+import { Search, Plus, SquarePen } from 'lucide-react';
 
 import CreateAppModal from '../features/app/components/create-app-modal';
 import EditAppModal from '../features/app/components/edit-app-modal';
@@ -156,7 +156,7 @@ export default function DashboardPage() {
                   className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
                   title="앱 정보 수정"
                 >
-                  <Pencil className="w-3 h-3" />
+                  <SquarePen className="w-3 h-3" />
                 </button>
               </div>
             </div>
