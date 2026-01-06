@@ -38,6 +38,42 @@ export const connectorApi = {
     return response.data;
   },
 
+  /**
+   * DB 연결 테스트
+   * @param config - DB 연결 정보
+   * @returns 성공 여부
+   */
+  testConnection: async (config: DBConfig): Promise<boolean> => {
+    try {
+      const payload = {
+        connection_name: config.connectionName,
+        type: config.type,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: config.username,
+        password: config.password,
+        ssh: config.ssh?.enabled
+          ? {
+              enabled: true,
+              host: config.ssh.host,
+              port: config.ssh.port,
+              username: config.ssh.username,
+              auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
+              password: config.ssh.password,
+              private_key: config.ssh.privateKey,
+            }
+          : null,
+      };
+
+      const response = await api.post('/connectors/test', payload);
+      return response.data.success;
+    } catch (error) {
+      console.error('DB Connection Test Error', error);
+      return false;
+    }
+  },
+
   getSchema: async (connectionId: string): Promise<any> => {
     const response = await api.get(`/connectors/${connectionId}/schema`);
     return response.data;

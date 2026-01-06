@@ -32,9 +32,6 @@ interface CreateKnowledgeModalProps {
   initialTab?: 'FILE' | 'API' | 'DB';
 }
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-
 export default function CreateKnowledgeModal({
   isOpen,
   onClose,
@@ -173,45 +170,10 @@ export default function CreateKnowledgeModal({
   // DB Connection Test
   const handleTestDBConnection = async (config: DBConfig): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/v1/connectors/test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          connection_name: config.connectionName,
-          type: config.type,
-          host: config.host,
-          port: config.port,
-          database: config.database,
-          username: config.username,
-          password: config.password,
-          ssh: config.ssh.enabled
-            ? {
-                enabled: config.ssh.enabled,
-                host: config.ssh.host,
-                port: config.ssh.port,
-                username: config.ssh.username,
-                auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
-                password: config.ssh.password,
-                private_key: config.ssh.privateKey,
-              }
-            : null,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        //HTTP status 200번대, success가 true일때
-        return true;
-      } else {
-        console.error('Connection failed:', result);
-        return false;
-      }
+      return await connectorApi.testConnection(config);
     } catch (err) {
       console.error('DB Connection Test Error', err);
+      toast.error('DB 연결 테스트 중 오류가 발생했습니다.');
       return false;
     }
   };
