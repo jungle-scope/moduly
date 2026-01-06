@@ -203,4 +203,16 @@ export const workflowApi = {
       output_schema: any;
     }[];
   },
+
+  // 배포 토글 (is_active)
+  toggleDeployment: async (deploymentId: string) => {
+    const response = await api.patch(`/deployments/${deploymentId}/toggle`);
+    return response.data as DeploymentResponse;
+  },
+
+  // 배포 삭제
+  deleteDeployment: async (deploymentId: string) => {
+    const response = await api.delete(`/deployments/${deploymentId}`);
+    return response.data;
+  },
 };

@@ -122,3 +122,33 @@ def get_deployment_info_public(
         input_schema=deployment.input_schema,
         output_schema=deployment.output_schema,
     )
+
+
+@router.patch("/{deployment_id}/toggle", response_model=DeploymentResponse)
+def toggle_deployment(
+    deployment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    배포의 is_active 상태를 토글합니다.
+    """
+    from services.scheduler_service import get_scheduler_service
+
+    scheduler = get_scheduler_service()
+    return DeploymentService.toggle_deployment(db, deployment_id, scheduler)
+
+
+@router.delete("/{deployment_id}")
+def delete_deployment(
+    deployment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    배포를 삭제합니다.
+    """
+    from services.scheduler_service import get_scheduler_service
+
+    scheduler = get_scheduler_service()
+    return DeploymentService.delete_deployment(db, deployment_id, scheduler)
