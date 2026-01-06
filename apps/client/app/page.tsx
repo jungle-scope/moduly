@@ -23,7 +23,6 @@ export default function Home() {
     checkAuth();
   }, [router]);
 
-  // 인증 확인 중에는 빈 화면 표시함
   if (isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center">

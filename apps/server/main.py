@@ -66,7 +66,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 정적 파일 서빙 (widget.js)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # API 라우터 등록
