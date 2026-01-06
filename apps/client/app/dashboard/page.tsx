@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, SquarePen } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 
 import CreateAppModal from '../features/app/components/create-app-modal';
 import EditAppModal from '../features/app/components/edit-app-modal';
+import AppCard from '../features/app/components/app-card';
 import { appApi, type App } from '../features/app/api/appApi';
 
 export default function DashboardPage() {
@@ -20,7 +21,7 @@ export default function DashboardPage() {
   useEffect(() => {
     loadApps();
 
-    // Listen for create app modal event from sidebar
+    // 사이드바에서 앱 생성 모달 이벤트 수신
     const handleOpenModal = () => {
       setIsCreateModalOpen(true);
     };
@@ -65,12 +66,12 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 bg-gradient-to-br from-white via-gray-50 to-gray-100 min-h-full border border-gray-200">
-      {/* Page Title */}
+      {/* 페이지 제목 */}
       <h1 className="text-2xl font-bold text-gray-800 mb-6">대시보드</h1>
 
-      {/* Search and Create Row */}
+      {/* 검색 및 생성 행 */}
       <div className="mb-6 flex items-center justify-end gap-3">
-        {/* Search Bar */}
+        {/* 검색바 */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -82,7 +83,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Create Button */}
+        {/* 생성 버튼 */}
         <button
           onClick={handleCreateApp}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -92,79 +93,37 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Error Message */}
+      {/* 에러 메시지 */}
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
           {error}
         </div>
       )}
 
-      {/* Loading State */}
+      {/* 로딩 상태 */}
       {isLoading && (
         <div className="text-center py-12">
           <p className="text-gray-500 text-sm">로딩 중...</p>
         </div>
       )}
 
-      {/* Module Cards Grid */}
-      {/* Apps Grid */}
+      {/* 모듈 카드 그리드 */}
+      {/* 앱 그리드 */}
       {!isLoading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Existing App Cards */}
+          {/* 기존 앱 카드 */}
           {filteredApps.map((app) => (
-            <div
+            <AppCard
               key={app.id}
-              onClick={() => handleAppClick(app)}
-              className="group cursor-pointer rounded-xl border border-gray-200/60 bg-white py-8 px-6 shadow-sm transition-all hover:shadow-md hover:border-gray-300"
-            >
-              {/* Card Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-gray-900 mb-1">
-                    {app.name}
-                  </h3>
-                  <p className="text-xs text-gray-500">{app.description}</p>
-                </div>
-                {/* Icon */}
-                <div
-                  className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl flex-shrink-0 ml-3"
-                  style={{ backgroundColor: app.icon?.background_color }}
-                >
-                  {app.icon?.content}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-[8px] text-blue-600 font-medium">
-                      U
-                    </span>
-                  </div>
-                  <span>
-                    • Edited{' '}
-                    {new Date(app.updated_at).toLocaleDateString('en-US', {
-                      month: '2-digit',
-                      day: '2-digit',
-                      year: '2-digit',
-                    })}
-                  </span>
-                </div>
-                <button
-                  onClick={(e) => handleEditApp(e, app)}
-                  className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                  title="앱 정보 수정"
-                >
-                  <SquarePen className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
+              app={app}
+              onClick={handleAppClick}
+              onEdit={handleEditApp}
+            />
           ))}
         </div>
       )}
 
-      {/* Search Empty State */}
+      {/* 검색 결과 없음 상태 */}
       {!isLoading && filteredApps.length === 0 && searchQuery && (
         <div className="mt-12 text-center">
           <p className="text-gray-500 dark:text-gray-400">
@@ -173,7 +132,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Create App Modal */}
+      {/* 앱 생성 모달 */}
       {isCreateModalOpen && (
         <CreateAppModal
           onClose={() => setIsCreateModalOpen(false)}
@@ -184,7 +143,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Edit App Modal */}
+      {/* 앱 수정 모달 */}
       {editingApp && (
         <EditAppModal
           app={editingApp}
