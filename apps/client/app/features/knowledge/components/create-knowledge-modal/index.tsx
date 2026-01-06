@@ -33,7 +33,7 @@ interface CreateKnowledgeModalProps {
 }
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 export default function CreateKnowledgeModal({
   isOpen,
@@ -173,7 +173,7 @@ export default function CreateKnowledgeModal({
   // DB Connection Test
   const handleTestDBConnection = async (config: DBConfig): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/v1/connectors/test`, {
+      const response = await fetch(`${BASE_URL}/connectors/test`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
