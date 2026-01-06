@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, ChevronDown, Filter, RefreshCcw } from 'lucide-react';
+import { Calendar, ChevronDown, Filter, RefreshCcw, ArrowUpDown } from 'lucide-react';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 
 interface LogFilterBarProps {
@@ -12,6 +12,7 @@ export interface LogFilters {
   status: 'all' | 'success' | 'failed';
   version: 'all' | string;
   serviceId: 'all' | string; // [NEW]
+  sortBy: 'latest' | 'oldest' | 'tokens_high' | 'tokens_low' | 'cost_high' | 'cost_low' | 'duration_long' | 'duration_short';
   dateRange: {
     start: Date | null;
     end: Date | null;
@@ -23,6 +24,7 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
     status: 'all',
     version: 'all',
     serviceId: 'all',
+    sortBy: 'latest',
     dateRange: { start: null, end: null },
   });
 
@@ -67,17 +69,61 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
             </div>
         )}
 
-        {/* Status Filter */}
+        {/* Status Filter - Toggle Buttons */}
         <div className="flex items-center gap-2">
             {!availableServices.length && <Filter className="w-4 h-4 text-gray-500" />}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => handleFilterChange('status', filters.status === 'all' ? 'all' : 'all')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  filters.status === 'all'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-white text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                전체
+              </button>
+              <button
+                onClick={() => handleFilterChange('status', filters.status === 'success' ? 'all' : 'success')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 flex items-center gap-1.5 ${
+                  filters.status === 'success'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-white text-gray-500 hover:bg-green-50 hover:text-green-600'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${filters.status === 'success' ? 'bg-white' : 'bg-green-500'}`} />
+                성공
+              </button>
+              <button
+                onClick={() => handleFilterChange('status', filters.status === 'failed' ? 'all' : 'failed')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 flex items-center gap-1.5 ${
+                  filters.status === 'failed'
+                    ? 'bg-red-500 text-white'
+                    : 'bg-white text-gray-500 hover:bg-red-50 hover:text-red-600'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${filters.status === 'failed' ? 'bg-white' : 'bg-red-500'}`} />
+                실패
+              </button>
+            </div>
+        </div>
+
+        {/* Sort Dropdown */}
+        <div className="flex items-center gap-2">
+            <ArrowUpDown className="w-4 h-4 text-gray-500" />
             <select 
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]"
+                value={filters.sortBy}
+                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-                <option value="all">모든 상태</option>
-                <option value="success">성공 (Success)</option>
-                <option value="failed">실패 (Failed)</option>
+                <option value="latest">시간 (최신순)</option>
+                <option value="oldest">시간 (오래된순)</option>
+                <option value="tokens_high">토큰 (높은순)</option>
+                <option value="tokens_low">토큰 (낮은순)</option>
+                <option value="cost_high">비용 (높은순)</option>
+                <option value="cost_low">비용 (낮은순)</option>
+                <option value="duration_long">소요시간 (긴순)</option>
+                <option value="duration_short">소요시간 (짧은순)</option>
             </select>
         </div>
 
@@ -144,7 +190,7 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
         {/* Reset Button */}
         <button 
             onClick={() => {
-                const reset = { status: 'all', version: 'all', serviceId: 'all', dateRange: { start: null, end: null } } as any;
+                const reset = { status: 'all', version: 'all', serviceId: 'all', sortBy: 'latest', dateRange: { start: null, end: null } } as any;
                 setFilters(reset);
                 onFilterChange(reset);
             }}
