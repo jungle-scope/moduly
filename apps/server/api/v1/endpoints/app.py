@@ -22,12 +22,15 @@ def update_app(
     """
     앱 정보를 수정합니다. (본인 앱만)
     """
-    app = AppService.update_app(db, app_id, request, user_id=str(current_user.id))
-    if not app:
-        raise HTTPException(
-            status_code=404, detail="App not found or permission denied"
-        )
-    return app
+    try:
+        app = AppService.update_app(db, app_id, request, user_id=str(current_user.id))
+        if not app:
+            raise HTTPException(
+                status_code=404, detail="App not found or permission denied"
+            )
+        return app
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("", response_model=AppResponse)
@@ -93,7 +96,9 @@ def clone_app(
     앱을 복제합니다. (내 스튜디오로 복사)
     """
     try:
-        app = AppService.clone_app(db, user_id=str(current_user.id), source_app_id=app_id)
+        app = AppService.clone_app(
+            db, user_id=str(current_user.id), source_app_id=app_id
+        )
         if not app:
             raise HTTPException(status_code=404, detail="App not found")
         return app
