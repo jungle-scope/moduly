@@ -117,12 +117,47 @@ class DbProcessor(BaseProcessor):
             selections = source_config.get("selections", [])
             # 예: [{"table_name": "users", "columns": ["id", "email", "name"]}]
 
+            # [NEW] 1. 모든 선택된 테이블의 스키마를 하나의 chunk로 생성
+            try:
+                schema_info = connector.get_schema_info(config_dict)
+                if schema_info and selections:
+                    # 모든 선택된 테이블의 스키마를 하나의 텍스트로 결합
+                    combined_schema_text = ""
+                    for selection in selections:
+                        table_name = selection["table_name"]
+                        table_schema = next(
+                            (s for s in schema_info if s["table_name"] == table_name),
+                            None,
+                        )
+                        if table_schema:
+                            combined_schema_text += f"Table: {table_name}\nColumns:\n"
+                            for col in table_schema.get("columns", []):
+                                combined_schema_text += (
+                                    f"- {col['name']} ({col['type']})\n"
+                                )
+                            combined_schema_text += "\n"  # 테이블 간 구분
+
+                    # 스키마를 첫 번째 chunk로 추가
+                    if combined_schema_text:
+                        chunks.append(
+                            {
+                                "content": combined_schema_text.strip(),
+                                "metadata": {
+                                    "source": f"DB:{conn_record.name}:schema",
+                                    "type": "schema",
+                                },
+                            }
+                        )
+            except Exception as e:
+                logger.warning(f"Failed to fetch schema info: {e}")
+
             transformer = DbNlTransformer()
             for selection in selections:
                 table_name = selection["table_name"]
                 columns = selection.get("columns", ["*"])  # 컬럼 선택 안하면 전체
                 limit = source_config.get("limit", 1000)
 
+                # [EXISTING] 2. 모든 테이블의 데이터 rows 추가
                 # 쿼리 생성
                 req_cols = ", ".join(columns)
                 query = f"SELECT {req_cols} FROM {table_name} LIMIT {limit}"
@@ -139,7 +174,6 @@ class DbProcessor(BaseProcessor):
                             "metadata": {
                                 "source": f"DB:{conn_record.name}:{table_name}",
                                 "table": table_name,
-                                # Primary Key 등을 식별할 수 있다면 좋음
                             },
                         }
                     )
