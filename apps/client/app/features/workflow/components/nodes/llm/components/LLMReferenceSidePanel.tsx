@@ -280,10 +280,6 @@ export function LLMReferenceSidePanel({
                     right: `${(1 - recommendedScoreRange[1]) * 100}%`,
                   }}
                 />
-                <div
-                  className="absolute inset-y-0 w-0.5 bg-indigo-600"
-                  style={{ left: `${scoreThreshold * 100}%` }}
-                />
               </div>
               <input
                 type="range"
@@ -327,10 +323,6 @@ export function LLMReferenceSidePanel({
                     left: `${(recommendedTopKRange[0] / 20) * 100}%`,
                     right: `${(1 - recommendedTopKRange[1] / 20) * 100}%`,
                   }}
-                />
-                <div
-                  className="absolute inset-y-0 w-0.5 bg-indigo-600"
-                  style={{ left: `${(topK / 20) * 100}%` }}
                 />
               </div>
               <input
