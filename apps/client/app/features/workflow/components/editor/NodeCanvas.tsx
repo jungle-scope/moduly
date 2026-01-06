@@ -432,6 +432,7 @@ export default function NodeCanvas() {
         isOpen={isNodeLibraryOpen}
         onToggle={() => setIsNodeLibraryOpen(!isNodeLibraryOpen)}
         onAddNode={handleAddNodeFromLibrary}
+        onOpenAppSearch={() => setIsSearchModalOpen(true)}
         workflowName={projectName}
         workflowIcon={projectIcon}
         workflowDescription={projectDescription}
@@ -512,9 +513,9 @@ export default function NodeCanvas() {
               selectedNodeType === 'llmNode' ? (
                 <button
                   onClick={() => {
-                  setIsRefPanelOpen(false);
-                  setIsParamPanelOpen((prev) => !prev);
-                }}
+                    setIsRefPanelOpen(false);
+                    setIsParamPanelOpen((prev) => !prev);
+                  }}
                   className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
                     isParamPanelOpen
                       ? 'bg-blue-100 text-blue-600'

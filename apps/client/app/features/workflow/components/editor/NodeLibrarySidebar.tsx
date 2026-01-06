@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight, SquarePen } from 'lucide-react';
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  SquarePen,
+  ChevronDown,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { getImplementedNodes, NodeDefinition } from '../../config/nodeRegistry';
 import { AppIcon, appApi } from '../../../app/api/appApi';
@@ -12,6 +18,7 @@ interface NodeLibrarySidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   onAddNode: (nodeDefId: string, position?: { x: number; y: number }) => void;
+  onOpenAppSearch: () => void;
   workflowName: string;
   workflowIcon: AppIcon;
   workflowDescription: string;
@@ -21,6 +28,7 @@ export default function NodeLibrarySidebar({
   isOpen,
   onToggle,
   onAddNode,
+  onOpenAppSearch,
   workflowName,
   workflowIcon,
   workflowDescription,
@@ -29,6 +37,17 @@ export default function NodeLibrarySidebar({
   const [isHovering, setIsHovering] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    new Set([
+      'trigger',
+      'llm',
+      'plugin',
+      'workflow',
+      'logic',
+      'database',
+      'data',
+    ]),
+  );
   const implementedNodes = useMemo(() => getImplementedNodes(), []);
 
   const { projectApp, setProjectInfo, setProjectApp } = useWorkflowStore();
@@ -90,7 +109,27 @@ export default function NodeLibrarySidebar({
   };
 
   const handleNodeClick = (nodeDefId: string) => {
-    onAddNode(nodeDefId);
+    // Check if this is a workflow node
+    const nodeDef = implementedNodes.find((n) => n.id === nodeDefId);
+    if (nodeDef?.type === 'workflowNode') {
+      // Open app search modal for workflow nodes
+      onOpenAppSearch();
+    } else {
+      // Directly add other node types
+      onAddNode(nodeDefId);
+    }
+  };
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
   };
 
   // Get input variables from node definition
@@ -254,82 +293,93 @@ export default function NodeLibrarySidebar({
           </div>
 
           {/* Node List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            {Array.from(nodesByCategory.entries()).map(([category, nodes]) => (
-              <div key={category}>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                  {categoryNames[category] || category}
-                </h3>
-                <div className="space-y-2">
-                  {nodes.map((node) => {
-                    const inputs = getNodeInputs(node);
-                    return (
-                      <div
-                        key={node.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, node.id)}
-                        onClick={() => handleNodeClick(node.id)}
-                        className="group p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg cursor-move transition-all hover:shadow-md"
-                      >
-                        {/* Node Header */}
-                        <div className="flex items-start gap-3 mb-2">
-                          {/* Icon */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-200">
+            {Array.from(nodesByCategory.entries()).map(([category, nodes]) => {
+              const isExpanded = expandedCategories.has(category);
+              return (
+                <div key={category}>
+                  {/* Category Header with Toggle */}
+                  <button
+                    onClick={() => toggleCategory(category)}
+                    className="w-full flex items-center justify-between text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 hover:text-gray-700 transition-colors"
+                  >
+                    <span>{categoryNames[category] || category}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        isExpanded ? 'rotate-0' : '-rotate-90'
+                      }`}
+                    />
+                  </button>
+
+                  {/* Collapsible Node List */}
+                  {isExpanded && (
+                    <div className="space-y-2">
+                      {nodes.map((node) => {
+                        const inputs = getNodeInputs(node);
+                        return (
                           <div
-                            className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-                            style={{ backgroundColor: node.color }}
+                            key={node.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, node.id)}
+                            onClick={() => handleNodeClick(node.id)}
+                            className="group p-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg cursor-move transition-all hover:shadow-md"
                           >
-                            {typeof node.icon === 'string' ? (
-                              <span className="text-lg">{node.icon}</span>
-                            ) : (
-                              node.icon
+                            {/* Node Header */}
+                            <div className="flex items-start gap-2">
+                              {/* Icon */}
+                              <div
+                                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+                                style={{ backgroundColor: node.color }}
+                              >
+                                {typeof node.icon === 'string' ? (
+                                  <span className="text-lg">{node.icon}</span>
+                                ) : (
+                                  node.icon
+                                )}
+                              </div>
+
+                              {/* Name and Description */}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-gray-900 truncate">
+                                  {node.name}
+                                </h4>
+                                <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                                  {node.description}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Inputs */}
+                            {inputs.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  필요 변수:
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {inputs.slice(0, 3).map((input, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700"
+                                    >
+                                      {input}
+                                    </span>
+                                  ))}
+                                  {inputs.length > 3 && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                      +{inputs.length - 3}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             )}
                           </div>
-
-                          {/* Name and Description */}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {node.name}
-                            </h4>
-                            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
-                              {node.description}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Inputs */}
-                        {inputs.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-gray-200">
-                            <p className="text-xs text-gray-400 mb-1">
-                              필요 변수:
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                              {inputs.slice(0, 3).map((input, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700"
-                                >
-                                  {input}
-                                </span>
-                              ))}
-                              {inputs.length > 3 && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                  +{inputs.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Drag hint */}
-                        <div className="mt-2 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                          드래그하거나 클릭하여 추가
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Empty State */}
             {filteredNodes.length === 0 && (
