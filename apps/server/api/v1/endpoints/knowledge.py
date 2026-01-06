@@ -174,6 +174,7 @@ def delete_knowledge_base(
     """
     참고자료 그룹을 삭제합니다.
     연결된 문서 및 임베딩 데이터는 DB Cascade 설정에 따라 함께 삭제됩니다.
+    물리적 파일(S3/Local)도 함께 삭제합니다.
     """
     kb = (
         db.query(KnowledgeBase)
@@ -184,7 +185,24 @@ def delete_knowledge_base(
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge Base not found")
 
-    # Cascade 삭제
+    # 물리적 파일 삭제 (Storage)
+    from services.storage import get_storage_service
+
+    storage = get_storage_service()
+
+    for doc in kb.documents:
+        if doc.file_path:
+            try:
+                # S3/Local 파일 삭제
+                storage.delete(doc.file_path)
+                print(f"[Info] Deleted file for doc {doc.id}: {doc.file_path}")
+            except Exception as e:
+                # 파일 삭제 실패하더라도 DB 삭제는 계속 진행 (로그만 남김)
+                print(
+                    f"[Warning] Failed to delete file {doc.file_path} for doc {doc.id}: {e}"
+                )
+
+    # DB 삭제 (Cascade로 청크도 같이 삭제됨)
     db.delete(kb)
     db.commit()
 
