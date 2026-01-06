@@ -1,4 +1,4 @@
-import { AppIcon } from '../../app/api/appApi';
+import { App, AppIcon } from '../../app/api/appApi';
 import {
   Connection,
   Edge,
@@ -42,6 +42,8 @@ type WorkflowState = {
 
   projectName: string;
   projectIcon: AppIcon;
+  projectDescription: string;
+  projectApp: App | null; // Full app object for editing
   interactiveMode: 'mouse' | 'touchpad'; // 입력 모드 (마우스/터치패드)
   isFullscreen: boolean;
 
@@ -79,7 +81,8 @@ type WorkflowState = {
 
   // === Editor UI 액션 ===
 
-  setProjectInfo: (name: string, icon: AppIcon) => void;
+  setProjectInfo: (name: string, icon: AppIcon, description?: string) => void;
+  setProjectApp: (app: App) => void;
   setInteractiveMode: (mode: 'mouse' | 'touchpad') => void;
   toggleFullscreen: () => void;
   addWorkflow: (
@@ -130,10 +133,11 @@ const initialWorkflows: Workflow[] = [
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   // === Editor UI 상태 ===
   workflows: initialWorkflows,
-  activeWorkflowId: 'default',
-
-  projectName: 'My Project',
-  projectIcon: { type: 'emoji', content: '🔥', background_color: '#FFE5D4' },
+  activeWorkflowId: initialWorkflows[0]?.id || '',
+  projectName: '',
+  projectIcon: { type: 'emoji', content: '�', background_color: '#3b82f6' },
+  projectDescription: '',
+  projectApp: null,
   interactiveMode: 'mouse',
   isFullscreen: false,
 
@@ -194,7 +198,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     get().setEdges(newEdges);
   },
 
-  setProjectInfo: (name, icon) => set({ projectName: name, projectIcon: icon }),
+  setProjectInfo: (name, icon, description = '') =>
+    set({
+      projectName: name,
+      projectIcon: icon,
+      projectDescription: description,
+    }),
+
+  setProjectApp: (app) =>
+    set({
+      projectApp: app,
+      projectName: app.name,
+      projectIcon: app.icon,
+      projectDescription: app.description || '',
+    }),
 
   setInteractiveMode: (mode) => set({ interactiveMode: mode }),
 

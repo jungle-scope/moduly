@@ -4,10 +4,12 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import {
   TouchpadIcon,
+  MousePointerIcon,
   NoteIcon,
   LayoutIcon,
   FullscreenIcon,
   ChevronDownIcon,
+  ArrowsInIcon,
 } from '../nodes/icons';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { type NoteNode } from '../../types/Nodes';
@@ -29,6 +31,7 @@ export default function BottomPanel({
     nodes,
     setNodes,
     toggleFullscreen,
+    isFullscreen,
   } = useWorkflowStore();
   const {
     screenToFlowPosition,
@@ -139,7 +142,7 @@ export default function BottomPanel({
         data: { content: '', title: '메모' },
         position,
         style: {
-          width: 200,
+          width: 300,
           height: 100,
         },
       };
@@ -215,8 +218,8 @@ export default function BottomPanel({
             top: notePosition.y + 10,
           }}
         >
-          <div className="bg-amber-50 border-2 border-yellow-400 rounded-lg shadow-xl p-3 w-[200px] min-h-[100px]">
-            <div className="text-sm text-gray-400 italic min-h-[80px]">
+          <div className="bg-amber-50 border-2 border-yellow-400 rounded-lg shadow-xl p-3 w-[300px] min-h-[100px]">
+            <div className="text-sm text-gray-400 italic min-h-[60px]">
               클릭하여 입력...
             </div>
           </div>
@@ -241,7 +244,11 @@ export default function BottomPanel({
               className="p-2 hover:bg-gray-100 rounded transition-colors"
               title="Interactive settings"
             >
-              <TouchpadIcon className="w-4 h-4 text-gray-600" />
+              {interactiveMode === 'touchpad' ? (
+                <TouchpadIcon className="w-4 h-4 text-gray-600" />
+              ) : (
+                <MousePointerIcon className="w-4 h-4 text-gray-600" />
+              )}
             </button>
 
             {/* 인터랙티브 모달 */}
@@ -460,9 +467,13 @@ export default function BottomPanel({
           <button
             onClick={handleFullscreen}
             className="p-2 hover:bg-gray-100 rounded transition-colors"
-            title="전체화면"
+            title={isFullscreen ? '전체화면 종료' : '전체화면'}
           >
-            <FullscreenIcon className="w-4 h-4 text-gray-600" />
+            {isFullscreen ? (
+              <ArrowsInIcon className="w-4 h-4 text-gray-600" />
+            ) : (
+              <FullscreenIcon className="w-4 h-4 text-gray-600" />
+            )}
           </button>
         </div>
       </div>

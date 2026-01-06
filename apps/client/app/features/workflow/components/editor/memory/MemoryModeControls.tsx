@@ -75,7 +75,8 @@ function MemoryModeModals({
                   LLM Provider 키를 등록해야 기억모드를 켤 수 있습니다.
                 </p>
                 <p className="text-sm text-gray-600 mt-1">
-                  설정에서 키를 등록하면 비용 동의 후 기억모드를 사용할 수 있습니다.
+                  설정에서 키를 등록하면 비용 동의 후 기억모드를 사용할 수
+                  있습니다.
                 </p>
               </div>
             </div>
@@ -116,7 +117,9 @@ export function MemoryModeToggle({
   return (
     <>
       <div className="flex items-center gap-1">
-        <span className="text-xs font-semibold text-gray-700">기억모드</span>
+        <span className="text-xs font-semibold text-gray-700 hidden lg:inline">
+          기억모드
+        </span>
         <div className="group relative inline-block">
           <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
           <div className="absolute z-50 hidden group-hover:block w-60 p-2 text-[11px] leading-relaxed text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
@@ -132,14 +135,14 @@ export function MemoryModeToggle({
       </div>
       <button
         onClick={onToggle}
-        className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
+        className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
           isEnabled ? 'bg-blue-600' : 'bg-gray-200'
         } ${hasProviderKey === false ? 'opacity-60 cursor-not-allowed' : ''}`}
         aria-pressed={isEnabled}
       >
         <span
-          className={`absolute top-[2px] left-[2px] h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-            isEnabled ? 'translate-x-6' : ''
+          className={`absolute top-[2px] left-[2px] h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+            isEnabled ? 'translate-x-4' : ''
           }`}
         />
       </button>
@@ -180,7 +183,9 @@ export function useMemoryMode(router = useRouter(), toaster = toast) {
     if (hasProviderKey === false && isMemoryModeEnabled) {
       setIsMemoryModeEnabled(false);
       setShowMemoryConfirm(false);
-      toaster.info('프로바이더 키가 없어 기억모드를 끕니다.', { duration: 2000 });
+      toaster.info('프로바이더 키가 없어 기억모드를 끕니다.', {
+        duration: 2000,
+      });
     }
   }, [hasProviderKey, isMemoryModeEnabled, toaster]);
 
