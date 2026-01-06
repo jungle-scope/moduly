@@ -1,6 +1,6 @@
 'use client';
 
-import { Sliders, Plus, StickyNote, Play } from 'lucide-react';
+import { Sliders, Plus, StickyNote, Play, BookOpen } from 'lucide-react';
 import { NodeSelector } from './NodeSelector';
 import {
   type NodeDefinition,
@@ -37,7 +37,7 @@ import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodeP
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
-import { KnowledgeNodePanel } from '../nodes/knowledge/components/KnowledgeNodePanel';
+
 import { GithubNodePanel } from '../nodes/github/components/GithubNodePanel';
 import { MailNodePanel } from '../nodes/mail/components/MailNodePanel';
 
@@ -48,6 +48,7 @@ import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
 import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTriggerNodePanel';
 import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
+import { LLMReferenceSidePanel } from '../nodes/llm/components/LLMReferenceSidePanel';
 
 export default function NodeCanvas() {
   const {
@@ -77,6 +78,8 @@ export default function NodeCanvas() {
 
   // [LLM] 파라미터 패널 상태
   const [isParamPanelOpen, setIsParamPanelOpen] = useState(false);
+  // [LLM] 참고 자료 패널 상태
+  const [isRefPanelOpen, setIsRefPanelOpen] = useState(false);
 
   // 키보드 단축키: 검색 모달을 열기 위한 Cmd+K
   useKeyboardShortcut(
@@ -86,6 +89,18 @@ export default function NodeCanvas() {
     },
     { preventDefault: true },
   );
+
+  // [LLM] 참고 자료 패널 열기 이벤트 수신
+  useEffect(() => {
+    const handleOpenRefPanel = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.nodeId === selectedNodeId) {
+        setIsRefPanelOpen(true);
+      }
+    };
+    window.addEventListener('openLLMReferencePanel', handleOpenRefPanel);
+    return () => window.removeEventListener('openLLMReferencePanel', handleOpenRefPanel);
+  }, [selectedNodeId]);
 
   // 앱 선택 처리: 워크플로우 노드 추가
   const handleSelectApp = useCallback(
@@ -434,6 +449,14 @@ export default function NodeCanvas() {
             onClose={() => setIsParamPanelOpen(false)}
           />
         )}
+        {/* [LLM] 참고 자료 사이드 패널 */}
+        {isRefPanelOpen && selectedNodeType === 'llmNode' && selectedNode && (
+          <LLMReferenceSidePanel
+            nodeId={selectedNode.id}
+            data={selectedNode.data as any}
+            onClose={() => setIsRefPanelOpen(false)}
+          />
+        )}
 
         <NodeDetailsPanel
           nodeId={selectedNodeId}
@@ -507,12 +530,7 @@ export default function NodeCanvas() {
               data={selectedNode.data as any}
             />
           )}
-          {selectedNode && selectedNodeType === 'knowledgeNode' && (
-            <KnowledgeNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
+
           {selectedNode && selectedNodeType === 'fileExtractionNode' && (
             <FileExtractionNodePanel
               nodeId={selectedNode.id}

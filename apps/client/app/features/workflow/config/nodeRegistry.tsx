@@ -178,26 +178,7 @@ export const nodeRegistry: NodeDefinition[] = [
       conditions: [],
     }),
   },
-  {
-    id: 'knowledge',
-    type: 'knowledgeNode',
-    name: '지식',
-    category: 'data',
-    color: '#6366f1', // indigo-500
-    icon: <BookOpen className="w-3.5 h-3.5 text-white" />,
-    implemented: true,
-    description: '지식 베이스를 조회하고 검색합니다.',
-    defaultData: () => ({
-      title: '지식',
-      description: '지식 베이스 검색',
-      knowledgeBases: [],
-      queryVariable: undefined,
-      scoreThreshold: 0.5,
-      topK: 3,
-      queryVariables: [],
-      userQuery: '',
-    }),
-  },
+
   {
     id: 'file-extraction',
     type: 'fileExtractionNode',
