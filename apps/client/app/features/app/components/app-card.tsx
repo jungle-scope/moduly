@@ -155,7 +155,7 @@ export default function AppCard({
 
               <div className="my-1 border-t border-gray-100" />
 
-              {/* 배포 on/off 토글 (UI Only) */}
+              {/* 배포 on/off 토글 (UI 전용) */}
               <button
                 className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50 flex items-center gap-2 cursor-not-allowed"
                 onClick={(e) => e.stopPropagation()}
@@ -164,13 +164,13 @@ export default function AppCard({
                 <span>배포 끄기 (준비중)</span>
               </button>
 
-              {/* 워크플로우 노드로 배포된 버전 목록 조회 (UI Only) */}
+              {/* 서브 모듈로 배포된 버전 목록 조회 (UI 전용) */}
               <button
                 className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50 flex items-center gap-2 cursor-not-allowed"
                 onClick={(e) => e.stopPropagation()}
               >
                 <History className="w-3.5 h-3.5" />
-                <span>워크플로우 노드 배포 목록 (준비중)</span>
+                <span>서브 모듈 배포 목록 (준비중)</span>
               </button>
             </div>
           )}
