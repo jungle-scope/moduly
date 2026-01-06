@@ -99,7 +99,8 @@ export default function NodeCanvas() {
     const handleOpenRefPanel = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (detail?.nodeId === selectedNodeId) {
-        setIsRefPanelOpen(true);
+        setIsRefPanelOpen((prev) => !prev);
+        setIsParamPanelOpen(false);
       }
     };
     window.addEventListener('openLLMReferencePanel', handleOpenRefPanel);
@@ -209,6 +210,7 @@ export default function NodeCanvas() {
 
         if (selectedNodeId !== node.id) {
           setIsParamPanelOpen(false);
+          setIsRefPanelOpen(false);
         }
         setSelectedNodeId(node.id);
         setSelectedNodeType(node.type);
@@ -221,6 +223,7 @@ export default function NodeCanvas() {
     setSelectedNodeId(null);
     setSelectedNodeType(null);
     setIsParamPanelOpen(false);
+    setIsRefPanelOpen(false);
   }, []);
 
   const selectedNode = useMemo(() => {
@@ -508,7 +511,10 @@ export default function NodeCanvas() {
             headerActions={
               selectedNodeType === 'llmNode' ? (
                 <button
-                  onClick={() => setIsParamPanelOpen((prev) => !prev)}
+                  onClick={() => {
+                  setIsRefPanelOpen(false);
+                  setIsParamPanelOpen((prev) => !prev);
+                }}
                   className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
                     isParamPanelOpen
                       ? 'bg-blue-100 text-blue-600'
