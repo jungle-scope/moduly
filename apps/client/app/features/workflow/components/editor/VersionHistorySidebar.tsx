@@ -2,14 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { workflowApi } from '../../api/workflowApi';
 import { DeploymentResponse } from '../../types/Deployment';
-import {
-  X,
-  Clock,
-  ChevronRight,
-  CheckCircle2,
-  Power,
-  Trash2,
-} from 'lucide-react';
+import { X, Clock, ChevronRight, CheckCircle2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -83,7 +76,7 @@ export function VersionHistorySidebar() {
 
   return (
     <>
-      <div className="absolute top-28 right-0 bottom-0 w-100 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col animate-in slide-in-from-right duration-200">
+      <div className="absolute top-28 right-0 bottom-0 w-96 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col animate-in slide-in-from-right duration-200">
         {/* 헤더 */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-2 text-gray-800">
@@ -175,7 +168,7 @@ export function VersionHistorySidebar() {
                       className="absolute top-2 right-2 p-1 rounded hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors z-20"
                       title="삭제"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-5 h-5" />
                     </button>
 
                     {/* 타임라인 점 */}
@@ -192,26 +185,28 @@ export function VersionHistorySidebar() {
                         className="cursor-pointer"
                         onClick={() => previewVersion(v)}
                       >
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 shrink-0">
+                            {v.type === 'api'
+                              ? 'API'
+                              : v.type === 'webapp'
+                                ? '웹앱'
+                                : v.type === 'widget'
+                                  ? '위젯'
+                                  : v.type === 'workflow_node'
+                                    ? '모듈'
+                                    : 'MCP'}
+                          </span>
                           <span
-                            className={`font-medium text-sm truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}
+                            className={`font-medium text-base truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}
                           >
                             {v.description || '제목 없는 버전'}
                           </span>
                         </div>
 
-                        <div className="text-xs text-gray-500 flex flex-col gap-0.5">
+                        <div className="text-sm text-gray-500 flex flex-col gap-0.5">
                           <div className="flex items-center gap-2">
                             <span>v{v.version}</span>
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                v.is_active
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-gray-100 text-gray-500'
-                              }`}
-                            >
-                              {v.is_active ? '활성' : '비활성'}
-                            </span>
                           </div>
                           <span>
                             {format(
@@ -224,26 +219,29 @@ export function VersionHistorySidebar() {
                           </span>
                         </div>
                       </div>
-
-                      {/* 토글 버튼 */}
-                      <div className="flex items-center gap-1 mt-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmModal({ type: 'toggle', deployment: v });
-                          }}
-                          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                            v.is_active
-                              ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                              : 'bg-green-100 hover:bg-green-200 text-green-700'
-                          }`}
-                          title={v.is_active ? '비활성화' : '활성화'}
-                        >
-                          <Power className="w-3 h-3" />
-                          {v.is_active ? '비활성화' : '활성화'}
-                        </button>
-                      </div>
                     </div>
+
+                    {/* 토글 스위치 (오른쪽 하단) */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmModal({ type: 'toggle', deployment: v });
+                      }}
+                      className="absolute bottom-2 right-2 z-20"
+                      title={v.is_active ? '비활성화' : '활성화'}
+                    >
+                      <div
+                        className={`relative w-11 h-5 rounded-full transition-colors ${
+                          v.is_active ? 'bg-blue-500' : 'bg-gray-300'
+                        }`}
+                      >
+                        <div
+                          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                            v.is_active ? 'translate-x-6' : 'translate-x-0'
+                          }`}
+                        />
+                      </div>
+                    </button>
 
                     {isSelected && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500">
