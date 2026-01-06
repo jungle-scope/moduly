@@ -589,6 +589,12 @@ export default function NodeCanvas() {
                 data={selectedNode.data as any}
               />
             )}
+            {selectedNode && selectedNodeType === 'scheduleTrigger' && (
+              <ScheduleTriggerNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
             {selectedNode && selectedNodeType === 'githubNode' && (
               <GithubNodePanel
                 nodeId={selectedNode.id}
