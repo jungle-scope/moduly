@@ -547,7 +547,7 @@ export default function EditorHeader() {
           className="px-3.5 py-1.5 flex items-center gap-1.5 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-[13px] font-medium"
         >
           <BarChart3 className="w-3.5 h-3.5" />
-          <span className="hidden lg:inline">로그 & 모니터링</span>
+          <span className="hidden lg:inline">모니터링 & 로그</span>
         </button>
 
         {/* 3. 기억 모드 */}
