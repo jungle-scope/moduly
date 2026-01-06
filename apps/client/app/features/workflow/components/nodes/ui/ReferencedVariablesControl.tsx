@@ -138,7 +138,7 @@ export const ReferencedVariablesControl: React.FC<
 
             <div className="flex flex-row gap-2 items-center">
               {/* (1) 노드 선택 드롭다운 */}
-              <div className="flex-[3]">
+              <div className="flex-[2]">
                 <select
                   className="w-full rounded border border-gray-300 p-1.5 text-xs truncate focus:border-blue-500 focus:outline-none"
                   value={selectedSourceNodeId}
@@ -156,7 +156,7 @@ export const ReferencedVariablesControl: React.FC<
               </div>
 
               {/* (2) 출력값 선택 */}
-              <div className="flex-[3] relative">
+              <div className="flex-[2] relative">
                 <select
                   className={`w-full rounded border p-1.5 text-xs truncate focus:border-blue-500 focus:outline-none ${
                     !selectedSourceNodeId
@@ -188,7 +188,7 @@ export const ReferencedVariablesControl: React.FC<
                   </div>
 
                   {/* (3) 변수명 (별칭) 입력 */}
-                  <div className="flex-[2]">
+                  <div className="flex-[3]">
                     <input
                       type="text"
                       className="w-full rounded border border-gray-300 p-1.5 text-xs focus:border-blue-500 focus:outline-none"
