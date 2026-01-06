@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Search, Wrench, BookOpen, BarChart3, Home } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const navigationItems = [
   {

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Search, ChevronLeft, ChevronRight, SquarePen } from 'lucide-react';
+import { toast } from 'sonner';
 import { getImplementedNodes, NodeDefinition } from '../../config/nodeRegistry';
 import { AppIcon, appApi } from '../../../app/api/appApi';
 import EditAppModal from '../../../app/components/edit-app-modal';
