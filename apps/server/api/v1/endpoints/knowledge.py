@@ -21,7 +21,7 @@ from fastapi.responses import (
     RedirectResponse,
     StreamingResponse,
 )
-from sqlalchemy import case, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -52,9 +52,9 @@ def list_knowledge_bases(
     각 참고자료 그룹에 포함된 문서 개수도 함께 반환합니다.
     """
     # 완료된 문서만 카운트
-    completed_count = func.sum(
-        case((Document.status == "completed", 1), else_=0)
-    ).label("document_count")
+    # completed_count = func.sum(
+    #     case((Document.status == "completed", 1), else_=0)
+    # ).label("document_count")
 
     results = (
         db.query(
