@@ -60,7 +60,7 @@ origins = origins_str.split(",")
 # CORS 설정 (withCredentials 지원)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # .env에서 CORS_ORIGINS로 설정 가능
+    allow_origins=origins,  # .env에서 CORS_ORIGINS로 설정 가능함
     allow_credentials=True,  # 쿠키 전송 허용
     allow_methods=["*"],
     allow_headers=["*"],
