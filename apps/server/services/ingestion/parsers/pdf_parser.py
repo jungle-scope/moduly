@@ -99,14 +99,50 @@ class PdfParser(BaseParser):
         """PyMuPDF4LLM을 사용하여 빠르게 마크다운 텍스트 추출"""
         try:
             md_text_chunks = pymupdf4llm.to_markdown(file_path, page_chunks=True)
+            print(f"[PdfParser] PyMuPDF extracted {len(md_text_chunks)} chunks")
+
+            # [NEW] Check for empty content (pymupdf4llm failure)
+            # 구분선(-----)만 있고 실제 텍스트가 없는 경우 감지
+            total_content_len = 0
+            for chunk in md_text_chunks:
+                clean_text = chunk["text"].replace("-", "").strip()
+                total_content_len += len(clean_text)
+
+            if total_content_len < 20:  # 텍스트가 거의 없다고 판단
+                print(
+                    "[PdfParser] pymupdf4llm extracted little to no text. Falling back to standard fitz extraction."
+                )
+                return self._parse_with_fitz_fallback(file_path)
+
             results = []
             for chunk in md_text_chunks:
+                text_content = chunk["text"]
+                print(
+                    f"[PdfParser] Page {chunk['metadata']['page'] + 1} content sample: {text_content[:50]}..."
+                )
                 results.append(
-                    {"text": chunk["text"], "page": chunk["metadata"]["page"] + 1}
+                    {"text": text_content, "page": chunk["metadata"]["page"] + 1}
                 )
             return results
         except Exception as e:
             print(f"[PdfParser] PyMuPDF failed: {e}")
+            print("[PdfParser] Trying fallback to standard fitz extraction...")
+            return self._parse_with_fitz_fallback(file_path)
+
+    def _parse_with_fitz_fallback(self, file_path: str) -> List[Dict[str, Any]]:
+        """Standard PyMuPDF text extraction as fallback"""
+        try:
+            doc = fitz.open(file_path)
+            results = []
+            for i, page in enumerate(doc):
+                text = page.get_text()
+                # 간단한 정제 (너무 짧은 페이지 제외)
+                if len(text.strip()) > 5:
+                    results.append({"text": text, "page": i + 1})
+            print(f"[PdfParser] Fallback extraction got {len(results)} pages with text")
+            return results
+        except Exception as e:
+            print(f"[PdfParser] Basic fitz extraction failed: {e}")
             return []
 
     def _parse_with_llamaparse(
@@ -128,18 +164,19 @@ class PdfParser(BaseParser):
 
         print(f"[PdfParser] Running LlamaParse on {file_path}")
         try:
-            # fast_mode=True uses text extraction mostly, False uses OCR
-            # To fix socket hang up (timeout/crash), we ensure verbose=True to see logs
+            # fast_mode=True uses text extraction mostly, False uses OCR (required for scanned docs)
+            # result_type="markdown" caused 'markdown' error in some versions, relying on default for now
             parser = LlamaParse(
                 api_key=api_key,
-                result_type="markdown",  # Directly get markdown
+                # result_type="markdown",
                 language="ko",
-                fast_mode=True,
+                fast_mode=False,
                 verbose=True,
             )
 
             # load_data returns List[Document]
             documents = parser.load_data(file_path)
+            print(f"[PdfParser] LlamaParse returned {len(documents)} document objects")
 
             results = []
             for doc in documents:
@@ -151,11 +188,17 @@ class PdfParser(BaseParser):
                     except Exception:
                         pass
 
+                print(
+                    f"[PdfParser] LlamaParse Page {page_num} sample: {doc.text[:50]}..."
+                )
                 results.append({"text": doc.text, "page": page_num})
 
             return results
 
         except Exception as e:
+            import traceback
+
+            traceback.print_exc()
             print(f"[PdfParser] LlamaParse failed: {e}")
             # Fallback to PyMuPDF if strict mode not required, or just return empty
             print("[PdfParser] Falling back to PyMuPDF due to error")
