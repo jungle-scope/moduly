@@ -50,6 +50,14 @@ spec:
             name: frontend-service
             port:
               number: 3000
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+
   
   # 2. www 서브도메인
   - host: www.moduly-ai.cloud
@@ -69,3 +77,10 @@ spec:
             name: frontend-service
             port:
               number: 3000
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
