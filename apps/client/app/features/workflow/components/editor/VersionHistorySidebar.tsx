@@ -81,7 +81,7 @@ export function VersionHistorySidebar() {
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-2 text-gray-800">
             <Clock className="w-5 h-5" />
-            <h2 className="font-semibold">버전 기록</h2>
+            <h2 className="font-semibold">배포 버전 기록</h2>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -186,7 +186,19 @@ export function VersionHistorySidebar() {
                         onClick={() => previewVersion(v)}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 shrink-0">
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${
+                              v.type === 'api'
+                                ? 'bg-blue-100 text-blue-700'
+                                : v.type === 'webapp'
+                                  ? 'bg-green-100 text-green-700'
+                                  : v.type === 'widget'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : v.type === 'workflow_node'
+                                      ? 'bg-orange-100 text-orange-700'
+                                      : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
                             {v.type === 'api'
                               ? 'API'
                               : v.type === 'webapp'
