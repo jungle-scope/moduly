@@ -2,13 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
-import {
-  HttpVariable,
-  SlackPostNodeData,
-} from '../../../../types/Nodes';
+import { HttpVariable, SlackPostNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
-import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
+import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 
 const getCaretCoordinates = (
   element: HTMLTextAreaElement,
@@ -53,10 +50,7 @@ interface SlackPostNodePanelProps {
   data: SlackPostNodeData;
 }
 
-export function SlackPostNodePanel({
-  nodeId,
-  data,
-}: SlackPostNodePanelProps) {
+export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
   const { updateNodeData, nodes, edges } = useWorkflowStore();
   const mode = data.slackMode || 'webhook';
   const messageRef = useRef<HTMLTextAreaElement>(null);
@@ -112,12 +106,7 @@ export function SlackPostNodePanel({
       preview: JSON.stringify(payload, null, 2),
       warnings,
     };
-  }, [
-    data.message,
-    data.blocks,
-    data.channel,
-    mode,
-  ]);
+  }, [data.message, data.blocks, data.channel, mode]);
 
   const availableVariables = useMemo(
     () =>
@@ -140,7 +129,6 @@ export function SlackPostNodePanel({
     }
     return Array.from(missing);
   }, [data.message, data.blocks, availableVariables]);
-  const validationErrors = missingVariables;
 
   // Slack 전용 필드로 구성된 payload를 HTTP body에 자동 반영
   useEffect(() => {
@@ -149,7 +137,7 @@ export function SlackPostNodePanel({
     }
   }, [payloadInfo.preview, data.body, nodeId, updateNodeData]);
 
-  // Header handlers
+  // 헤더 핸들러
   const handleAddHeader = useCallback(() => {
     const newHeaders = [...(data.headers || []), { key: '', value: '' }];
     updateNodeData(nodeId, { headers: newHeaders });
@@ -173,7 +161,7 @@ export function SlackPostNodePanel({
     [data.headers, nodeId, updateNodeData],
   );
 
-  // Referenced variables handlers
+  // 참조 변수 핸들러
   const handleAddVariable = useCallback(() => {
     const newVars = [
       ...(data.referenced_variables || []),
@@ -195,20 +183,6 @@ export function SlackPostNodePanel({
     (index: number, key: keyof HttpVariable, value: any) => {
       const newVars = [...(data.referenced_variables || [])];
       newVars[index] = { ...newVars[index], [key]: value };
-      updateNodeData(nodeId, { referenced_variables: newVars });
-    },
-    [data.referenced_variables, nodeId, updateNodeData],
-  );
-
-  const handleSelectorUpdate = useCallback(
-    (varIndex: number, selectorIndex: number, value: string) => {
-      const newVars = [...(data.referenced_variables || [])];
-      const newSelector = [...(newVars[varIndex].value_selector || [])];
-      newSelector[selectorIndex] = value;
-      if (selectorIndex === 0) {
-        newSelector[1] = '';
-      }
-      newVars[varIndex] = { ...newVars[varIndex], value_selector: newSelector };
       updateNodeData(nodeId, { referenced_variables: newVars });
     },
     [data.referenced_variables, nodeId, updateNodeData],
@@ -248,7 +222,9 @@ export function SlackPostNodePanel({
       // 가장 가까운 "{{"를 찾아 그 위치를 기준으로 치환
       const lastOpen = value.lastIndexOf('{{', selectionEnd);
       const prefix =
-        lastOpen !== -1 ? value.substring(0, lastOpen) : value.substring(0, selectionEnd);
+        lastOpen !== -1
+          ? value.substring(0, lastOpen)
+          : value.substring(0, selectionEnd);
       const suffix = value.substring(selectionEnd);
       const newValue = `${prefix}{{ ${varName} }}${suffix}`;
 
@@ -269,7 +245,10 @@ export function SlackPostNodePanel({
   );
 
   const handleTemplateKeyUp = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>, field: 'message' | 'blocks') => {
+    (
+      e: React.KeyboardEvent<HTMLTextAreaElement>,
+      field: 'message' | 'blocks',
+    ) => {
       const target = e.target as HTMLTextAreaElement;
       const value = target.value;
       const selectionEnd = target.selectionEnd;
@@ -319,7 +298,8 @@ export function SlackPostNodePanel({
           </button>
         </div>
         <p className="text-[11px] text-gray-600">
-          Webhook 또는 API 모드를 고르고, URL/토큰을 붙여넣으면 요청이 자동 구성됩니다.
+          Webhook 또는 API 모드를 고르고, URL/토큰을 붙여넣으면 요청이 자동
+          구성됩니다.
         </p>
       </div>
 
@@ -344,7 +324,9 @@ export function SlackPostNodePanel({
         </div>
         {mode === 'webhook' ? (
           <div className="space-y-1 text-[10px] text-gray-500">
-            <p>Incoming Webhook URL만 붙여넣으면 됩니다. URL 자체가 시크릿입니다.</p>
+            <p>
+              Incoming Webhook URL만 붙여넣으면 됩니다. URL 자체가 시크릿입니다.
+            </p>
             <a
               className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white text-[#4A154B] border border-[#4A154B]/40 text-xs font-semibold hover:bg-[#4A154B]/10 transition-colors"
               href="https://api.slack.com/messaging/webhooks"
@@ -388,9 +370,7 @@ export function SlackPostNodePanel({
               🔗 Slack Bot Token 발급 가이드
             </a>
 
-            <label className="text-xs font-medium text-gray-700">
-              채널 ID
-            </label>
+            <label className="text-xs font-medium text-gray-700">채널 ID</label>
             <input
               className="h-9 w-full rounded border border-gray-300 px-3 text-sm font-mono focus:outline-none focus:border-[#4A154B]"
               placeholder="C0123456789 (채널 ID)"
@@ -398,7 +378,8 @@ export function SlackPostNodePanel({
               onChange={(e) => handleUpdateData('channel', e.target.value)}
             />
             <p className="text-[10px] text-gray-500">
-              공개/비공개 채널 ID를 입력하세요. # 없이 ID 형태로 넣는 것이 안전합니다.
+              공개/비공개 채널 ID를 입력하세요. # 없이 ID 형태로 넣는 것이
+              안전합니다.
             </p>
           </div>
         </CollapsibleSection>
@@ -421,7 +402,8 @@ export function SlackPostNodePanel({
       >
         <div className="flex flex-col gap-3">
           <p className="text-[10px] text-gray-500">
-            기본 <code>Content-Type: application/json</code> 이 자동 적용됩니다. 추가로 필요한 헤더만 입력하세요.
+            기본 <code>Content-Type: application/json</code> 이 자동 적용됩니다.
+            추가로 필요한 헤더만 입력하세요.
           </p>
           <div className="flex flex-col gap-2">
             {data.headers?.map((header, index) => (
@@ -475,111 +457,16 @@ export function SlackPostNodePanel({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection
-        title="변수 매핑"
-        icon={
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddVariable();
-            }}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="Add Variable"
-          >
-            <Plus className="w-3.5 h-3.5 text-gray-600" />
-          </button>
-        }
-      >
-        <div className="flex flex-col gap-2">
-          {data.referenced_variables?.map((variable, index) => {
-            const selectedSourceNodeId = variable.value_selector?.[0] || '';
-            const selectedVarKey = variable.value_selector?.[1] || '';
-
-            const selectedNode = upstreamNodes.find(
-              (n) => n.id === selectedSourceNodeId,
-            );
-            const availableOutputs = selectedNode
-              ? getNodeOutputs(selectedNode)
-              : [];
-
-            return (
-              <div
-                key={index}
-                className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">
-                    Variable {index + 1}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveVariable(index)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                <div className="flex flex-row gap-2 items-center">
-                  <div className="flex-2">
-                    <input
-                      type="text"
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs"
-                      placeholder="Variable name"
-                      value={variable.name}
-                      onChange={(e) =>
-                        handleUpdateVariable(index, 'name', e.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div className="flex-3">
-                    <select
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
-                      value={selectedSourceNodeId}
-                      onChange={(e) =>
-                        handleSelectorUpdate(index, 0, e.target.value)
-                      }
-                    >
-                      <option value="">노드 선택</option>
-                      {upstreamNodes.map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {(n.data as { title?: string })?.title || n.type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex-3 relative">
-                    <select
-                      className={`w-full rounded border p-1.5 text-xs truncate ${
-                        !selectedSourceNodeId
-                          ? 'bg-gray-100 text-gray-400 border-gray-200'
-                          : 'border-gray-300 bg-white'
-                      }`}
-                      value={selectedVarKey}
-                      onChange={(e) =>
-                        handleSelectorUpdate(index, 1, e.target.value)
-                      }
-                      disabled={!selectedSourceNodeId}
-                    >
-                      <option value="">출력 선택</option>
-                      {availableOutputs.map((output) => (
-                        <option key={output} value={output}>
-                          {output}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {(!data.referenced_variables || data.referenced_variables.length === 0) && (
-            <div className="text-center text-xs text-gray-400 py-2 border border-dashed border-gray-200 rounded">
-              추가된 변수가 없습니다.
-            </div>
-          )}
-        </div>
+      <CollapsibleSection title="변수 매핑">
+        <ReferencedVariablesControl
+          variables={data.referenced_variables || []}
+          upstreamNodes={upstreamNodes}
+          onUpdate={handleUpdateVariable}
+          onAdd={handleAddVariable}
+          onRemove={handleRemoveVariable}
+          title=""
+          description=""
+        />
       </CollapsibleSection>
 
       <CollapsibleSection title="메시지" defaultOpen={true}>
@@ -639,7 +526,8 @@ export function SlackPostNodePanel({
               <span>Slack 고급 메시지 구성 (선택 사항)</span>
             </div>
             <p>
-              Block Kit Builder에서 메시지를 설계한 뒤, 생성된 JSON을 아래에 붙여넣어 주세요.
+              Block Kit Builder에서 메시지를 설계한 뒤, 생성된 JSON을 아래에
+              붙여넣어 주세요.
             </p>
             <a
               className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white text-[#4A154B] border border-[#4A154B]/40 text-xs font-semibold hover:bg-[#4A154B]/10 transition-colors"

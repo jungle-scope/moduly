@@ -1,4 +1,3 @@
-import axios from 'axios';
 import {
   IngestionResponse,
   KnowledgeCreateRequest,
@@ -59,25 +58,12 @@ export type {
   KnowledgeBaseDetailResponse,
 };
 
+import { apiClient } from '@/lib/apiClient';
+
 const API_BASE_URL = '/api/v1';
 
-// Axios 인스턴스 생성 (withCredentials 설정)
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true, // ✅ 쿠키 자동 전송
-});
-
-// 401 에러 인터셉터 (인증 만료 시 로그인 페이지로)
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.warn('Authentication expired, redirecting to login...');
-      window.location.href = '/auth/login';
-    }
-    return Promise.reject(error);
-  },
-);
+// 공통 API 클라이언트 사용
+const api = apiClient;
 
 export const knowledgeApi = {
   // 참고자료 생성 및 파일 업로드
@@ -101,22 +87,14 @@ export const knowledgeApi = {
     formData.append('chunkOverlap', data.chunkOverlap.toString());
     if (data.knowledgeBaseId)
       formData.append('knowledgeBaseId', data.knowledgeBaseId);
-    // [DEBUG] FormData 내용 확인
-    // for (const [key, value] of formData.entries()) {
-    //   console.log(`[DEBUG] ${key}:`, value);
-    // }
-    // Content-Type은 axios가 자동으로 multipart/form-data로 설정함
     const response = await api.post('/rag/upload', formData);
     return response.data;
   },
 
   // 참고자료 목록 조회
   getKnowledgeBases: async (): Promise<KnowledgeBaseResponse[]> => {
-    // console.log('[knowledgeApi] Fetching knowledge bases...');
     try {
       const response = await api.get('/knowledge');
-      // console.log('[knowledgeApi] Response status:', response.status);
-      // console.log('[knowledgeApi] Response data:', response.data);
       return response.data;
     } catch (error) {
       console.error('[knowledgeApi] Error details:', error);

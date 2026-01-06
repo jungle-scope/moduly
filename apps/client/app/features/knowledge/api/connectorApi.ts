@@ -1,27 +1,7 @@
-import axios from 'axios';
+import { apiClient } from '@/lib/apiClient';
 import { DBConfig } from '../types/DB';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
-
-//TODO: 이 파일 저 파일에 겹쳐있는 부분인데 리팩토링 필요
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-});
-
-// 401 에러 인터셉터 (인증 만료 시 로그인 페이지로 리다이렉트)
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login';
-      }
-    }
-    return Promise.reject(error);
-  },
-);
+const api = apiClient;
 
 export const connectorApi = {
   /**

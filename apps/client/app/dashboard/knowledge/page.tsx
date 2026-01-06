@@ -91,7 +91,7 @@ export default function KnowledgePage() {
       </div>
 
       {/* Actions Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="flex flex-col md:ㅡㅁflex-row justify-between items-start md:items-center gap-4 mb-6">
         {/* Search Bar */}
         {knowledgeBases.length > 0 ? (
           <>

@@ -36,7 +36,7 @@ type DeploymentResult =
       version: number;
       webAppUrl?: string; // 웹 앱 URL (선택적)
       embedUrl?: string; // 임베딩 URL (선택적)
-      isWorkflowNode?: boolean; // 워크플로우 노드 배포 여부 (선택적)
+      isWorkflowNode?: boolean; // 서브 모듈 배포 여부 (선택적)
       input_schema?: InputSchema | null;
       output_schema?: OutputSchema | null;
     }
@@ -51,7 +51,7 @@ export default function EditorHeader() {
     projectName,
     projectIcon,
     nodes,
-    // Version History State
+    // 버전 기록 상태
     previewingVersion,
     exitPreview,
     restoreVersion,
@@ -67,13 +67,13 @@ export default function EditorHeader() {
   const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
   const [initialTab, setInitialTab] = useState<'logs' | 'monitoring'>('logs');
 
-  // Existing State
+  // 기존 상태
   const [showModal, setShowModal] = useState(false);
   const [modalVariables, setModalVariables] = useState<WorkflowVariable[]>([]);
   const [showResultModal, setShowResultModal] = useState(false);
   const [executionResult, setExecutionResult] = useState<any>(null);
 
-  // Deployment State
+  // 배포 상태
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [deploymentResult, setDeploymentResult] =
@@ -162,7 +162,7 @@ export default function EditorHeader() {
 
         setShowDeployModal(false);
       } catch (error: any) {
-        console.error('Deployment failed:', error);
+        console.error('배포 실패:', error);
 
         // 실패 결과 모달 표시
         setDeploymentResult({
@@ -215,7 +215,7 @@ export default function EditorHeader() {
 
         setShowDeployModal(false);
       } catch (error: any) {
-        console.error('Web app deployment failed:', error);
+        console.error('웹 앱 배포 실패:', error);
 
         // 실패 결과 모달 표시
         setDeploymentResult({
@@ -268,7 +268,7 @@ export default function EditorHeader() {
 
         setShowDeployModal(false);
       } catch (error: any) {
-        console.error('Widget deployment failed:', error);
+        console.error('위젯 배포 실패:', error);
 
         setDeploymentResult({
           success: false,
@@ -288,9 +288,9 @@ export default function EditorHeader() {
     setShowDeployModal(true);
   }, []);
 
-  // 워크플로우 노드로 배포
-  // 이 기능은 현재 워크플로우를 다른 워크플로우에서 사용할 수 있는 '커스텀 노드' 형태로 배포합니다.
-  // 배포된 노드는 '워크플로우 노드' 카테고리에서 찾을 수 있습니다.
+  // 서브 모듈로 배포
+  // 이 기능은 현재 워크플로우를 다른 워크플로우에서 사용할 수 있는 '서브 모듈' 형태로 배포합니다.
+  // 배포된 노드는 '서브 모듈' 카테고리에서 찾을 수 있습니다.
   const handleDeployAsWorkflowNode = useCallback(
     async (description: string) => {
       try {
@@ -306,7 +306,7 @@ export default function EditorHeader() {
           type: 'workflow_node',
           is_active: true,
         });
-        console.log('[워크플로우 노드 배포 성공] 서버 응답:', response);
+        console.log('[서브 모듈 배포 성공] 서버 응답:', response);
 
         setDeploymentResult({
           success: true,
@@ -322,7 +322,7 @@ export default function EditorHeader() {
 
         setShowDeployModal(false);
       } catch (error: any) {
-        console.error('Workflow node deployment failed:', error);
+        console.error('서브 모듈 배포 실패:', error);
 
         setDeploymentResult({
           success: false,
@@ -433,7 +433,7 @@ export default function EditorHeader() {
                 : inputs['__json_payload__'];
             inputs = JSON.parse(rawJson);
           } catch (e) {
-            console.error('JSON parsing failed:', e);
+            console.error('JSON 파싱 실패:', e);
             toast.error('유효하지 않은 JSON 형식입니다.');
             return;
           }
@@ -525,7 +525,7 @@ export default function EditorHeader() {
     [workflowId, nodes],
   );
 
-  // [NEW] Remote Run Trigger Effect
+  // [NEW] 원격 실행 트리거 효과
   const lastRunTriggerRef = useRef(0);
   useEffect(() => {
     if (runTrigger > lastRunTriggerRef.current) {
@@ -598,7 +598,7 @@ export default function EditorHeader() {
             </svg>
           </button>
 
-          {/* Dropdown Menu */}
+          {/* 드롭다운 메뉴 */}
           {showDeployDropdown && (
             <>
               <div
@@ -659,7 +659,7 @@ export default function EditorHeader() {
                   className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                 >
                   <div className="font-medium text-gray-900">
-                    워크플로우 노드로 배포
+                    서브 모듈로 배포
                   </div>
                   <div className="text-sm text-gray-500 mt-1">
                     다른 워크플로우에서 재사용
@@ -710,7 +710,7 @@ export default function EditorHeader() {
         )}
       </div>
 
-      {/* Deployment Modal */}
+      {/* 배포 모달 */}
       {showDeployModal && (
         <DeploymentModal
           onClose={() => setShowDeployModal(false)}
@@ -727,7 +727,7 @@ export default function EditorHeader() {
         />
       )}
 
-      {/* Deployment Result Modal (성공/실패) */}
+      {/* 배포 결과 모달 (성공/실패) */}
       {deploymentResult && (
         <DeploymentResultModal
           result={deploymentResult}
@@ -752,10 +752,10 @@ export default function EditorHeader() {
         />
       )}
 
-      {/* Version History Sidebar */}
+      {/* 버전 기록 사이드바 */}
       <VersionHistorySidebar />
 
-      {/* Preview Mode Banner */}
+      {/* 미리보기 모드 배너 */}
       {previewingVersion && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
           <div className="flex flex-col">
