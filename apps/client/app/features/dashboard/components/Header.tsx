@@ -59,17 +59,22 @@ export default function Header() {
   };
 
   return (
-    <header className="relative z-[99] h-16 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between px-6">
+    <header className="relative z-[99] h-14 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between px-6">
       {/* Logo */}
       <div className="flex items-center">
-        <Image
-          src="/moduly-logo.png"
-          alt="Moduly Logo"
-          width={140}
-          height={40}
-          className="h-8 w-auto"
-          priority
-        />
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <Image
+            src="/moduly-logo.png"
+            alt="Moduly Logo"
+            width={140}
+            height={40}
+            className="h-8 w-auto"
+            priority
+          />
+        </button>
       </div>
 
       {/* User Profile */}
