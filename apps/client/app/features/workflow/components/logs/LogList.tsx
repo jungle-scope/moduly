@@ -111,7 +111,7 @@ export const LogList = ({ logs, onSelect, selectedLogId, className = '', selecti
                   )}
                   {log.total_cost !== undefined && log.total_cost > 0 && (
                       <span className="text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                          비용: ${Number(log.total_cost).toFixed(5)}
+                          비용: ${Number(log.total_cost).toFixed(8)}
                       </span>
                   )}
               </div>

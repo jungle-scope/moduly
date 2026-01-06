@@ -60,7 +60,7 @@ export const StatisticsCards = ({ stats }: StatisticsCardsProps) => {
           </div>
         </div>
         <div className="text-3xl font-extrabold text-gray-800">
-          ${stats.totalCost.toFixed(4)}
+          ${stats.totalCost.toFixed(6)}
         </div>
       </div>
     </div>

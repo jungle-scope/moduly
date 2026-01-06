@@ -32,7 +32,7 @@ export const CostEfficiencySection = ({
           <div className="bg-amber-50/50 p-6 rounded-xl border border-amber-100 flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-amber-700 uppercase mb-1">평균 비용 / Run</p>
-              <h4 className="text-3xl font-bold text-gray-900">${avgCost.toFixed(5)}</h4>
+              <h4 className="text-3xl font-bold text-gray-900">${avgCost.toFixed(8)}</h4>
             </div>
             <div className="p-3 bg-white rounded-full shadow-sm">
                <DollarSign className="w-6 h-6 text-amber-500" />
@@ -68,7 +68,7 @@ export const CostEfficiencySection = ({
                         >
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-xs text-gray-500">{format(new Date(run.started_at), 'MM-dd HH:mm')}</span>
-                                <span className="text-sm font-bold text-red-600">${run.total_cost.toFixed(4)}</span>
+                                <span className="text-sm font-bold text-red-600">${run.total_cost.toFixed(8)}</span>
                             </div>
                             <div className="text-xs text-gray-400 text-right">
                                 <span className="flex items-center gap-1 justify-end">
@@ -97,7 +97,7 @@ export const CostEfficiencySection = ({
                         >
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-xs text-gray-500">{format(new Date(run.started_at), 'MM-dd HH:mm')}</span>
-                                <span className="text-sm font-bold text-green-600">${run.total_cost.toFixed(4)}</span>
+                                <span className="text-sm font-bold text-green-600">${run.total_cost.toFixed(8)}</span>
                             </div>
                             <div className="text-xs text-gray-400 text-right">
                                 <span className="flex items-center gap-1 justify-end">
