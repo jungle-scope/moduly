@@ -158,7 +158,9 @@ export function LLMReferenceSidePanel({
           )}
 
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
-            {knowledgeBases.map((kb) => {
+            {(knowledgeBases || [])
+              .filter((kb) => (kb.document_count || 0) > 0)
+              .map((kb) => {
               const isSelected = selectedIds.has(kb.id);
               const isExpanded = expandedIds.has(kb.id);
               const kbDetail = details[kb.id];
@@ -209,12 +211,12 @@ export function LLMReferenceSidePanel({
                     {isExpanded ? (
                       <>
                         <ChevronUp className="w-3 h-3" />
-                        문서 숨기기
+                        참고 자료 목록 숨기기
                       </>
                     ) : (
                       <>
                         <ChevronDown className="w-3 h-3" />
-                        문서 보기
+                        참고 자료 목록 보기
                       </>
                     )}
                   </button>
