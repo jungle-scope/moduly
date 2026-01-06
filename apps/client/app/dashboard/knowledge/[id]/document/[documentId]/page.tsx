@@ -403,7 +403,7 @@ export default function DocumentSettingsPage() {
       <header className="flex-none px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push(`/dashboard/knowledge/${kbId}`)}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />

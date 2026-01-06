@@ -54,6 +54,13 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb', //파일 업로드 제한 50mb
+    },
+    // 미들웨어 바디 사이즈 제한 50MB로 설정
+    middlewareClientMaxBodySize: '50mb',
+  },
 };
 
 export default nextConfig;

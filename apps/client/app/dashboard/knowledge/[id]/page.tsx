@@ -260,7 +260,7 @@ export default function KnowledgeDetailPage() {
     <div className="p-8 max-w-7xl mx-auto">
       {/* Header Navigation */}
       <button
-        onClick={() => router.back()}
+        onClick={() => router.push('/dashboard/knowledge')}
         className="flex items-center text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4 mr-1" />
