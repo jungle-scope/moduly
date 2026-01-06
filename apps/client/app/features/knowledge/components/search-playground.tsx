@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Send, Bot, User, Loader2 } from 'lucide-react';
+import { Search, Send, Bot, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
 const BASE_URL = '';

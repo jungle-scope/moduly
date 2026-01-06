@@ -21,7 +21,7 @@ from fastapi.responses import (
     RedirectResponse,
     StreamingResponse,
 )
-from sqlalchemy import func, case
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -41,6 +41,7 @@ from services.ingestion.service import IngestionOrchestrator as IngestionService
 router = APIRouter()
 
 
+# TODO: is_active column 추가해서 LLM노드와 참고자료 목록에서 모두 사용할 수 있도록 한다
 @router.get("", response_model=List[KnowledgeBaseResponse])
 def list_knowledge_bases(
     db: Session = Depends(get_db),
@@ -56,7 +57,12 @@ def list_knowledge_bases(
     ).label("document_count")
 
     results = (
-        db.query(KnowledgeBase, func.count(Document.id).label("document_count"))
+        db.query(
+            KnowledgeBase,
+            func.count(Document.id).label("document_count"),
+            func.max(Document.updated_at).label("last_updated_at"),
+            func.array_agg(Document.source_type).label("source_types"),
+        )
         .outerjoin(Document, KnowledgeBase.id == Document.knowledge_base_id)
         .filter(KnowledgeBase.user_id == current_user.id)
         .group_by(KnowledgeBase.id)
@@ -613,7 +619,6 @@ async def sync_document(
         )
         .first()
     )
-    print("============>", doc)
 
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")

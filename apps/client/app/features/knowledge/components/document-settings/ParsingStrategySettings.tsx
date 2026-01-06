@@ -1,5 +1,6 @@
 import React from 'react';
-import { FileJson } from 'lucide-react';
+import Link from 'next/link';
+import { FileJson, ChevronRight } from 'lucide-react';
 interface ParsingStrategySettingsProps {
   strategy: 'general' | 'llamaparse';
   setStrategy: (val: 'general' | 'llamaparse') => void;
@@ -47,29 +48,42 @@ export default function ParsingStrategySettings({
         </label>
 
         {/* 정밀 파싱 옵션 : llamaParse (Disabled) */}
+        {/* 정밀 파싱 옵션 : llamaParse (Enabled) */}
         <div
-          className={`relative flex flex-col p-3 rounded-lg border-2 transition-all h-full border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 opacity-70 cursor-not-allowed`}
+          onClick={() => setStrategy('llamaparse')}
+          className={`relative flex flex-col p-3 cursor-pointer rounded-lg border-2 transition-all h-full ${
+            strategy === 'llamaparse'
+              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+          }`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="block text-sm font-bold text-gray-500 dark:text-gray-400">
+            <span className="block text-sm font-bold text-gray-900 dark:text-white">
               Pro (정밀)
             </span>
             <input
               type="radio"
               name="strategy"
               value="llamaparse"
-              disabled
               checked={strategy === 'llamaparse'}
-              className="w-4 h-4 text-gray-300 border-gray-300 bg-gray-100 cursor-not-allowed"
+              onChange={() => {}} // onClick on parent handles this
+              className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 pointer-events-none"
             />
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-2 flex-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex-1">
             이미지/표 인식 고급 분석
           </p>
-          <div className="flex items-center gap-2">
-            <span className="inline-block px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-bold rounded">
-              준비중
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-block px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold rounded border border-indigo-200 dark:border-indigo-800">
+              추천
             </span>
+            <Link
+              href="/settings/provider"
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 font-medium z-10"
+            >
+              API 설정 <ChevronRight className="w-2.5 h-2.5" />
+            </Link>
           </div>
         </div>
       </div>

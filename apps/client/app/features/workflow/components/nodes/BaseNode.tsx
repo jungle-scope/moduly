@@ -260,14 +260,14 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
 
     if (puzzleType === 'start') {
       left = 'flat';
-      right = 'tab'; // 돌출형으로 변경
+      right = 'tab'; // 돌출형 (출력)
     } else if (puzzleType === 'end') {
-      left = 'tab'; // 돌출형으로 변경
+      left = 'blank'; // 함몰형 (입력 받음)
       right = 'flat';
     } else {
-      // middle: West(In)=Tab, East(In)=Tab
-      left = 'tab'; // 돌출형으로 변경
-      right = 'tab'; // 돌출형으로 변경
+      // middle: West(In)=Blank, East(Out)=Tab
+      left = 'blank'; // 함몰형 (입력 받음)
+      right = 'tab'; // 돌출형 (출력)
     }
 
     return { top, right, bottom, left };
@@ -275,17 +275,20 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
 
   const getHandleStyle = (side: 'left' | 'right') => {
     const shape = side === 'left' ? shapes.left : shapes.right;
-    const tabHeight = 14; // 돌출된 탭의 길이
+    const tabHeight = 14; // 탭의 길이
 
-    // 돌출형 탭의 끝부분(Tip)에 핸들이 위치하도록 오프셋 조정
-    // React Flow 핸들은 기본적으로 노드 경계선(0위치)에 있으므로,
-    // 바깥쪽으로 tabHeight만큼 밀어냅니다.
+    // 핸들 위치 조정:
+    // - 돌출형(tab): 바깥쪽 끝부분에 위치 (-14px)
+    // - 함몰형(blank): 돌출형보다 더 바깥쪽에 위치 (-20px)
+    // - 평평형(flat): 노드 경계선에 위치 (0)
     if (side === 'left') {
-      if (shape === 'tab') return { left: `-${tabHeight}px` };
-      return {}; // 기본 위치
+      if (shape === 'tab') return { left: `-${tabHeight}px` }; // 돌출: -14px
+      if (shape === 'blank') return { left: `-${tabHeight + 6}px` }; // 함몰: -20px (더 바깥쪽)
+      return {}; // 평평: 0px
     } else {
-      if (shape === 'tab') return { right: `-${tabHeight}px` };
-      return {}; // 기본 위치
+      if (shape === 'tab') return { right: `-${tabHeight}px` }; // 돌출: -14px
+      if (shape === 'blank') return { right: `-${tabHeight + 6}px` }; // 함몰: -20px (더 바깥쪽)
+      return {}; // 평평: 0px
     }
   };
 

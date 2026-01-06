@@ -159,7 +159,7 @@ class AppService:
             # 복제된 앱은 마켓에 공개 불가
             if request.is_market and app.forked_from:
                 print(f"❌ Cannot publish cloned app {app_id} to market")
-                return None
+                raise ValueError("Cannot publish cloned app to market")
             app.is_market = request.is_market
 
         db.commit()

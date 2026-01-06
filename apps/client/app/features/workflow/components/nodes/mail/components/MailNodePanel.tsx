@@ -2,9 +2,8 @@ import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { MailNodeData, EmailProvider } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
-import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
-import { Plus } from 'lucide-react';
+import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 
 interface MailNodePanelProps {
   nodeId: string;
@@ -144,27 +143,6 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
     [data.referenced_variables, handleUpdateData],
   );
 
-  const handleSelectorUpdate = useCallback(
-    (index: number, position: 0 | 1, value: string) => {
-      const newVars = [...(data.referenced_variables || [])];
-      const currentSelector = [...(newVars[index].value_selector || [])];
-
-      if (currentSelector.length < 2) {
-        currentSelector[0] = currentSelector[0] || '';
-        currentSelector[1] = currentSelector[1] || '';
-      }
-
-      currentSelector[position] = value;
-      if (position === 0) {
-        currentSelector[1] = '';
-      }
-
-      newVars[index] = { ...newVars[index], value_selector: currentSelector };
-      handleUpdateData('referenced_variables', newVars);
-    },
-    [data.referenced_variables, handleUpdateData],
-  );
-
   // 자동완성 핸들러
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const target = e.target as HTMLTextAreaElement;
@@ -214,7 +192,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* 1. Server Settings */}
+      {/* 1. 서버 설정 */}
       <CollapsibleSection title="Server Settings" defaultOpen={true}>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1">
@@ -297,7 +275,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
         </div>
       </CollapsibleSection>
 
-      {/* 2. Account */}
+      {/* 2. 계정 */}
       <CollapsibleSection title="Account" defaultOpen={true}>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1">
@@ -329,112 +307,20 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
         </div>
       </CollapsibleSection>
 
-      {/* 3. Referenced Variables */}
+      {/* 3. 참조 변수 */}
       <CollapsibleSection title="Referenced Variables" defaultOpen={false}>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-600">
-              검색 조건에서 사용할 변수를 정의합니다
-            </p>
-            <button
-              onClick={handleAddVariable}
-              className="flex items-center gap-1 rounded bg-blue-500 px-2 py-1 text-xs text-white hover:bg-blue-600"
-            >
-              <Plus className="h-3 w-3" />
-              Add
-            </button>
-          </div>
-
-          {(data.referenced_variables || []).map((variable, index) => {
-            const selectedSourceNodeId = variable.value_selector?.[0] || '';
-            const selectedVarKey = variable.value_selector?.[1] || '';
-
-            const selectedNode = upstreamNodes.find(
-              (n) => n.id === selectedSourceNodeId,
-            );
-            const availableOutputs = selectedNode
-              ? getNodeOutputs(selectedNode)
-              : [];
-
-            return (
-              <div
-                key={index}
-                className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">
-                    Variable {index + 1}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveVariable(index)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                <div className="flex flex-row gap-2 items-center">
-                  {/* 변수명 입력 */}
-                  <div className="flex-[2]">
-                    <input
-                      type="text"
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs"
-                      placeholder="Variable name"
-                      value={variable.name}
-                      onChange={(e) =>
-                        handleUpdateVariable(index, 'name', e.target.value)
-                      }
-                    />
-                  </div>
-
-                  {/* 노드 선택 드롭다운 */}
-                  <div className="flex-[3]">
-                    <select
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
-                      value={selectedSourceNodeId}
-                      onChange={(e) =>
-                        handleSelectorUpdate(index, 0, e.target.value)
-                      }
-                    >
-                      <option value="">노드 선택</option>
-                      {upstreamNodes.map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {(n.data as { title?: string })?.title || n.type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* 출력 선택 */}
-                  <div className="flex-[3] relative">
-                    <select
-                      className={`w-full rounded border p-1.5 text-xs truncate ${
-                        !selectedSourceNodeId
-                          ? 'bg-gray-100 text-gray-400 border-gray-200'
-                          : 'border-gray-300 bg-white'
-                      }`}
-                      value={selectedVarKey}
-                      onChange={(e) =>
-                        handleSelectorUpdate(index, 1, e.target.value)
-                      }
-                      disabled={!selectedSourceNodeId}
-                    >
-                      <option value="">출력 선택</option>
-                      {availableOutputs.map((output) => (
-                        <option key={output} value={output}>
-                          {output}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <ReferencedVariablesControl
+          variables={data.referenced_variables || []}
+          upstreamNodes={upstreamNodes}
+          onUpdate={handleUpdateVariable}
+          onAdd={handleAddVariable}
+          onRemove={handleRemoveVariable}
+          title=""
+          description="검색 조건에서 사용할 변수를 정의합니다"
+        />
       </CollapsibleSection>
 
-      {/* 4. Search Options */}
+      {/* 4. 검색 옵션 */}
       <CollapsibleSection title="Search Options" defaultOpen={true}>
         <div className="flex flex-col gap-2 relative">
           <div className="flex flex-col gap-1">
@@ -452,7 +338,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             </p>
           </div>
 
-          {/* 자동완성 suggestions */}
+          {/* 자동완성 제안 */}
           {showSuggestions && (
             <div
               className="absolute z-10 w-48 rounded border border-gray-200 bg-white shadow-lg"
@@ -530,7 +416,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             </div>
           </div>
 
-          {/* Folder */}
+          {/* 폴더 */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">Folder</label>
             <select
@@ -546,7 +432,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             </select>
           </div>
 
-          {/* Max Results */}
+          {/* 최대 결과 수 */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
               Max Results
@@ -569,7 +455,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             </p>
           </div>
 
-          {/* Checkboxes */}
+          {/* 체크박스 */}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
