@@ -5,18 +5,14 @@ import { MonitoringTab } from './components/MonitoringTab';
 import { LogTab } from './components/LogTab';
 
 export default function StatisticsPage() {
-  const [activeTab, setActiveTab] = useState<'monitoring' | 'logs'>('monitoring');
+  const [activeTab, setActiveTab] = useState<'monitoring' | 'logs'>(
+    'monitoring',
+  );
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          통계
-        </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
-          모듈 사용 현황과 통계를 확인하세요
-        </p>
-      </div>
+    <div className="p-8 bg-gradient-to-br from-white via-gray-50 to-gray-100 min-h-full border border-gray-200">
+      {/* Page Title */}
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">통계</h1>
 
       {/* 탭 네비게이션 */}
       <div className="mb-8 border-b border-gray-200 dark:border-gray-800">
@@ -44,18 +40,16 @@ export default function StatisticsPage() {
         </nav>
       </div>
 
-
       {/* 탭 컨텐츠 */}
       {activeTab === 'monitoring' ? (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-           <MonitoringTab />
+          <MonitoringTab />
         </div>
       ) : (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 h-[calc(100vh-200px)]">
-           <LogTab />
+          <LogTab />
         </div>
       )}
     </div>
   );
 }
-

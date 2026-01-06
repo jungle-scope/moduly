@@ -2,12 +2,9 @@
 
 import { toast } from 'sonner';
 import { useReactFlow } from '@xyflow/react';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import {
-  ArrowLeftIcon,
-  ClockIcon,
-} from '@/app/features/workflow/components/nodes/icons';
+import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
 // [NEW] 로그 뷰어 모달 Import
 import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
 // [NEW] 모니터링 대시보드 모달 Import
@@ -26,10 +23,7 @@ import { DeploymentModal } from '../modals/DeploymentModal';
 import { DeploymentResultModal } from '../modals/DeploymentResultModal';
 import { InputSchema, OutputSchema } from '../../types/Deployment';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
-import {
-  MemoryModeToggle,
-  useMemoryMode,
-} from './memory/MemoryModeControls';
+import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
 
 /** SY.
  * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
@@ -64,6 +58,7 @@ export default function EditorHeader() {
     exitPreview,
     restoreVersion,
     toggleVersionHistory,
+    runTrigger,
   } = useWorkflowStore();
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -526,221 +521,204 @@ export default function EditorHeader() {
     [workflowId, nodes],
   );
 
+  // [NEW] Remote Run Trigger Effect
+  const lastRunTriggerRef = useRef(0);
+  useEffect(() => {
+    if (runTrigger > lastRunTriggerRef.current) {
+      handleTestRun();
+      lastRunTriggerRef.current = runTrigger;
+    }
+  }, [runTrigger, handleTestRun]);
+
   return (
     <div>
-      <header className="h-14 border-b border-gray-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-4 sticky top-0 z-50">
-        {/* Left Section */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleBack}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Go back"
-          >
-            <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
-          </button>
+      <div className="absolute top-20 right-6 z-50 flex items-center gap-2 pointer-events-auto">
+        {/* 1. 로그 버튼 */}
+        <button
+          onClick={() => setIsLogViewerOpen(true)}
+          className="px-4 py-2 flex items-center gap-2 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-sm font-medium"
+        >
+          <ScrollText className="w-4 h-4" />
+          <span>로그</span>
+        </button>
 
-          <div className="flex items-center gap-2">
-            <div
-              className="flex items-center justify-center w-8 h-8 text-lg rounded-lg"
-              style={{ backgroundColor: projectIcon.background_color }}
-            >
-              {projectIcon.content}
-            </div>
-            <h1 className="text-lg font-semibold text-gray-800">
-              {projectName}
-            </h1>
-          </div>
+        {/* 2. 모니터링 버튼 */}
+        <button
+          onClick={() => setIsMonitoringOpen(true)}
+          className="px-4 py-2 flex items-center gap-2 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-sm font-medium"
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>모니터링</span>
+        </button>
+
+        {/* 3. 기억 모드 */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <MemoryModeToggle
+            isEnabled={isMemoryModeEnabled}
+            hasProviderKey={hasProviderKey}
+            description={memoryModeDescription}
+            onToggle={toggleMemoryMode}
+          />
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-2">
+        {/* 4. 테스트(미리보기) 버튼 - 파란색 스타일 */}
+        <button
+          onClick={handleTestRun}
+          disabled={isExecuting}
+          className={`px-4 py-2 flex items-center gap-2 rounded-lg transition-colors border shadow-sm ${
+            isExecuting
+              ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+              : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
+          }`}
+        >
+          <Play className="w-4 h-4" />
+          <span className="text-sm font-medium">
+            {isExecuting ? '실행 중...' : '미리보기'}
+          </span>
+        </button>
+
+        {/* 5. 게시하기 버튼 */}
+        <div className="relative">
           <button
-            onClick={handleTestRun}
-            disabled={isExecuting}
-            className={`px-4 py-2 flex items-center gap-2 rounded-lg transition-colors border border-gray-200 shadow-sm ${
-              isExecuting
-                ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
+            onClick={() => setShowDeployDropdown(!showDeployDropdown)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm flex items-center gap-2 text-sm"
           >
-            <Play className="w-4 h-4" />
-            <span className="text-sm font-medium">
-              {isExecuting ? '실행 중...' : '테스트'}
-            </span>
+            게시하기
+            <svg
+              className={`w-4 h-4 transition-transform ${showDeployDropdown ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
           </button>
-          <div className="flex items-center gap-2 px-3 py-2 bg-white/80 border border-gray-200 rounded-lg shadow-sm">
-            <MemoryModeToggle
-              isEnabled={isMemoryModeEnabled}
-              hasProviderKey={hasProviderKey}
-              description={memoryModeDescription}
-              onToggle={toggleMemoryMode}
-            />
-          </div>
-          {/* [NEW] 로그 및 모니터링 버튼 */}
-          <button
-            onClick={() => setIsLogViewerOpen(true)}
-            className="px-4 py-2 flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 shadow-sm"
-          >
-            <ScrollText className="w-4 h-4" />
-            <span className="text-sm font-medium">로그</span>
-          </button>
-          <button
-            onClick={() => setIsMonitoringOpen(true)}
-            className="px-4 py-2 flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 shadow-sm"
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span className="text-sm font-medium">모니터링</span>
-          </button>
-          <div className="w-[1px] h-6 bg-gray-200 mx-1" /> {/* 구분선 */}
-          {/* [NEW] 로그 뷰어 모달 렌더링 */}
-          {workflowId && (
+
+          {/* Dropdown Menu */}
+          {showDeployDropdown && (
             <>
-              <LogViewerModal
-                isOpen={isLogViewerOpen}
-                onClose={() => {
-                  setIsLogViewerOpen(false);
-                  setInitialLogRunId(null);
-                  setReturnToMonitoring(false);
-                }}
-                workflowId={workflowId as string}
-                initialRunId={initialLogRunId}
-                onBack={
-                  returnToMonitoring
-                    ? () => {
-                        setIsLogViewerOpen(false);
-                        setInitialLogRunId(null);
-                        setIsMonitoringOpen(true);
-                        setReturnToMonitoring(false);
-                      }
-                    : undefined
-                }
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowDeployDropdown(false)}
               />
-              <MonitoringDashboardModal
-                isOpen={isMonitoringOpen}
-                onClose={() => setIsMonitoringOpen(false)}
-                workflowId={workflowId as string}
-                onNavigateToLog={(runId) => {
-                  setInitialLogRunId(runId);
-                  setIsMonitoringOpen(false);
-                  setIsLogViewerOpen(true);
-                  setReturnToMonitoring(true);
-                }}
-                initialScrollTop={monitoringScrollPos}
-                onSaveScrollPos={setMonitoringScrollPos}
-              />
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
+                <button
+                  onClick={() => {
+                    setShowDeployDropdown(false);
+                    handlePublishAsRestAPI();
+                  }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">
+                    REST API로 배포
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    API 키로 접근
+                  </div>
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+                <button
+                  onClick={() => {
+                    setShowDeployDropdown(false);
+                    handlePublishAsWebApp();
+                  }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">
+                    웹 앱으로 배포
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    링크 공유로 누구나 사용
+                  </div>
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+                <button
+                  onClick={() => {
+                    setShowDeployDropdown(false);
+                    handlePublishAsWidget();
+                  }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">
+                    웹사이트에 챗봇 추가하기
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    복사 한 번으로 위젯 연동 완료
+                  </div>
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+                <button
+                  onClick={() => {
+                    setShowDeployDropdown(false);
+                    handlePublishAsWorkflowNode();
+                  }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">
+                    워크플로우 노드로 배포
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    다른 워크플로우에서 재사용
+                  </div>
+                </button>
+              </div>
             </>
           )}
-          <button
-            onClick={handleVersionHistory}
-            className="px-4 py-2 flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ClockIcon className="w-5 h-5" />
-            <span className="text-sm font-medium">버전 기록</span>
-          </button>
-          {/* Publish Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowDeployDropdown(!showDeployDropdown)}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm flex items-center gap-2"
-            >
-              게시하기
-              <svg
-                className={`w-4 h-4 transition-transform ${showDeployDropdown ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {/* Dropdown Menu */}
-            {showDeployDropdown && (
-              <>
-                {/* Backdrop to close dropdown */}
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowDeployDropdown(false)}
-                />
-
-                {/* Dropdown Content */}
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                  <button
-                    onClick={() => {
-                      setShowDeployDropdown(false);
-                      handlePublishAsRestAPI();
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="font-medium text-gray-900">
-                      REST API로 배포
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      API 키로 접근
-                    </div>
-                  </button>
-
-                  <div className="border-t border-gray-100 my-1" />
-
-                  <button
-                    onClick={() => {
-                      setShowDeployDropdown(false);
-                      handlePublishAsWebApp();
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="font-medium text-gray-900">
-                      웹 앱으로 배포
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      링크 공유로 누구나 사용
-                    </div>
-                  </button>
-
-                  <div className="border-t border-gray-100 my-1" />
-
-                  <button
-                    onClick={() => {
-                      setShowDeployDropdown(false);
-                      handlePublishAsWidget();
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="font-medium text-gray-900">
-                      웹사이트에 챗봇 추가하기
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      복사 한 번으로 위젯 연동 완료
-                    </div>
-                  </button>
-
-                  <div className="border-t border-gray-100 my-1" />
-
-                  <button
-                    onClick={() => {
-                      setShowDeployDropdown(false);
-                      handlePublishAsWorkflowNode();
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="font-medium text-gray-900">
-                      워크플로우 노드로 배포
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      다른 워크플로우에서 재사용
-                    </div>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
         </div>
-      </header>
+
+        {/* 6. 버전 기록 (아이콘만) */}
+        <button
+          onClick={handleVersionHistory}
+          className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200 rounded-full shadow-sm transition-colors text-gray-600"
+          title="버전 기록"
+        >
+          <ClockIcon className="w-5 h-5" />
+        </button>
+
+        {/* [NEW] 로그 뷰어 모달 렌더링 */}
+        {workflowId && (
+          <>
+            <LogViewerModal
+              isOpen={isLogViewerOpen}
+              onClose={() => {
+                setIsLogViewerOpen(false);
+                setInitialLogRunId(null);
+                setReturnToMonitoring(false);
+              }}
+              workflowId={workflowId as string}
+              initialRunId={initialLogRunId}
+              onBack={
+                returnToMonitoring
+                  ? () => {
+                      setIsLogViewerOpen(false);
+                      setInitialLogRunId(null);
+                      setIsMonitoringOpen(true);
+                      setReturnToMonitoring(false);
+                    }
+                  : undefined
+              }
+            />
+            <MonitoringDashboardModal
+              isOpen={isMonitoringOpen}
+              onClose={() => setIsMonitoringOpen(false)}
+              workflowId={workflowId as string}
+              onNavigateToLog={(runId) => {
+                setInitialLogRunId(runId);
+                setIsMonitoringOpen(false);
+                setIsLogViewerOpen(true);
+                setReturnToMonitoring(true);
+              }}
+              initialScrollTop={monitoringScrollPos}
+              onSaveScrollPos={setMonitoringScrollPos}
+            />
+          </>
+        )}
+      </div>
 
       <div>
         {/* 에러 메시지 배너 */}
@@ -805,10 +783,10 @@ export default function EditorHeader() {
 
       {/* Preview Mode Banner */}
       {previewingVersion && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
-            <div className="flex flex-col">
-              <span className="text-xs text-blue-200 font-medium">
-                현재 미리보기 중
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
+          <div className="flex flex-col">
+            <span className="text-xs text-blue-200 font-medium">
+              현재 미리보기 중
             </span>
             <span className="font-bold text-sm">
               v{previewingVersion.version} -{' '}

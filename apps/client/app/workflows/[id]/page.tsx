@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactFlowProvider } from '@xyflow/react';
+import Header from '@/app/features/dashboard/components/Header';
 import EditorHeader from '@/app/features/workflow/components/editor/EditorHeader';
 import NodeCanvas from '@/app/features/workflow/components/editor/NodeCanvas';
 import { useAutoSync } from '@/app/features/workflow/hooks/useAutoSync';
@@ -13,7 +14,10 @@ function WorkflowEditor() {
 
   return (
     <div className="flex flex-col h-screen bg-white">
-      {/* 헤더 */}
+      {/* Global Header */}
+      <Header />
+
+      {/* 헤더 (Toolbar) */}
       <EditorHeader />
 
       {/* 메인 콘텐츠 영역 */}

@@ -6,11 +6,6 @@ from services.ingestion.transformers.db_nl_transformer import DbNlTransformer
 
 logger = logging.getLogger(__name__)
 
-# Connector 의존성 (기존 Connector 재사용)
-# 하지만 Connector 로직이 복잡하므로 Service layer를 거치거나 models.connection을 이용해 Connector를 띄워야 함.
-# TODO: 여기서는 간단히 PostgresConnector를 예시로 사용. (실제로는 Factory에서 주입받거나 동적 로딩 필요)
-# 순환 참조 방지를 위해 메서드 내부 import 권장
-
 
 class DbProcessor(BaseProcessor):
     """
@@ -75,6 +70,40 @@ class DbProcessor(BaseProcessor):
                 "username": conn_record.username,
                 "password": password,
             }
+
+            # SSH 설정 추가
+            if conn_record.use_ssh:
+                ssh_config = {
+                    "enabled": True,
+                    "host": conn_record.ssh_host,
+                    "port": conn_record.ssh_port,
+                    "username": conn_record.ssh_username,
+                    "auth_type": conn_record.ssh_auth_type,
+                }
+
+                # SSH 인증 정보 복호화
+                try:
+                    if conn_record.ssh_auth_type == "key":
+                        ssh_config["private_key"] = encryption_manager.decrypt(
+                            conn_record.encrypted_ssh_private_key
+                        )
+                    else:
+                        ssh_config["password"] = encryption_manager.decrypt(
+                            conn_record.encrypted_ssh_password
+                        )
+                except Exception:
+                    # 복호화 실패 시 원본 값 사용 (개발 환경 등)
+                    logger.warning(
+                        f"SSH Decryption failed for connection {connection_id}, using raw value"
+                    )
+                    if conn_record.ssh_auth_type == "key":
+                        ssh_config["private_key"] = (
+                            conn_record.encrypted_ssh_private_key
+                        )
+                    else:
+                        ssh_config["password"] = conn_record.encrypted_ssh_password
+
+                config_dict["ssh"] = ssh_config
         except Exception as e:
             return ProcessingResult(
                 chunks=[], metadata={"error": f"Config setup failed: {str(e)}"}

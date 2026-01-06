@@ -32,8 +32,8 @@ def list_knowledge_bases(
     current_user: User = Depends(get_current_user),
 ):
     """
-    사용자의 지식 베이스 목록을 조회합니다.
-    각 지식 베이스에 포함된 문서 개수도 함께 반환합니다.
+    사용자의 자료 목록을 조회합니다.
+    각 참고자료 그룹에 포함된 문서 개수도 함께 반환합니다.
     """
     results = (
         db.query(KnowledgeBase, func.count(Document.id).label("document_count"))
@@ -66,8 +66,8 @@ def get_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    특전 지식 베이스의 상세 정보를 조회합니다.
-    포함된 문서 목록과 각 문서의 상태를 함께 반환합니다.
+    참고자료 그룹의 상세 정보를 조회합니다.
+    포함된 자료 목록과 각 자료의 상태를 함께 반환합니다.
     """
     kb = (
         db.query(KnowledgeBase)
@@ -88,6 +88,7 @@ def get_knowledge_base(
                 filename=doc.filename,
                 status=doc.status,
                 created_at=doc.created_at,
+                updated_at=doc.updated_at,
                 error_message=doc.error_message,
                 chunk_count=len(doc.chunks),  # N+1 발생 가능, 추후 최적화
                 token_count=0,  # 우선 0으로 반환
@@ -115,7 +116,7 @@ def update_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    지식 베이스의 설정을 수정합니다. (이름, 설명)
+    참고자료 그룹의 설정을 수정합니다. (이름, 설명)
     """
     kb = (
         db.query(KnowledgeBase)
@@ -133,6 +134,32 @@ def update_knowledge_base(
 
     db.commit()
     db.refresh(kb)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{kb_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_knowledge_base(
+    kb_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    참고자료 그룹을 삭제합니다.
+    연결된 문서 및 임베딩 데이터는 DB Cascade 설정에 따라 함께 삭제됩니다.
+    """
+    kb = (
+        db.query(KnowledgeBase)
+        .filter(KnowledgeBase.id == kb_id, KnowledgeBase.user_id == current_user.id)
+        .first()
+    )
+
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge Base not found")
+
+    # Cascade 삭제
+    db.delete(kb)
+    db.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -167,6 +194,7 @@ def get_document(
         filename=doc.filename,
         status=doc.status,
         created_at=doc.created_at,
+        updated_at=doc.updated_at,
         error_message=doc.error_message,
         chunk_count=len(doc.chunks),
         # token_count=doc.token_count,
