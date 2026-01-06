@@ -11,7 +11,7 @@ interface SuccessData {
   version: number;
   webAppUrl?: string; // 웹 앱 공유 링크
   embedUrl?: string; // 임베딩 채팅 URL
-  isWorkflowNode?: boolean; // 워크플로우 노드 배포 여부
+  isWorkflowNode?: boolean; // 서브 모듈 배포 여부
   input_schema?: InputSchema | null;
   output_schema?: OutputSchema | null;
 }
@@ -235,15 +235,15 @@ export function DeploymentResultModal({ onClose, result }: Props) {
               </div>
             )}
 
-            {/* 워크플로우 노드 배포 성공 (API/WebApp/Widget 아님) */}
+            {/* 서브 모듈 배포 성공 (API/WebApp/Widget 아님) */}
             {result.isWorkflowNode && (
               <div className="border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50">
                 <label className="block text-sm font-semibold text-indigo-900 mb-2">
-                  🧩 워크플로우 노드 배포 완료
+                  🧩 서브 모듈 배포 완료
                 </label>
                 <p className="text-xs text-indigo-700 mb-3">
-                  이 워크플로우는 이제 다른 워크플로우에서 '사용자 정의 노드'로
-                  불러와 사용할 수 있습니다.
+                  이 워크플로우는 이제 다른 워크플로우에서 '서브 모듈'로 불러와
+                  사용할 수 있습니다.
                 </p>
                 <div className="bg-white p-3 rounded border border-indigo-200 text-sm text-gray-700">
                   <p>

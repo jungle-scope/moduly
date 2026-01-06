@@ -68,7 +68,7 @@ export default function NodeLibrarySidebar({
     }
   };
 
-  // Filter nodes based on search query
+  // 검색어 기반 노드 필터링
   const filteredNodes = useMemo(() => {
     if (!searchQuery.trim()) return implementedNodes;
 
@@ -81,7 +81,7 @@ export default function NodeLibrarySidebar({
     );
   }, [searchQuery, implementedNodes]);
 
-  // Group nodes by category
+  // 카테고리별 노드 그룹화
   const nodesByCategory = useMemo(() => {
     const groups = new Map<string, NodeDefinition[]>();
     filteredNodes.forEach((node) => {
@@ -97,7 +97,7 @@ export default function NodeLibrarySidebar({
     trigger: '트리거',
     llm: 'LLM',
     plugin: '플러그인',
-    workflow: '워크플로우',
+    workflow: '서브 모듈',
     logic: '로직',
     database: '데이터베이스',
     data: '데이터',
@@ -109,13 +109,13 @@ export default function NodeLibrarySidebar({
   };
 
   const handleNodeClick = (nodeDefId: string) => {
-    // Check if this is a workflow node
+    // 워크플로우 노드인지 확인
     const nodeDef = implementedNodes.find((n) => n.id === nodeDefId);
     if (nodeDef?.type === 'workflowNode') {
-      // Open app search modal for workflow nodes
+      // 워크플로우 노드의 경우 앱 검색 모달 열기
       onOpenAppSearch();
     } else {
-      // Directly add other node types
+      // 다른 노드 타입은 바로 추가
       onAddNode(nodeDefId);
     }
   };
@@ -132,12 +132,12 @@ export default function NodeLibrarySidebar({
     });
   };
 
-  // Get input variables from node definition
+  // 노드 정의에서 입력 변수 가져오기
   const getNodeInputs = (node: NodeDefinition): string[] => {
     const defaultData = node.defaultData();
     const inputs: string[] = [];
 
-    // Extract inputs based on node type
+    // 노드 타입 기반 입력 추출
     if (defaultData.variables) {
       inputs.push(...defaultData.variables.map((v: any) => v.name || v));
     }
@@ -159,14 +159,14 @@ export default function NodeLibrarySidebar({
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
-      {/* Toggle Button - shows on sidebar hover */}
+      {/* 토글 버튼 - 사이드바 호버 시 표시 */}
       {isOpen && (
         <div className="absolute -right-3 top-4">
-          {/* Moved below to between header and search */}
+          {/* 헤더와 검색창 사이로 이동됨 */}
         </div>
       )}
 
-      {/* Expand Button - for collapsed state */}
+      {/* 확장 버튼 - 축소 상태일 때 */}
       {!isOpen && (
         <div className="absolute -right-3" style={{ top: '88px' }}>
           <button
@@ -180,7 +180,7 @@ export default function NodeLibrarySidebar({
           >
             <ChevronRight className="w-4 h-4 text-gray-600" />
 
-            {/* Tooltip */}
+            {/* 툴팁 */}
             {showTooltip && (
               <div className="absolute left-8 top-1/2 -translate-y-1/2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap z-50">
                 사이드바 확장
@@ -191,7 +191,7 @@ export default function NodeLibrarySidebar({
         </div>
       )}
 
-      {/* Collapsed State - Icon Only */}
+      {/* 축소 상태 - 아이콘만 표시 */}
       {!isOpen && (
         <div className="flex flex-col items-center py-4 space-y-4">
           <div
@@ -203,13 +203,13 @@ export default function NodeLibrarySidebar({
         </div>
       )}
 
-      {/* Expanded Sidebar Content */}
+      {/* 확장된 사이드바 내용 */}
       {isOpen && (
         <div className="h-full flex flex-col transition-opacity duration-300">
-          {/* Header - Workflow Info */}
+          {/* 헤더 - 워크플로우 정보 */}
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex items-start gap-3">
-              {/* Workflow Icon */}
+              {/* 워크플로우 아이콘 */}
               <div
                 className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center border border-white"
                 style={{ backgroundColor: workflowIcon.background_color }}
@@ -219,7 +219,7 @@ export default function NodeLibrarySidebar({
                 </span>
               </div>
 
-              {/* Workflow Name and Description */}
+              {/* 워크플로우 이름 및 설명 */}
               <div className="flex-1 min-w-0 relative group/header h-full">
                 <div>
                   <h2 className="text-base font-semibold text-gray-900 truncate">
@@ -244,7 +244,7 @@ export default function NodeLibrarySidebar({
             </div>
           </div>
 
-          {/* Edit App Modal */}
+          {/* 앱 정보 수정 모달 */}
           {isEditModalOpen && projectApp && (
             <EditAppModal
               app={projectApp}
@@ -253,7 +253,7 @@ export default function NodeLibrarySidebar({
             />
           )}
 
-          {/* Toggle Button - between header and search */}
+          {/* 토글 버튼 - 헤더와 검색창 사이 */}
           <div className="relative px-4">
             <div className="absolute -right-3 top-0">
               <button
@@ -267,7 +267,7 @@ export default function NodeLibrarySidebar({
               >
                 <ChevronLeft className="w-4 h-4 text-gray-600" />
 
-                {/* Tooltip */}
+                {/* 툴팁 */}
                 {showTooltip && (
                   <div className="absolute left-8 top-1/2 -translate-y-1/2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap z-50">
                     사이드바 축소
@@ -278,7 +278,7 @@ export default function NodeLibrarySidebar({
             </div>
           </div>
 
-          {/* Search Bar */}
+          {/* 검색바 */}
           <div className="px-4 py-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -381,7 +381,7 @@ export default function NodeLibrarySidebar({
               );
             })}
 
-            {/* Empty State */}
+            {/* 빈 상태 */}
             {filteredNodes.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-sm text-gray-500">검색 결과가 없습니다.</p>

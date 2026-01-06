@@ -1,11 +1,11 @@
 import { useCallback, useState, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import Editor from '@monaco-editor/react';
-import { Plus, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { CodeNodeData, CodeNodeInput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
-import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
+import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 
 interface CodeNodePanelProps {
   nodeId: string;
@@ -43,8 +43,34 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
     [nodeId, updateNodeData],
   );
 
-  // 입력 변수 추가
-  const handleAddInput = useCallback(() => {
+  // ReferencedVariablesControl을 위한 Code Node 어댑터
+  const variables = useMemo(() => {
+    return (data.inputs || []).map((input) => ({
+      name: input.name,
+      value_selector: input.source ? input.source.split('.') : [],
+    }));
+  }, [data.inputs]);
+
+  const handleUpdateVariable = useCallback(
+    (
+      index: number,
+      key: 'name' | 'value_selector',
+      value: string | string[],
+    ) => {
+      const newInputs = [...(data.inputs || [])];
+      if (key === 'name') {
+        newInputs[index] = { ...newInputs[index], name: value as string };
+      } else if (key === 'value_selector') {
+        // value는 string[] [노드ID, 변수명]
+        const source = (value as string[]).join('.');
+        newInputs[index] = { ...newInputs[index], source };
+      }
+      updateNodeData(nodeId, { inputs: newInputs });
+    },
+    [data.inputs, nodeId, updateNodeData],
+  );
+
+  const handleAddVariable = useCallback(() => {
     const newInput: CodeNodeInput = {
       name: '',
       source: '',
@@ -52,152 +78,31 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
     updateNodeData(nodeId, {
       inputs: [...(data.inputs || []), newInput],
     });
-  }, [nodeId, data.inputs, updateNodeData]);
+  }, [data.inputs, nodeId, updateNodeData]);
 
-  // 입력 변수 삭제
-  const handleRemoveInput = useCallback(
+  const handleRemoveVariable = useCallback(
     (index: number) => {
-      const newInputs = data.inputs.filter((_, i) => i !== index);
+      const newInputs = [...(data.inputs || [])];
+      newInputs.splice(index, 1);
       updateNodeData(nodeId, { inputs: newInputs });
     },
-    [nodeId, data.inputs, updateNodeData],
-  );
-
-  // 입력 변수 이름 업데이트
-  const handleUpdateInputName = useCallback(
-    (index: number, value: string) => {
-      const newInputs = [...data.inputs];
-      newInputs[index] = { ...newInputs[index], name: value };
-      updateNodeData(nodeId, { inputs: newInputs });
-    },
-    [nodeId, data.inputs, updateNodeData],
-  );
-
-  // 소스 노드 변경
-  const handleSourceNodeChange = useCallback(
-    (index: number, sourceNodeId: string) => {
-      const newInputs = [...data.inputs];
-      newInputs[index] = { ...newInputs[index], source: `${sourceNodeId}.` };
-      updateNodeData(nodeId, { inputs: newInputs });
-    },
-    [nodeId, data.inputs, updateNodeData],
-  );
-
-  // 소스 변수 변경
-  const handleSourceVariableChange = useCallback(
-    (index: number, variableName: string) => {
-      const newInputs = [...data.inputs];
-      const currentSource = newInputs[index].source || '';
-      const sourceNodeId = currentSource.split('.')[0];
-      newInputs[index] = {
-        ...newInputs[index],
-        source: `${sourceNodeId}.${variableName}`,
-      };
-      updateNodeData(nodeId, { inputs: newInputs });
-    },
-    [nodeId, data.inputs, updateNodeData],
+    [data.inputs, nodeId, updateNodeData],
   );
 
   return (
     <div className="flex flex-col h-full gap-2">
       {/* 입력 변수 섹션 */}
-      <CollapsibleSection
-        title="입력 변수"
-        icon={
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddInput();
-            }}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="변수 추가"
-          >
-            <Plus className="w-4 h-4 text-gray-600" />
-          </button>
-        }
-      >
+      <CollapsibleSection title="입력 변수">
         <div className="flex flex-col gap-3">
-          {/* 입력 변수 목록 */}
-          <div className="space-y-3">
-            {data.inputs?.map((input, index) => {
-              const [sourceNodeId, sourceVariable] = input.source.split('.');
-              const selectedSourceNode = nodes.find(
-                (n) => n.id === sourceNodeId,
-              );
-
-              // 선택된 노드의 출력 목록 가져오기
-              const availableOutputs = selectedSourceNode
-                ? getNodeOutputs(selectedSourceNode)
-                : [];
-
-              return (
-                <div
-                  key={index}
-                  className="flex flex-col gap-2 rounded border border-gray-200 p-3 bg-white"
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="변수명 (코드에서 사용)"
-                      value={input.name}
-                      onChange={(e) =>
-                        handleUpdateInputName(index, e.target.value)
-                      }
-                      className="flex-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={() => handleRemoveInput(index)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                      title="삭제"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <select
-                      className="h-8 w-1/2 rounded border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                      value={sourceNodeId || ''}
-                      onChange={(e) =>
-                        handleSourceNodeChange(index, e.target.value)
-                      }
-                    >
-                      <option value="" disabled>
-                        노드 선택
-                      </option>
-                      {upstreamNodes
-                        .filter((n) => n.type !== 'note')
-                        .map((n) => (
-                          <option key={n.id} value={n.id}>
-                            {(n.data as { title?: string })?.title || n.type}
-                          </option>
-                        ))}
-                    </select>
-
-                    <select
-                      className={`h-8 w-1/2 rounded border px-2 text-sm focus:border-blue-500 focus:outline-none ${
-                        !selectedSourceNode
-                          ? 'bg-gray-100 text-gray-400 border-gray-200'
-                          : 'border-gray-300 bg-white'
-                      }`}
-                      value={sourceVariable || ''}
-                      onChange={(e) =>
-                        handleSourceVariableChange(index, e.target.value)
-                      }
-                      disabled={!selectedSourceNode}
-                    >
-                      <option value="">출력 선택</option>
-                      {availableOutputs.map((outKey) => (
-                        <option key={outKey} value={outKey}>
-                          {outKey}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <ReferencedVariablesControl
+            variables={variables}
+            upstreamNodes={upstreamNodes}
+            onUpdate={handleUpdateVariable}
+            onAdd={handleAddVariable}
+            onRemove={handleRemoveVariable}
+            title=""
+            description=""
+          />
 
           {data.inputs?.length === 0 && (
             <p className="text-xs text-gray-500 py-2 text-center">
