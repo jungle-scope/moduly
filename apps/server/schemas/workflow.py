@@ -14,6 +14,7 @@ class NodeSchema(BaseModel):
     type: str
     position: Position
     data: Dict[str, Any]
+    timeout: Optional[int] = None  # [NEW] 노드 실행 타임아웃 (초 단위)
 
     class Config:
         extra = "allow"

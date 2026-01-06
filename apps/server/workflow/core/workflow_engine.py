@@ -20,9 +20,11 @@ class WorkflowEngine:
         is_deployed: bool = False,
         db: Optional[Session] = None,  # [NEW] DB 세션 주입 (로깅용)
         parent_run_id: Optional[str] = None,  # [NEW] 서브 워크플로우용 부모 run_id
+        workflow_timeout: int = 600,  # [NEW] 전체 워크플로우 타임아웃 (기본 10분)
     ):
         """
         WorkflowEngine 초기화
+
 
         Args:
             graph: 워크플로우 그래프 데이터
@@ -32,6 +34,7 @@ class WorkflowEngine:
             is_deployed: 배포 모드 여부 (True: 배포된 워크플로우, False: Draft)
             db: DB 세션 (로깅용) # [NEW]
             parent_run_id: 부모 워크플로우의 run_id (서브 워크플로우 실행 시 사용)
+            workflow_timeout: 워크플로우 전체 실행 제한 시간 (초 단위, 기본 600초)
         """
         # graph가 딕셔너리인 경우 nodes와 edges 추출
         if isinstance(graph, dict):
@@ -43,7 +46,10 @@ class WorkflowEngine:
         self.node_instances = {}  # Node 인스턴스 저장
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
+        self.user_input = user_input if user_input is not None else {}
         self.execution_context = execution_context or {}
+        self.workflow_timeout = workflow_timeout  # [NEW] 전체 타임아웃 설정
+        self.start_time = 0.0  # [NEW] 실행 시작 시간
 
         # [FIX] DB 세션을 execution_context에 주입 (WorkflowNode 등에서 사용)
         if db is not None:
@@ -137,7 +143,11 @@ class WorkflowEngine:
         핵심 실행 로직 - 스트리밍/배포 모드 공용
         [성능 개선] AsyncIO를 이용한 비동기/병렬 실행
         [실시간 스트리밍] asyncio.Queue를 사용하여 node_start/node_finish 이벤트 즉시 전달
+        [일정] 타임아웃 체크 로직 추가
         """
+        import time  # 타임아웃 체크용
+
+        self.start_time = time.time()  # 실행 시작 시간 기록
         # ============================================================
         # [NEW] 실행 로그 시작
         # ============================================================
@@ -186,6 +196,18 @@ class WorkflowEngine:
             )
 
             while running_tasks:
+                # [NEW] 전체 타임아웃 체크
+                elapsed_time = time.time() - self.start_time
+                if elapsed_time > self.workflow_timeout:
+                    # 모든 실행 중인 태스크 취소
+                    for t in running_tasks:
+                        t.cancel()
+
+                    error_msg = (
+                        f"Workflow timed out after {self.workflow_timeout} seconds."
+                    )
+                    raise TimeoutError(error_msg)
+
                 # [실시간 스트리밍] 이벤트 큐에서 대기 중인 이벤트를 먼저 모두 전달
                 if stream_mode and event_queue:
                     while not event_queue.empty():
@@ -326,9 +348,19 @@ class WorkflowEngine:
                     inputs,
                 )
 
+        # [NEW] 노드별 타임아웃 적용 (asyncio.wait_for)
+        # 우선순위: 1. 노드 설정(node_schema.timeout) > 2. 기본값(300초)
+        node_timeout = node_schema.timeout if node_schema.timeout is not None else 300
+
         # [실시간 스트리밍] node_finish 이벤트를 완료 시점에 즉시 전송하는 래퍼
         async def _task_wrapper_with_event():
-            result = await _task_wrapper()
+            try:
+                # [TIMEOUT] 노드 실행 타임아웃 적용
+                result = await asyncio.wait_for(_task_wrapper(), timeout=node_timeout)
+            except asyncio.TimeoutError:
+                raise TimeoutError(
+                    f"Node '{node_id}' ({node_schema.type}) timed out after {node_timeout} seconds."
+                )
 
             # node_finish 이벤트를 즉시 큐에 전송
             if stream_mode and event_queue:
