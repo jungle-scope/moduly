@@ -24,6 +24,10 @@ interface UseDocumentProcessProps {
     selectedDbItems: Record<string, string[]>;
   };
   connectionId?: string; // 외부에서 주입받을 수 있는 connectionId
+  // 범위 선택 관련
+  selectionMode?: 'all' | 'range' | 'keyword';
+  chunkRange?: string; // "1-100, 500-600"
+  keywordFilter?: string;
 }
 
 export function useDocumentProcess({
@@ -34,6 +38,9 @@ export function useDocumentProcess({
   setProgress,
   settings,
   connectionId: connectionIdOverride,
+  selectionMode = 'all',
+  chunkRange = '',
+  keywordFilter = '',
 }: UseDocumentProcessProps) {
   const [analyzingAction, setAnalyzingAction] = useState<
     'preview' | 'save' | null
@@ -49,7 +56,7 @@ export function useDocumentProcess({
   );
   const [previewSegments, setPreviewSegments] = useState<DocumentSegment[]>([]);
 
-  // 1. 공통 Request Data 생성 함수
+  // 공통 Request Data 생성 함수
   const createRequestData = (
     strategy: 'general' | 'llamaparse',
   ): DocumentPreviewRequest => {
@@ -73,15 +80,18 @@ export function useDocumentProcess({
       source_type: document?.source_type || 'FILE',
       db_config: {
         selections,
-        // [추가] connectionIdOverride가 있으면 db_config에 포함하여 서버로 전송
         ...(connectionIdOverride
           ? { connection_id: connectionIdOverride }
           : {}),
       },
+      // 필터링 파라미터 전송
+      selection_mode: selectionMode,
+      chunk_range: chunkRange,
+      keyword_filter: keywordFilter,
     };
   };
 
-  // 2. 저장 및 처리 (Save)
+  // 저장 및 처리 (Save)
   const executeSave = async (strategy: 'general' | 'llamaparse') => {
     if (!document) return;
     try {
@@ -95,8 +105,6 @@ export function useDocumentProcess({
       );
       console.log('[Debug] API Response:', response);
 
-      setStatus('indexing');
-      setProgress(0);
       setStatus('indexing');
       setProgress(0);
 
@@ -132,8 +140,10 @@ export function useDocumentProcess({
         requestData,
       );
       console.log('[Debug] Preview Response:', response);
+
+      // 서버에서 필터링된 결과를 그대로 사용 (클라이언트 필터링 로직 제거)
       setPreviewSegments(response.segments);
-      toast.success('청킹 미리보기 완료');
+      toast.success(`청킹 미리보기 완료 (${response.segments.length}개 청크)`);
     } catch (error) {
       console.error(error);
       toast.error('미리보기 생성 실패');
@@ -142,7 +152,7 @@ export function useDocumentProcess({
     }
   };
 
-  // 4. 비용 승인 핸들러
+  // 비용 승인 핸들러
   const handleAnalyzeAndProceed = async (action: 'preview' | 'save') => {
     setAnalyzingAction(action);
     try {
@@ -188,9 +198,6 @@ export function useDocumentProcess({
     setPendingAction(null);
   };
 
-  // ===========================================
-  // [리팩토링] 소스 타입별 분기 처리 함수
-  // ===========================================
   const handleSaveClick = () => {
     if (
       document?.source_type === 'API' ||

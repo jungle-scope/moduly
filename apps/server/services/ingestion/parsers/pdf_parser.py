@@ -114,26 +114,49 @@ class PdfParser(BaseParser):
     ) -> List[Dict[str, Any]]:
         """LlamaParse API를 사용하여 고품질 파싱 (OCR 수행)"""
         try:
+            import nest_asyncio
+
+            nest_asyncio.apply()
+        except ImportError:
+            pass
+
+        try:
             from llama_parse import LlamaParse
         except ImportError:
             print("[PdfParser] llama-parse not installed.")
             return []
 
         print(f"[PdfParser] Running LlamaParse on {file_path}")
-        parser = LlamaParse(
-            api_key=api_key,
-            result_type="markdown",
-            language="ko",
-            fast_mode=True,
-            verbose=True,
-        )
+        try:
+            # fast_mode=True uses text extraction mostly, False uses OCR
+            # To fix socket hang up (timeout/crash), we ensure verbose=True to see logs
+            parser = LlamaParse(
+                api_key=api_key,
+                result_type="markdown",  # Directly get markdown
+                language="ko",
+                fast_mode=True,
+                verbose=True,
+            )
 
-        json_results = parser.get_json_result(file_path)
+            # load_data returns List[Document]
+            documents = parser.load_data(file_path)
 
-        results = []
-        if json_results and isinstance(json_results, list):
-            pages = json_results[0].get("pages", [])
-            for p in pages:
-                md_text = p.get("md") or p.get("text") or ""
-                results.append({"text": md_text, "page": p["page"]})
-        return results
+            results = []
+            for doc in documents:
+                # LlamaParse Document has 'text' field (markdown) and metadata
+                page_num = 1
+                if "page_label" in doc.metadata:
+                    try:
+                        page_num = int(doc.metadata["page_label"])
+                    except Exception:
+                        pass
+
+                results.append({"text": doc.text, "page": page_num})
+
+            return results
+
+        except Exception as e:
+            print(f"[PdfParser] LlamaParse failed: {e}")
+            # Fallback to PyMuPDF if strict mode not required, or just return empty
+            print("[PdfParser] Falling back to PyMuPDF due to error")
+            return self._parse_with_pymupdf(file_path)
