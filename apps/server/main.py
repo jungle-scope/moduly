@@ -41,6 +41,13 @@ async def lifespan(app: FastAPI):
         # 2.2 Seed Providers
         seed_default_llm_providers(db)
 
+        # 2.3 Initialize SchedulerService (스케줄러 시작)
+        from services.scheduler_service import init_scheduler_service
+
+        print("🕐 SchedulerService 초기화 중...")
+        init_scheduler_service(db)
+        print("✅ SchedulerService 초기화 완료!")
+
     except Exception as e:
         print(f"⚠️ Failed to seed data: {e}")
         import traceback
@@ -50,6 +57,15 @@ async def lifespan(app: FastAPI):
         db.close()
 
     yield
+
+    # Shutdown: SchedulerService 종료
+    from services.scheduler_service import get_scheduler_service
+
+    try:
+        scheduler = get_scheduler_service()
+        scheduler.shutdown()
+    except Exception as e:
+        print(f"⚠️ SchedulerService 종료 실패: {e}")
 
 
 app = FastAPI(title="Moduly API", lifespan=lifespan)
