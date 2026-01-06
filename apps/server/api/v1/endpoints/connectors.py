@@ -62,8 +62,11 @@ async def test_db_connection(request: DBConnectionTestRequest) -> Any:
         )
 
     try:
+        from starlette.concurrency import run_in_threadpool
+
         connector = connector_class()
-        is_connected = connector.check(config)
+        # blocking I/O (SSH connection, DB connection)를 별도 스레드에서 실행
+        is_connected = await run_in_threadpool(connector.check, config)
 
         if is_connected:
             return DBConnectionTestResponse(
