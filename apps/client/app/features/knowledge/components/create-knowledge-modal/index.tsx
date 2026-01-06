@@ -263,9 +263,18 @@ export default function CreateKnowledgeModal({
       router.push(
         `/dashboard/knowledge/${response.knowledge_base_id}/document/${response.document_id}`,
       );
-    } catch (error) {
+    } catch (error: any) {
+      console.group('[CreateKnowledgeModal] Submission failed');
+      console.error('Error object:', error);
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+      }
+      console.groupEnd();
       console.error('Failed to create/upload knowledge base:', error);
-      alert('요청 처리에 실패했습니다.');
+      alert(
+        `요청 처리에 실패했습니다: ${error.response?.data?.detail || error.message}`,
+      );
     } finally {
       setIsLoading(false);
     }
