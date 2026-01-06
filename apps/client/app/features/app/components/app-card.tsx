@@ -1,15 +1,53 @@
 'use client';
 
-import { SquarePen } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import {
+  MoreHorizontal,
+  Pencil,
+  Globe,
+  Lock,
+  ToggleLeft,
+  History,
+} from 'lucide-react';
 import { type App } from '../api/appApi';
 
 interface AppCardProps {
   app: App;
   onClick: (app: App) => void;
   onEdit: (e: React.MouseEvent, app: App) => void;
+  onToggleMarketplace: (app: App) => void;
 }
 
-export default function AppCard({ app, onClick, onEdit }: AppCardProps) {
+export default function AppCard({
+  app,
+  onClick,
+  onEdit,
+  onToggleMarketplace,
+}: AppCardProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  const toggleMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMenuOpen(!isMenuOpen);
+  };
+
   return (
     <div
       onClick={() => onClick(app)}
@@ -32,7 +70,6 @@ export default function AppCard({ app, onClick, onEdit }: AppCardProps) {
         </div>
       </div>
 
-      {/* 푸터 */}
       <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
         <div className="flex items-center gap-1">
           <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
@@ -47,13 +84,78 @@ export default function AppCard({ app, onClick, onEdit }: AppCardProps) {
             })}
           </span>
         </div>
-        <button
-          onClick={(e) => onEdit(e, app)}
-          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-          title="앱 정보 수정"
-        >
-          <SquarePen className="w-3 h-3" />
-        </button>
+
+        {/* 더보기 메뉴 */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={toggleMenu}
+            className="p-1 text-gray-400 hover:text-blue-600 transition-colors rounded-md hover:bg-gray-50"
+            title="더보기"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+
+          {isMenuOpen && (
+            <div
+              className="absolute right-0 bottom-full mb-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 animate-in fade-in zoom-in-95 duration-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 앱 이름/설명 수정하기 */}
+              <button
+                onClick={(e) => {
+                  setIsMenuOpen(false);
+                  onEdit(e, app);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>앱 정보 수정</span>
+              </button>
+
+              {/* 마켓플레이스 공개/비공개 토글 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onToggleMarketplace(app);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                {app.is_market ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>마켓플레이스 비공개로 전환</span>
+                  </>
+                ) : (
+                  <>
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>마켓플레이스에 공개</span>
+                  </>
+                )}
+              </button>
+
+              <div className="my-1 border-t border-gray-100" />
+
+              {/* 배포 on/off 토글 (UI Only) */}
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50 flex items-center gap-2 cursor-not-allowed"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ToggleLeft className="w-3.5 h-3.5" />
+                <span>배포 끄기 (준비중)</span>
+              </button>
+
+              {/* 워크플로우 노드로 배포된 버전 목록 조회 (UI Only) */}
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50 flex items-center gap-2 cursor-not-allowed"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>워크플로우 노드 배포 목록 (준비중)</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

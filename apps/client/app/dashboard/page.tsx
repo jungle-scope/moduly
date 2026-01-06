@@ -60,6 +60,18 @@ export default function DashboardPage() {
     setEditingApp(app);
   };
 
+  const handleToggleMarketplace = async (app: App) => {
+    try {
+      await appApi.updateApp(app.id, {
+        is_market: !app.is_market,
+      });
+      loadApps();
+    } catch (err) {
+      console.error('Failed to toggle marketplace status:', err);
+      // 에러 처리 로직 추가 가능 (예: 토스트 메시지)
+    }
+  };
+
   const filteredApps = apps.filter((app) =>
     app.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
@@ -118,6 +130,7 @@ export default function DashboardPage() {
               app={app}
               onClick={handleAppClick}
               onEdit={handleEditApp}
+              onToggleMarketplace={handleToggleMarketplace}
             />
           ))}
         </div>
