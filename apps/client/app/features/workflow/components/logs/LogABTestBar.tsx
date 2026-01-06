@@ -27,10 +27,11 @@ export const LogABTestBar = ({
         return (
             <button 
                 onClick={onToggle}
-                className="w-full mb-4 py-3 bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-600 hover:text-blue-600 font-medium rounded-xl border-dashed flex items-center justify-center gap-2 transition-all shadow-sm group"
+                className="w-full mb-4 py-3 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 text-blue-600 font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow group"
             >
                 <FlaskConical className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                <span>⚡ A/B 테스트 (실행 비교)</span>
+                <span>A/B 테스트 (실행 비교)</span>
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full group-hover:bg-blue-200">클릭</span>
             </button>
         );
     }

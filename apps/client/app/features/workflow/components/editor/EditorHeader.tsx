@@ -5,11 +5,9 @@ import { useReactFlow } from '@xyflow/react';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
-// [NEW] 로그 뷰어 모달 Import
-import { LogViewerModal } from '@/app/features/workflow/components/logs/LogViewerModal';
-// [NEW] 모니터링 대시보드 모달 Import
-import { MonitoringDashboardModal } from '@/app/features/workflow/components/monitoring/MonitoringDashboardModal';
-import { ScrollText, BarChart3, Play } from 'lucide-react'; // [NEW] 아이콘 추가
+// [REFACTORED] 로그 & 모니터링 통합 모달 Import
+import { LogAndMonitoringModal } from '@/app/features/workflow/components/modals/LogAndMonitoringModal';
+import { BarChart3, Play } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import {
   validateVariableName,
@@ -64,11 +62,10 @@ export default function EditorHeader() {
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [isLogViewerOpen, setIsLogViewerOpen] = useState(false); // [NEW] 로그 뷰어 모달 상태
-  const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null); // [NEW] 로그 뷰어 초기 진입 ID
-  const [isMonitoringOpen, setIsMonitoringOpen] = useState(false); // [NEW] 모니터링 모달 상태
-  const [returnToMonitoring, setReturnToMonitoring] = useState(false); // [NEW] 모니터링 복귀 상태
-  const [monitoringScrollPos, setMonitoringScrollPos] = useState(0); // [NEW] 모니터링 스크롤 위치 저장
+  // [REFACTORED] 로그 & 모니터링 통합 모달 상태
+  const [isLogAndMonitoringOpen, setIsLogAndMonitoringOpen] = useState(false);
+  const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
+  const [initialTab, setInitialTab] = useState<'logs' | 'monitoring'>('logs');
 
   // 기존 상태
   const [showModal, setShowModal] = useState(false);
@@ -544,22 +541,13 @@ export default function EditorHeader() {
           isFullscreen ? 'top-4' : 'top-16'
         }`}
       >
-        {/* 1. 로그 버튼 */}
+        {/* 1. 로그 & 모니터링 통합 버튼 */}
         <button
-          onClick={() => setIsLogViewerOpen(true)}
-          className="px-3.5 py-1.5 flex items-center gap-1.5 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-[13px] font-medium"
-        >
-          <ScrollText className="w-3.5 h-3.5" />
-          <span className="hidden lg:inline">로그</span>
-        </button>
-
-        {/* 2. 모니터링 버튼 */}
-        <button
-          onClick={() => setIsMonitoringOpen(true)}
+          onClick={() => setIsLogAndMonitoringOpen(true)}
           className="px-3.5 py-1.5 flex items-center gap-1.5 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-[13px] font-medium"
         >
           <BarChart3 className="w-3.5 h-3.5" />
-          <span className="hidden lg:inline">모니터링</span>
+          <span className="hidden lg:inline">모니터링 & 로그</span>
         </button>
 
         {/* 3. 기억 모드 */}
@@ -691,43 +679,18 @@ export default function EditorHeader() {
           <ClockIcon className="w-4 h-4" />
         </button>
 
-        {/* [NEW] 로그 뷰어 모달 렌더링 */}
+        {/* [REFACTORED] 로그 & 모니터링 통합 모달 렌더링 */}
         {workflowId && (
-          <>
-            <LogViewerModal
-              isOpen={isLogViewerOpen}
-              onClose={() => {
-                setIsLogViewerOpen(false);
-                setInitialLogRunId(null);
-                setReturnToMonitoring(false);
-              }}
-              workflowId={workflowId as string}
-              initialRunId={initialLogRunId}
-              onBack={
-                returnToMonitoring
-                  ? () => {
-                      setIsLogViewerOpen(false);
-                      setInitialLogRunId(null);
-                      setIsMonitoringOpen(true);
-                      setReturnToMonitoring(false);
-                    }
-                  : undefined
-              }
-            />
-            <MonitoringDashboardModal
-              isOpen={isMonitoringOpen}
-              onClose={() => setIsMonitoringOpen(false)}
-              workflowId={workflowId as string}
-              onNavigateToLog={(runId) => {
-                setInitialLogRunId(runId);
-                setIsMonitoringOpen(false);
-                setIsLogViewerOpen(true);
-                setReturnToMonitoring(true);
-              }}
-              initialScrollTop={monitoringScrollPos}
-              onSaveScrollPos={setMonitoringScrollPos}
-            />
-          </>
+          <LogAndMonitoringModal
+            isOpen={isLogAndMonitoringOpen}
+            onClose={() => {
+              setIsLogAndMonitoringOpen(false);
+              setInitialLogRunId(null);
+            }}
+            workflowId={workflowId as string}
+            initialTab={initialTab}
+            initialRunId={initialLogRunId}
+          />
         )}
       </div>
 
