@@ -1,9 +1,12 @@
 import mimetypes
 import os
+import tempfile
 from typing import List
 from uuid import UUID
 
 import pandas as pd
+import requests
+from docx import Document as DocxDocument
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -12,7 +15,7 @@ from fastapi import (
     Response,
     status,
 )
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -245,7 +248,7 @@ def get_document_content(
     )
 
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(status_code=404, detail="Document not found in DB")
 
     if doc.knowledge_base_id != kb_id:
         raise HTTPException(
@@ -259,8 +262,13 @@ def get_document_content(
             detail="API로 받은 응답은 원문 보기를 제공하지 않습니다.",
         )
 
-    # 파일 존재 확인
-    if not os.path.exists(doc.file_path):
+    # file path가 S3 URL인지 확인합니다.
+    is_s3_file = str(doc.file_path).startswith("http") or str(doc.file_path).startswith(
+        "s3://"
+    )
+
+    # 파일 존재 확인 (Local only)
+    if not is_s3_file and not os.path.exists(doc.file_path):
         raise HTTPException(status_code=404, detail="File not found on server")
 
     # 미디어 타입 추론
@@ -268,26 +276,82 @@ def get_document_content(
     if not media_type:
         media_type = "application/octet-stream"
 
-    # Excel/CSV 파일은 HTML로 변환하여 미리보기 제공
+    # Excel/CSV/Word 파일은 HTML로 변환하여 미리보기 제공
     ext = os.path.splitext(doc.filename)[1].lower()
-    if ext in [".xlsx", ".xls", ".csv"]:
+    if ext in [".xlsx", ".xls", ".csv", ".docx"]:
+        temp_file_path = None
         try:
-            if ext == ".csv":
-                df = pd.read_csv(doc.file_path, nrows=100)
-            else:
-                df = pd.read_excel(doc.file_path, nrows=100)
+            target_path = doc.file_path
 
-            # HTML 스타일링
+            # S3 파일인 경우 임시 다운로드
+            if is_s3_file:
+                if doc.file_path.startswith("s3://"):
+                    # s3:// 프로토콜은 presigned url 변환이 필요하나, 현재는 http url을 가정
+                    pass
+                else:
+                    response = requests.get(doc.file_path, stream=True)
+                    response.raise_for_status()
+
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            tmp.write(chunk)
+                        temp_file_path = tmp.name
+                        target_path = temp_file_path
+
+            body_content = ""
+
+            if ext == ".docx":
+                # WORD 처리
+                doc_word = DocxDocument(target_path)
+                paragraphs = [
+                    f"<p>{p.text}</p>" for p in doc_word.paragraphs if p.text.strip()
+                ]
+
+                # 표 내용도 간단히 추가
+                for table in doc_word.tables:
+                    rows_html = []
+                    for row in table.rows:
+                        cells = [f"<td>{cell.text}</td>" for cell in row.cells]
+                        rows_html.append(f"<tr>{''.join(cells)}</tr>")
+                    if rows_html:
+                        paragraphs.append(
+                            f"<table class='docx-table'>{''.join(rows_html)}</table>"
+                        )
+
+                body_content = "\n".join(paragraphs)
+
+            else:
+                # EXCEL/CSV 처리
+                if ext == ".csv":
+                    df = pd.read_csv(target_path, nrows=100)
+                else:
+                    df = pd.read_excel(target_path, nrows=100)
+
+                body_content = f"""
+                <div class="info-banner">
+                    <span>⚠️</span>
+                    성능을 위해 상위 100행만 미리보기로 제공됩니다.
+                </div>
+                {df.to_html(index=False, border=0)}
+                """
+
+            # 공통 HTML 스타일링
             html_content = f"""
             <html>
             <head>
                 <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #ffffff; }}
-                    table {{ border-collapse: collapse; width: 100%; font-size: 14px; border: 1px solid #e5e7eb; }}
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #ffffff; line-height: 1.6; }}
+                    /* Table Styles */
+                    table {{ border-collapse: collapse; width: 100%; font-size: 14px; border: 1px solid #e5e7eb; margin-bottom: 20px; }}
                     th {{ background-color: #f9fafb; color: #374151; font-weight: 600; text-align: left; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }}
                     td {{ padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #4b5563; }}
                     tr:last-child td {{ border-bottom: none; }}
                     tr:hover td {{ background-color: #f9fafb; }}
+                    
+                    /* Docx Specific */
+                    p {{ margin-bottom: 0.8em; color: #1f2937; }}
+                    .docx-table td {{ border: 1px solid #e5e7eb; }}
+
                     .info-banner {{
                         margin-bottom: 16px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fcd34d;
                         color: #92400e; border-radius: 6px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px;
@@ -295,11 +359,7 @@ def get_document_content(
                 </style>
             </head>
             <body>
-                <div class="info-banner">
-                    <span>⚠️</span>
-                    성능을 위해 상위 100행만 미리보기로 제공됩니다.
-                </div>
-                {df.to_html(index=False, border=0)}
+                {body_content}
             </body>
             </html>
             """
@@ -307,6 +367,16 @@ def get_document_content(
         except Exception as e:
             print(f"Excel conversion failed: {e}")
             # 변환 실패 시 다운로드로 fallback
+        finally:
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except Exception:
+                    pass
+
+    # 브라우저가 s3에서 파일을 직접 받아온다.
+    if is_s3_file:
+        return RedirectResponse(url=doc.file_path)
 
     return FileResponse(
         doc.file_path,
@@ -322,7 +392,7 @@ def get_document_content(
 async def process_document(
     kb_id: UUID,
     document_id: UUID,
-    request: DocumentPreviewRequest,  # 설정값은 Preview와 동일하므로 재사용하거나 별도 정의
+    request: DocumentPreviewRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -484,6 +554,7 @@ async def sync_document(
         )
         .first()
     )
+    print("============>", doc)
 
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")

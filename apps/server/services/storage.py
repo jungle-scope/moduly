@@ -68,29 +68,47 @@ class S3StorageService(StorageService):
                 file.file,
                 self.bucket_name,
                 s3_key,
-                # ExtraArgs={"ContentType": file.content_type} # 필요시 추가
+                ExtraArgs={
+                    "ContentType": file.content_type or "application/octet-stream",
+                    "ContentDisposition": "inline",
+                },
             )
         except Exception as e:
             print(f"[ERROR] S3 Upload failed: {e}")
             raise e
         finally:
             # 포인터 초기화
-            file.file.seek(0)
+            try:
+                file.file.seek(0)
+            except ValueError:
+                # 이미 닫힌 파일인 경우 무시
+                pass
 
-        # S3 Key 반환 (또는 s3:// URL)
-        return f"s3://{self.bucket_name}/{s3_key}"
+        # S3 URL
+        return f"https://{self.bucket_name}.s3.{self.region}.amazonaws.com/{s3_key}"
 
     def delete(self, file_path: str):
-        # file_path format: s3://bucket/key or just key
+        key = file_path
+
         if file_path.startswith("s3://"):
-            # s3://bucket/key -> key 추출
             parts = file_path.replace("s3://", "").split("/", 1)
             if len(parts) > 1:
                 key = parts[1]
-            else:
-                return  # 잘못된 포맷
-        else:
-            key = file_path
+        elif file_path.startswith("http"):
+            # https://bucket.s3.region.amazonaws.com/folder/file.ext -> folder/file.ext
+            # URL 파싱 대신 단순히 버킷명 뒷부분을 추출하거나, 표준 S3 URL 패턴 매칭
+            # 간단하게 마지막 path 부분만 가져오는건 위험하므로(폴더 구조), 도메인 이후 path 추출
+            from urllib.parse import urlparse
+
+            parsed = urlparse(file_path)
+            # path: /key or /bucket/key (virtual hosted)
+            # 여기서는 virtual hosted style을 가정하고 key 추출
+            key = parsed.path.lstrip("/")
+
+            # 혹시 path에 bucket 이름이 중복되어 들어가 있다면 제거 (Legacy 호환)
+            # 예: /my-bucket/uploads/file.pdf -> uploads/file.pdf
+            if key.startswith(f"{self.bucket_name}/"):
+                key = key.replace(f"{self.bucket_name}/", "", 1)
 
         try:
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=key)
@@ -99,7 +117,8 @@ class S3StorageService(StorageService):
 
 
 def get_storage_service() -> StorageService:
-    mode = settings.RAG_INGESTION_MODE.upper()
+    # 환경변수가 없거나 None일 경우 기본값 DEV로 처리하여 AttributeError 방지
+    mode = (settings.RAG_INGESTION_MODE or "DEV").upper()
     if mode == "LOCAL":
         print("[Storage] Initializing Local Storage (uploads/)")
         return LocalStorageService()
