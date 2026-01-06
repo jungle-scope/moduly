@@ -112,27 +112,46 @@ export default function AppCard({
                 <span>앱 정보 수정</span>
               </button>
 
-              {/* 마켓플레이스 공개/비공개 토글 */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMenuOpen(false);
-                  onToggleMarketplace(app);
-                }}
-                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-              >
-                {app.is_market ? (
-                  <>
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>마켓플레이스 비공개로 전환</span>
-                  </>
-                ) : (
-                  <>
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>마켓플레이스에 공개</span>
-                  </>
-                )}
-              </button>
+              {app.is_market ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    onToggleMarketplace(app);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>마켓플레이스 비공개로 전환</span>
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (app.forked_from) return; // 복제된 앱은 공개 불가
+                    setIsMenuOpen(false);
+                    onToggleMarketplace(app);
+                  }}
+                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 ${
+                    app.forked_from
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title={
+                    app.forked_from
+                      ? '복제된 앱은 마켓에 공개할 수 없습니다.'
+                      : ''
+                  }
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>
+                    마켓플레이스에 공개
+                    {app.forked_from && (
+                      <span className="text-xs ml-1">(복제된 앱 불가)</span>
+                    )}
+                  </span>
+                </button>
+              )}
 
               <div className="my-1 border-t border-gray-100" />
 
