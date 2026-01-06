@@ -8,7 +8,7 @@ from workflow.nodes.condition import ConditionNode, ConditionNodeData
 from workflow.nodes.file_extraction import FileExtractionNode, FileExtractionNodeData
 from workflow.nodes.github import GithubNode, GithubNodeData
 from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
-from workflow.nodes.knowledge import KnowledgeNode, KnowledgeNodeData
+
 from workflow.nodes.llm import LLMNode, LLMNodeData
 from workflow.nodes.mail import MailNode, MailNodeData
 from workflow.nodes.start import StartNode, StartNodeData
@@ -40,7 +40,7 @@ class NodeFactory:
         "templateNode": (TemplateNode, TemplateNodeData),
         "workflowNode": (WorkflowNode, WorkflowNodeData),
         "fileExtractionNode": (FileExtractionNode, FileExtractionNodeData),
-        "knowledgeNode": (KnowledgeNode, KnowledgeNodeData),
+
     }
 
     @staticmethod
