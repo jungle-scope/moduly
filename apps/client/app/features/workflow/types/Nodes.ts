@@ -84,6 +84,19 @@ export interface HttpRequestNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ======================== [Slack Post Node] ================================
+export interface SlackPostNodeData extends HttpRequestNodeData {
+  slackMode?: 'webhook' | 'api';
+  channel?: string;
+  message?: string;
+  username?: string;
+  thread_ts?: string;
+  icon_emoji?: string;
+  blocks?: string;
+  attachments?: string;
+}
+// ============================================================================
+
 // ======================== [Condition Node] ==================================
 // [NoteNode]
 export interface NoteNodeData extends BaseNodeData {
@@ -275,6 +288,10 @@ export type HttpRequestNode = ReactFlowNode<
   HttpRequestNodeData,
   'httpRequestNode'
 >;
+export type SlackPostNode = ReactFlowNode<
+  SlackPostNodeData,
+  'slackPostNode'
+>;
 export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
 export type LLMNode = ReactFlowNode<LLMNodeData, 'llmNode'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;
@@ -305,6 +322,7 @@ export type AppNode =
   | StartNode
   | AnswerNode
   | HttpRequestNode
+  | SlackPostNode
   | LLMNode
   | ConditionNode
   | CodeNode

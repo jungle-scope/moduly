@@ -39,6 +39,7 @@ class NodeFactory:
         "conditionNode": (ConditionNode, ConditionNodeData),
         "llmNode": (LLMNode, LLMNodeData),
         "httpRequestNode": (HttpRequestNode, HttpRequestNodeData),
+        "slackPostNode": (HttpRequestNode, HttpRequestNodeData),
         "githubNode": (GithubNode, GithubNodeData),
         "mailNode": (MailNode, MailNodeData),
         "templateNode": (TemplateNode, TemplateNodeData),

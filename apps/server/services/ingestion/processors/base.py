@@ -19,7 +19,7 @@ class ProcessingResult(BaseModel):
 class BaseProcessor(ABC):
     """
     [BaseProcessor]
-    모든 데이터 소스 처리기(File, API, DB)의 공통 인터페이스입니다.
+    모든 자료 처리기(File, API, DB)의 공통 인터페이스입니다.
     Strategy Pattern의 Context 역할을 하는 Factory에 의해 호출됩니다.
     """
 

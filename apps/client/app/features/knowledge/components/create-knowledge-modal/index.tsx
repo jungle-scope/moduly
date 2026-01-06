@@ -717,55 +717,57 @@ export default function CreateKnowledgeModal({
                 </div>
               </div>
 
-              {/* Embedding Settings */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  임베딩 설정
-                </h4>
+              {/* Embedding Settings - 새로운 참고자료그룹 생성시에만 임베딩 설정 가능 */}
+              {!knowledgeBaseId && (
                 <div>
-                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                    모델
-                  </label>
-                  {loadingModels ? (
-                    <div className="text-xs text-gray-400 p-2">
-                      모델 로딩 중...
-                    </div>
-                  ) : embeddingModels.length === 0 ? (
-                    <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
-                      <span>사용 가능한 임베딩 모델이 없습니다.</span>
-                      <a
-                        href="/settings/provider"
-                        className="ml-2 underline hover:text-amber-700 dark:hover:text-amber-300"
-                      >
-                        API 키 등록하기
-                      </a>
-                    </div>
-                  ) : (
-                    <select
-                      value={formData.embeddingModel}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          embeddingModel: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      {embeddingModels.map((model) => (
-                        <option
-                          key={model.id}
-                          value={model.model_id_for_api_call}
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    임베딩 설정
+                  </h4>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      모델
+                    </label>
+                    {loadingModels ? (
+                      <div className="text-xs text-gray-400 p-2">
+                        모델 로딩 중...
+                      </div>
+                    ) : embeddingModels.length === 0 ? (
+                      <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
+                        <span>사용 가능한 임베딩 모델이 없습니다.</span>
+                        <a
+                          href="/settings/provider"
+                          className="ml-2 underline hover:text-amber-700 dark:hover:text-amber-300"
                         >
-                          {model.name}{' '}
-                          {model.provider_name
-                            ? `(${model.provider_name})`
-                            : ''}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                          API 키 등록하기
+                        </a>
+                      </div>
+                    ) : (
+                      <select
+                        value={formData.embeddingModel}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            embeddingModel: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        {embeddingModels.map((model) => (
+                          <option
+                            key={model.id}
+                            value={model.model_id_for_api_call}
+                          >
+                            {model.name}{' '}
+                            {model.provider_name
+                              ? `(${model.provider_name})`
+                              : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Search Settings */}
               <div>

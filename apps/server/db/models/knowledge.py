@@ -93,6 +93,9 @@ class Document(Base):
     # 메타 데이터 (파일 크기, 파싱 결과 요약 등)
     meta_info: Mapped[dict] = mapped_column(JSONB, default={})
 
+    # 임베딩 생성 시 사용한 모델명
+    embedding_model: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
