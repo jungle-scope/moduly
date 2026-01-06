@@ -40,13 +40,12 @@ spec:
           value: "http://localhost:3128"
         - name: NO_PROXY
           value: "localhost,127.0.0.1"
-        # Sandbox API 키 (선택적)
+        # Sandbox API 키
         - name: API_KEY
           valueFrom:
             secretKeyRef:
               name: app-secrets
               key: SANDBOX_API_KEY
-              optional: true
         # 타임존
         - name: TZ
           value: "Asia/Seoul"
