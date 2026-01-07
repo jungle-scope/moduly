@@ -20,9 +20,14 @@ import { PuzzleEdge } from '../../edges/PuzzleEdge';
 interface WorkflowInnerCanvasProps {
   nodes: Node[];
   edges: Edge[];
+  allowNavigation?: boolean;
 }
 
-const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
+const InnerCanvasContent = ({
+  nodes,
+  edges,
+  allowNavigation = false,
+}: WorkflowInnerCanvasProps) => {
   // 노드 타입 메모이제이션
   const nodeTypes = useMemo(
     () => ({ ...coreNodeTypes }),
@@ -61,16 +66,16 @@ const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
         fitView
         fitViewOptions={{ padding: 0.2 }}
         proOptions={{ hideAttribution: true }}
-        // 상호작용 비활성화
+        // 상호작용 비활성화 (네비게이션 허용 시 줌/팬만 활성화)
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
-        zoomOnScroll={false}
-        panOnScroll={false}
-        zoomOnPinch={false}
-        panOnDrag={false}
-        zoomOnDoubleClick={false}
-        preventScrolling={false}
+        zoomOnScroll={allowNavigation}
+        panOnScroll={allowNavigation}
+        zoomOnPinch={allowNavigation}
+        panOnDrag={allowNavigation}
+        zoomOnDoubleClick={allowNavigation}
+        preventScrolling={!allowNavigation}
         // 기본 뷰포트 설정
         defaultViewport={defaultViewport}
       >
@@ -88,11 +93,16 @@ const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
 export const WorkflowInnerCanvas = ({
   nodes,
   edges,
+  allowNavigation,
 }: WorkflowInnerCanvasProps) => {
   // 별도의 Provider로 감싸서 메인 캔버스와 상태 격리
   return (
     <ReactFlowProvider>
-      <InnerCanvasContent nodes={nodes} edges={edges} />
+      <InnerCanvasContent
+        nodes={nodes}
+        edges={edges}
+        allowNavigation={allowNavigation}
+      />
     </ReactFlowProvider>
   );
 };

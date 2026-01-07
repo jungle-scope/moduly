@@ -20,7 +20,7 @@ from schemas.auth import (
 # JWT 설정
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_HOURS = 6  # 6시간
 
 
 class AuthService:
@@ -47,7 +47,7 @@ class AuthService:
     def create_jwt_token(user_id: str) -> str:
         """JWT 토큰 생성"""
         expires_at = datetime.now(timezone.utc) + timedelta(
-            days=ACCESS_TOKEN_EXPIRE_DAYS
+            hours=ACCESS_TOKEN_EXPIRE_HOURS
         )
         payload = {
             "user_id": user_id,
@@ -58,8 +58,8 @@ class AuthService:
 
     @staticmethod
     def get_token_expiry() -> datetime:
-        """토큰 만료 시간 (7일 후)"""
-        return datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+        """토큰 만료 시간 (6시간 후)"""
+        return datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
 
     @staticmethod
     def verify_jwt_token(token: str) -> str | None:
