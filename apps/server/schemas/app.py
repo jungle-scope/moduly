@@ -43,6 +43,7 @@ class AppResponse(BaseModel):
     forked_from: Optional[UUID] = None
     active_deployment_id: Optional[UUID] = None
     active_deployment_type: Optional[str] = None
+    owner_name: Optional[str] = None  # UI 표시용 (생성자 이름)
     created_at: datetime
     updated_at: datetime
 

@@ -141,9 +141,9 @@ export const nodeRegistry: NodeDefinition[] = [
     name: '서브 모듈',
     category: 'workflow',
     color: '#14b8a6', // teal-500 색상
-    icon: <Puzzle className="w-3.5 h-3.5 text-white" />,
+    icon: <Puzzle className="w-5 h-5 text-white" />,
     implemented: true,
-    description: '다른 워크플로우(App)를 서브 모듈로 실행합니다.',
+    description: '다른 모듈을 노드로 실행합니다.',
     defaultData: () => ({
       title: '서브 모듈',
       workflowId: '',
@@ -245,14 +245,14 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'slack-post',
     type: 'slackPostNode',
-    name: '슬랙',
+    name: 'slack',
     category: 'plugin',
     color: '#4A154B', // Slack 공식 색상
     icon: <Slack className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: 'Slack으로 메시지를 전송합니다.',
     defaultData: () => ({
-      title: '슬랙',
+      title: 'slack',
       method: 'POST',
       url: '',
       headers: [{ key: 'Content-Type', value: 'application/json' }],
@@ -291,14 +291,14 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'github',
     type: 'githubNode',
-    name: '깃허브',
+    name: 'github',
     category: 'plugin',
     color: '#333', // GitHub 공식 색상
     icon: <Github className="w-3.5 h-3.5 text-white" />,
     implemented: true,
     description: 'GitHub PR과 상호작용합니다 (Diff 조회, 댓글 작성).',
     defaultData: () => ({
-      title: '깃허브',
+      title: 'github',
       action: 'get_pr',
       api_token: '',
       repo_owner: '',
