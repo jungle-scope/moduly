@@ -28,8 +28,8 @@ def signup(request: SignupRequest, response: Response, db: Session = Depends(get
         key="auth_token",
         value=result.session.token,
         httponly=True,  # JavaScript 접근 차단
-        secure=False,  # 개발: False, 프로덕션: True (HTTPS only)
-        samesite="lax",  # CSRF 방지
+        secure=False,  # HTTPS + Cross-origin 지원
+        samesite="none",  # Cross-origin 허용 (localhost ↔ remote)
         max_age=604800,  # 7일 (초 단위)
         path="/",  # 모든 경로에서 사용 가능
     )
@@ -57,8 +57,8 @@ def login(request: LoginRequest, response: Response, db: Session = Depends(get_d
         key="auth_token",
         value=result.session.token,
         httponly=True,  # JavaScript 접근 차단
-        secure=False,  # 개발: False, 프로덕션: True (HTTPS only)
-        samesite="lax",  # CSRF 방지
+        secure=True,  # HTTPS + Cross-origin 지원
+        samesite="none",  # Cross-origin 허용 (localhost ↔ remote)
         max_age=604800,  # 7일 (초 단위)
         path="/",  # 모든 경로에서 사용 가능
     )
