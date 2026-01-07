@@ -1,3 +1,4 @@
+import React, { cloneElement, isValidElement } from 'react';
 import {
   getNodesByCategory,
   getNodeDefinition,
@@ -8,7 +9,7 @@ const categoryDisplayNames: Record<string, string> = {
   trigger: 'Trigger',
   llm: 'LLM',
   plugin: 'Plugin',
-  workflow: 'Workflow',
+  workflow: 'Module',
   logic: 'Logic',
   database: 'Database',
   data: 'Data',
@@ -48,7 +49,15 @@ export function NodeSelector({ onSelect }: NodeSelectorProps) {
                     className="w-5 h-5 rounded flex items-center justify-center text-xs shrink-0"
                     style={{ backgroundColor: nodeDef.color }}
                   >
-                    {nodeDef.icon}
+                    {nodeDef.type === 'workflowNode' &&
+                    isValidElement(nodeDef.icon)
+                      ? cloneElement(
+                          nodeDef.icon as React.ReactElement,
+                          {
+                            className: 'w-3.5 h-3.5 text-white',
+                          } as any,
+                        )
+                      : nodeDef.icon}
                   </div>
                   <span className="truncate">{nodeDef.name}</span>
                 </button>

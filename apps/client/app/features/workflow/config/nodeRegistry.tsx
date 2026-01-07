@@ -138,14 +138,14 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'workflow',
     type: 'workflowNode',
-    name: '서브 모듈',
+    name: 'Module',
     category: 'workflow',
     color: '#14b8a6', // teal-500 색상
-    icon: <Puzzle className="w-3.5 h-3.5 text-white" />,
+    icon: <Puzzle className="w-5 h-5 text-white" />,
     implemented: true,
-    description: '다른 워크플로우(App)를 서브 모듈로 실행합니다.',
+    description: '다른 모듈을 노드로 실행합니다.',
     defaultData: () => ({
-      title: '서브 모듈',
+      title: 'Module',
       workflowId: '',
       appId: '',
       inputs: [],
