@@ -1,3 +1,4 @@
+import React, { cloneElement, isValidElement } from 'react';
 import {
   getNodesByCategory,
   getNodeDefinition,
@@ -5,13 +6,13 @@ import {
 
 // 카테고리 표시 이름 매핑
 const categoryDisplayNames: Record<string, string> = {
-  trigger: 'Trigger',
+  trigger: '트리거',
   llm: 'LLM',
-  plugin: 'Plugin',
-  workflow: 'Workflow',
-  logic: 'Logic',
-  database: 'Database',
-  data: 'Data',
+  plugin: '플러그인',
+  workflow: '서브 모듈',
+  logic: '로직',
+  database: '데이터베이스',
+  data: '데이터',
 };
 
 interface NodeSelectorProps {
@@ -48,7 +49,15 @@ export function NodeSelector({ onSelect }: NodeSelectorProps) {
                     className="w-5 h-5 rounded flex items-center justify-center text-xs shrink-0"
                     style={{ backgroundColor: nodeDef.color }}
                   >
-                    {nodeDef.icon}
+                    {nodeDef.type === 'workflowNode' &&
+                    isValidElement(nodeDef.icon)
+                      ? cloneElement(
+                          nodeDef.icon as React.ReactElement,
+                          {
+                            className: 'w-3.5 h-3.5 text-white',
+                          } as any,
+                        )
+                      : nodeDef.icon}
                   </div>
                   <span className="truncate">{nodeDef.name}</span>
                 </button>

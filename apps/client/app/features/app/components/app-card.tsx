@@ -72,9 +72,20 @@ export default function AppCard({
 
       <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
-            <span className="text-[8px] text-blue-600 font-medium">U</span>
-          </div>
+          {app.owner_name ? (
+            <>
+              <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-[8px] text-blue-600 font-medium">
+                  {app.owner_name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <span className="text-gray-500">{app.owner_name}</span>
+            </>
+          ) : (
+            <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
+              <span className="text-[8px] text-blue-600 font-medium">U</span>
+            </div>
+          )}
           <span>
             • Edited{' '}
             {new Date(app.updated_at).toLocaleDateString('en-US', {
