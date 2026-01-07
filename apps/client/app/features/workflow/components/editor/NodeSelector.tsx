@@ -6,13 +6,13 @@ import {
 
 // 카테고리 표시 이름 매핑
 const categoryDisplayNames: Record<string, string> = {
-  trigger: 'Trigger',
+  trigger: '트리거',
   llm: 'LLM',
-  plugin: 'Plugin',
+  plugin: '플러그인',
   workflow: '서브 모듈',
-  logic: 'Logic',
-  database: 'Database',
-  data: 'Data',
+  logic: '로직',
+  database: '데이터베이스',
+  data: '데이터',
 };
 
 interface NodeSelectorProps {
