@@ -10,12 +10,16 @@ RUN npm ci
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Build argument for API URL (optional - defaults to next.config.ts value if not set)
+ARG NEXT_PUBLIC_API_URL
+
 # 의존성 복사
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/client .
 
 # Next.js standalone 빌드
 ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN npm run build
 
 # --- Stage 3: Runner ---
