@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
@@ -28,9 +30,6 @@ def signup(
         LoginResponse: 사용자 정보 + JWT 토큰
     """
     result = AuthService.signup(db, request)
-
-    # httpOnly 쿠키 설정 (XSS 공격 방지)
-    import os
 
     # 프로덕션 환경 자동 감지
     host = request_obj.headers.get("host", "")
@@ -85,9 +84,6 @@ def login(
         LoginResponse: 사용자 정보 + JWT 토큰
     """
     result = AuthService.login(db, request)
-
-    # httpOnly 쿠키 설정 (XSS 공격 방지)
-    import os
 
     # 프로덕션 환경 자동 감지
     host = request_obj.headers.get("host", "")
