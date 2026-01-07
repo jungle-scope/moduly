@@ -1,11 +1,26 @@
 import mimetypes
 import os
+import tempfile
 from typing import List
 from uuid import UUID
 
 import pandas as pd
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
-from fastapi.responses import FileResponse, HTMLResponse
+import requests
+from docx import Document as DocxDocument
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Response,
+    status,
+)
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -26,6 +41,7 @@ from services.ingestion.service import IngestionOrchestrator as IngestionService
 router = APIRouter()
 
 
+# TODO: is_active column 추가해서 LLM노드와 참고자료 목록에서 모두 사용할 수 있도록 한다
 @router.get("", response_model=List[KnowledgeBaseResponse])
 def list_knowledge_bases(
     db: Session = Depends(get_db),
@@ -35,8 +51,18 @@ def list_knowledge_bases(
     사용자의 자료 목록을 조회합니다.
     각 참고자료 그룹에 포함된 문서 개수도 함께 반환합니다.
     """
+    # 완료된 문서만 카운트
+    # completed_count = func.sum(
+    #     case((Document.status == "completed", 1), else_=0)
+    # ).label("document_count")
+
     results = (
-        db.query(KnowledgeBase, func.count(Document.id).label("document_count"))
+        db.query(
+            KnowledgeBase,
+            func.count(Document.id).label("document_count"),
+            func.max(Document.updated_at).label("last_updated_at"),
+            func.array_agg(Document.source_type).label("source_types"),
+        )
         .outerjoin(Document, KnowledgeBase.id == Document.knowledge_base_id)
         .filter(KnowledgeBase.user_id == current_user.id)
         .group_by(KnowledgeBase.id)
@@ -45,7 +71,16 @@ def list_knowledge_bases(
     )
 
     response = []
-    for kb, doc_count in results:
+    for kb, doc_count, last_updated_at, source_types in results:
+        # source_types가 [None]인 경우 (문서가 없을 때) 빈 리스트로 처리
+        clean_source_types = [st for st in source_types if st is not None]
+
+        # KB 업데이트 시간과 문서 최신 업데이트 시간 중 더 최신을 선택
+        # 문서가 없으면 KB 업데이트 시간 사용
+        final_updated_at = (
+            max(kb.updated_at, last_updated_at) if last_updated_at else kb.updated_at
+        )
+
         response.append(
             KnowledgeBaseResponse(
                 id=kb.id,
@@ -53,6 +88,8 @@ def list_knowledge_bases(
                 description=kb.description,
                 document_count=doc_count,
                 created_at=kb.created_at,
+                updated_at=final_updated_at,
+                source_types=clean_source_types,
                 embedding_model=kb.embedding_model,
             )
         )
@@ -112,11 +149,12 @@ def get_knowledge_base(
 def update_knowledge_base(
     kb_id: UUID,
     update_data: KnowledgeUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    참고자료 그룹의 설정을 수정합니다. (이름, 설명)
+    참고자료 그룹의 설정을 수정합니다. (이름, 설명, 즐겨찾기 임베딩 모델)
     """
     kb = (
         db.query(KnowledgeBase)
@@ -131,6 +169,22 @@ def update_knowledge_base(
         kb.name = update_data.name
     if update_data.description is not None:
         kb.description = update_data.description
+
+    # 임베딩 모델 변경 및 재인덱싱 트리거
+    if (
+        update_data.embedding_model is not None
+        and update_data.embedding_model != kb.embedding_model
+    ):
+        print(
+            f"Updating embedding model from {kb.embedding_model} to {update_data.embedding_model}"
+        )
+        kb.embedding_model = update_data.embedding_model
+
+        # 재인덱싱 트리거
+        orchestrator = IngestionService(db, current_user.id)
+        background_tasks.add_task(
+            orchestrator.reindex_knowledge_base, kb.id, update_data.embedding_model
+        )
 
     db.commit()
     db.refresh(kb)
@@ -147,6 +201,7 @@ def delete_knowledge_base(
     """
     참고자료 그룹을 삭제합니다.
     연결된 문서 및 임베딩 데이터는 DB Cascade 설정에 따라 함께 삭제됩니다.
+    물리적 파일(S3/Local)도 함께 삭제합니다.
     """
     kb = (
         db.query(KnowledgeBase)
@@ -157,7 +212,24 @@ def delete_knowledge_base(
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge Base not found")
 
-    # Cascade 삭제
+    # 물리적 파일 삭제 (Storage)
+    from services.storage import get_storage_service
+
+    storage = get_storage_service()
+
+    for doc in kb.documents:
+        if doc.file_path:
+            try:
+                # S3/Local 파일 삭제
+                storage.delete(doc.file_path)
+                print(f"[Info] Deleted file for doc {doc.id}: {doc.file_path}")
+            except Exception as e:
+                # 파일 삭제 실패하더라도 DB 삭제는 계속 진행 (로그만 남김)
+                print(
+                    f"[Warning] Failed to delete file {doc.file_path} for doc {doc.id}: {e}"
+                )
+
+    # DB 삭제 (Cascade로 청크도 같이 삭제됨)
     db.delete(kb)
     db.commit()
 
@@ -221,7 +293,7 @@ def get_document_content(
     )
 
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(status_code=404, detail="Document not found in DB")
 
     if doc.knowledge_base_id != kb_id:
         raise HTTPException(
@@ -230,15 +302,18 @@ def get_document_content(
 
     # API 소스는 파일이 없으므로 미리보기 불가 처리
     if doc.source_type == "API" or not doc.file_path:
-        # 204 No Content를 주면 브라우저가 아무것도 안할 수 있으니
-        # 명확하게 파일이 없음을 알리는게 낫습니다.
         raise HTTPException(
             status_code=400,
             detail="API로 받은 응답은 원문 보기를 제공하지 않습니다.",
         )
 
-    # 파일 존재 확인
-    if not os.path.exists(doc.file_path):
+    # file path가 S3 URL인지 확인합니다.
+    is_s3_file = str(doc.file_path).startswith("http") or str(doc.file_path).startswith(
+        "s3://"
+    )
+
+    # 파일 존재 확인 (Local only)
+    if not is_s3_file and not os.path.exists(doc.file_path):
         raise HTTPException(status_code=404, detail="File not found on server")
 
     # 미디어 타입 추론
@@ -246,26 +321,82 @@ def get_document_content(
     if not media_type:
         media_type = "application/octet-stream"
 
-    # Excel/CSV 파일은 HTML로 변환하여 미리보기 제공
+    # Excel/CSV/Word 파일은 HTML로 변환하여 미리보기 제공
     ext = os.path.splitext(doc.filename)[1].lower()
-    if ext in [".xlsx", ".xls", ".csv"]:
+    if ext in [".xlsx", ".xls", ".csv", ".docx"]:
+        temp_file_path = None
         try:
-            if ext == ".csv":
-                df = pd.read_csv(doc.file_path, nrows=100)
-            else:
-                df = pd.read_excel(doc.file_path, nrows=100)
+            target_path = doc.file_path
 
-            # HTML 스타일링
+            # S3 파일인 경우 임시 다운로드
+            if is_s3_file:
+                if doc.file_path.startswith("s3://"):
+                    # s3:// 프로토콜은 presigned url 변환이 필요하나, 현재는 http url을 가정
+                    pass
+                else:
+                    response = requests.get(doc.file_path, stream=True)
+                    response.raise_for_status()
+
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            tmp.write(chunk)
+                        temp_file_path = tmp.name
+                        target_path = temp_file_path
+
+            body_content = ""
+
+            if ext == ".docx":
+                # WORD 처리
+                doc_word = DocxDocument(target_path)
+                paragraphs = [
+                    f"<p>{p.text}</p>" for p in doc_word.paragraphs if p.text.strip()
+                ]
+
+                # 표 내용도 간단히 추가
+                for table in doc_word.tables:
+                    rows_html = []
+                    for row in table.rows:
+                        cells = [f"<td>{cell.text}</td>" for cell in row.cells]
+                        rows_html.append(f"<tr>{''.join(cells)}</tr>")
+                    if rows_html:
+                        paragraphs.append(
+                            f"<table class='docx-table'>{''.join(rows_html)}</table>"
+                        )
+
+                body_content = "\n".join(paragraphs)
+
+            else:
+                # EXCEL/CSV 처리
+                if ext == ".csv":
+                    df = pd.read_csv(target_path, nrows=100)
+                else:
+                    df = pd.read_excel(target_path, nrows=100)
+
+                body_content = f"""
+                <div class="info-banner">
+                    <span>⚠️</span>
+                    성능을 위해 상위 100행만 미리보기로 제공됩니다.
+                </div>
+                {df.to_html(index=False, border=0)}
+                """
+
+            # 공통 HTML 스타일링
             html_content = f"""
             <html>
             <head>
                 <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #ffffff; }}
-                    table {{ border-collapse: collapse; width: 100%; font-size: 14px; border: 1px solid #e5e7eb; }}
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #ffffff; line-height: 1.6; }}
+                    /* Table Styles */
+                    table {{ border-collapse: collapse; width: 100%; font-size: 14px; border: 1px solid #e5e7eb; margin-bottom: 20px; }}
                     th {{ background-color: #f9fafb; color: #374151; font-weight: 600; text-align: left; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }}
                     td {{ padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #4b5563; }}
                     tr:last-child td {{ border-bottom: none; }}
                     tr:hover td {{ background-color: #f9fafb; }}
+                    
+                    /* Docx Specific */
+                    p {{ margin-bottom: 0.8em; color: #1f2937; }}
+                    .docx-table td {{ border: 1px solid #e5e7eb; }}
+
                     .info-banner {{
                         margin-bottom: 16px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fcd34d;
                         color: #92400e; border-radius: 6px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px;
@@ -273,11 +404,7 @@ def get_document_content(
                 </style>
             </head>
             <body>
-                <div class="info-banner">
-                    <span>⚠️</span>
-                    성능을 위해 상위 100행만 미리보기로 제공됩니다.
-                </div>
-                {df.to_html(index=False, border=0)}
+                {body_content}
             </body>
             </html>
             """
@@ -285,6 +412,36 @@ def get_document_content(
         except Exception as e:
             print(f"Excel conversion failed: {e}")
             # 변환 실패 시 다운로드로 fallback
+        finally:
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except Exception:
+                    pass
+
+    # 브라우저가 s3에서 파일을 직접 받아온다.
+    if is_s3_file:
+        try:
+            # 1. 서버가 S3에서 파일 스트림을 가져옴
+            external_res = requests.get(doc.file_path, stream=True)
+            external_res.raise_for_status()
+
+            # 2. 클라이언트에게 스트리밍 전송 함수 정의
+            def iterfile():
+                yield from external_res.iter_content(chunk_size=8192)
+
+            # 3. StreamingResponse 반환
+            return StreamingResponse(
+                iterfile(),
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f"inline; filename={requests.utils.quote(doc.filename)}"
+                },
+            )
+        except Exception as e:
+            print(f"[Error] Failed to proxy S3 file: {e}")
+            # 실패 시 Fallback (혹은 에러처리)
+            return RedirectResponse(url=doc.file_path)
 
     return FileResponse(
         doc.file_path,
@@ -300,7 +457,7 @@ def get_document_content(
 async def process_document(
     kb_id: UUID,
     document_id: UUID,
-    request: DocumentPreviewRequest,  # 설정값은 Preview와 동일하므로 재사용하거나 별도 정의
+    request: DocumentPreviewRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -341,6 +498,10 @@ async def process_document(
             "remove_urls_emails": request.remove_urls_emails,
             "remove_whitespace": request.remove_whitespace,
             "db_config": request.db_config,
+            # 필터링 설정 저장
+            "selection_mode": request.selection_mode,
+            "chunk_range": request.chunk_range,
+            "keyword_filter": request.keyword_filter,
         }
     )
     doc.meta_info = new_meta
@@ -414,6 +575,10 @@ def preview_document_chunking(
             source_type=request.source_type,
             meta_info=doc.meta_info,
             db_config=request.db_config,
+            # 필터링 파라미터 전달
+            selection_mode=request.selection_mode,
+            chunk_range=request.chunk_range,
+            keyword_filter=request.keyword_filter,
         )
     except Exception as e:
         import traceback

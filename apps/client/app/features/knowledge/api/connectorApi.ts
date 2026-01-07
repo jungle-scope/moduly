@@ -1,27 +1,7 @@
-import axios from 'axios';
+import { apiClient } from '@/lib/apiClient';
 import { DBConfig } from '../types/DB';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
-
-//TODO: 이 파일 저 파일에 겹쳐있는 부분인데 리팩토링 필요
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-});
-
-// 401 에러 인터셉터 (인증 만료 시 로그인 페이지로 리다이렉트)
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login';
-      }
-    }
-    return Promise.reject(error);
-  },
-);
+const api = apiClient;
 
 export const connectorApi = {
   /**
@@ -33,29 +13,87 @@ export const connectorApi = {
   createConnector: async (
     config: DBConfig,
   ): Promise<{ id: string; success: boolean; message: string }> => {
-    const payload = {
-      connection_name: config.connectionName,
-      type: config.type,
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      username: config.username,
-      password: config.password,
-      ssh: config.ssh?.enabled
-        ? {
-            enabled: true,
-            host: config.ssh.host,
-            port: config.ssh.port,
-            username: config.ssh.username,
-            auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
-            password: config.ssh.password,
-            private_key: config.ssh.privateKey,
-          }
-        : null,
-    };
+    try {
+      const payload = {
+        connection_name: config.connectionName,
+        type: config.type,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: config.username,
+        password: config.password,
+        ssh: config.ssh?.enabled
+          ? {
+              enabled: true,
+              host: config.ssh.host,
+              port: config.ssh.port,
+              username: config.ssh.username,
+              auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
+              password: config.ssh.password,
+              private_key: config.ssh.privateKey,
+            }
+          : null,
+      };
 
-    const response = await api.post('/connectors', payload);
-    return response.data;
+      const response = await api.post('/connectors', payload);
+      return response.data;
+    } catch (error: any) {
+      console.error('Connector creation failed:', error);
+      return {
+        id: '',
+        success: false,
+        message:
+          error.response?.data?.detail ||
+          error.response?.data?.message ||
+          error.message ||
+          '커넥터 생성 실패',
+      };
+    }
+  },
+
+  /**
+   * DB 연결 테스트
+   * @param config - DB 연결 정보
+   * @returns 성공 여부 및 메시지
+   */
+  testConnection: async (
+    config: DBConfig,
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const payload = {
+        connection_name: config.connectionName,
+        type: config.type,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: config.username,
+        password: config.password,
+        ssh: config.ssh?.enabled
+          ? {
+              enabled: true,
+              host: config.ssh.host,
+              port: config.ssh.port,
+              username: config.ssh.username,
+              auth_type: config.ssh.authType === 'key' ? 'key' : 'password',
+              password: config.ssh.password,
+              private_key: config.ssh.privateKey,
+            }
+          : null,
+      };
+
+      const response = await api.post('/connectors/test', payload);
+      return {
+        success: response.data.success,
+        message: response.data.message,
+      };
+    } catch (error: any) {
+      console.error('DB Connection Test Error', error);
+      return {
+        success: false,
+        message:
+          error.response?.data?.message || error.message || 'Unknown Error',
+      };
+    }
   },
 
   getSchema: async (connectionId: string): Promise<any> => {

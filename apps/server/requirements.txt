@@ -69,3 +69,6 @@ python-docx
 sshtunnel
 paramiko<3.0
 PyGithub
+apscheduler==3.10.4
+pydantic-settings
+boto3

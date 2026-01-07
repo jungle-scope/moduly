@@ -447,7 +447,9 @@ class WorkflowEngine:
     def _check_start_nodes(self):
         """시작 노드 유효성 검사 (0개 또는 2개 이상 불가) 및 ID 캐싱"""
         start_nodes = []
-        TRIGGER_TYPES = ["startNode", "webhookTrigger"]
+
+        # Trigger 노드 타입 정의
+        TRIGGER_TYPES = ["startNode", "webhookTrigger", "scheduleTrigger"]
 
         for node_id, node in self.node_schemas.items():
             if node.type in TRIGGER_TYPES:
@@ -612,9 +614,13 @@ class WorkflowEngine:
         특별 케이스:
             - StartNode: user_input을 직접 전달 (네임스페이스 없이)
         """
-        # StartNode 또는 WebhookTriggerNode는 user_input을 직접 받음
+        # StartNode 또는 WebhookTriggerNode, ScheduleTriggerNode는 user_input을 직접 받음
         node_schema = self.node_schemas.get(node_id)
-        if node_schema and node_schema.type in ["startNode", "webhookTrigger"]:
+        if node_schema and node_schema.type in [
+            "startNode",
+            "webhookTrigger",
+            "scheduleTrigger",
+        ]:
             return self.user_input
 
         # 실행된 모든 노드의 결과를 전달 (조상 노드 참조 가능)

@@ -30,6 +30,7 @@ from schemas.rag import (
 # from services.ingestion_local_service import IngestionService
 from services.ingestion.service import IngestionOrchestrator as IngestionService
 from services.retrieval import RetrievalService
+from services.storage import get_storage_service
 
 router = APIRouter()
 
@@ -222,11 +223,15 @@ def delete_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # 2. 파일 삭제 (TODO: S3파일도 지우려면 로직 추가 필요함)
-    import os
-
-    if doc.file_path and os.path.exists(doc.file_path):
-        os.remove(doc.file_path)
+    # 2. 파일 삭제 (S3/Local 자동 분기)
+    if doc.file_path:
+        storage = get_storage_service()
+        try:
+            storage.delete(doc.file_path)
+            print(f"[Info] Deleted file: {doc.file_path}")
+        except Exception as e:
+            print(f"[Warning] Failed to delete file {doc.file_path}: {e}")
+            # 파일 삭제 실패해도 DB는 삭제 진행
 
     # 3. DB 삭제 (Cascade로 청크도 같이 삭제됨)
     db.delete(doc)
@@ -336,9 +341,9 @@ async def proxy_api_preview(
 ):
     """
     프론트엔드 CORS 문제 해결을 위한 API 프록시 엔드포인트
+    requests -> httpx (Async) 로 변경 (timeout 이슈 해결을 위해)
     """
-    import requests
-    from requests.exceptions import ConnectionError, HTTPError, Timeout
+    import httpx
 
     print(f"[Proxy] URL: {request.url}")
     print(f"[Proxy] Headers: {request.headers}")
@@ -351,42 +356,49 @@ async def proxy_api_preview(
         )
 
     try:
-        response = requests.request(
-            method=request.method,
-            url=request.url,
-            headers=headers,
-            json=request.body if request.method != "GET" else None,
-            timeout=120,  # 60초 타임아웃
-        )
-        # print(f"[debug Proxy] response: {response}")
-        response.raise_for_status()
+        # 비동기 클라이언트 사용 (http_node.py 참조)
+        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+            response = await client.request(
+                method=request.method,
+                url=request.url,
+                headers=headers,
+                json=request.body if request.method != "GET" else None,
+            )
 
-        try:
-            data = response.json()
-        except ValueError:
-            data = response.text
+            # 4xx, 5xx 에러 발생 시 예외 발생
+            response.raise_for_status()
 
-        return {
-            "status": response.status_code,
-            "data": data,
-            "headers": dict(response.headers),
-        }
-    except HTTPError as e:
+            try:
+                data = response.json()
+            except Exception:
+                data = response.text
+
+            return {
+                "status": response.status_code,
+                "data": data,
+                "headers": dict(response.headers),
+            }
+
+    except httpx.HTTPStatusError as e:
         # 외부 API가 에러 응답(4xx, 5xx)을 준 경우
         print(f"[Proxy Log] 외부 API 에러: {e}")
-        status_code = e.response.status_code if e.response else 400
+        status_code = e.response.status_code
         try:
             detail = e.response.json()
         except Exception:
-            detail = e.response.text if e.response else str(e)
-
+            detail = e.response.text
         raise HTTPException(status_code=status_code, detail=detail)
-    except Timeout:
+
+    except httpx.TimeoutException:
         print("[Proxy Log] 타임아웃 발생 (Timeout)")
         raise HTTPException(status_code=504, detail="External API Timeout")
-    except ConnectionError:
-        print("[Proxy Log] 연결 실패 (ConnectionError)")
-        raise HTTPException(status_code=502, detail="External API Connection Error")
+
+    except httpx.RequestError as e:
+        print(f"[Proxy Log] 연결 실패 (RequestError): {e}")
+        raise HTTPException(
+            status_code=502, detail=f"External API Connection Error: {str(e)}"
+        )
+
     except Exception as e:
         print(f"[Proxy Log] 기타 오류 발생: {type(e).__name__} - {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -437,11 +449,12 @@ def _get_or_create_knowledge_base(
 
 
 def _prepare_file_source(local_service: IngestionService, file: Optional[UploadFile]):
-    """파일 소스 처리를 위한 데이터 준비"""
+    """파일 자료 처리를 위한 데이터 준비"""
     if not file:
         raise HTTPException(status_code=400, detail="File is required for FILE source")
 
     file_path = local_service.save_temp_file(file)
+    print("-------->", file_path)
     filename = file.filename
     return file_path, filename, {}
 
@@ -452,7 +465,7 @@ def _prepare_api_source(
     api_headers: Optional[str],
     api_body: Optional[str],
 ):
-    """API 소스 처리를 위한 데이터 준비"""
+    """API 자료 처리를 위한 데이터 준비"""
     if not api_url:
         raise HTTPException(status_code=400, detail="API URL is required")
 

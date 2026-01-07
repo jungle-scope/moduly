@@ -2,10 +2,10 @@
 
 import { Sliders, Plus, StickyNote, Play } from 'lucide-react';
 import { NodeSelector } from './NodeSelector';
+import NodeLibrarySidebar from './NodeLibrarySidebar';
 import {
   type NodeDefinition,
   getNodeDefinition,
-  getNodesByCategory,
 } from '../../config/nodeRegistry';
 import { NoteNode, AppNode } from '../../types/Nodes';
 
@@ -17,7 +17,6 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
-  // type Node, // 충돌 방지를 위해 제거됨
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -32,22 +31,23 @@ import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 import { StartNodePanel } from '../nodes/start/components/StartNodePanel';
 import { AnswerNodePanel } from '../nodes/answer/components/AnswerNodePanel';
 import { HttpRequestNodePanel } from '../nodes/http/components/HttpRequestNodePanel';
+import { SlackPostNodePanel } from '../nodes/slack/components/SlackPostNodePanel';
 import { CodeNodePanel } from '../nodes/code/components/CodeNodePanel';
 import { ConditionNodePanel } from '../nodes/condition/components/ConditionNodePanel';
 import { LLMNodePanel } from '../nodes/llm/components/LLMNodePanel';
 import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePanel';
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
-import { KnowledgeNodePanel } from '../nodes/knowledge/components/KnowledgeNodePanel';
 import { GithubNodePanel } from '../nodes/github/components/GithubNodePanel';
 import { MailNodePanel } from '../nodes/mail/components/MailNodePanel';
-
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
 import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
 import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTriggerNodePanel';
+import { ScheduleTriggerNodePanel } from '../nodes/schedule/components/ScheduleTriggerNodePanel';
 import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
+import { LLMReferenceSidePanel } from '../nodes/llm/components/LLMReferenceSidePanel';
 
 export default function NodeCanvas() {
   const {
@@ -61,45 +61,68 @@ export default function NodeCanvas() {
     activeWorkflowId,
     updateWorkflowViewport,
     setNodes,
-    updateNodeData, // [FIX] ReferenceError: updateNodeData is not defined 오류 수정
-    isVersionHistoryOpen, // [FIX] 버전 기록 패널 상호 배타적 동작 복구
-    toggleVersionHistory, // [FIX] 버전 기록 패널 상호 배타적 동작 복구
+    updateNodeData,
+    isVersionHistoryOpen,
+    toggleVersionHistory,
+    projectName,
+    projectIcon,
+    projectDescription,
+    isFullscreen,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
     useReactFlow();
-  // 세부 정보 패널을 위한 선택된 노드 추적
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
-
-  // 앱 검색 모달 상태
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-
-  // [LLM] 파라미터 패널 상태
+  const [searchModalContext, setSearchModalContext] = useState<{
+    isOpen: boolean;
+    position?: { x: number; y: number };
+  }>({ isOpen: false });
   const [isParamPanelOpen, setIsParamPanelOpen] = useState(false);
+  const [isRefPanelOpen, setIsRefPanelOpen] = useState(false);
+  const [isNodeLibraryOpen, setIsNodeLibraryOpen] = useState(true);
 
-  // 키보드 단축키: 검색 모달을 열기 위한 Cmd+K
+  // 전체화면 모드 변경 시 사이드바 자동 토글
+  useEffect(() => {
+    if (isFullscreen) {
+      setIsNodeLibraryOpen(false);
+    } else {
+      setIsNodeLibraryOpen(true);
+    }
+  }, [isFullscreen]);
+
   useKeyboardShortcut(
     ['Meta', 'k'],
     () => {
-      setIsSearchModalOpen(true);
+      setSearchModalContext({ isOpen: true });
     },
     { preventDefault: true },
   );
 
-  // 앱 선택 처리: 워크플로우 노드 추가
+  useEffect(() => {
+    const handleOpenRefPanel = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.nodeId === selectedNodeId) {
+        setIsRefPanelOpen((prev) => !prev);
+        setIsParamPanelOpen(false);
+      }
+    };
+    window.addEventListener('openLLMReferencePanel', handleOpenRefPanel);
+    return () =>
+      window.removeEventListener('openLLMReferencePanel', handleOpenRefPanel);
+  }, [selectedNodeId]);
+
   const handleSelectApp = useCallback(
     async (app: App & { active_deployment_id?: string; version?: number }) => {
-      // 화면 중앙 위치 계산
-      const centerPos = screenToFlowPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      });
-
       const newNode: Node = {
         id: `workflow-${Date.now()}`,
         type: 'workflowNode',
-        position: centerPos,
+        position:
+          searchModalContext.position ||
+          screenToFlowPosition({
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+          }),
         data: {
           title: app.name,
           name: app.name,
@@ -111,14 +134,13 @@ export default function NodeCanvas() {
           version: app.version || 0,
           deployment_id: app.active_deployment_id,
           expanded: false,
-          outputs: [], // 초기값 설정 (API 응답 전까지 빈 배열)
+          outputs: [],
         } as WorkflowNodeData,
       };
 
       setNodes([...nodes, newNode]);
-      setIsSearchModalOpen(false);
+      setSearchModalContext({ isOpen: false });
 
-      // 배포 정보 조회하여 outputs 초기화 (패널을 열지 않아도 후속 노드에서 참조 가능)
       if (app.active_deployment_id) {
         try {
           const deployment = await workflowApi.getDeployment(
@@ -134,7 +156,13 @@ export default function NodeCanvas() {
         }
       }
     },
-    [nodes, setNodes, screenToFlowPosition, updateNodeData],
+    [
+      nodes,
+      setNodes,
+      screenToFlowPosition,
+      updateNodeData,
+      searchModalContext.position,
+    ],
   );
 
   const nodeTypes = useMemo(
@@ -155,13 +183,11 @@ export default function NodeCanvas() {
     [],
   );
 
-  // 워크플로우 전환 시 뷰포트 복원
   const prevActiveWorkflowId = useRef(activeWorkflowId);
 
   useEffect(() => {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
 
-    // 워크플로우 ID가 바뀌었을 때만 뷰포트 복원
     if (prevActiveWorkflowId.current !== activeWorkflowId) {
       if (activeWorkflow?.viewport) {
         setViewport(activeWorkflow.viewport);
@@ -170,16 +196,13 @@ export default function NodeCanvas() {
     }
   }, [activeWorkflowId, workflows, setViewport]);
 
-  // 활성 워크플로우에 대한 뷰포트 변경 사항 저장
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {
-      // Zustand에 저장 → useAutoSync가 자동으로 감지하여 서버에 저장
       updateWorkflowViewport(activeWorkflowId, viewport);
     },
     [activeWorkflowId, updateWorkflowViewport],
   );
 
-  // 버전 기록이 열리면 노드 상세 패널 닫기 (상호 배타적)
   useEffect(() => {
     if (isVersionHistoryOpen) {
       setSelectedNodeId(null);
@@ -188,19 +211,16 @@ export default function NodeCanvas() {
     }
   }, [isVersionHistoryOpen]);
 
-  // 노드 클릭 시 세부 정보 패널 표시 처리
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      // 워크플로우 노드에 대해서만 패널 표시 (노트 제외)
       if (node.type && node.type !== 'note') {
-        // 버전 기록이 열려있으면 닫기
         if (isVersionHistoryOpen) {
           toggleVersionHistory();
         }
 
-        // 다른 노드 선택 시 파라미터 패널 닫기 (선택 사항 - 여기선 유지하거나 닫을 수 있음. 일단 닫음)
         if (selectedNodeId !== node.id) {
           setIsParamPanelOpen(false);
+          setIsRefPanelOpen(false);
         }
         setSelectedNodeId(node.id);
         setSelectedNodeType(node.type);
@@ -209,15 +229,13 @@ export default function NodeCanvas() {
     [selectedNodeId, isVersionHistoryOpen, toggleVersionHistory],
   );
 
-  // 세부 정보 패널 닫기
-  // 세부 정보 패널 닫기
   const handleClosePanel = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedNodeType(null);
     setIsParamPanelOpen(false);
+    setIsRefPanelOpen(false);
   }, []);
 
-  // 선택된 노드 데이터 가져오기
   const selectedNode = useMemo(() => {
     if (!selectedNodeId) return null;
     return nodes.find((n) => n.id === selectedNodeId);
@@ -226,7 +244,6 @@ export default function NodeCanvas() {
   const panelHeader = useMemo(() => {
     if (!selectedNodeType) return undefined;
     const def = getNodeDefinitionByType(selectedNodeType);
-    // Workflow Node의 경우 아이콘과 제목을 동적으로 설정할 수 있음
     if (selectedNodeType === 'workflowNode' && selectedNode) {
       return {
         icon: (selectedNode.data as unknown as WorkflowNodeData).icon || '🔄',
@@ -244,23 +261,21 @@ export default function NodeCanvas() {
     };
   }, [selectedNodeType, selectedNode]);
 
-  // 인터랙티브 모드에 따라 ReactFlow 구성
   const reactFlowConfig = useMemo(() => {
     if (interactiveMode === 'touchpad') {
       return {
-        panOnDrag: [1, 2], // 두 손가락으로 이동 (중간 및 오른쪽 마우스 버튼으로 시뮬레이션)
-        panOnScroll: true, // 스크롤로 이동 활성화
-        zoomOnScroll: false, // 스크롤로 줌 비활성화
-        zoomOnPinch: true, // 핀치 줌 활성화
-        selectionOnDrag: true, // 왼쪽 클릭으로 노드 선택 및 드래그 허용
+        panOnDrag: [1, 2],
+        panOnScroll: true,
+        zoomOnScroll: false,
+        zoomOnPinch: true,
+        selectionOnDrag: true,
       };
     } else {
-      // 마우스 친화적 모드
       return {
-        panOnDrag: true, // 왼쪽 클릭 드래그로 이동
-        panOnScroll: false, // 스크롤 시 이동하지 않음
-        zoomOnScroll: true, // 스크롤 휠로 줌
-        zoomOnPinch: true, // 핀치 줌도 지원
+        panOnDrag: true,
+        panOnScroll: false,
+        zoomOnScroll: true,
+        zoomOnPinch: true,
         selectionOnDrag: false,
       };
     }
@@ -268,27 +283,23 @@ export default function NodeCanvas() {
 
   const centerNodes = useCallback(() => {
     fitView({ padding: 0.2, duration: 300 });
-    // 중앙 정렬 후 새로운 뷰포트 저장
     setTimeout(() => {
       const viewport = getViewport();
       updateWorkflowViewport(activeWorkflowId, viewport);
     }, 300);
   }, [fitView, getViewport, activeWorkflowId, updateWorkflowViewport]);
 
-  // 현재 워크플로우의 앱 ID 찾기
   const currentAppId = useMemo(() => {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
     return activeWorkflow?.appId;
   }, [workflows, activeWorkflowId]);
 
-  // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     isOpen: boolean;
   } | null>(null);
 
-  // Node Selector Modal specific to Context Menu
   const [isContextNodeSelectorOpen, setIsContextNodeSelectorOpen] =
     useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
@@ -296,7 +307,6 @@ export default function NodeCanvas() {
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
       event.preventDefault();
-      // Calculate position relative to container
       const x = event.clientX;
       const y = event.clientY;
 
@@ -352,6 +362,13 @@ export default function NodeCanvas() {
         y: contextMenuPos.y,
       });
 
+      // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
+      if (nodeDef.type === 'workflowNode') {
+        setSearchModalContext({ isOpen: true, position });
+        setIsContextNodeSelectorOpen(false);
+        return;
+      }
+
       const newNode: AppNode = {
         id: `${nodeDef.id}-${Date.now()}`,
         type: nodeDef.type as any,
@@ -365,241 +382,344 @@ export default function NodeCanvas() {
     [contextMenuPos, screenToFlowPosition, setNodes, nodes],
   );
 
-  // Close context menu on click elsewhere
   useEffect(() => {
     const handleClick = () => handleCloseContextMenu();
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, [handleCloseContextMenu]);
 
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const nodeDefId = event.dataTransfer.getData('application/reactflow');
+      if (!nodeDefId) return;
+
+      const nodeDef = getNodeDefinition(nodeDefId);
+      if (!nodeDef) return;
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
+      if (nodeDef.type === 'workflowNode') {
+        setSearchModalContext({ isOpen: true, position });
+        return;
+      }
+
+      const newNode: AppNode = {
+        id: `${nodeDef.id}-${Date.now()}`,
+        type: nodeDef.type as any,
+        data: nodeDef.defaultData() as any,
+        position,
+      };
+
+      setNodes([...nodes, newNode]);
+    },
+    [screenToFlowPosition, setNodes, nodes],
+  );
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleAddNodeFromLibrary = useCallback(
+    (nodeDefId: string) => {
+      const nodeDef = getNodeDefinition(nodeDefId);
+      if (!nodeDef) return;
+
+      const centerPos = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
+
+      const newNode: AppNode = {
+        id: `${nodeDef.id}-${Date.now()}`,
+        type: nodeDef.type as any,
+        data: nodeDef.defaultData() as any,
+        position: centerPos,
+      };
+
+      setNodes([...nodes, newNode]);
+    },
+    [screenToFlowPosition, setNodes, nodes],
+  );
+
   return (
-    <div className="flex-1 bg-gray-50 relative flex flex-col">
-      {/* App Search Modal */}
-      <AppSearchModal
-        isOpen={isSearchModalOpen}
-        onClose={() => setIsSearchModalOpen(false)}
-        onSelect={handleSelectApp}
-        excludedAppId={currentAppId}
+    <div className="flex-1 bg-gray-50 relative flex flex-row">
+      {/* Node Library Sidebar */}
+      <NodeLibrarySidebar
+        isOpen={isNodeLibraryOpen}
+        onToggle={() => setIsNodeLibraryOpen(!isNodeLibraryOpen)}
+        onAddNode={handleAddNodeFromLibrary}
+        onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
+        workflowName={projectName}
+        workflowIcon={projectIcon}
+        workflowDescription={projectDescription}
       />
 
-      {/* ReactFlow 캔버스 */}
-      <div
-        className="flex-1 relative"
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onMoveEnd={handleMoveEnd}
-          onNodeClick={handleNodeClick}
-          onPaneContextMenu={onPaneContextMenu}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          defaultEdgeOptions={defaultEdgeOptions}
-          connectionLineStyle={{
-            strokeWidth: 10,
-            stroke: '#d1d5db',
-            strokeLinecap: 'round',
-            strokeDasharray: '0 20', // 점선 미리보기 (PuzzleEdge와 동일한 스타일)
-          }}
-          fitView
-          attributionPosition="bottom-right"
-          className="bg-gray-50"
-          {...reactFlowConfig}
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={16}
-            size={1}
-            color="#d1d5db"
-          />
-        </ReactFlow>
-
-        {/* 플로팅 하단 패널 - 사이드 패널에 따라 위치 조정 */}
-        <BottomPanel
-          onCenterNodes={centerNodes}
-          isPanelOpen={!!selectedNodeId}
-          onOpenAppSearch={() => setIsSearchModalOpen(true)}
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* App Search Modal */}
+        <AppSearchModal
+          isOpen={searchModalContext.isOpen}
+          onClose={() => setSearchModalContext({ isOpen: false })}
+          onSelect={handleSelectApp}
+          excludedAppId={currentAppId}
         />
 
-        {/* 노드 상세 패널 - ReactFlow 컨테이너 기준으로 위치 */}
-        {/* [LLM] 파라미터 사이드 패널 (NodeDetailsPanel 왼쪽에 위치) */}
-        {isParamPanelOpen && selectedNodeType === 'llmNode' && selectedNode && (
-          <LLMParameterSidePanel
-            nodeId={selectedNode.id}
-            data={selectedNode.data as any}
-            onClose={() => setIsParamPanelOpen(false)}
-          />
-        )}
-
-        <NodeDetailsPanel
-          nodeId={selectedNodeId}
-          onClose={handleClosePanel}
-          header={panelHeader}
-          headerActions={
-            selectedNodeType === 'llmNode' ? (
-              <button
-                onClick={() => setIsParamPanelOpen((prev) => !prev)}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                  isParamPanelOpen
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                }`}
-                title="LLM 파라미터 설정"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>파라미터</span>
-              </button>
-            ) : undefined
-          }
+        {/* ReactFlow 캔버스 */}
+        <div
+          className="flex-1 relative"
+          onContextMenu={(e) => e.preventDefault()}
         >
-          {selectedNode && selectedNodeType === 'startNode' && (
-            <StartNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'answerNode' && (
-            <AnswerNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'httpRequestNode' && (
-            <HttpRequestNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'codeNode' && (
-            <CodeNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'conditionNode' && (
-            <ConditionNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'llmNode' && (
-            <LLMNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-
-          {/* NOTE: [TemplateNode] TemplateNode 선택 시 패널 렌더링 추가 */}
-          {selectedNode && selectedNodeType === 'templateNode' && (
-            <TemplateNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {/* [WorkflowNode] 모듈 입력 매핑 패널 추가 */}
-          {selectedNode && selectedNodeType === 'workflowNode' && (
-            <WorkflowNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'knowledgeNode' && (
-            <KnowledgeNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'fileExtractionNode' && (
-            <FileExtractionNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'webhookTrigger' && (
-            <WebhookTriggerNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'githubNode' && (
-            <GithubNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-          {selectedNode && selectedNodeType === 'mailNode' && (
-            <MailNodePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-            />
-          )}
-        </NodeDetailsPanel>
-
-        {/* Context Menu UI */}
-        {contextMenu && (
-          <div
-            className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-            onClick={(e) => e.stopPropagation()}
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onMoveEnd={handleMoveEnd}
+            onNodeClick={handleNodeClick}
+            onPaneContextMenu={onPaneContextMenu}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
+            connectionLineStyle={{
+              strokeWidth: 2,
+              stroke: '#9ca3af',
+              strokeLinecap: 'round',
+            }}
+            fitView
+            attributionPosition="bottom-right"
+            className="bg-gray-50"
+            {...reactFlowConfig}
           >
-            <button
-              onClick={handleAddNodeFromContext}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4 text-gray-500" />
-              노드 추가
-            </button>
-            <button
-              onClick={handleAddMemoFromContext}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <StickyNote className="w-4 h-4 text-gray-500" />
-              메모 추가
-            </button>
-            <div className="my-1 border-t border-gray-100" />
-            <button
-              onClick={handleTestRunFromContext}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <Play className="w-4 h-4 text-gray-500" />
-              테스트 실행
-            </button>
-          </div>
-        )}
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={16}
+              size={1}
+              color="#d1d5db"
+            />
+          </ReactFlow>
 
-        {/* Context Menu Node Selector Modal */}
-        {isContextNodeSelectorOpen && (
-          <div
-            className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-[320px] max-h-[400px] overflow-y-auto"
-            style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
-            onClick={(e) => e.stopPropagation()}
+          {/* 플로팅 하단 패널 */}
+          <BottomPanel
+            onCenterNodes={centerNodes}
+            isPanelOpen={!!selectedNodeId}
+            onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
+          />
+
+          {/* [LLM] 파라미터 사이드 패널 */}
+          {isParamPanelOpen &&
+            selectedNodeType === 'llmNode' &&
+            selectedNode && (
+              <LLMParameterSidePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+                onClose={() => setIsParamPanelOpen(false)}
+              />
+            )}
+
+          {/* 노드 상세 패널 */}
+          <NodeDetailsPanel
+            nodeId={selectedNodeId}
+            onClose={handleClosePanel}
+            header={panelHeader}
+            headerActions={
+              selectedNodeType === 'llmNode' ? (
+                <button
+                  onClick={() => {
+                    setIsRefPanelOpen(false);
+                    setIsParamPanelOpen((prev) => !prev);
+                  }}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    isParamPanelOpen
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                  }`}
+                  title="LLM 파라미터 설정"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>파라미터</span>
+                </button>
+              ) : undefined
+            }
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-medium text-sm text-gray-900">
-                노드 선택
-              </span>
+            {selectedNode && selectedNodeType === 'startNode' && (
+              <StartNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'answerNode' && (
+              <AnswerNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'httpRequestNode' && (
+              <HttpRequestNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'slackPostNode' && (
+              <SlackPostNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'codeNode' && (
+              <CodeNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'conditionNode' && (
+              <ConditionNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'llmNode' && (
+              <LLMNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'templateNode' && (
+              <TemplateNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'workflowNode' && (
+              <WorkflowNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'fileExtractionNode' && (
+              <FileExtractionNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'webhookTrigger' && (
+              <WebhookTriggerNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'scheduleTrigger' && (
+              <ScheduleTriggerNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'githubNode' && (
+              <GithubNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+            {selectedNode && selectedNodeType === 'mailNode' && (
+              <MailNodePanel
+                nodeId={selectedNode.id}
+                data={selectedNode.data as any}
+              />
+            )}
+          </NodeDetailsPanel>
+
+          {/* [LLM] Reference Side Panel */}
+          {isRefPanelOpen && selectedNodeType === 'llmNode' && selectedNode && (
+            <LLMReferenceSidePanel
+              nodeId={selectedNode.id}
+              data={selectedNode.data as any}
+              onClose={() => setIsRefPanelOpen(false)}
+            />
+          )}
+
+          {/* Context Menu UI */}
+          {contextMenu && (
+            <div
+              className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]"
+              style={{ top: contextMenu.y, left: contextMenu.x }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
-                onClick={() => setIsContextNodeSelectorOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={handleAddNodeFromContext}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
               >
-                ×
+                <Plus className="w-4 h-4 text-gray-500" />
+                노드 추가
+              </button>
+              <button
+                onClick={handleAddMemoFromContext}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <StickyNote className="w-4 h-4 text-gray-500" />
+                메모 추가
+              </button>
+              <div className="my-1 border-t border-gray-100" />
+              <button
+                onClick={handleTestRunFromContext}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <Play className="w-4 h-4 text-gray-500" />
+                테스트 실행
               </button>
             </div>
-            <NodeSelector onSelect={handleSelectNodeFromContext} />
-          </div>
-        )}
+          )}
 
-        {/* Close Node Selector when clicking outside (overlay) */}
-        {isContextNodeSelectorOpen && (
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsContextNodeSelectorOpen(false)}
-          />
-        )}
+          {/* Context Menu Node Selector Modal */}
+          {isContextNodeSelectorOpen && (
+            <div
+              className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-[320px] max-h-[400px] overflow-y-auto"
+              style={{
+                left: contextMenuPos.x,
+                top:
+                  typeof window !== 'undefined' &&
+                  window.innerHeight - contextMenuPos.y < 420
+                    ? 'auto'
+                    : contextMenuPos.y,
+                bottom:
+                  typeof window !== 'undefined' &&
+                  window.innerHeight - contextMenuPos.y < 420
+                    ? window.innerHeight - contextMenuPos.y
+                    : 'auto',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-medium text-sm text-gray-900">
+                  노드 선택
+                </span>
+                <button
+                  onClick={() => setIsContextNodeSelectorOpen(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ×
+                </button>
+              </div>
+              <NodeSelector onSelect={handleSelectNodeFromContext} />
+            </div>
+          )}
+
+          {/* Close Node Selector when clicking outside (overlay) */}
+          {isContextNodeSelectorOpen && (
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setIsContextNodeSelectorOpen(false)}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

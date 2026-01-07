@@ -19,12 +19,15 @@ class KnowledgeBaseResponse(BaseModel):
     description: Optional[str] = None
     document_count: Optional[int] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None  # 문서 최종 업데이트 시간
+    source_types: List[str] = []  # 포함된 소스 타입 목록
     embedding_model: str
 
 
 class KnowledgeUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    embedding_model: Optional[str] = None
 
 
 class DocumentResponse(BaseModel):
@@ -76,6 +79,10 @@ class DocumentPreviewRequest(BaseModel):
     strategy: str = "general"  # "general" or "llamaparse"
     source_type: str = "FILE"  # FILE or API
     db_config: Optional[Dict[str, Any]] = None
+    # 필터링 파라미터 추가
+    selection_mode: str = "all"  # 'all', 'range', 'keyword'
+    chunk_range: Optional[str] = None
+    keyword_filter: Optional[str] = None
 
 
 class DocumentProcessRequest(DocumentPreviewRequest):

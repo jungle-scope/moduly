@@ -62,8 +62,11 @@ async def test_db_connection(request: DBConnectionTestRequest) -> Any:
         )
 
     try:
+        from starlette.concurrency import run_in_threadpool
+
         connector = connector_class()
-        is_connected = connector.check(config)
+        # blocking I/O (SSH connection, DB connection)를 별도 스레드에서 실행
+        is_connected = await run_in_threadpool(connector.check, config)
 
         if is_connected:
             return DBConnectionTestResponse(
@@ -100,8 +103,25 @@ async def create_connection(
         config_dict["ssh"] = None
 
     try:
+        import asyncio
+
+        from starlette.concurrency import run_in_threadpool
+
         connector = connector_class()
-        if not connector.check(config_dict):
+
+        # blocking I/O (SSH connection, DB connection)를 별도 스레드에서 실행
+        # 10초 타임아웃 적용
+        try:
+            is_connected = await asyncio.wait_for(
+                run_in_threadpool(connector.check, config_dict), timeout=10.0
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(
+                status_code=400,
+                detail="연결 시간 초과 (10초). 방화벽(보안그룹)이나 IP 허용 설정을 확인해주세요.",
+            )
+
+        if not is_connected:
             raise HTTPException(
                 status_code=400,
                 detail="DB연결 테스트에 실패했습니다. 정보를 확인해주세요.",

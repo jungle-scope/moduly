@@ -41,6 +41,7 @@ export interface App {
     | 'widget'
     | 'mcp'
     | 'workflow_node';
+  owner_name?: string;
   created_at: string;
   updated_at: string;
 }

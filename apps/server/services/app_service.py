@@ -77,6 +77,17 @@ class AppService:
         return app
 
     @staticmethod
+    def _populate_owner_name(db: Session, app: App):
+        """App 객체에 owner_name 속성을 채웁니다."""
+        from db.models.user import User
+
+        if app.created_by:
+            user = db.query(User).filter(User.id == app.created_by).first()
+            if user:
+                # Pydantic 모델 변환 시 사용될 속성 할당
+                setattr(app, "owner_name", user.name)
+
+    @staticmethod
     def get_app(db: Session, app_id: str, user_id: str = None):
         """
         특정 앱을 조회합니다.
@@ -98,6 +109,7 @@ class AppService:
         if user_id and app.created_by != user_id:
             return None
 
+        AppService._populate_owner_name(db, app)
         return app
 
     @staticmethod
@@ -112,13 +124,18 @@ class AppService:
         Returns:
             App 객체 리스트
         """
-        return (
+        apps = (
             db.query(App)
             # N+1 문제 방지를 위해 active_deployment 관계를 즉시 로딩 (Joined Load)
             .options(joinedload(App.active_deployment))
             .filter(App.created_by == user_id)
             .all()
         )
+
+        for app in apps:
+            AppService._populate_owner_name(db, app)
+
+        return apps
 
     @staticmethod
     def list_explore_apps(db: Session, user_id: str):
@@ -180,7 +197,7 @@ class AppService:
             # 복제된 앱은 마켓에 공개 불가
             if request.is_market and app.forked_from:
                 print(f"❌ Cannot publish cloned app {app_id} to market")
-                return None
+                raise ValueError("Cannot publish cloned app to market")
             app.is_market = request.is_market
 
         db.commit()

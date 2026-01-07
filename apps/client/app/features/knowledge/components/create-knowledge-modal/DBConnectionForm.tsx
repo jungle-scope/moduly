@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import {
-  Server,
   Shield,
   Key,
   CheckCircle,
   AlertCircle,
   Loader2,
+  Play,
 } from 'lucide-react';
 import {
   SUPPORTED_DB_TYPES,
@@ -99,7 +99,7 @@ export default function DBConnectionForm({
         <div className="space-y-3">
           <div>
             <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-              연결 이름 (Alias)
+              연결 이름 (식별용)
             </label>
             <input
               type="text"
@@ -132,7 +132,7 @@ export default function DBConnectionForm({
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                Host
+                호스트 주소 (IP)
               </label>
               <input
                 type="text"
@@ -144,7 +144,7 @@ export default function DBConnectionForm({
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                Port
+                포트
               </label>
               <input
                 type="number"
@@ -157,7 +157,7 @@ export default function DBConnectionForm({
 
           <div>
             <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-              Database Name
+              데이터베이스 이름
             </label>
             <input
               type="text"
@@ -171,7 +171,7 @@ export default function DBConnectionForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                Username
+                계정 아이디
               </label>
               <input
                 type="text"
@@ -182,7 +182,7 @@ export default function DBConnectionForm({
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                Password
+                비밀번호
               </label>
               <input
                 type="password"
@@ -216,7 +216,7 @@ export default function DBConnectionForm({
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
                 <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                  SSH Host
+                  SSH 호스트 주소
                 </label>
                 <input
                   type="text"
@@ -228,7 +228,7 @@ export default function DBConnectionForm({
               </div>
               <div>
                 <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                  SSH Port
+                  SSH 포트
                 </label>
                 <input
                   type="number"
@@ -243,7 +243,7 @@ export default function DBConnectionForm({
 
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                SSH Username
+                SSH 계정 아이디
               </label>
               <input
                 type="text"
@@ -288,7 +288,7 @@ export default function DBConnectionForm({
             {config.ssh.authType === 'password' ? (
               <div>
                 <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                  SSH Password
+                  SSH 비밀번호
                 </label>
                 <input
                   type="password"
@@ -302,7 +302,7 @@ export default function DBConnectionForm({
             ) : (
               <div>
                 <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                  Private Key File
+                  개인 키 파일 (Private Key)
                 </label>
                 <div className="flex items-center gap-2">
                   <label className="flex-1 cursor-pointer">
@@ -326,32 +326,34 @@ export default function DBConnectionForm({
       </div>
 
       {/* 3. 테스트 버튼 */}
-      <div className="flex items-center justify-between pt-2">
-        <div className="flex items-center gap-2 min-h-[20px]">
-          {testStatus === 'success' && (
-            <span className="text-xs text-green-600 flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" /> 연결 성공!
-            </span>
-          )}
-          {testStatus === 'error' && (
-            <span className="text-xs text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" /> 연결 실패
-            </span>
-          )}
-        </div>
+      <div className="pt-2">
         <button
           type="button"
           onClick={handleTest}
           disabled={loading}
-          className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium border border-gray-200 dark:border-gray-600"
+          className="w-full py-3 px-4 border-2 border-blue-100 dark:border-blue-900/30 hover:border-blue-500 dark:hover:border-blue-400 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 rounded-xl transition-all flex items-center justify-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Server className="w-3 h-3" />
+            <Play className="w-4 h-4 fill-current" />
           )}
-          연결
+          연결 테스트
         </button>
+
+        {/* 상태 메시지 */}
+        <div className="flex items-center justify-center gap-2 mt-3 min-h-[20px]">
+          {testStatus === 'success' && (
+            <span className="text-sm text-green-600 flex items-center gap-1.5 font-medium animate-in fade-in slide-in-from-top-1">
+              <CheckCircle className="w-4 h-4" /> 연결 성공!
+            </span>
+          )}
+          {testStatus === 'error' && (
+            <span className="text-sm text-red-600 flex items-center gap-1.5 font-medium animate-in fade-in slide-in-from-top-1">
+              <AlertCircle className="w-4 h-4" /> 연결 실패
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

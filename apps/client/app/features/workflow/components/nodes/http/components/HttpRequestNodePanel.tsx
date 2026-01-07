@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { Plus, Trash2 } from 'lucide-react';
 import {
@@ -8,8 +8,54 @@ import {
   HttpVariable,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
-import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
+import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+
+// [참고] 캐럿 좌표 가져오기 (LLMNodePanel에서 복사됨)
+const getCaretCoordinates = (
+  element: HTMLTextAreaElement | HTMLInputElement,
+  position: number,
+) => {
+  const div = document.createElement('div');
+  const style = window.getComputedStyle(element);
+
+  // 스타일 복사
+  Array.from(style).forEach((prop) => {
+    div.style.setProperty(prop, style.getPropertyValue(prop));
+  });
+
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.top = '0';
+  div.style.left = '0';
+
+  // input 태그의 경우 스크롤과 줄바꿈 방지 처리 필요
+  if (element.tagName === 'INPUT') {
+    div.style.whiteSpace = 'nowrap';
+    div.style.overflow = 'hidden';
+  }
+
+  const textContent = element.value.substring(0, position);
+  div.innerHTML =
+    textContent.replace(/\n/g, '<br>') + '<span id="caret-marker">|</span>';
+
+  document.body.appendChild(div);
+
+  const marker = div.querySelector('#caret-marker');
+  const coordinates = {
+    top: marker
+      ? marker.getBoundingClientRect().top - div.getBoundingClientRect().top
+      : 0,
+    left: marker
+      ? marker.getBoundingClientRect().left - div.getBoundingClientRect().left
+      : 0,
+    height: parseInt(style.lineHeight) || 20,
+  };
+
+  document.body.removeChild(div);
+  return coordinates;
+};
 
 interface HttpRequestNodePanelProps {
   nodeId: string;
@@ -21,6 +67,15 @@ export function HttpRequestNodePanel({
   data,
 }: HttpRequestNodePanelProps) {
   const { updateNodeData, nodes, edges } = useWorkflowStore();
+
+  // 자동완성을 위한 Refs
+  const urlRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  // 자동완성 상태
+  const [activeField, setActiveField] = useState<'url' | 'body' | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionPos, setSuggestionPos] = useState({ top: 0, left: 0 });
 
   // 상위 노드 가져오기
   const upstreamNodes = useMemo(
@@ -58,7 +113,7 @@ export function HttpRequestNodePanel({
     [data.headers, nodeId, updateNodeData],
   );
 
-  // Variable Handlers
+  // 변수 핸들러
   const handleAddVariable = useCallback(() => {
     const newVars = [
       ...(data.referenced_variables || []),
@@ -85,26 +140,62 @@ export function HttpRequestNodePanel({
     [data.referenced_variables, nodeId, updateNodeData],
   );
 
-  const handleSelectorUpdate = useCallback(
-    (varIndex: number, selectorIndex: number, value: string) => {
-      const newVars = [...(data.referenced_variables || [])];
-      const newSelector = [...(newVars[varIndex].value_selector || [])];
-      newSelector[selectorIndex] = value;
-      // If changing node (index 0), reset output key (index 1)
-      if (selectorIndex === 0) {
-        newSelector[1] = '';
-      }
-      newVars[varIndex] = { ...newVars[varIndex], value_selector: newSelector };
-      updateNodeData(nodeId, { referenced_variables: newVars });
-    },
-    [data.referenced_variables, nodeId, updateNodeData],
-  );
+  // 자동완성 핸들러
+  const handleKeyUp = (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+    field: 'url' | 'body',
+  ) => {
+    const target = e.target as HTMLTextAreaElement | HTMLInputElement;
+    const value = target.value;
+    const selectionEnd = target.selectionEnd || 0;
+
+    setActiveField(field);
+
+    if (value.substring(selectionEnd - 2, selectionEnd) === '{{') {
+      const coords = getCaretCoordinates(target, selectionEnd);
+
+      setSuggestionPos({
+        top: target.offsetTop + coords.top + coords.height,
+        left: target.offsetLeft + coords.left,
+      });
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const insertVariable = (varName: string) => {
+    if (!activeField) return;
+
+    const currentValue = (data as any)[activeField] || '';
+    const ref = activeField === 'url' ? urlRef : bodyRef;
+    const input = ref.current;
+
+    if (!input) return;
+
+    const selectionEnd = input.selectionEnd || 0;
+    const lastOpen = currentValue.lastIndexOf('{{', selectionEnd);
+
+    if (lastOpen !== -1) {
+      const prefix = currentValue.substring(0, lastOpen);
+      const suffix = currentValue.substring(selectionEnd);
+
+      const newValue = `${prefix}{{ ${varName} }}${suffix}`;
+
+      handleUpdateData(activeField, newValue);
+      setShowSuggestions(false);
+
+      setTimeout(() => {
+        const newCursorPos = prefix.length + varName.length + 5;
+        input.focus();
+        input.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* 1. Method & URL */}
-      {/* 이 부분은 항상 보여야 하므로 Collapsible에서 제외하거나 별도 섹션으로 둘 수 있음.
-          가장 중요한 정보이므로 상단에 노출. */}
+    <div className="flex flex-col gap-2 relative">
+      {/* 1. 메서드 & URL */}
       <div className="flex gap-2">
         <select
           className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium w-24"
@@ -120,111 +211,26 @@ export function HttpRequestNodePanel({
           <option value="PATCH">PATCH</option>
         </select>
         <input
+          ref={urlRef}
           className="h-9 flex-1 rounded-md border border-gray-300 px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
           placeholder="https://api.example.com/v1/resource"
           value={data.url || ''}
           onChange={(e) => handleUpdateData('url', e.target.value)}
+          onKeyUp={(e) => handleKeyUp(e, 'url')}
+          autoComplete="off"
         />
       </div>
 
-      {/* 2. Referenced Variables */}
+      {/* 2. 참조된 변수 */}
       <CollapsibleSection title="Referenced Variables" defaultOpen={true}>
-        <div className="flex flex-col gap-2">
-          {data.referenced_variables?.map((variable, index) => {
-            const selectedSourceNodeId = variable.value_selector?.[0] || '';
-            const selectedVarKey = variable.value_selector?.[1] || '';
-
-            const selectedNode = upstreamNodes.find(
-              (n) => n.id === selectedSourceNodeId,
-            );
-            const availableOutputs = selectedNode
-              ? getNodeOutputs(selectedNode)
-              : [];
-
-            return (
-              <div
-                key={index}
-                className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">
-                    Variable {index + 1}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveVariable(index)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                <div className="flex flex-row gap-2 items-center">
-                  {/* 변수명 입력 */}
-                  <div className="flex-2">
-                    <input
-                      type="text"
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs"
-                      placeholder="Variable name"
-                      value={variable.name}
-                      onChange={(e) =>
-                        handleUpdateVariable(index, 'name', e.target.value)
-                      }
-                    />
-                  </div>
-
-                  {/* 노드 선택 드롭다운 */}
-                  <div className="flex-3">
-                    <select
-                      className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
-                      value={selectedSourceNodeId}
-                      onChange={(e) =>
-                        handleSelectorUpdate(index, 0, e.target.value)
-                      }
-                    >
-                      <option value="">노드 선택</option>
-                      {upstreamNodes.map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {(n.data as { title?: string })?.title || n.type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* 출력 선택 */}
-                  <div className="flex-3 relative">
-                    <select
-                      className={`w-full rounded border p-1.5 text-xs truncate ${
-                        !selectedSourceNodeId
-                          ? 'bg-gray-100 text-gray-400 border-gray-200'
-                          : 'border-gray-300 bg-white'
-                      }`}
-                      value={selectedVarKey}
-                      onChange={(e) =>
-                        handleSelectorUpdate(index, 1, e.target.value)
-                      }
-                      disabled={!selectedSourceNodeId}
-                    >
-                      <option value="">출력 선택</option>
-                      {availableOutputs.map((output) => (
-                        <option key={output} value={output}>
-                          {output}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div className="flex justify-end">
-            <button
-              onClick={handleAddVariable}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-            >
-              <Plus className="w-3 h-3" /> Add Variable
-            </button>
-          </div>
-        </div>
+        <ReferencedVariablesControl
+          variables={data.referenced_variables || []}
+          upstreamNodes={upstreamNodes}
+          onUpdate={handleUpdateVariable}
+          onAdd={handleAddVariable}
+          onRemove={handleRemoveVariable}
+          title=""
+        />
       </CollapsibleSection>
       <CollapsibleSection title="Authentication">
         <div className="flex flex-col gap-3">
@@ -301,7 +307,7 @@ export function HttpRequestNodePanel({
         </div>
       </CollapsibleSection>
 
-      {/* 3. Headers */}
+      {/* 3. 헤더 */}
       <CollapsibleSection
         title="Headers"
         icon={
@@ -358,7 +364,7 @@ export function HttpRequestNodePanel({
         </div>
       </CollapsibleSection>
 
-      {/* 4. Body (POST/PUT/PATCH only) */}
+      {/* 4. 본문 (POST/PUT/PATCH 전용) */}
       {['POST', 'PUT', 'PATCH'].includes(data.method || '') && (
         <CollapsibleSection title="Body">
           <div className="flex flex-col gap-2">
@@ -366,10 +372,12 @@ export function HttpRequestNodePanel({
               <span className="text-xs text-gray-500">Content-Type: JSON</span>
             </div>
             <textarea
+              ref={bodyRef}
               className="w-full h-32 rounded border border-gray-300 p-2 text-xs font-mono focus:outline-none focus:border-blue-500 resize-y"
               placeholder='{"key": "value"}'
               value={data.body || ''}
               onChange={(e) => handleUpdateData('body', e.target.value)}
+              onKeyUp={(e) => handleKeyUp(e, 'body')}
             />
             <div className="text-[10px] text-gray-500">
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능
@@ -378,7 +386,7 @@ export function HttpRequestNodePanel({
         </CollapsibleSection>
       )}
 
-      {/* 5. Settings (Timeout) */}
+      {/* 5. 설정 (타임아웃) */}
       <CollapsibleSection title="Settings" defaultOpen={false}>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-gray-700">
@@ -395,6 +403,33 @@ export function HttpRequestNodePanel({
           />
         </div>
       </CollapsibleSection>
+
+      {/* 자동완성 제안 드롭다운 */}
+      {showSuggestions && (
+        <div
+          className="absolute z-50 w-48 rounded border border-gray-200 bg-white shadow-lg"
+          style={{
+            top: suggestionPos.top,
+            left: suggestionPos.left,
+          }}
+        >
+          {(data.referenced_variables || []).length > 0 ? (
+            (data.referenced_variables || []).map((v, i) => (
+              <button
+                key={i}
+                className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                onClick={() => insertVariable(v.name)}
+              >
+                {v.name || '(No Name)'}
+              </button>
+            ))
+          ) : (
+            <div className="px-4 py-2 text-sm text-gray-400">
+              등록된 변수가 없습니다
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

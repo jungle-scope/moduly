@@ -1,6 +1,9 @@
 import json
 import os
+import tempfile
 from typing import Any, Dict
+
+import requests
 
 from services.ingestion.parsers.docx_parser import DocxParser
 from services.ingestion.parsers.excel_csv_parser import ExcelCsvParser
@@ -21,60 +24,145 @@ class FileProcessor(BaseProcessor):
         source_config: {"file_path": "/path/to/file.pdf", "document_id": "...", "strategy": "llamaparse"}
         """
         file_path = source_config.get("file_path")
-        if not file_path or not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found: {file_path}")
+        if not file_path:
+            raise FileNotFoundError("File path is missing")
 
-        ext = os.path.splitext(file_path)[1].lower()
-        parser = self._get_parser(ext)
-        if not parser:
-            print(f"[FileProcessor] Unsupported file extension: {ext}")
-            return ProcessingResult(
-                chunks=[], metadata={"error": "Unsupported extension"}
-            )
-
-        parse_kwargs = {}
-        strategy = source_config.get("strategy", "general")
-
-        if isinstance(parser, PdfParser) and strategy == "llamaparse":
-            parse_kwargs["strategy"] = "llamaparse"
-            parse_kwargs["api_key"] = self._get_llamaparse_key()
+        # [MODIFIED] S3/HTTP URL 처리
+        is_remote_file = str(file_path).startswith("http") or str(file_path).startswith(
+            "s3://"
+        )
+        temp_file_path = None
 
         try:
-            parsed_blocks = parser.parse(file_path, **parse_kwargs)
-        except Exception as e:
-            print(f"[FileProcessor] Parsing error: {e}")
-            return ProcessingResult(chunks=[], metadata={"error": str(e)})
+            if is_remote_file:
+                # 임시 파일 다운로드
+                temp_file_path = self._download_file(file_path)
+                target_path = temp_file_path
+            else:
+                # 로컬 파일
+                if not os.path.exists(file_path):
+                    raise FileNotFoundError(f"File not found: {file_path}")
+                target_path = file_path
 
-        chunks = []
-        for block in parsed_blocks:
-            chunks.append(
-                {
-                    "content": block["text"],
-                    "metadata": {"page": block["page"], "source": file_path},
-                }
+            ext = os.path.splitext(target_path)[1].lower()
+            parser = self._get_parser(ext)
+
+            if not parser:
+                print(f"[FileProcessor] Unsupported file extension: {ext}")
+                return ProcessingResult(
+                    chunks=[], metadata={"error": "Unsupported extension"}
+                )
+
+            parse_kwargs = {}
+            strategy = source_config.get("strategy", "general")
+
+            if isinstance(parser, PdfParser) and strategy == "llamaparse":
+                parse_kwargs["strategy"] = "llamaparse"
+                parse_kwargs["api_key"] = self._get_llamaparse_key()
+
+            try:
+                parsed_blocks = parser.parse(target_path, **parse_kwargs)
+            except Exception as e:
+                print(f"[FileProcessor] Parsing error: {e}")
+                return ProcessingResult(chunks=[], metadata={"error": str(e)})
+
+            chunks = []
+            for block in parsed_blocks:
+                chunks.append(
+                    {
+                        "content": block["text"],
+                        "metadata": {"page": block["page"], "source": file_path},
+                    }
+                )
+
+            return ProcessingResult(
+                chunks=chunks,
+                metadata={
+                    "file_path": file_path,
+                    "extension": ext,
+                    "strategy": strategy,
+                },
             )
 
-        return ProcessingResult(
-            chunks=chunks,
-            metadata={"file_path": file_path, "extension": ext, "strategy": strategy},
-        )
+        finally:
+            # 임시 파일 정리
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except Exception as e:
+                    print(f"[Warning] Failed to remove temp file: {e}")
+
+    def _download_file(self, url: str) -> str:
+        """
+        URL(S3 포함)에서 파일을 다운로드하여 임시 경로를 반환합니다.
+        """
+        # s3:// 포맷이 그대로 넘어온 경우 처리 (storage service를 안 거친 경우 등)
+        if url.startswith("s3://"):
+            # 여기서는 단순히 에러 처리하거나, 혹은 Presigned URL 발급 로직이 필요함.
+            # 현재는 knowledge.py의 리다이렉트 로직과 맞추어 HTTP URL을 기대함.
+            raise ValueError(
+                "Raw s3:// URL is not supported for direct processing. Use HTTP URL."
+            )
+
+        try:
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+
+            # 확장자 추론
+            from urllib.parse import urlparse
+
+            path = urlparse(url).path
+            ext = os.path.splitext(path)[1]
+            if not ext:
+                ext = ".tmp"
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                for chunk in response.iter_content(chunk_size=8192):
+                    tmp.write(chunk)
+                return tmp.name
+        except Exception as e:
+            raise RuntimeError(f"Failed to download file from {url}: {e}")
 
     def analyze(self, source_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         파일 분석 (비용 예측 등)
         """
         file_path = source_config.get("file_path")
-        if not file_path or not os.path.exists(file_path):
-            return {"error": "File not found"}
+        if not file_path:
+            return {"error": "File path is missing"}
 
-        ext = os.path.splitext(file_path)[1].lower()
-        parser = self._get_parser(ext)
+        is_remote_file = str(file_path).startswith("http") or str(file_path).startswith(
+            "s3://"
+        )
+        temp_file_path = None
 
-        # 현재는 PdfParser만 analyze 메서드를 가짐
-        if parser and hasattr(parser, "analyze"):
-            return parser.analyze(file_path)
+        try:
+            if is_remote_file:
+                temp_file_path = self._download_file(file_path)
+                target_path = temp_file_path
+            else:
+                if not os.path.exists(file_path):
+                    return {"error": "File not found"}
+                target_path = file_path
 
-        return {}
+            ext = os.path.splitext(target_path)[1].lower()
+            parser = self._get_parser(ext)
+
+            # 현재는 PdfParser만 analyze 메서드를 가짐
+            if parser and hasattr(parser, "analyze"):
+                return parser.analyze(target_path)
+
+            return {}
+
+        except Exception as e:
+            return {"error": str(e)}
+
+        finally:
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except Exception as e:
+                    print(f"[Warning] Failed to remove temp file: {e}")
 
     def _get_parser(self, ext: str):
         if ext == ".pdf":

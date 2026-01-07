@@ -133,25 +133,60 @@ export const PuzzleEdge = ({
   const isActive = selected || isSourceSelected || isTargetSelected;
 
   // 색상 및 두께 설정
-  // 기본: 회색(#d1d5db), 활성: 파란색(#3b82f6)
-  const edgeColor = isActive ? '#3b82f6' : '#d1d5db';
-  const edgeWidth = 10; // 원형 점을 명확히 보여주기 위해 두께 설정
+  // 기본: 회색(#9ca3af), 활성: 파란색(#3b82f6)
+  const edgeColor = isActive ? '#3b82f6' : '#9ca3af';
+  const edgeWidth = 3.5; // 간선 두께
 
   return (
     <>
+      {/* Markers at connection points */}
+      <defs>
+        {/* Start marker - small dot */}
+        <marker
+          id={`dot-start-${id}`}
+          markerWidth="8"
+          markerHeight="8"
+          refX="4"
+          refY="4"
+          markerUnits="userSpaceOnUse"
+        >
+          <circle cx="4" cy="4" r="3" fill={edgeColor} />
+        </marker>
+
+        {/* End marker - arrow */}
+        <marker
+          id={`arrow-end-${id}`}
+          markerWidth="16"
+          markerHeight="16"
+          refX="13"
+          refY="8"
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <polyline
+            points="4,2 13,8 4,14"
+            fill="none"
+            stroke={edgeColor}
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </marker>
+      </defs>
+
       {/* 
-        엣지 경로 (브릿지 몸통)
-        두껍게 그려서 퍼즐 조각이 연결된 느낌을 줍니다.
+        엣지 경로 (실선)
+        얇은 회색 실선으로 노드를 연결하고 시작점에 점, 끝점에 화살표를 표시합니다.
       */}
       <BaseEdge
         path={edgePath}
-        markerEnd={markerEnd}
+        markerStart={`url(#dot-start-${id})`}
+        markerEnd={`url(#arrow-end-${id})`}
         style={{
           ...style,
           strokeWidth: edgeWidth,
           stroke: edgeColor,
-          strokeLinecap: 'round', // 원형 점을 만들기 위해 round 캡 사용
-          strokeDasharray: '0 20', // 간격 넓힘 (0 15 -> 0 25)
+          strokeLinecap: 'round',
           // transition 스타일 추가
           transition: 'stroke 0.3s ease, stroke-width 0.3s ease',
         }}

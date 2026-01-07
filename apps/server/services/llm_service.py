@@ -24,16 +24,16 @@ from services.llm_client.factory import get_llm_client
 
 class LLMService:
     """
-    LLM Provider & Credential Management Service.
-    New Architecture:
-    - Providers are System-defined (Global).
-    - Credentials are User-defined (Per User).
+    LLM 공급자(Provider) 및 인증(Credential) 관리 서비스.
+    새로운 아키텍처:
+    - Provider는 시스템 정의 (전역)
+    - Credential은 사용자 정의 (사용자별)
     """
 
-    # Placeholder user for migration/dev without auth
+    # 마이그레이션/개발용 플레이스홀더 유저 (인증 없음)
     PLACEHOLDER_USER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
 
-    # Pre-defined friendly names for common models
+    # 사용자 친화적인 모델 표시 이름
     MODEL_DISPLAY_NAMES = {
         "gpt-4o": "GPT-4o (Omni)",
         "gpt-4o-mini": "GPT-4o Mini",
@@ -50,63 +50,187 @@ class LLMService:
         "claude-3-haiku-20240307": "Claude 3 Haiku",
     }
 
-    # [NEW] Default Pricing Configuration (USD per 1M tokens -> convert to 1K)
-    # Pricing reference: https://openai.com/api/pricing/, https://anthropic.com/pricing
-    # Prices below are per 1K tokens.
-    # [NEW] Default Pricing Configuration (USD per 1M tokens -> convert to 1K)
-    # Pricing reference: https://openai.com/api/pricing/, https://anthropic.com/pricing
-    # Prices below are per 1K tokens. (ex: $5/1M -> 0.005/1K)
+    # [NEW] 기본 가격 설정 (USD per 1M tokens -> 1K 단위 변환)
+    # 가격 출처: https://openai.com/api/pricing/, https://anthropic.com/pricing
+    # 아래 가격은 1K 토큰 기준입니다. (예: $5/1M -> 0.005/1K)
     KNOWN_MODEL_PRICES = {
-        # --- OpenAI (Chat) ---
-        "gpt-4o": {"input": 0.0025, "output": 0.010}, 
-        "gpt-4o-2024-08-06": {"input": 0.0025, "output": 0.010},
-        "gpt-4o-2024-05-13": {"input": 0.005, "output": 0.015},
+        # ==================== OpenAI 채팅 모델 ====================
         
-        "gpt-4o-mini": {"input": 0.00015, "output": 0.0006}, 
+        # --- GPT-5 시리즈 (2025) ---
+        "gpt-5": {"input": 0.005, "output": 0.015},
+        "gpt-5-2025-08-07": {"input": 0.005, "output": 0.015},
+        "gpt-5-pro": {"input": 0.015, "output": 0.060},
+        "gpt-5-pro-2025-10-06": {"input": 0.015, "output": 0.060},
+        "gpt-5-mini": {"input": 0.0003, "output": 0.0012},
+        "gpt-5-mini-2025-08-07": {"input": 0.0003, "output": 0.0012},
+        "gpt-5-nano": {"input": 0.0001, "output": 0.0004},
+        "gpt-5-nano-2025-08-07": {"input": 0.0001, "output": 0.0004},
+        "gpt-5-chat-latest": {"input": 0.005, "output": 0.015},
+        "gpt-5-codex": {"input": 0.005, "output": 0.015},
+        "gpt-5-search-api": {"input": 0.0025, "output": 0.010},
+        "gpt-5-search-api-2025-10-14": {"input": 0.0025, "output": 0.010},
+        
+        # --- GPT-5.1 Series ---
+        "gpt-5.1": {"input": 0.004, "output": 0.012},
+        "gpt-5.1-2025-11-13": {"input": 0.004, "output": 0.012},
+        "gpt-5.1-chat-latest": {"input": 0.004, "output": 0.012},
+        "gpt-5.1-codex": {"input": 0.004, "output": 0.012},
+        "gpt-5.1-codex-mini": {"input": 0.001, "output": 0.004},
+        "gpt-5.1-codex-max": {"input": 0.010, "output": 0.040},
+        
+        # --- GPT-5.2 Series ---
+        "gpt-5.2": {"input": 0.003, "output": 0.010},
+        "gpt-5.2-2025-12-11": {"input": 0.003, "output": 0.010},
+        "gpt-5.2-pro": {"input": 0.010, "output": 0.040},
+        "gpt-5.2-pro-2025-12-11": {"input": 0.010, "output": 0.040},
+        "gpt-5.2-chat-latest": {"input": 0.003, "output": 0.010},
+        
+        # --- GPT-4.1 Series (2025) ---
+        "gpt-4.1": {"input": 0.002, "output": 0.008},
+        "gpt-4.1-2025-04-14": {"input": 0.002, "output": 0.008},
+        "gpt-4.1-mini": {"input": 0.0004, "output": 0.0016},
+        "gpt-4.1-mini-2025-04-14": {"input": 0.0004, "output": 0.0016},
+        "gpt-4.1-nano": {"input": 0.0001, "output": 0.0004},
+        "gpt-4.1-nano-2025-04-14": {"input": 0.0001, "output": 0.0004},
+        
+        # --- GPT-4o Series ---
+        "gpt-4o": {"input": 0.0025, "output": 0.010},
+        "gpt-4o-2024-05-13": {"input": 0.005, "output": 0.015},
+        "gpt-4o-2024-08-06": {"input": 0.0025, "output": 0.010},
+        "gpt-4o-2024-11-20": {"input": 0.0025, "output": 0.010},
+        "chatgpt-4o-latest": {"input": 0.005, "output": 0.015},
+        
+        # --- GPT-4o Mini Series ---
+        "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
         "gpt-4o-mini-2024-07-18": {"input": 0.00015, "output": 0.0006},
         
-        "o1-preview": {"input": 0.015, "output": 0.060}, 
-        "o1-preview-2024-09-12": {"input": 0.015, "output": 0.060},
-        "o1-mini": {"input": 0.003, "output": 0.012}, 
-        "o1-mini-2024-09-12": {"input": 0.003, "output": 0.012},
+        # --- GPT-4o Search ---
+        "gpt-4o-search-preview": {"input": 0.0025, "output": 0.010},
+        "gpt-4o-search-preview-2025-03-11": {"input": 0.0025, "output": 0.010},
+        "gpt-4o-mini-search-preview": {"input": 0.00015, "output": 0.0006},
+        "gpt-4o-mini-search-preview-2025-03-11": {"input": 0.00015, "output": 0.0006},
         
-        "gpt-4-turbo": {"input": 0.01, "output": 0.03}, 
+        # --- GPT-4o Audio/Realtime ---
+        "gpt-4o-audio-preview": {"input": 0.0025, "output": 0.010},
+        "gpt-4o-audio-preview-2024-12-17": {"input": 0.0025, "output": 0.010},
+        "gpt-4o-audio-preview-2025-06-03": {"input": 0.0025, "output": 0.010},
+        "gpt-4o-mini-audio-preview": {"input": 0.00015, "output": 0.0006},
+        "gpt-4o-mini-audio-preview-2024-12-17": {"input": 0.00015, "output": 0.0006},
+        "gpt-4o-realtime-preview": {"input": 0.005, "output": 0.020},
+        "gpt-4o-realtime-preview-2024-12-17": {"input": 0.005, "output": 0.020},
+        "gpt-4o-realtime-preview-2025-06-03": {"input": 0.005, "output": 0.020},
+        "gpt-4o-mini-realtime-preview": {"input": 0.0006, "output": 0.0024},
+        "gpt-4o-mini-realtime-preview-2024-12-17": {"input": 0.0006, "output": 0.0024},
+        
+        # --- GPT-4o Transcribe/TTS ---
+        "gpt-4o-transcribe": {"input": 0.0025, "output": 0.0},
+        "gpt-4o-transcribe-diarize": {"input": 0.004, "output": 0.0},
+        "gpt-4o-mini-transcribe": {"input": 0.00015, "output": 0.0},
+        "gpt-4o-mini-transcribe-2025-03-20": {"input": 0.00015, "output": 0.0},
+        "gpt-4o-mini-transcribe-2025-12-15": {"input": 0.00015, "output": 0.0},
+        "gpt-4o-mini-tts": {"input": 0.0, "output": 0.0006},
+        "gpt-4o-mini-tts-2025-03-20": {"input": 0.0, "output": 0.0006},
+        "gpt-4o-mini-tts-2025-12-15": {"input": 0.0, "output": 0.0006},
+        
+        # --- Reasoning Models (O-Series) ---
+        "o1": {"input": 0.015, "output": 0.060},
+        "o1-2024-12-17": {"input": 0.015, "output": 0.060},
+        "o1-pro": {"input": 0.150, "output": 0.600},
+        "o1-pro-2025-03-19": {"input": 0.150, "output": 0.600},
+        "o1-preview": {"input": 0.015, "output": 0.060},
+        "o1-preview-2024-09-12": {"input": 0.015, "output": 0.060},
+        "o1-mini": {"input": 0.003, "output": 0.012},
+        "o1-mini-2024-09-12": {"input": 0.003, "output": 0.012},
+        "o3": {"input": 0.010, "output": 0.040},
+        "o3-2025-04-16": {"input": 0.010, "output": 0.040},
+        "o3-mini": {"input": 0.0011, "output": 0.0044},
+        "o3-mini-2025-01-31": {"input": 0.0011, "output": 0.0044},
+        "o4-mini": {"input": 0.0011, "output": 0.0044},
+        "o4-mini-2025-04-16": {"input": 0.0011, "output": 0.0044},
+        
+        # --- GPT-4 Turbo ---
+        "gpt-4-turbo": {"input": 0.01, "output": 0.03},
         "gpt-4-turbo-2024-04-09": {"input": 0.01, "output": 0.03},
         "gpt-4-turbo-preview": {"input": 0.01, "output": 0.03},
         "gpt-4-0125-preview": {"input": 0.01, "output": 0.03},
         "gpt-4-1106-preview": {"input": 0.01, "output": 0.03},
         
-        "gpt-4": {"input": 0.03, "output": 0.06}, 
+        # --- GPT-4 Legacy ---
+        "gpt-4": {"input": 0.03, "output": 0.06},
         "gpt-4-0613": {"input": 0.03, "output": 0.06},
         "gpt-4-0314": {"input": 0.03, "output": 0.06},
         
-        "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015}, 
+        # --- GPT-3.5 ---
+        "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
         "gpt-3.5-turbo-0125": {"input": 0.0005, "output": 0.0015},
         "gpt-3.5-turbo-1106": {"input": 0.001, "output": 0.002},
+        "gpt-3.5-turbo-16k": {"input": 0.003, "output": 0.004},
+        "gpt-3.5-turbo-instruct": {"input": 0.0015, "output": 0.002},
+        "gpt-3.5-turbo-instruct-0914": {"input": 0.0015, "output": 0.002},
         
-        # --- OpenAI (Embedding) ---
-        "text-embedding-3-small": {"input": 0.00002, "output": 0.0}, # $0.02 / 1M
-        "text-embedding-3-large": {"input": 0.00013, "output": 0.0}, # $0.13 / 1M
-        "text-embedding-ada-002": {"input": 0.00010, "output": 0.0}, # $0.10 / 1M
+        # --- GPT Audio/Realtime ---
+        "gpt-audio": {"input": 0.005, "output": 0.020},
+        "gpt-audio-2025-08-28": {"input": 0.005, "output": 0.020},
+        "gpt-audio-mini": {"input": 0.0006, "output": 0.0024},
+        "gpt-audio-mini-2025-10-06": {"input": 0.0006, "output": 0.0024},
+        "gpt-audio-mini-2025-12-15": {"input": 0.0006, "output": 0.0024},
+        "gpt-realtime": {"input": 0.005, "output": 0.020},
+        "gpt-realtime-2025-08-28": {"input": 0.005, "output": 0.020},
+        "gpt-realtime-mini": {"input": 0.0006, "output": 0.0024},
+        "gpt-realtime-mini-2025-10-06": {"input": 0.0006, "output": 0.0024},
+        "gpt-realtime-mini-2025-12-15": {"input": 0.0006, "output": 0.0024},
         
-        # --- Anthropic ---
-        "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015}, # v2
-        "claude-3-5-sonnet-20240620": {"input": 0.003, "output": 0.015}, 
+        # --- Legacy/Base Models ---
+        "davinci-002": {"input": 0.002, "output": 0.002},
+        "babbage-002": {"input": 0.0004, "output": 0.0004},
         
-        "claude-3-opus-20240229": {"input": 0.015, "output": 0.075}, 
-        "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015}, 
-        "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125}, 
+        # ==================== OpenAI 임베딩 모델 ====================
+        "text-embedding-3-small": {"input": 0.00002, "output": 0.0},
+        "text-embedding-3-large": {"input": 0.00013, "output": 0.0},
+        "text-embedding-ada-002": {"input": 0.00010, "output": 0.0},
         
+        # ==================== Anthropic 모델 ====================
+        
+        # --- Claude 3.5 Series ---
+        "claude-3-5-opus": {"input": 0.015, "output": 0.075},     # $15 / $75
+        "claude-3-5-opus-latest": {"input": 0.015, "output": 0.075},
+        "claude-3-5-sonnet": {"input": 0.003, "output": 0.015},   # $3 / $15
+        "claude-3-5-sonnet-latest": {"input": 0.003, "output": 0.015},
+        "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015},
+        "claude-3-5-sonnet-20240620": {"input": 0.003, "output": 0.015},
+        "claude-3-5-haiku": {"input": 0.00025, "output": 0.00125}, # $0.25 / $1.25
+        "claude-3-5-haiku-latest": {"input": 0.00025, "output": 0.00125},
+        "claude-3-5-haiku-20241022": {"input": 0.00025, "output": 0.00125},
+        
+        # --- Claude 3 Series ---
+        "claude-3-opus-20240229": {"input": 0.015, "output": 0.075},
+        "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015},
+        "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
+        
+        # --- Legacy ---
         "claude-2.1": {"input": 0.008, "output": 0.024},
         "claude-2.0": {"input": 0.008, "output": 0.024},
         "claude-instant-1.2": {"input": 0.0008, "output": 0.0024},
         
-        # --- Google ---
-        # Note: Google prices change frequently and have free tier limits.
-        "gemini-1.5-pro": {"input": 0.0035, "output": 0.0105}, # $3.50 / $10.50 (<128k)
-        "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003}, 
-        "gemini-1.5-flash-8b": {"input": 0.0000375, "output": 0.00015},
+        # ==================== Google 모델 (2026 가격) ====================
+        # 기본 가격 (128k context 이하). 128k 초과 시 가격 2배 (아직 미반영).
+        
+        # --- Gemini 3 Series ---
+        "gemini-3-pro": {"input": 0.002, "output": 0.012},  # $2.00 / $12.00
+        "gemini-3-flash": {"input": 0.0003, "output": 0.0025},  # $0.30 / $2.50
+        
+        # --- Gemini 1.5 Series ---
+        "gemini-1.5-pro": {"input": 0.00125, "output": 0.010},  # $1.25 / $10.00 (Updated)
+        "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003},  # $0.075 / $0.30
+        "gemini-1.5-flash-8b": {"input": 0.0000375, "output": 0.00015},  # $0.0375 / $0.15
+        
+        # --- Gemini 2.0 / Experimental ---
+        "gemini-2.0-flash-exp": {"input": 0.0001, "output": 0.0004},
+        
+        # --- Legacy ---
         "gemini-1.0-pro": {"input": 0.0005, "output": 0.0015}, 
+        
+        # --- Embeddings ---
         "text-embedding-004": {"input": 0.000025, "output": 0.0},
     }
 
@@ -212,8 +336,8 @@ class LLMService:
     @staticmethod
     def _sync_models_to_db(db: Session, provider: LLMProvider, remote_models: List[Dict[str, Any]]) -> List[LLMModel]:
         """
-        Ensure models returned by API exist in llm_models table.
-        Returns the list of LLMModel objects corresponding to the remote models.
+        API에서 반환된 모델이 llm_models 테이블에 존재하는지 확인 및 동기화합니다.
+        원격 모델에 해당하는 LLMModel 객체 리스트를 반환합니다.
         """
         synced_models = []
         existing_models = {
@@ -225,19 +349,19 @@ class LLMService:
             mid = rm.get("id")
             if not mid: continue
             
-            # Determine display name (strip 'models/' prefix for Google)
+            # 표시 이름 결정 (Google의 경우 'models/' 접두사 제거)
             clean_id = mid.replace("models/", "")
             
-            # Apply friendly mapping if available, otherwise use capitalized ID
+            # 친화적인 이름 매핑이 있으면 적용, 없으면 ID 대문자화 등 사용
             display_name = LLMService.MODEL_DISPLAY_NAMES.get(clean_id, clean_id)
             
-            # [NEW] Determine Default Pricing
+            # [NEW] 기본 가격 결정
             pricing = LLMService.KNOWN_MODEL_PRICES.get(clean_id)
             input_price = pricing["input"] if pricing else None
             output_price = pricing["output"] if pricing else None
 
             if mid in existing_models:
-                # Update metadata and name if changed
+                # 메타데이터 및 이름 변경 시 업데이트
                 model = existing_models[mid]
                 changed = False
                 if model.model_metadata != rm:
@@ -247,7 +371,7 @@ class LLMService:
                     model.name = display_name
                     changed = True
                 
-                # Update pricing if explicitly missing and we have knowledge
+                # 가격 정보가 명시적으로 없고, 우리가 알고 있는 가격이 있다면 업데이트
                 if model.input_price_1k is None and input_price is not None:
                     model.input_price_1k = input_price
                     changed = True
@@ -260,7 +384,7 @@ class LLMService:
                 synced_models.append(model)
             else:
                 # Create new model
-                # Model type detection based on model ID
+                # 모델 ID 기반 모델 타입 감지
                 mid_lower = mid.lower()
                 m_type = "chat"  # 기본값
                 
@@ -282,7 +406,7 @@ class LLMService:
                 # Chat 모델 (gpt, o1, o3, claude, gemini 등)
                 # else: 기본값 "chat" 유지
                 
-                # Default context window is unknown for dynamic discovery, set safe default or specific rules
+                # 동적 발견 시 기본 컨텍스트 윈도우는 알 수 없으므로, 안전한 기본값 또는 특정 규칙 사용
                 ctx = 4096
                 if "gpt-4" in mid: ctx = 8192
                 if "128k" in mid or "gpt-4o" in mid: ctx = 128000
@@ -478,32 +602,31 @@ class LLMService:
     @staticmethod
     def get_my_available_models(db: Session, user_id: uuid.UUID) -> List[LLMModelResponse]:
         """
-        Get all models available to the user based on their registered credentials.
-        Joins LLMRelCredentialModel -> LLMCredential -> User to find models.
+        사용자의 등록된 Credential을 기반으로 사용 가능한 모든 모델을 반환합니다.
+        Provider ID를 기준으로 조회하므로 별도의 연결 테이블 조인이 필요하지 않습니다.
         """
-        # 1. Find all credential IDs for this user
-        user_creds = db.query(LLMCredential.id).filter(
+        # 1. 해당 사용자의 모든 유효한 Credential 조회
+        user_creds = db.query(LLMCredential).filter(
             LLMCredential.user_id == user_id,
             LLMCredential.is_valid == True
         ).all()
-        cred_ids = [c.id for c in user_creds]
         
-        if not cred_ids:
-            # Fallback if placebo user
+        if not user_creds:
+            # 플레이스홀더 유저 Fallback
             if user_id != LLMService.PLACEHOLDER_USER_ID:
                  return LLMService.get_my_available_models(db, LLMService.PLACEHOLDER_USER_ID)
             return []
 
-        # 2. Find models mapped to these credentials
-        # Join LLMRelCredentialModel -> LLMModel
-        models = db.query(LLMModel).join(
-            LLMRelCredentialModel, LLMModel.id == LLMRelCredentialModel.model_id
-        ).options(
+        # 2. Provider ID 추출
+        provider_ids = list({c.provider_id for c in user_creds})
+        
+        # 3. 해당 Provider에 속한 모델 조회
+        models = db.query(LLMModel).options(
             joinedload(LLMModel.provider)
         ).filter(
-            LLMRelCredentialModel.credential_id.in_(cred_ids),
+            LLMModel.provider_id.in_(provider_ids),
             LLMModel.is_active == True
-        ).distinct().all()
+        ).order_by(LLMModel.name).all()
         
         return [LLMModelResponse.model_validate(m) for m in models]
 
@@ -513,26 +636,26 @@ class LLMService:
         사용자의 credential에 기반하여 사용 가능한 임베딩 모델 목록을 반환합니다.
         get_my_available_models와 동일하지만 type='embedding'으로 필터링됩니다.
         """
-        # 1. 해당 사용자의 모든 credential ID 조회
-        user_creds = db.query(LLMCredential.id).filter(
+        # 1. 해당 사용자의 모든 유효한 credential 조회
+        user_creds = db.query(LLMCredential).filter(
             LLMCredential.user_id == user_id,
             LLMCredential.is_valid == True
         ).all()
-        cred_ids = [c.id for c in user_creds]
         
-        if not cred_ids:
+        if not user_creds:
             # Placeholder 사용자로 fallback
             if user_id != LLMService.PLACEHOLDER_USER_ID:
                  return LLMService.get_my_embedding_models(db, LLMService.PLACEHOLDER_USER_ID)
             return []
 
-        # 2. 해당 credential에 매핑된 임베딩 모델 조회
-        models = db.query(LLMModel).join(
-            LLMRelCredentialModel, LLMModel.id == LLMRelCredentialModel.model_id
-        ).options(
+        # 2. Provider ID 추출
+        provider_ids = list({c.provider_id for c in user_creds})
+
+        # 3. 해당 Provider의 임베딩 모델 조회
+        models = db.query(LLMModel).options(
             joinedload(LLMModel.provider)
         ).filter(
-            LLMRelCredentialModel.credential_id.in_(cred_ids),
+            LLMModel.provider_id.in_(provider_ids),
             LLMModel.is_active == True,
             LLMModel.type == "embedding"  # 임베딩 모델만
         ).distinct().all()
@@ -543,19 +666,39 @@ class LLMService:
     def calculate_cost(db: Session, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
         """
         Calculate cost based on model pricing.
+        Falls back to KNOWN_MODEL_PRICES if DB doesn't have pricing info.
         """
-        # 1. Find the model to get pricing
-        # Note: model_id might be "gpt-4o" (model_id_for_api_call)
+        input_price = None
+        output_price = None
+        
+        # 1. Try to get pricing from DB
         model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
         
-        if not model or model.input_price_1k is None or model.output_price_1k is None:
+        if model and model.input_price_1k is not None and model.output_price_1k is not None:
+            input_price = float(model.input_price_1k)
+            output_price = float(model.output_price_1k)
+            print(f"[calculate_cost] DB pricing found for '{model_id}': in={input_price}, out={output_price}")
+        else:
+            # 2. Fallback to KNOWN_MODEL_PRICES
+            clean_id = model_id.replace("models/", "")  # Handle Google's prefix
+            pricing = LLMService.KNOWN_MODEL_PRICES.get(clean_id)
+            if pricing:
+                input_price = pricing["input"]
+                output_price = pricing["output"]
+                print(f"[calculate_cost] Fallback pricing for '{model_id}' (clean: '{clean_id}'): in={input_price}, out={output_price}")
+            else:
+                print(f"[calculate_cost] NO PRICING FOUND for '{model_id}' (clean: '{clean_id}'). Available: {list(LLMService.KNOWN_MODEL_PRICES.keys())[:10]}...")
+        
+        # 3. If still no pricing, return 0
+        if input_price is None or output_price is None:
             return 0.0
 
-        # 2. Calculate
-        input_cost = (prompt_tokens / 1000.0) * float(model.input_price_1k)
-        output_cost = (completion_tokens / 1000.0) * float(model.output_price_1k)
+        # 4. Calculate
+        input_cost = (prompt_tokens / 1000.0) * input_price
+        output_cost = (completion_tokens / 1000.0) * output_price
+        total = input_cost + output_cost
         
-        return input_cost + output_cost
+        return total
 
     @staticmethod
     def log_usage(

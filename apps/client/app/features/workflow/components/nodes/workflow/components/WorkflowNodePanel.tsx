@@ -151,7 +151,7 @@ export const WorkflowNodePanel: React.FC<WorkflowNodePanelProps> = ({
       <CollapsibleSection title="Input Parameters">
         <div className="flex flex-col gap-2">
           <p className="text-xs text-gray-500 mb-2">
-            대상 워크플로우의 <b>Start Node</b>에 정의된 변수에 값을 전달합니다.
+            대상 워크플로우의 <b>입력 노드</b>에 정의된 변수에 값을 전달합니다.
           </p>
 
           {targetVariables.length === 0 ? (
