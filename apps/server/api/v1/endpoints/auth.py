@@ -60,7 +60,7 @@ def signup(
         "value": result.session.token,
         "httponly": True,
         "samesite": "none" if is_production else "lax",
-        "max_age": 604800,
+        "max_age": 21600,  # 6시간
         "path": "/",
     }
 
@@ -105,7 +105,7 @@ def login(
         "value": result.session.token,
         "httponly": True,
         "samesite": "none" if is_production else "lax",
-        "max_age": 604800,
+        "max_age": 21600,  # 6시간
         "path": "/",
     }
 
