@@ -150,6 +150,13 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     () => groupModelsByProvider(chatModelOptions),
     [chatModelOptions],
   );
+  const selectedModel = useMemo(
+    () =>
+      modelOptions.find(
+        (model) => model.model_id_for_api_call === data.model_id,
+      ),
+    [modelOptions, data.model_id],
+  );
   const fallbackCandidates = useMemo(
     () =>
       chatModelOptions.filter(
@@ -158,24 +165,23 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [chatModelOptions, data.model_id],
   );
   const groupedFallbackOptions = useMemo(
-    () => groupModelsByProvider(fallbackCandidates),
-    [fallbackCandidates],
+    () => {
+      const groups = groupModelsByProvider(fallbackCandidates);
+      if (!data.model_id) return groups;
+      const selectedProvider = (
+        selectedModel?.provider_name || 'Unknown'
+      ).toLowerCase();
+      return [...groups].sort((a, b) => {
+        const aIsSelected = a.provider.toLowerCase() === selectedProvider;
+        const bIsSelected = b.provider.toLowerCase() === selectedProvider;
+        if (aIsSelected !== bIsSelected) {
+          return aIsSelected ? 1 : -1;
+        }
+        return a.provider.localeCompare(b.provider);
+      });
+    },
+    [fallbackCandidates, data.model_id, selectedModel],
   );
-  const selectedModel = useMemo(
-    () =>
-      modelOptions.find(
-        (model) => model.model_id_for_api_call === data.model_id,
-      ),
-    [modelOptions, data.model_id],
-  );
-  const hasAlternateProviders = useMemo(() => {
-    if (!data.model_id) return false;
-    const selectedProvider = (selectedModel?.provider_name || 'Unknown').toLowerCase();
-    return chatModelOptions.some((model) => {
-      const provider = (model.provider_name || 'Unknown').toLowerCase();
-      return provider !== selectedProvider;
-    });
-  }, [chatModelOptions, data.model_id, selectedModel]);
   const fallbackDisabled = !data.model_id?.trim();
 
   // 1. 상위 노드
@@ -463,15 +469,17 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                     </div>
                   )}
                 </div>
+                <p className="text-xs text-gray-500">
+                  Fallback 모델은 다른 Provider 사용을 권장합니다. 다른 Provider를
+                  추가하려면 아래에서 API Key를 등록하세요.
+                </p>
               </div>
               {/* Provider 설정 링크 */}
               <button
                 onClick={() => router.push('/settings/provider')}
                 className="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline text-left"
               >
-                {data.model_id && !hasAlternateProviders
-                  ? '다른 Provider 모델이 없습니다. + 새로운 Provider API Key 등록하기'
-                  : '+ 새로운 Provider API Key 등록하기'}
+                Provider API Key 등록하기
               </button>
             </>
           ) : (
