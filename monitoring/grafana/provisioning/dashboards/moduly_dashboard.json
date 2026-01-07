@@ -1,0 +1,188 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "General Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT count(*) as \"총 앱 개수\" FROM apps", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "apps", "timeColumn": "created_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "총 앱 개수",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT count(*) as \"총 워크플로우 실행\" FROM workflow_runs", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "workflow_runs", "timeColumn": "started_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "총 워크플로우 실행",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] } }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT count(*) as \"지식 베이스 수\" FROM knowledge_bases", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "knowledge_bases", "timeColumn": "created_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "지식 베이스 수",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] } }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT count(*) as \"총 문서 수\" FROM documents", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "documents", "timeColumn": "created_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "총 문서 수",
+      "type": "stat"
+    },
+    {
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "Workflow Insights",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "pieType": "pie", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT status, count(*) as count FROM workflow_runs GROUP BY status", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "workflow_runs", "timeColumn": "started_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "워크플로우 상태 분포",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
+      "id": 6,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT node_type, count(*) as count FROM workflow_node_runs GROUP BY node_type ORDER BY count DESC LIMIT 10", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "workflow_node_runs", "timeColumn": "started_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "많이 사용된 노드 TOP 10",
+      "type": "barchart"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
+      "id": 7,
+      "options": { "footer": { "enablePagination": true, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [] },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT id, status, started_at, duration FROM workflow_runs ORDER BY started_at DESC LIMIT 10", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "workflow_runs", "timeColumn": "started_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "최근 10개 실행 이력",
+      "type": "table"
+    },
+    {
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "RAG Insights",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 15 },
+      "id": 8,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT source_type, count(*) as count FROM documents GROUP BY source_type", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "documents", "timeColumn": "created_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "문서 소스 분포 (File/API/DB)",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "gray", "value": null }, { "color": "blue", "value": 1 }] } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 15 },
+      "id": 9,
+      "options": { "displayMode": "basic", "minVizHeight": 10, "minVizWidth": 0, "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "valueMode": "color" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT status, count(*) as count FROM documents GROUP BY status", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "documents", "timeColumn": "created_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "문서 처리 상태",
+      "type": "bargauge"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] } }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 15 },
+      "id": 10,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT sum(token_count) as \"총 임베딩 토큰\" FROM document_chunks", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "document_chunks", "timeColumn": "created_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "총 임베딩 토큰 (비용 추산용)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 15 },
+      "id": 11,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT embedding_model, count(*) as count FROM knowledge_bases GROUP BY embedding_model", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "knowledge_bases", "timeColumn": "created_at", "timeColumnType": "timestamp", "where": [] }],
+      "title": "임베딩 모델 점유율",
+      "type": "piechart"
+    },
+    {
+       "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 19 },
+       "id": 12,
+       "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+       "pluginVersion": "10.0.0",
+       "targets": [{ "format": "table", "group": [], "metricColumn": "none", "rawQuery": true, "rawSql": "SELECT count(*) as \"총 청크 수\" FROM document_chunks", "refId": "A", "select": [[{ "params": ["value"], "type": "column" }]], "table": "document_chunks", "timeColumn": "created_at", "timeColumnType": "timestamp", "where": [] }],
+       "title": "총 청크(Vector) 수",
+       "type": "stat"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["moduly", "monitor"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Moduly Comprehensive Dashboard",
+  "uid": "moduly-overview",
+  "version": 1,
+  "weekStart": ""
+}
