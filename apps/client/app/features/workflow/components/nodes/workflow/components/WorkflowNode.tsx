@@ -159,6 +159,7 @@ export const WorkflowNode = memo(
           draggable: false,
           connectable: false,
           selectable: false,
+          style: { ...n.style, pointerEvents: 'none' as const },
         })),
         filteredEdges: validEdges.map((e) => ({
           ...e,
@@ -204,13 +205,12 @@ export const WorkflowNode = memo(
                 width: containerSize.width,
                 height: containerSize.height,
               }}
-              onMouseDown={(e) => e.stopPropagation()} // 이벤트 전파 방지
-              onClick={(e) => e.stopPropagation()}
             >
               {filteredNodes.length > 0 ? (
                 <WorkflowInnerCanvas
                   nodes={filteredNodes}
                   edges={filteredEdges}
+                  allowNavigation={true}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400 text-sm">
