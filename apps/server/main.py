@@ -1,7 +1,7 @@
-from dotenv import load_dotenv
-
 # .env 파일을 기본값으로 로드 (개발 환경)
 # 배포 환경에서는 ECS Task Definition의 환경변수가 우선 적용됨
+from dotenv import load_dotenv
+
 load_dotenv()
 
 import os
@@ -13,9 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from api.api import api_router
-from db.base import Base
 from db.models.schedule import Schedule  # noqa: F401
-from db.seed import seed_default_llm_providers, seed_placeholder_user, seed_default_llm_models
+from db.seed import (
+    seed_default_llm_models,
+    seed_default_llm_providers,
+    seed_placeholder_user,
+)
 from db.session import engine
 
 
@@ -27,11 +30,10 @@ async def lifespan(app: FastAPI):
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully!")
+    print("✅ Alembic으로 DB 스키마를 관리합니다.")
+    print("⚠️  새 환경에서는 'alembic upgrade head'를 실행하세요.")
 
-    # 2. Seed Default LLM Providers (Idempotent)
-
+    # 2. Seed Default Data
     from db.session import SessionLocal
 
     db = SessionLocal()

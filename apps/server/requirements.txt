@@ -1,74 +1,115 @@
-annotated-doc==0.0.4
-annotated-types==0.7.0
+# Core Framework
+fastapi==0.128.0
+starlette==0.50.0
+uvicorn==0.40.0
+pydantic==2.12.5
+pydantic_core==2.41.5
+pydantic-settings==2.8.1
+
+# Database
+SQLAlchemy==2.0.45
+psycopg2-binary==2.9.11
+pgvector==0.3.6
+alembic==1.13.3
+
+# HTTP & Async
+httpx==0.28.1
+httpcore==1.0.9
+h11==0.16.0
 anyio==4.12.0
+requests==2.32.5
+
+# LLM & AI
+openai==1.68.2
+langchain==0.3.14
+langchain-community==0.3.14
+langchain-openai==0.3.14
+tiktoken==0.12.0
+llama-parse==0.5.15
+
+# Document Processing
+pymupdf==1.25.4
+pymupdf4llm==0.0.18
+python-docx==1.1.2
+openpyxl==3.1.5
+pandas==2.2.3
+
+# Authentication & Security
+python-jose==3.3.0
 bcrypt==5.0.0
-blinker==1.9.0
-certifi==2025.8.3
-cffi==2.0.0
-charset-normalizer==3.4.3
-click
-colorama==0.4.6
+passlib==1.7.4
 cryptography==46.0.3
-dnspython==2.7.0
-docker==7.1.0
-ecdsa==0.19.1
-email-validator==2.3.0
-fastapi==0.127.0
+PyNaCl==1.6.2
+
+# Web Framework (Flask)
 Flask==3.1.2
 flask-cors==6.0.1
 Flask-WTF==1.2.2
-greenlet
-gunicorn==23.0.0
-h11==0.16.0
-httpcore==1.0.9
-httpx==0.28.1
-idna==3.11
-iniconfig==2.3.0
-itsdangerous==2.2.0
 Jinja2==3.1.6
-MarkupSafe==3.0.2
-packaging>=24.0,<25
-passlib==1.7.4
-pluggy==1.6.0
-psycopg2-binary==2.9.11
-pyasn1==0.6.1
-pycparser==2.23
-pydantic==2.12.5
-pydantic_core==2.41.5
-Pygments==2.19.2
-pymongo==4.14.1
-pytest==9.0.2
-python-dotenv==1.1.1
-python-jose==3.3.0
-regex==2025.11.3
-requests==2.32.5
-rsa==4.9.1
-ruff==0.14.10
-six==1.17.0
-SQLAlchemy==2.0.45
-starlette==0.50.0
-tiktoken==0.12.0
-typing-inspection==0.4.2
-typing_extensions==4.15.0
-urllib3==2.6.2
-uvicorn==0.40.0
-langchain==0.3.14
-langchain-community==0.3.14
-pymupdf4llm
-pgvector==0.3.6
-openai==1.59.5
-pymupdf==1.25.1
-python-multipart
-langchain-openai
+MarkupSafe==3.0.3
 Werkzeug==3.1.4
 WTForms==3.2.1
-llama-parse
-pandas
-openpyxl
-python-docx
-sshtunnel
-paramiko<3.0
-PyGithub
+blinker==1.9.0
+itsdangerous==2.2.0
+
+# SSH & Remote
+paramiko==3.4.1
+sshtunnel==0.4.0
+
+# Cloud & Storage
+boto3==1.36.12
+docker==7.1.0
+PyGithub==2.6.0
+
+# Task Scheduling
 apscheduler==3.10.4
-pydantic-settings
-boto3
+
+# MongoDB
+pymongo==4.14.1
+
+# Environment & Config
+python-dotenv==1.2.1
+python-multipart==0.0.20
+
+# Template Engine
+Mako==1.3.10
+
+# Utilities
+click==8.3.1
+colorama==0.4.6
+invoke==2.2.1
+certifi==2025.8.3
+charset-normalizer==3.4.3
+dnspython==2.7.0
+email-validator==2.3.0
+idna==3.11
+packaging>=24.0,<25
+regex==2025.11.3
+urllib3==2.6.2
+six==1.17.0
+
+# Type Checking & Validation
+annotated-doc==0.0.4
+annotated-types==0.7.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+
+# Cryptography Support
+cffi==2.0.0
+pycparser==2.23
+ecdsa==0.19.1
+pyasn1==0.6.1
+rsa==4.9.1
+
+# Development & Testing
+pytest==9.0.2
+ruff==0.14.10
+Pygments==2.19.2
+pluggy==1.6.0
+iniconfig==2.3.0
+
+# WSGI Server
+gunicorn==23.0.0
+
+# SQLAlchemy Support
+greenlet==3.1.1
