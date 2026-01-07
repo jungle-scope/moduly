@@ -83,6 +83,14 @@ class AppService:
     def get_app(db: Session, app_id: str, user_id: str = None):
         """
         특정 앱을 조회합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            app_id: 앱 ID
+            user_id: 요청 유저 ID (선택, 비공개 앱의 경우 소유자만 접근 가능)
+
+        Returns:
+            App 객체 또는 None
         """
         app = db.query(App).filter(App.id == app_id).first()
 
@@ -100,6 +108,13 @@ class AppService:
     def get_user_apps(db: Session, user_id: str):
         """
         특정 유저의 모든 앱을 조회합니다.
+
+        Args:
+            db: 데이터베이스 세션
+            user_id: 유저 ID
+
+        Returns:
+            App 객체 리스트
         """
         apps = (
             db.query(App)
