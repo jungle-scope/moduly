@@ -164,7 +164,10 @@ export default function SignupPage() {
             <Link href="/" className="text-blue-600 hover:text-blue-500">
               ← 홈으로 돌아가기
             </Link>
-            <Link href="/login" className="text-gray-600 hover:text-gray-900">
+            <Link
+              href="/auth/login"
+              className="text-gray-600 hover:text-gray-900"
+            >
               이미 계정이 있으신가요?{' '}
               <span className="text-blue-600 hover:text-blue-500">로그인</span>
             </Link>
