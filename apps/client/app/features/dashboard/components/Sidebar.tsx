@@ -12,7 +12,7 @@ const navigationItems = [
     icon: Home,
   },
   {
-    name: '탐색',
+    name: '마켓플레이스',
     href: '/dashboard/explore',
     icon: Search,
   },

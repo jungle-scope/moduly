@@ -1,11 +1,13 @@
 import { WorkflowRun } from '@/app/features/workflow/types/Api';
 import { BarChart, Coins, Zap } from 'lucide-react';
+import { getNodeDisplayInfo } from '@/app/features/workflow/utils/nodeDisplayUtils';
 
 interface LogTokenAnalysisProps {
   run: WorkflowRun;
+  onNodeSelect?: (nodeId: string) => void;
 }
 
-export const LogTokenAnalysis = ({ run }: LogTokenAnalysisProps) => {
+export const LogTokenAnalysis = ({ run, onNodeSelect }: LogTokenAnalysisProps) => {
   const nodeRuns = run.node_runs || [];
 
   // 1. Calculate By Node
@@ -14,9 +16,13 @@ export const LogTokenAnalysis = ({ run }: LogTokenAnalysisProps) => {
     .map((n) => {
       const usage = (n.outputs as any).usage;
       const cost = (n.outputs as any).cost || 0;
+      const displayInfo = getNodeDisplayInfo(n.node_type);
       return {
         nodeId: n.node_id,
         nodeType: n.node_type,
+        displayLabel: displayInfo.label,
+        displayColor: displayInfo.color,
+        displayIcon: displayInfo.icon,
         model: (n.outputs as any).model || 'Unknown',
         totalTokens: usage.total_tokens || 0,
         promptTokens: usage.prompt_tokens || 0,
@@ -62,10 +68,15 @@ export const LogTokenAnalysis = ({ run }: LogTokenAnalysisProps) => {
         </div>
         <div className="space-y-3">
             {usageByNode.map((node) => (
-                <div key={node.nodeId} className="flex flex-col gap-1">
+                <button 
+                    key={node.nodeId} 
+                    onClick={() => onNodeSelect?.(node.nodeId)}
+                    className="w-full text-left flex flex-col gap-1 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                >
                     <div className="flex justify-between items-center text-xs">
-                        <span className="font-medium text-gray-700 truncate max-w-[150px]" title={node.nodeId}>
-                            {node.nodeType} <span className="text-gray-400 font-normal">({node.nodeId})</span>
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-medium ${node.displayColor}`}>
+                            {node.displayIcon}
+                            {node.displayLabel}
                         </span>
                         <span className="font-bold text-gray-900">{node.totalTokens.toLocaleString()} tks</span>
                     </div>
@@ -80,7 +91,7 @@ export const LogTokenAnalysis = ({ run }: LogTokenAnalysisProps) => {
                         <span>{node.model}</span>
                         <span>${node.cost.toFixed(5)}</span>
                     </div>
-                </div>
+                </button>
             ))}
         </div>
       </div>
@@ -107,7 +118,7 @@ export const LogTokenAnalysis = ({ run }: LogTokenAnalysisProps) => {
                         ></div>
                     </div>
                     <div className="flex justify-between text-[10px] text-gray-500">
-                        <span>{stat.count} calls</span>
+                        <span>{stat.count}회 호출</span>
                         <span className="font-medium text-gray-700">${stat.cost.toFixed(5)}</span>
                     </div>
                 </div>

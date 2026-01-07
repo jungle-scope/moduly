@@ -10,7 +10,7 @@ export const DEFAULT_NODES: Node[] = [
     type: 'startNode',
     position: { x: 250, y: 250 },
     data: {
-      title: '시작',
+      title: '입력',
       triggerType: 'manual',
       variables: [],
     } as StartNodeData,

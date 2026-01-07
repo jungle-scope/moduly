@@ -74,7 +74,10 @@ export default function NodeCanvas() {
     useReactFlow();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchModalContext, setSearchModalContext] = useState<{
+    isOpen: boolean;
+    position?: { x: number; y: number };
+  }>({ isOpen: false });
   const [isParamPanelOpen, setIsParamPanelOpen] = useState(false);
   const [isRefPanelOpen, setIsRefPanelOpen] = useState(false);
   const [isNodeLibraryOpen, setIsNodeLibraryOpen] = useState(true);
@@ -91,7 +94,7 @@ export default function NodeCanvas() {
   useKeyboardShortcut(
     ['Meta', 'k'],
     () => {
-      setIsSearchModalOpen(true);
+      setSearchModalContext({ isOpen: true });
     },
     { preventDefault: true },
   );
@@ -111,15 +114,15 @@ export default function NodeCanvas() {
 
   const handleSelectApp = useCallback(
     async (app: App & { active_deployment_id?: string; version?: number }) => {
-      const centerPos = screenToFlowPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      });
-
       const newNode: Node = {
         id: `workflow-${Date.now()}`,
         type: 'workflowNode',
-        position: centerPos,
+        position:
+          searchModalContext.position ||
+          screenToFlowPosition({
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+          }),
         data: {
           title: app.name,
           name: app.name,
@@ -136,7 +139,7 @@ export default function NodeCanvas() {
       };
 
       setNodes([...nodes, newNode]);
-      setIsSearchModalOpen(false);
+      setSearchModalContext({ isOpen: false });
 
       if (app.active_deployment_id) {
         try {
@@ -153,7 +156,13 @@ export default function NodeCanvas() {
         }
       }
     },
-    [nodes, setNodes, screenToFlowPosition, updateNodeData],
+    [
+      nodes,
+      setNodes,
+      screenToFlowPosition,
+      updateNodeData,
+      searchModalContext.position,
+    ],
   );
 
   const nodeTypes = useMemo(
@@ -353,6 +362,13 @@ export default function NodeCanvas() {
         y: contextMenuPos.y,
       });
 
+      // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
+      if (nodeDef.type === 'workflowNode') {
+        setSearchModalContext({ isOpen: true, position });
+        setIsContextNodeSelectorOpen(false);
+        return;
+      }
+
       const newNode: AppNode = {
         id: `${nodeDef.id}-${Date.now()}`,
         type: nodeDef.type as any,
@@ -386,6 +402,12 @@ export default function NodeCanvas() {
         x: event.clientX,
         y: event.clientY,
       });
+
+      // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
+      if (nodeDef.type === 'workflowNode') {
+        setSearchModalContext({ isOpen: true, position });
+        return;
+      }
 
       const newNode: AppNode = {
         id: `${nodeDef.id}-${Date.now()}`,
@@ -433,7 +455,7 @@ export default function NodeCanvas() {
         isOpen={isNodeLibraryOpen}
         onToggle={() => setIsNodeLibraryOpen(!isNodeLibraryOpen)}
         onAddNode={handleAddNodeFromLibrary}
-        onOpenAppSearch={() => setIsSearchModalOpen(true)}
+        onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
         workflowName={projectName}
         workflowIcon={projectIcon}
         workflowDescription={projectDescription}
@@ -443,8 +465,8 @@ export default function NodeCanvas() {
       <div className="flex-1 flex flex-col">
         {/* App Search Modal */}
         <AppSearchModal
-          isOpen={isSearchModalOpen}
-          onClose={() => setIsSearchModalOpen(false)}
+          isOpen={searchModalContext.isOpen}
+          onClose={() => setSearchModalContext({ isOpen: false })}
           onSelect={handleSelectApp}
           excludedAppId={currentAppId}
         />
@@ -490,7 +512,7 @@ export default function NodeCanvas() {
           <BottomPanel
             onCenterNodes={centerNodes}
             isPanelOpen={!!selectedNodeId}
-            onOpenAppSearch={() => setIsSearchModalOpen(true)}
+            onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
           />
 
           {/* [LLM] 파라미터 사이드 패널 */}

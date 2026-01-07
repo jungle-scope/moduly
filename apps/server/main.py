@@ -15,7 +15,7 @@ from sqlalchemy import text
 from api.api import api_router
 from db.base import Base
 from db.models.schedule import Schedule  # noqa: F401
-from db.seed import seed_default_llm_providers, seed_placeholder_user
+from db.seed import seed_default_llm_providers, seed_placeholder_user, seed_default_llm_models
 from db.session import engine
 
 
@@ -42,7 +42,10 @@ async def lifespan(app: FastAPI):
         # 2.2 Seed Providers
         seed_default_llm_providers(db)
 
-        # 2.3 Initialize SchedulerService (스케줄러 시작)
+        # 2.3 기본 모델 시드 (신규)
+        seed_default_llm_models(db)
+
+        # 2.4 Initialize SchedulerService (스케줄러 시작)
         from services.scheduler_service import init_scheduler_service
 
         print("🕐 SchedulerService 초기화 중...")

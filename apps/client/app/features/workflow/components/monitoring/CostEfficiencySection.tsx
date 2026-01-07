@@ -32,7 +32,7 @@ export const CostEfficiencySection = ({
           <div className="bg-amber-50/50 p-6 rounded-xl border border-amber-100 flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-amber-700 uppercase mb-1">평균 비용 / Run</p>
-              <h4 className="text-3xl font-bold text-gray-900">${avgCost.toFixed(5)}</h4>
+              <h4 className="text-3xl font-bold text-gray-900">${avgCost.toFixed(8)}</h4>
             </div>
             <div className="p-3 bg-white rounded-full shadow-sm">
                <DollarSign className="w-6 h-6 text-amber-500" />
@@ -66,14 +66,13 @@ export const CostEfficiencySection = ({
                             onClick={() => onNavigateToLog(run.run_id)}
                             className="w-full text-left bg-gray-50 hover:bg-red-50 hover:border-red-200 border border-transparent p-3 rounded-lg transition-all group"
                         >
-                            <div className="flex justify-between items-start mb-1">
-                                <span className="font-mono text-xs text-gray-500 group-hover:text-red-600 truncate max-w-[100px]">{run.run_id.slice(0, 8)}</span>
-                                <span className="text-sm font-bold text-gray-800 group-hover:text-red-700">${run.total_cost.toFixed(4)}</span>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs text-gray-500">{format(new Date(run.started_at), 'MM-dd HH:mm')}</span>
+                                <span className="text-sm font-bold text-red-600">${run.total_cost.toFixed(8)}</span>
                             </div>
-                            <div className="flex justify-between items-center text-xs text-gray-400 group-hover:text-red-400">
-                                <span>{format(new Date(run.started_at), 'MM-dd HH:mm')}</span>
-                                <span className="flex items-center gap-1">
-                                    {run.total_tokens.toLocaleString()} T
+                            <div className="text-xs text-gray-400 text-right">
+                                <span className="flex items-center gap-1 justify-end">
+                                    토큰: {run.total_tokens.toLocaleString()}
                                     <MousePointerClick className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </span>
                             </div>
@@ -96,14 +95,13 @@ export const CostEfficiencySection = ({
                             onClick={() => onNavigateToLog(run.run_id)}
                             className="w-full text-left bg-gray-50 hover:bg-green-50 hover:border-green-200 border border-transparent p-3 rounded-lg transition-all group"
                         >
-                            <div className="flex justify-between items-start mb-1">
-                                <span className="font-mono text-xs text-gray-500 group-hover:text-green-600 truncate max-w-[100px]">{run.run_id.slice(0, 8)}</span>
-                                <span className="text-sm font-bold text-gray-800 group-hover:text-green-700">${run.total_cost.toFixed(4)}</span>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs text-gray-500">{format(new Date(run.started_at), 'MM-dd HH:mm')}</span>
+                                <span className="text-sm font-bold text-green-600">${run.total_cost.toFixed(8)}</span>
                             </div>
-                            <div className="flex justify-between items-center text-xs text-gray-400 group-hover:text-green-400">
-                                <span>{format(new Date(run.started_at), 'MM-dd HH:mm')}</span>
-                                <span className="flex items-center gap-1">
-                                    {run.total_tokens.toLocaleString()} T
+                            <div className="text-xs text-gray-400 text-right">
+                                <span className="flex items-center gap-1 justify-end">
+                                    토큰: {run.total_tokens.toLocaleString()}
                                     <MousePointerClick className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </span>
                             </div>
