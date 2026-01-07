@@ -9,7 +9,7 @@ const categoryDisplayNames: Record<string, string> = {
   trigger: 'Trigger',
   llm: 'LLM',
   plugin: 'Plugin',
-  workflow: 'Module',
+  workflow: '서브 모듈',
   logic: 'Logic',
   database: 'Database',
   data: 'Data',
