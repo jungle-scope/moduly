@@ -26,7 +26,7 @@ class StorageService(ABC):
 
 
 class LocalStorageService(StorageService):
-    def __init__(self, upload_dir: str = "uploads"):
+    def __init__(self, upload_dir: str = "/tmp/uploads"):  # 컨테이너에서 쓰기 가능
         self.upload_dir = upload_dir
         os.makedirs(self.upload_dir, exist_ok=True)
 
