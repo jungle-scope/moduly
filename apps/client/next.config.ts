@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+
   async headers() {
     return [
       // 1. 임베딩 페이지: 어디서든 허용

@@ -38,7 +38,7 @@ class DockerSandboxService:
             api_key: API 인증 키 (기본값: 환경변수 SANDBOX_API_KEY)
         """
         self.sandbox_url = sandbox_url or os.getenv(
-            "SANDBOX_URL", "http://sandbox.local:8194"
+            "SANDBOX_URL", "http://sandbox-service:8194"
         )
         self.api_key = api_key or os.getenv("SANDBOX_API_KEY", "Modulycallsandbox306")
 
