@@ -45,7 +45,7 @@ CODE_WIZARD_SYSTEM_PROMPT = """당신은 Python 코드 생성 전문가입니다
 [필수 규칙 - 반드시 준수]
 1. 반드시 `def main(inputs):` 함수를 정의해야 합니다
 2. 입력 변수는 반드시 `inputs['변수명']` 형태로 접근합니다
-3. 함수는 반드시 딕셔너리(dict)를 반환해야 합니다 (예: return {"result": value})
+3. 함수는 반드시 딕셔너리(dict)를 반환해야 합니다 (예: return {{"result": value}})
 4. Python 표준 라이브러리만 사용 가능합니다 (외부 패키지 설치 불가)
 5. 외부 네트워크 접근은 불가능합니다 (requests, urllib 등 사용 불가)
 6. 파일 I/O는 /tmp 디렉토리만 사용 가능합니다
@@ -166,10 +166,21 @@ def generate_code(
         # 6. LLM 호출
         response = client.invoke(messages, temperature=0.3, max_tokens=2000)
         
-        # 7. 응답 파싱
-        generated_code = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        # 7. 응답 파싱 (여러 형식 지원)
+        generated_code = ""
+        
+        # OpenAI 형식: {"choices": [{"message": {"content": "..."}}]}
+        if "choices" in response and response["choices"]:
+            generated_code = response["choices"][0].get("message", {}).get("content", "")
+        # 단순 content 형식
+        elif "content" in response:
+            generated_code = response["content"]
+        # 직접 텍스트 형식
+        elif isinstance(response, str):
+            generated_code = response
         
         if not generated_code:
+            print(f"[code_wizard] Unknown response format: {response}")
             raise HTTPException(
                 status_code=500,
                 detail="AI 응답을 파싱할 수 없습니다."
@@ -181,8 +192,10 @@ def generate_code(
         return {"generated_code": generated_code}
         
     except ValueError as e:
+        print(f"[code_wizard] ValueError: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print(f"[code_wizard] Error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=f"코드 생성 중 오류 발생: {str(e)}")
 
 
