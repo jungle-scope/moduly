@@ -6,6 +6,7 @@ LLM 노드 런타임 최소 동작 테스트.
 
 import pathlib
 import sys
+import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PARENT_OF_ROOT = ROOT.parent
@@ -13,6 +14,7 @@ for p in [ROOT, PARENT_OF_ROOT]:
     if str(p) not in sys.path:
         sys.path.append(str(p))
 
+from services.llm_service import LLMService  # noqa: E402
 from workflow.nodes.llm.entities import LLMNodeData, LLMVariable  # noqa: E402
 from workflow.nodes.llm.llm_node import LLMNode  # noqa: E402
 
@@ -27,6 +29,27 @@ class DummyClient:
         return {
             "choices": [{"message": {"content": "hello world"}}],
             "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+        }
+
+
+class FailingClient:
+    def __init__(self):
+        self.calls = []
+
+    def invoke(self, messages, **kwargs):
+        self.calls.append({"messages": messages, "kwargs": kwargs})
+        raise RuntimeError("primary model failed")
+
+
+class SuccessClient:
+    def __init__(self):
+        self.calls = []
+
+    def invoke(self, messages, **kwargs):
+        self.calls.append({"messages": messages, "kwargs": kwargs})
+        return {
+            "choices": [{"message": {"content": "fallback ok"}}],
+            "usage": {},
         }
 
 
@@ -66,3 +89,40 @@ def test_llm_node_runs_with_override_client():
     # 응답 파싱 검증
     assert result["text"] == "hello world"
     assert result["usage"] == {"prompt_tokens": 1, "completion_tokens": 1}
+
+
+def test_llm_node_uses_fallback_model_on_failure(monkeypatch):
+    primary_client = FailingClient()
+    fallback_client = SuccessClient()
+
+    def fake_get_client_for_user(db, user_id, model_id):
+        if model_id == "primary-model":
+            return primary_client
+        if model_id == "fallback-model":
+            return fallback_client
+        raise AssertionError(f"unexpected model_id: {model_id}")
+
+    monkeypatch.setattr(LLMService, "get_client_for_user", fake_get_client_for_user)
+
+    data = LLMNodeData(
+        title="LLM",
+        provider="openai",
+        model_id="primary-model",
+        fallback_model_id="fallback-model",
+        system_prompt="sys",
+        user_prompt="user",
+        assistant_prompt=None,
+        referenced_variables=[],
+        context_variable=None,
+        parameters={},
+    )
+
+    node = LLMNode("llm-1", data, execution_context={"user_id": str(uuid.uuid4())})
+    node.db = object()  # DB 세션 생성 방지
+
+    result = node.execute({})
+
+    assert primary_client.calls
+    assert fallback_client.calls
+    assert result["text"] == "fallback ok"
+    assert result["model"] == "fallback-model"
