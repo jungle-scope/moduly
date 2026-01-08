@@ -374,7 +374,10 @@ class IngestionOrchestrator:
         return refined
 
     def _save_to_vector_db(self, doc: Document, chunks: List[Dict[str, Any]]):
+        import re
+
         from services.llm_service import LLMService
+        from utils.encryption import encryption_manager
 
         self.db.query(DocumentChunk).filter(
             DocumentChunk.document_id == doc.id
@@ -401,21 +404,42 @@ class IngestionOrchestrator:
         for i, chunk in enumerate(chunks):
             if (i + 1) % 5 == 0:
                 print(f"[DEBUG] {i + 1}/{len(chunks)} 개의 청크 처리 중...")
-            # 실제 임베딩 생성
+
+            content = chunk["content"]
+
+            # 1. 평문으로 임베딩 생성
             if llm_client:
                 try:
-                    embedding = llm_client.embed(chunk["content"])
+                    embedding = llm_client.embed(content)
                 except Exception as e:
                     print(f"[ERROR] Embedding failed for chunk {i}: {e}")
                     raise Exception(f"OpenAI Embedding Error: {str(e)}")
-                # print(f"[DEBUG] Embedding generated for chunk {i + 1}")
             else:
                 embedding = [0.1] * 1536  # Fallback
+
+            # 2. content에서 민감 컬럼만 암호화
+            sensitive_columns = chunk.get("metadata", {}).get("sensitive_columns", [])
+            if sensitive_columns:
+                for col in sensitive_columns:
+                    # "colname: value" 패턴 찾아서 암호화
+                    pattern = rf"({re.escape(col)}:\s*)([^\n]+)"
+
+                    def encrypt_match(match):
+                        key = match.group(1)  # "email: "
+                        value = match.group(2)  # "hong@example.com"
+                        try:
+                            encrypted_value = encryption_manager.encrypt(value)
+                            return f"{key}{encrypted_value}"
+                        except Exception as e:
+                            print(f"[ERROR] Failed to encrypt {col}: {e}")
+                            return match.group(0)  # 암호화 실패 시 원본 유지
+
+                    content = re.sub(pattern, encrypt_match, content)
 
             new_chunk = DocumentChunk(
                 document_id=doc.id,
                 knowledge_base_id=doc.knowledge_base_id,
-                content=chunk["content"],
+                content=content,
                 chunk_index=i,
                 token_count=chunk.get("token_count", 0),
                 metadata_=chunk["metadata"],

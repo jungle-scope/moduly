@@ -172,18 +172,25 @@ class DbProcessor(BaseProcessor):
                 # 커넥터 실행 (Generator)
                 # fetch_data가 dict 형태({"col": "val"})로 yield 한다고 가정
                 for row_dict in connector.fetch_data(config_dict, query):
-                    # 텍스트 변환 (Transformer) - 민감정보 전달
+                    # 텍스트 변환 (Transformer)
                     nl_text = transformer.transform(
                         row_dict, sensitive_info=sensitive_info
                     )
 
+                    # 민감 컬럼 정보를 메타데이터에 포함
+                    metadata = {
+                        "source": f"DB:{conn_record.name}:{table_name}",
+                        "table": table_name,
+                    }
+                    if sensitive_info:
+                        metadata["sensitive_columns"] = sensitive_info.get(
+                            "sensitive_columns", []
+                        )
+
                     chunks.append(
                         {
                             "content": nl_text,
-                            "metadata": {
-                                "source": f"DB:{conn_record.name}:{table_name}",
-                                "table": table_name,
-                            },
+                            "metadata": metadata,
                         }
                     )
         except Exception as e:
