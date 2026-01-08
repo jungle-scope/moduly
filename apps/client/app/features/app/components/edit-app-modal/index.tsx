@@ -73,8 +73,15 @@ export default function EditAppModal({
       toast.success('앱 정보가 수정되었습니다.');
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('앱 수정 실패:', error);
+      if (
+        error.response?.status === 400 &&
+        error.response?.data?.detail === 'App with this name already exists.'
+      ) {
+        toast.error('이미 존재하는 앱 이름입니다.');
+        return;
+      }
       toast.error('앱 수정에 실패했습니다.');
     } finally {
       isSubmittingRef.current = false;
