@@ -2,14 +2,26 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Wrench, BookOpen, BarChart3, Home } from 'lucide-react';
+import {
+  Search,
+  Wrench,
+  BookOpen,
+  BarChart3,
+  Puzzle,
+  Home,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigationItems = [
   {
-    name: '대시보드',
+    name: '홈',
     href: '/dashboard',
     icon: Home,
+  },
+  {
+    name: '내 모듈',
+    href: '/mymodule',
+    icon: Puzzle,
   },
   {
     name: '마켓플레이스',
@@ -55,7 +67,7 @@ export default function Sidebar() {
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-white',
               )}
             >
-              <Icon className="h-5 w-5 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" />
               <span>{item.name}</span>
             </Link>
           );
