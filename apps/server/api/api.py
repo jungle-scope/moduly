@@ -9,6 +9,7 @@ from api.v1.endpoints import (
     knowledge,
     llm,
     prompt_wizard,
+    template_wizard,
     rag,
     run,
     webhook,
@@ -33,6 +34,7 @@ api_router.include_router(app.router, prefix="/apps", tags=["apps"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(llm.router, prefix="/llm", tags=["llm"])
 api_router.include_router(prompt_wizard.router, prefix="/prompt-wizard", tags=["prompt-wizard"])
+api_router.include_router(template_wizard.router, prefix="/template-wizard", tags=["template-wizard"])
 
 # Knowledge & RAG (Dev A)
 api_router.include_router(knowledge.router, prefix="/knowledge", tags=["knowledge"])

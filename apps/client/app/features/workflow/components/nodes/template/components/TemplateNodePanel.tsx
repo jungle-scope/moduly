@@ -1,10 +1,12 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { TemplateNodeData, TemplateVariable } from '../../../../types/Nodes';
 
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { TemplateWizardModal } from '../../../modals/TemplateWizardModal';
 
 interface TemplateNodePanelProps {
   nodeId: string;
@@ -69,6 +71,37 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionPos, setSuggestionPos] = useState({ top: 0, left: 0 });
+  
+  // 템플릿 마법사 모달 상태
+  const [showWizardModal, setShowWizardModal] = useState(false);
+  const [hasCredentials, setHasCredentials] = useState<boolean | null>(null);
+  
+  // Credential 확인 (마운트 시)
+  useEffect(() => {
+    checkCredentials();
+  }, []);
+  
+  const checkCredentials = async () => {
+    try {
+      const res = await fetch('/api/v1/template-wizard/check-credentials', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHasCredentials(data.has_credentials);
+      }
+    } catch {
+      setHasCredentials(false);
+    }
+  };
+  
+  // 등록된 변수명 목록 추출
+  const registeredVariableNames = useMemo(() => {
+    return (data.variables || [])
+      .map(v => v.name?.trim())
+      .filter(Boolean) as string[];
+  }, [data.variables]);
 
   // 1. 상위 노드
   const upstreamNodes = useMemo(() => {
@@ -200,13 +233,37 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
       {/* 2. 템플릿 에디터 */}
       <CollapsibleSection title="Template">
         <div className="flex flex-col gap-2 relative">
-          <p className="text-xs text-gray-500">
-            Jinja2 문법을 사용하여 템플릿을 작성하세요. 설정한 변수는{' '}
-            <code className="bg-gray-100 px-1 rounded text-gray-700">
-              {`{{ variable_name }}`}
-            </code>{' '}
-            형태로 삽입됩니다.
-          </p>
+          {/* 헤더: 설명(좌측) + 마법사 버튼(우측) */}
+          <div className="flex items-start justify-between mb-1">
+            <div className="flex flex-col gap-0.5">
+              <p className="text-xs text-gray-500 leading-snug">
+                원하는 내용을 자유롭게 템플릿으로 작성하세요.
+              </p>
+              <p className="text-xs text-gray-500 leading-snug">
+                변수가 필요한 곳에는 <code className="bg-gray-100 px-1 rounded text-gray-600 font-mono">{`{{ }}`}</code>를 사용하여 감싸주시면 됩니다.
+              </p>
+            </div>
+            
+            <div className="group/wizard relative ml-2">
+              <button
+                type="button"
+                onClick={() => setShowWizardModal(true)}
+                disabled={hasCredentials === false}
+                title={
+                  hasCredentials === false 
+                    ? "Provider를 먼저 등록해주세요" 
+                    : "AI로 템플릿 작성/개선하기"
+                }
+                className="p-1.5 text-pink-500 hover:text-pink-700 hover:bg-pink-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Sparkles className="w-4 h-4" />
+              </button>
+              <div className="absolute z-50 hidden group-hover/wizard:block w-36 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg right-0 top-8">
+                AI가 템플릿을 작성/개선해드려요
+                <div className="absolute -top-1 right-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+              </div>
+            </div>
+          </div>
 
           <div className="relative w-full">
             <textarea
@@ -262,6 +319,17 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
           )}
         </div>
       </CollapsibleSection>
+      
+      {/* 템플릿 마법사 모달 */}
+      <TemplateWizardModal
+        isOpen={showWizardModal}
+        onClose={() => setShowWizardModal(false)}
+        originalTemplate={data.template || ''}
+        registeredVariables={registeredVariableNames}
+        onApply={(improvedTemplate) => {
+          handleTemplateChange(improvedTemplate);
+        }}
+      />
     </div>
   );
 };
