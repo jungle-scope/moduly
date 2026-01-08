@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import Image from 'next/image';
 import {
   Search,
   Wrench,
@@ -12,6 +11,7 @@ import {
   Home,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Logo from './Logo';
 
 const navigationItems = [
   {
@@ -52,14 +52,8 @@ export default function Sidebar() {
   return (
     <aside className="flex h-full w-52 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30">
       {/* Logo */}
-      <div className="px-4 pt-3 pb-4">
-        <Image
-          src="/moduly-logo.png"
-          alt="Moduly"
-          width={80}
-          height={28}
-          priority
-        />
+      <div className="border-b border-gray-100">
+        <Logo />
       </div>
 
       {/* Main Navigation */}

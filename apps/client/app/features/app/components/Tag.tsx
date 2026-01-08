@@ -1,12 +1,6 @@
 interface TagProps {
   label: string;
-  type:
-    | 'api'
-    | 'webapp'
-    | 'widget'
-    | 'workflow_node'
-    | 'undeployed'
-    | 'knowledge';
+  type: 'api' | 'webapp' | 'widget' | 'workflow_node' | 'undeployed';
 }
 
 export function Tag({ label, type }: TagProps) {
@@ -16,7 +10,6 @@ export function Tag({ label, type }: TagProps) {
     widget: 'bg-green-100 text-green-700',
     workflow_node: 'bg-teal-100 text-teal-700',
     undeployed: 'bg-gray-100 text-gray-600',
-    knowledge: 'bg-orange-100 text-orange-700',
   };
 
   return (

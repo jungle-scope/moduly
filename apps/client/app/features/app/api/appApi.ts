@@ -42,7 +42,6 @@ export interface App {
     | 'mcp'
     | 'workflow_node';
   owner_name?: string;
-  has_knowledge?: boolean;
   created_at: string;
   updated_at: string;
 }
