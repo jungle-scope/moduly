@@ -157,6 +157,13 @@ class DbProcessor(BaseProcessor):
                 columns = selection.get("columns", ["*"])  # 컬럼 선택 안하면 전체
                 limit = source_config.get("limit", 1000)
 
+                # 민감정보 설정 추출
+                sensitive_info = None
+                if "sensitive_columns" in selection:
+                    sensitive_info = {
+                        "sensitive_columns": selection.get("sensitive_columns", []),
+                    }
+
                 # [EXISTING] 2. 모든 테이블의 데이터 rows 추가
                 # 쿼리 생성
                 req_cols = ", ".join(columns)
@@ -165,8 +172,10 @@ class DbProcessor(BaseProcessor):
                 # 커넥터 실행 (Generator)
                 # fetch_data가 dict 형태({"col": "val"})로 yield 한다고 가정
                 for row_dict in connector.fetch_data(config_dict, query):
-                    # 텍스트 변환 (Transformer)
-                    nl_text = transformer.transform(row_dict)
+                    # 텍스트 변환 (Transformer) - 민감정보 전달
+                    nl_text = transformer.transform(
+                        row_dict, sensitive_info=sensitive_info
+                    )
 
                     chunks.append(
                         {
