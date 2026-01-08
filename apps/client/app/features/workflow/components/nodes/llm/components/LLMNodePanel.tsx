@@ -8,6 +8,11 @@ import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { HelpCircle, BookOpen, MousePointerClick, Wand2 } from 'lucide-react';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { PromptWizardModal } from '../../../modals/PromptWizardModal';
+import {
+  fetchEligibleKnowledgeBases,
+  sanitizeSelectedKnowledgeBases,
+  isSameKnowledgeSelection,
+} from '@/app/features/workflow/utils/llmKnowledgeBaseSelection';
 
 // LLMModelResponse와 일치하는 백엔드 응답 타입
 type ModelOption = {
@@ -85,7 +90,9 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
   // 프롬프트 마법사 상태
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardField, setWizardField] = useState<'system' | 'user' | 'assistant'>('system');
+  const [wizardField, setWizardField] = useState<
+    'system' | 'user' | 'assistant'
+  >('system');
 
   // 마법사 열기 핸들러
   const openWizard = (field: 'system' | 'user' | 'assistant') => {
@@ -288,6 +295,33 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
     fetchMyModels();
   }, []);
+
+  useEffect(() => {
+    if (!data.knowledgeBases || data.knowledgeBases.length === 0) return;
+    let active = true;
+    const syncKnowledgeBases = async () => {
+      try {
+        const { bases } = await fetchEligibleKnowledgeBases();
+        if (!active) return;
+        const nextSelected = sanitizeSelectedKnowledgeBases(
+          data.knowledgeBases || [],
+          bases,
+        );
+        if (
+          !isSameKnowledgeSelection(nextSelected, data.knowledgeBases || [])
+        ) {
+          updateNodeData(nodeId, { knowledgeBases: nextSelected });
+        }
+      } catch (err) {
+        console.error('[LLMNodePanel] Failed to sync knowledge bases', err);
+      }
+    };
+
+    syncKnowledgeBases();
+    return () => {
+      active = false;
+    };
+  }, [nodeId]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -501,8 +535,8 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                 <div className="group relative inline-block ml-1">
                   <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
                   <div className="absolute z-50 hidden group-hover:block w-48 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
-                    AI의 역할, 성격, 행동 규칙을 정의합니다. 모든 대화에 일관되게
-                    적용됩니다.
+                    AI의 역할, 성격, 행동 규칙을 정의합니다. 모든 대화에
+                    일관되게 적용됩니다.
                     <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
                   </div>
                 </div>
