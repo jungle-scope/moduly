@@ -133,3 +133,26 @@ class WorkflowService:
             data["features"] = workflow.features
 
         return data
+
+    @staticmethod
+    def has_knowledge_usage(workflow_data: dict) -> bool:
+        """
+        워크플로우가 지식(RAG)을 사용하는지 확인합니다.
+
+        Args:
+            workflow_data: 워크플로우 graph 데이터 (nodes, edges 포함)
+
+        Returns:
+            지식 사용 여부 (True/False)
+        """
+        nodes = workflow_data.get("nodes", [])
+
+        for node in nodes:
+            # LLM 노드 타입 확인
+            if node.get("type") == "llmNode":
+                node_data = node.get("data", {})
+                # knowledge_group_id가 설정되어 있으면 지식 사용
+                if node_data.get("knowledge_group_id"):
+                    return True
+
+        return False

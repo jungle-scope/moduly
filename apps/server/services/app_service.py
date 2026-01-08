@@ -124,8 +124,23 @@ class AppService:
             .all()
         )
 
+        # WorkflowService import
+        from services.workflow_service import WorkflowService
+
         for app in apps:
             AppService._populate_owner_name(db, app)
+
+            # 지식 사용 여부 확인
+            has_knowledge = False
+            if app.workflow_id:
+                workflow = (
+                    db.query(Workflow).filter(Workflow.id == app.workflow_id).first()
+                )
+                if workflow and workflow.graph:
+                    has_knowledge = WorkflowService.has_knowledge_usage(workflow.graph)
+
+            # App 객체에 has_knowledge 속성 추가
+            setattr(app, "has_knowledge", has_knowledge)
 
         return apps
 
@@ -141,7 +156,25 @@ class AppService:
         Returns:
             공개된 App 객체 리스트
         """
-        return db.query(App).filter(App.is_market == True).all()
+        apps = db.query(App).filter(App.is_market == True).all()
+
+        # WorkflowService import
+        from services.workflow_service import WorkflowService
+
+        for app in apps:
+            # 지식 사용 여부 확인
+            has_knowledge = False
+            if app.workflow_id:
+                workflow = (
+                    db.query(Workflow).filter(Workflow.id == app.workflow_id).first()
+                )
+                if workflow and workflow.graph:
+                    has_knowledge = WorkflowService.has_knowledge_usage(workflow.graph)
+
+            # App 객체에 has_knowledge 속성 추가
+            setattr(app, "has_knowledge", has_knowledge)
+
+        return apps
 
     @staticmethod
     def update_app(db: Session, app_id: str, request: AppUpdateRequest, user_id: str):
