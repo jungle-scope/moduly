@@ -225,6 +225,48 @@ export default function DBSchemaSelector({
                     ({table.columns.length} columns)
                   </span>
                 </div>
+
+                {/* 암호화 전체 선택 체크박스 */}
+                {onSensitiveColumnsChange && selectedCols.length > 0 && (
+                  <div
+                    className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors mr-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentSensitive =
+                        sensitiveColumns[table.table_name] || [];
+                      const isAllSensitive =
+                        currentSensitive.length === selectedCols.length;
+
+                      const newSensitive = { ...sensitiveColumns };
+                      if (isAllSensitive) {
+                        delete newSensitive[table.table_name];
+                      } else {
+                        newSensitive[table.table_name] = selectedCols;
+                      }
+                      onSensitiveColumnsChange(newSensitive);
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={
+                        (sensitiveColumns[table.table_name] || []).length ===
+                          selectedCols.length && selectedCols.length > 0
+                      }
+                      onChange={() => {}}
+                      className="w-3 h-3 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                    />
+                    <span
+                      className={
+                        (sensitiveColumns[table.table_name] || []).length ===
+                          selectedCols.length && selectedCols.length > 0
+                          ? 'text-orange-600 dark:text-orange-400 font-medium'
+                          : ''
+                      }
+                    >
+                      🔒 전체 암호화
+                    </span>
+                  </div>
+                )}
               </div>
               {/* Columns List */}
               {isExpanded && (
