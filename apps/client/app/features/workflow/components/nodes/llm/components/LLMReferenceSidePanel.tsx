@@ -8,6 +8,11 @@ import {
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
 import { LLMNodeData } from '../../../../types/Nodes';
+import {
+  fetchEligibleKnowledgeBases,
+  sanitizeSelectedKnowledgeBases,
+  isSameKnowledgeSelection,
+} from '@/app/features/workflow/utils/llmKnowledgeBaseSelection';
 
 interface LLMReferenceSidePanelProps {
   nodeId: string;
@@ -29,12 +34,17 @@ export function LLMReferenceSidePanel({
   const [details, setDetails] = useState<Record<string, KnowledgeBaseDetailResponse>>({});
   const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [hasLoadedBases, setHasLoadedBases] = useState(false);
 
   // Selected knowledge bases from LLM node data
   const selectedKnowledgeBases = data.knowledgeBases || [];
+  const effectiveSelectedKnowledgeBases = useMemo(() => {
+    if (!hasLoadedBases) return selectedKnowledgeBases;
+    return sanitizeSelectedKnowledgeBases(selectedKnowledgeBases, knowledgeBases);
+  }, [hasLoadedBases, knowledgeBases, selectedKnowledgeBases]);
   const selectedIds = useMemo(
-    () => new Set(selectedKnowledgeBases.map((kb) => kb.id)),
-    [selectedKnowledgeBases],
+    () => new Set(effectiveSelectedKnowledgeBases.map((kb) => kb.id)),
+    [effectiveSelectedKnowledgeBases],
   );
 
   // Search settings
@@ -49,8 +59,17 @@ export function LLMReferenceSidePanel({
       setLoading(true);
       setError(null);
       try {
-        const bases = await knowledgeApi.getKnowledgeBases();
+        const { bases, detailsById } = await fetchEligibleKnowledgeBases();
         setKnowledgeBases(bases);
+        setDetails((prev) => ({ ...prev, ...detailsById }));
+        setHasLoadedBases(true);
+        const nextSelected = sanitizeSelectedKnowledgeBases(
+          selectedKnowledgeBases,
+          bases,
+        );
+        if (!isSameKnowledgeSelection(nextSelected, selectedKnowledgeBases)) {
+          updateNodeData(nodeId, { knowledgeBases: nextSelected });
+        }
       } catch (err) {
         console.error('Failed to load knowledge bases', err);
         setError('참고 자료를 불러오지 못했습니다.');
@@ -59,11 +78,11 @@ export function LLMReferenceSidePanel({
       }
     };
     fetchBases();
-  }, []);
+  }, [nodeId]);
 
   // Toggle selection
   const toggleKnowledgeBase = (kb: KnowledgeBaseResponse) => {
-    const current = selectedKnowledgeBases;
+    const current = effectiveSelectedKnowledgeBases;
     let next;
     if (selectedIds.has(kb.id)) {
       next = current.filter((item) => item.id !== kb.id);
@@ -158,9 +177,7 @@ export function LLMReferenceSidePanel({
           )}
 
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
-            {(knowledgeBases || [])
-              .filter((kb) => (kb.document_count || 0) > 0)
-              .map((kb) => {
+            {(knowledgeBases || []).map((kb) => {
               const isSelected = selectedIds.has(kb.id);
               const isExpanded = expandedIds.has(kb.id);
               const kbDetail = details[kb.id];
@@ -255,7 +272,7 @@ export function LLMReferenceSidePanel({
 
             {!loading && knowledgeBases.length === 0 && !error && (
               <div className="rounded border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-600">
-                등록된 참고 자료 그룹이 없습니다.
+                완료된 문서가 있는 참고 자료 그룹이 없습니다.
               </div>
             )}
           </div>

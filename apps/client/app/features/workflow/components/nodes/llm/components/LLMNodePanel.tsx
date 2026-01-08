@@ -7,6 +7,11 @@ import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { HelpCircle, BookOpen, MousePointerClick } from 'lucide-react';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import {
+  fetchEligibleKnowledgeBases,
+  sanitizeSelectedKnowledgeBases,
+  isSameKnowledgeSelection,
+} from '@/app/features/workflow/utils/llmKnowledgeBaseSelection';
 
 // LLMModelResponse와 일치하는 백엔드 응답 타입
 type ModelOption = {
@@ -267,6 +272,31 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
     fetchMyModels();
   }, []);
+
+  useEffect(() => {
+    if (!data.knowledgeBases || data.knowledgeBases.length === 0) return;
+    let active = true;
+    const syncKnowledgeBases = async () => {
+      try {
+        const { bases } = await fetchEligibleKnowledgeBases();
+        if (!active) return;
+        const nextSelected = sanitizeSelectedKnowledgeBases(
+          data.knowledgeBases || [],
+          bases,
+        );
+        if (!isSameKnowledgeSelection(nextSelected, data.knowledgeBases || [])) {
+          updateNodeData(nodeId, { knowledgeBases: nextSelected });
+        }
+      } catch (err) {
+        console.error('[LLMNodePanel] Failed to sync knowledge bases', err);
+      }
+    };
+
+    syncKnowledgeBases();
+    return () => {
+      active = false;
+    };
+  }, [nodeId]);
 
   return (
     <div className="flex flex-col gap-2">
