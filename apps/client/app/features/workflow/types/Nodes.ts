@@ -131,6 +131,7 @@ export interface LLMVariable {
 export interface LLMNodeData extends BaseNodeData {
   provider: string;
   model_id: string;
+  fallback_model_id?: string;
   system_prompt?: string;
   user_prompt?: string;
   assistant_prompt?: string;

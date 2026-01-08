@@ -15,8 +15,13 @@ DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NA
 
 # SQLAlchemy 엔진 생성
 engine = create_engine(
-    DATABASE_URL, echo=False
-)  # echo=True: SQL 쿼리 로그 출력, 디버깅 필요시 활성화
+    DATABASE_URL,
+    echo=False,  # echo=True: SQL 쿼리 로그 출력, 디버깅 필요시 활성화
+    pool_size=20,  # 기본 커넥션 수 (기본값: 5)
+    max_overflow=30,  # 추가 허용 커넥션 (기본값: 10)
+    pool_timeout=60,  # 커넥션 대기 시간(초)
+    pool_pre_ping=True,  # 커넥션 유효성 체크
+)
 
 # 세션 팩토리 생성
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

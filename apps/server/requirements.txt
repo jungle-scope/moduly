@@ -72,3 +72,4 @@ PyGithub
 apscheduler==3.10.4
 pydantic-settings
 boto3
+locust>=2.20.0
