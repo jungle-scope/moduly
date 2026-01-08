@@ -99,9 +99,25 @@ class RetrievalService:
             if similarity < threshold:
                 continue
 
+            # 암호화된 content 복호화
+            content = chunk.content
+            encrypted_pattern = r"([\w_]+):\s*(gAAAAAB[A-Za-z0-9_-]+={0,2})"
+
+            def decrypt_match(match):
+                key = match.group(1)
+                encrypted_value = match.group(2)
+                try:
+                    decrypted = encryption_manager.decrypt(encrypted_value)
+                    return f"{key}: {decrypted}"
+                except Exception as e:
+                    print(f"[WARNING] Failed to decrypt {key}: {e}")
+                    return f"{key}: [ENCRYPTED]"
+
+            decrypted_content = re.sub(encrypted_pattern, decrypt_match, content)
+
             previews.append(
                 ChunkPreview(
-                    content=chunk.content,
+                    content=decrypted_content,
                     document_id=doc.id,
                     filename=doc.filename,
                     page_number=chunk.metadata_.get("page"),
