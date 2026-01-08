@@ -109,6 +109,7 @@ export const nodeRegistry: NodeDefinition[] = [
       title: 'LLM',
       provider: '',
       model_id: '',
+      fallback_model_id: '',
       system_prompt: '',
       user_prompt: '',
       assistant_prompt: '',

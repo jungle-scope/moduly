@@ -66,12 +66,12 @@ class LLMNode(Node[LLMNodeData]):
         # TODO: per-user provider/credential로 교체 필요
         # 현재는 임시 모드: DB에서 아무 provider/credential을 가져와 클라이언트 생성
         # - 엔진이 db를 주입하지 않는 경우를 대비해 SessionLocal로 임시 세션 생성 (MVP 전용)
+        db_session = getattr(self, "db", None)
+        temp_session = None
         client_override = getattr(self, "_client_override", None)
         if client_override:
             client = client_override
         else:
-            db_session = getattr(self, "db", None)
-            temp_session = None
             if db_session is None:
                 temp_session = SessionLocal()
                 db_session = temp_session
@@ -157,8 +157,56 @@ class LLMNode(Node[LLMNodeData]):
             llm_params["stop"] = [s for s in llm_params["stop"] if s and s.strip()]
             if not llm_params["stop"]:
                 del llm_params["stop"]
-        
-        response = client.invoke(messages=messages, **llm_params)
+
+        used_model_id = self.data.model_id
+        try:
+            response = client.invoke(messages=messages, **llm_params)
+        except Exception as primary_error:
+            fallback_model_id = self.data.fallback_model_id
+            if not fallback_model_id:
+                raise
+            print(
+                f"[LLMNode] Primary model failed: {primary_error}. "
+                f"Trying fallback model: {fallback_model_id}"
+            )
+            fallback_client = None
+            fallback_session = None
+            try:
+                if client_override:
+                    fallback_client = client_override
+                else:
+                    session_for_fallback = db_session
+                    if session_for_fallback is None:
+                        fallback_session = SessionLocal()
+                        session_for_fallback = fallback_session
+                    user_id_str = self.execution_context.get("user_id")
+                    if user_id_str:
+                        try:
+                            user_id = uuid.UUID(user_id_str)
+                            fallback_client = LLMService.get_client_for_user(
+                                session_for_fallback,
+                                user_id=user_id,
+                                model_id=fallback_model_id,
+                            )
+                        except Exception as e:
+                            print(
+                                f"[LLMNode] Fallback client load failed: {e}. "
+                                "Fallback to legacy."
+                            )
+
+                    if not fallback_client:
+                        fallback_client = LLMService.get_client_with_any_credential(
+                            session_for_fallback, model_id=fallback_model_id
+                        )
+            finally:
+                if fallback_session is not None:
+                    fallback_session.close()
+
+            try:
+                response = fallback_client.invoke(messages=messages, **llm_params)
+            except Exception as fallback_error:
+                raise fallback_error from primary_error
+            used_model_id = fallback_model_id
 
         # OpenAI 응답 포맷에서 텍스트/usage 추출 (missing 시 안전하게 빈 값)
         text = ""
@@ -178,7 +226,7 @@ class LLMNode(Node[LLMNodeData]):
             try:
                 # DB 세션이 있으면 비용 계산
                 if db_session:
-                    cost = LLMService.calculate_cost(db_session, self.data.model_id, prompt_tokens, completion_tokens)
+                    cost = LLMService.calculate_cost(db_session, used_model_id, prompt_tokens, completion_tokens)
                     
                     # [NEW] Usage 로깅 저장
                     user_id_str = self.execution_context.get("user_id")
@@ -192,7 +240,7 @@ class LLMNode(Node[LLMNodeData]):
                             LLMService.log_usage(
                                 db=db_session,
                                 user_id=uuid.UUID(user_id_str),
-                                model_id=self.data.model_id,
+                                model_id=used_model_id,
                                 usage=usage,
                                 cost=cost,
                                 workflow_run_id=wf_run_uuid,
@@ -207,7 +255,7 @@ class LLMNode(Node[LLMNodeData]):
         return {
             "text": text, 
             "usage": usage, 
-            "model": self.data.model_id,
+            "model": used_model_id,
             "cost": cost,
             "metadata": {
                 "knowledge_search": knowledge_metadata if knowledge_metadata else None
