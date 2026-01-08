@@ -46,8 +46,8 @@ class WorkflowUser(HttpUser):
             "Content-Type": "application/json",
         }
 
-        # 테스트 입력 데이터 (score 변수 사용)
-        payload = {"inputs": {"score": random.randint(1, 100)}}
+        # 테스트 입력 데이터 (math 변수 사용)
+        payload = {"inputs": {"math": random.randint(1, 100)}}
 
         with self.client.post(
             f"/api/v1/run/{self.deployment_slug}",
