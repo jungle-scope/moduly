@@ -3,7 +3,7 @@ name: Deploy to EKS (Frontend)
 on:
   push:
     branches:
-      - test
+      - develop
     paths:
       - 'apps/client/**'
       - 'docker/client/**'
