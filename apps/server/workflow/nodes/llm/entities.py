@@ -31,6 +31,7 @@ class LLMNodeData(BaseNodeData):
 
     provider: Optional[str] = None
     model_id: str
+    fallback_model_id: Optional[str] = None
     system_prompt: Optional[str] = None
     user_prompt: Optional[str] = None
     assistant_prompt: Optional[str] = None
@@ -48,6 +49,11 @@ class LLMNodeData(BaseNodeData):
         if not self.model_id or not self.model_id.strip():
             raise ValueError("모델을 선택하세요.")
         # Provider is now inferred from model_id via LLMService
+        if self.fallback_model_id is not None:
+            stripped_fallback = self.fallback_model_id.strip()
+            self.fallback_model_id = stripped_fallback or None
+        if self.fallback_model_id == self.model_id:
+            self.fallback_model_id = None
 
         prompts = [self.system_prompt, self.user_prompt, self.assistant_prompt]
         if all(not p for p in prompts):
