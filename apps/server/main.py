@@ -45,7 +45,13 @@ async def lifespan(app: FastAPI):
         # 2.3 기본 모델 시드 (신규)
         seed_default_llm_models(db)
 
-        # 2.4 Initialize SchedulerService (스케줄러 시작)
+        # 2.4 기존 모델 가격 동기화 (KNOWN_MODEL_PRICES 기반)
+        from services.llm_service import LLMService
+        result = LLMService.sync_system_prices(db)
+        if result["updated_models"] > 0:
+            print(f"💰 Updated pricing for {result['updated_models']} existing models.")
+
+        # 2.5 Initialize SchedulerService (스케줄러 시작)
         from services.scheduler_service import init_scheduler_service
 
         print("🕐 SchedulerService 초기화 중...")
