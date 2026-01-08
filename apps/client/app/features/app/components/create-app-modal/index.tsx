@@ -77,8 +77,15 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
       if (response.workflow_id) {
         router.push(`/workflows/${response.workflow_id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('앱 생성 실패:', error);
+      if (
+        error.response?.status === 400 &&
+        error.response?.data?.detail === 'App with this name already exists.'
+      ) {
+        toast.error('이미 존재하는 앱 이름입니다.');
+        return;
+      }
       toast.error('앱 생성에 실패했습니다.');
     } finally {
       // 상태 초기화

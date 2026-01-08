@@ -36,6 +36,14 @@ class AppService:
         url_slug = AppService._generate_url_slug(db, request.name)
         auth_secret = f"sk-{secrets.token_hex(24)}"
 
+        # 이름 중복 체크
+        if (
+            db.query(App)
+            .filter(App.tenant_id == tenant_id, App.name == request.name)
+            .first()
+        ):
+            raise ValueError("App with this name already exists.")
+
         # App 생성
         app = App(
             tenant_id=tenant_id,
@@ -136,12 +144,14 @@ class AppService:
 
         Args:
             db: 데이터베이스 세션
-            user_id: 현재 유저 ID (사용되지 않지만 일관성을 위해 유지)
+            user_id: 현재 유저 ID
 
         Returns:
             공개된 App 객체 리스트
         """
-        return db.query(App).filter(App.is_market == True).all()
+        return (
+            db.query(App).filter(App.is_market == True, App.created_by != user_id).all()
+        )
 
     @staticmethod
     def update_app(db: Session, app_id: str, request: AppUpdateRequest, user_id: str):
@@ -167,6 +177,17 @@ class AppService:
 
         # 필드 업데이트
         if request.name is not None:
+            # 이름 중복 체크
+            if (
+                db.query(App)
+                .filter(
+                    App.tenant_id == app.tenant_id,
+                    App.name == request.name,
+                    App.id != app_id,
+                )
+                .first()
+            ):
+                raise ValueError("App with this name already exists.")
             app.name = request.name
         if request.description is not None:
             app.description = request.description
