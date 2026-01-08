@@ -275,7 +275,6 @@ async def get_connection_schema(
         raise HTTPException(status_code=400, detail="Unsupported DB type")
     try:
         connector = connector_class()
-        connector.get_schema_info(config)
         tables = connector.get_schema_info(config)
         return {"tables": tables}
     except Exception as e:
