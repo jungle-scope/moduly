@@ -5,12 +5,16 @@ interface DbSourceViewerProps {
   connectionId?: string;
   selectedDbItems: Record<string, string[]>;
   onChange: (items: Record<string, string[]>) => void;
+  sensitiveColumns?: Record<string, string[]>;
+  onSensitiveColumnsChange?: (items: Record<string, string[]>) => void;
 }
 
 export default function DbSourceViewer({
   connectionId,
   selectedDbItems,
   onChange,
+  sensitiveColumns,
+  onSensitiveColumnsChange,
 }: DbSourceViewerProps) {
   if (!connectionId) {
     return (
@@ -25,6 +29,8 @@ export default function DbSourceViewer({
       connectionId={connectionId}
       value={selectedDbItems}
       onChange={onChange}
+      sensitiveColumns={sensitiveColumns}
+      onSensitiveColumnsChange={onSensitiveColumnsChange}
     />
   );
 }

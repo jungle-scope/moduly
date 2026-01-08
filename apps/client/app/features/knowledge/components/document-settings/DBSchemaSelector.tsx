@@ -29,12 +29,16 @@ interface DBSchemaSelectorProps {
   connectionId: string;
   value: Record<string, string[]>;
   onChange: (value: Record<string, string[]>) => void;
+  sensitiveColumns?: Record<string, string[]>;
+  onSensitiveColumnsChange?: (value: Record<string, string[]>) => void;
 }
 
 export default function DBSchemaSelector({
   connectionId,
   value,
   onChange,
+  sensitiveColumns = {},
+  onSensitiveColumnsChange,
 }: DBSchemaSelectorProps) {
   const [loading, setLoading] = useState(false);
   const [tables, setTables] = useState<SchemaTable[]>([]);
@@ -112,6 +116,29 @@ export default function DBSchemaSelector({
       newValue[tableName] = newCols;
     }
     onChange(newValue);
+  };
+
+  // 민감 컬럼 토글
+  const handleSensitiveToggle = (tableName: string, colName: string) => {
+    if (!onSensitiveColumnsChange) return;
+
+    const currentSensitive = sensitiveColumns[tableName] || [];
+    const isSensitive = currentSensitive.includes(colName);
+
+    let newSensitive;
+    if (isSensitive) {
+      newSensitive = currentSensitive.filter((c) => c !== colName);
+    } else {
+      newSensitive = [...currentSensitive, colName];
+    }
+
+    const newValue = { ...sensitiveColumns };
+    if (newSensitive.length == 0) {
+      delete newValue[tableName];
+    } else {
+      newValue[tableName] = newSensitive;
+    }
+    onSensitiveColumnsChange(newValue);
   };
 
   if (loading) {
@@ -204,28 +231,60 @@ export default function DBSchemaSelector({
                 <div className="border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/30 dark:bg-gray-900/30 p-2 pl-12 space-y-1">
                   {table.columns.map((col) => {
                     const isChecked = selectedCols.includes(col.name);
+                    const isSensitive = (
+                      sensitiveColumns[table.table_name] || []
+                    ).includes(col.name);
                     return (
-                      <label
+                      <div
                         key={col.name}
-                        className="flex items-center gap-3 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded cursor-pointer group"
+                        className="flex items-center gap-3 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded group"
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() =>
-                            handleColumnToggle(table.table_name, col.name)
-                          }
-                          className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span
-                          className={`text-sm ${isChecked ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-600 dark:text-gray-400 group-hover:text-gray-900'}`}
-                        >
-                          {col.name}
-                        </span>
-                        <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-600">
-                          {col.type}
-                        </span>
-                      </label>
+                        <label className="flex items-center gap-3 flex-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() =>
+                              handleColumnToggle(table.table_name, col.name)
+                            }
+                            className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span
+                            className={`text-sm ${isChecked ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-600 dark:text-gray-400 group-hover:text-gray-900'}`}
+                          >
+                            {col.name}
+                          </span>
+                          <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-600">
+                            {col.type}
+                          </span>
+                        </label>
+                        {isChecked && onSensitiveColumnsChange && (
+                          <label
+                            className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSensitive}
+                              onChange={() =>
+                                handleSensitiveToggle(
+                                  table.table_name,
+                                  col.name,
+                                )
+                              }
+                              className="w-3 h-3 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                            />
+                            <span
+                              className={
+                                isSensitive
+                                  ? 'text-orange-600 dark:text-orange-400 font-medium'
+                                  : ''
+                              }
+                            >
+                              🔒 암호화 저장
+                            </span>
+                          </label>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

@@ -22,6 +22,7 @@ interface UseDocumentProcessProps {
     removeWhitespace: boolean;
     parsingStrategy: 'general' | 'llamaparse';
     selectedDbItems: Record<string, string[]>;
+    sensitiveColumns?: Record<string, string[]>;
   };
   connectionId?: string; // 외부에서 주입받을 수 있는 connectionId
   // 범위 선택 관련
@@ -62,10 +63,15 @@ export function useDocumentProcess({
   ): DocumentPreviewRequest => {
     // console.log('[Debug] Settings selectedDbItems:', settings.selectedDbItems);
     const selections = Object.entries(settings.selectedDbItems).map(
-      ([table, cols]) => ({
-        table_name: table,
-        columns: cols,
-      }),
+      ([table, cols]) => {
+        const sensitiveColumnsForTable =
+          settings.sensitiveColumns?.[table] || [];
+        return {
+          table_name: table,
+          columns: cols,
+          sensitive_columns: sensitiveColumnsForTable,
+        };
+      },
     );
     // console.log('[Debug] Transformed selections:', selections);
     // console.log('[Debug] Document meta_info:', document?.meta_info);

@@ -42,6 +42,9 @@ export default function DocumentSettingsPage() {
   const [selectedDbItems, setSelectedDbItems] = useState<
     Record<string, string[]>
   >({});
+  const [sensitiveColumns, setSensitiveColumns] = useState<
+    Record<string, string[]>
+  >({});
 
   // 설정 상태
   const [chunkSize, setChunkSize] = useState<number>(1000);
@@ -137,6 +140,11 @@ export default function DocumentSettingsPage() {
                   targetDoc.meta_info.db_config.selected_items,
                 );
               }
+              if (targetDoc.meta_info.db_config.sensitive_columns) {
+                setSensitiveColumns(
+                  targetDoc.meta_info.db_config.sensitive_columns,
+                );
+              }
               if (targetDoc.meta_info.db_config.connection_id) {
                 setConnectionId(targetDoc.meta_info.db_config.connection_id);
               }
@@ -209,6 +217,7 @@ export default function DocumentSettingsPage() {
       removeWhitespace,
       parsingStrategy,
       selectedDbItems,
+      sensitiveColumns,
     },
     connectionId: connectionId,
     // 범위 선택
@@ -388,6 +397,8 @@ export default function DocumentSettingsPage() {
                 connectionId={connectionId} // 업데이트된 ID 사용
                 selectedDbItems={selectedDbItems}
                 onChange={setSelectedDbItems}
+                sensitiveColumns={sensitiveColumns}
+                onSensitiveColumnsChange={setSensitiveColumns}
               />
             </div>
           </div>
