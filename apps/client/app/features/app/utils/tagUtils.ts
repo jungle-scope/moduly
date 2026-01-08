@@ -2,13 +2,7 @@ import { App } from '../api/appApi';
 
 export interface ModuleTag {
   label: string;
-  type:
-    | 'api'
-    | 'webapp'
-    | 'widget'
-    | 'workflow_node'
-    | 'undeployed'
-    | 'knowledge';
+  type: 'api' | 'webapp' | 'widget' | 'workflow_node' | 'undeployed';
 }
 
 export function getModuleTags(app: App): ModuleTag[] {
@@ -31,11 +25,6 @@ export function getModuleTags(app: App): ModuleTag[] {
     if (tag) tags.push(tag);
   } else {
     tags.push({ label: '미배포', type: 'undeployed' });
-  }
-
-  // 지식 태그
-  if (app.has_knowledge) {
-    tags.push({ label: '지식', type: 'knowledge' });
   }
 
   return tags;
