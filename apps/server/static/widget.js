@@ -5,7 +5,7 @@
  * <script>
  *   window.ModulyConfig = {
  *     appId: 'your-url-slug'
- *     frontendUrl: 'https://www.moviepick.shop'
+ *     frontendUrl: 'https://moduly-ai.cloud'
  *   };
  * </script>
  * <script src="http://localhost:8000/static/widget.js"></script>
@@ -29,7 +29,7 @@
     
   // 기본값 (스크립트를 찾지 못한 경우)
   if (!frontendUrl) {
-    frontendUrl = 'https://www.moviepick.shop';
+    frontendUrl = 'https://moduly-ai.cloud';
   }
   
   const CHAT_URL = `${frontendUrl}/embed/chat/${config.appId}`;

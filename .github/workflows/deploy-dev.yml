@@ -1,9 +1,9 @@
-name: Deploy Backend (Develop)
+name: Deploy Backend with ECS (staging)
 
 on:
   push:
     branches:
-      - develop   # ⭐ develop 브랜치 푸시 시 작동
+      - staging # ⭐ staging 브랜치 푸시 시 작동
     paths:
       - 'apps/server/**' # ⭐ 백엔드 코드 변경 시에만 작동
 

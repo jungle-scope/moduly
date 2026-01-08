@@ -7,7 +7,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && apt-get update && apt-get install -y squid && rm -rf /var/lib/apt/lists/*
 
 # 3. 설정 파일 복사 (소유권 바로 지정)
-COPY --chown=proxy:proxy squid.conf /etc/squid/squid.conf
+COPY --chown=proxy:proxy docker/proxy/squid.conf /etc/squid/squid.conf
 
 # 4. [핵심] 권한 및 로그 연결 설정
 # - PID 폴더와 로그 폴더를 proxy 유저가 쓸 수 있게 만듭니다.
