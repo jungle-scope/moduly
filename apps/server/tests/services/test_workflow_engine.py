@@ -299,10 +299,8 @@ class TestFindStartNode:
             ],
             "edges": [],
         }
-        engine = WorkflowEngine(graph=graph)
-
         with pytest.raises(ValueError, match="시작 노드가 2개"):
-            engine._find_start_node()
+            WorkflowEngine(graph=graph)
 
     def test_find_start_node_error_none(self, mock_logger):
         """시작 노드가 없으면 ValueError 발생"""
@@ -317,10 +315,8 @@ class TestFindStartNode:
             ],
             "edges": [],
         }
-        engine = WorkflowEngine(graph=graph)
-
         with pytest.raises(ValueError, match="시작 노드.*없습니다"):
-            engine._find_start_node()
+            WorkflowEngine(graph=graph)
 
 
 # ============================================================================

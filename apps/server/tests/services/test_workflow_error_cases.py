@@ -58,10 +58,8 @@ class TestStartNodeErrors:
             "edges": [],
         }
 
-        engine = WorkflowEngine(graph=graph)
-
         with pytest.raises(ValueError, match="시작 노드.*없습니다"):
-            engine._find_start_node()
+            WorkflowEngine(graph=graph)
 
     def test_multiple_start_nodes_raises_error(self, mock_logger):
         """시작 노드가 2개 이상인 워크플로우는 ValueError 발생"""
@@ -83,10 +81,8 @@ class TestStartNodeErrors:
             "edges": [],
         }
 
-        engine = WorkflowEngine(graph=graph)
-
         with pytest.raises(ValueError, match="시작 노드가 2개"):
-            engine._find_start_node()
+            WorkflowEngine(graph=graph)
 
     def test_start_and_webhook_trigger_count_as_multiple(self, mock_logger):
         """startNode와 webhookTrigger가 동시에 있으면 에러"""
@@ -108,10 +104,8 @@ class TestStartNodeErrors:
             "edges": [],
         }
 
-        engine = WorkflowEngine(graph=graph)
-
         with pytest.raises(ValueError, match="시작 노드가 2개"):
-            engine._find_start_node()
+            WorkflowEngine(graph=graph)
 
     @pytest.mark.asyncio
     async def test_execute_without_start_node_fails(self, mock_logger):
@@ -128,10 +122,8 @@ class TestStartNodeErrors:
             "edges": [],
         }
 
-        engine = WorkflowEngine(graph=graph)
-
         with pytest.raises(ValueError, match="시작 노드.*없습니다"):
-            await engine.execute()
+            WorkflowEngine(graph=graph)
 
 
 # ============================================================================
@@ -197,10 +189,9 @@ class TestDeployedModeErrors:
             "edges": [{"id": "e1", "source": "start-1", "target": "template-1"}],
         }
 
-        engine = WorkflowEngine(graph=graph, user_input={}, is_deployed=True)
-
-        with pytest.raises(ValueError, match="AnswerNode"):
-            await engine.execute()
+        # 배포 모드에서도 고립된 노드가 있으면 초기화 시 검증 에러 발생
+        with pytest.raises(ValueError, match="고립된 노드"):
+            WorkflowEngine(graph=graph, user_input={}, is_deployed=True)
 
 
 # ============================================================================
@@ -417,10 +408,8 @@ class TestInvalidGraphStructure:
         """빈 그래프 처리"""
         graph = {"nodes": [], "edges": []}
 
-        engine = WorkflowEngine(graph=graph)
-
         with pytest.raises(ValueError, match="시작 노드.*없습니다"):
-            engine._find_start_node()
+            WorkflowEngine(graph=graph)
 
     def test_edge_to_nonexistent_node(self, mock_logger):
         """존재하지 않는 노드로의 엣지 처리"""
@@ -473,10 +462,8 @@ class TestInvalidGraphStructure:
             ],
         }
 
-        engine = WorkflowEngine(graph=graph, user_input={}, is_deployed=True)
-
-        with pytest.raises(ValueError, match="AnswerNode"):
-            await engine.execute()
+        with pytest.raises(ValueError, match="고립된 노드"):
+            WorkflowEngine(graph=graph, user_input={}, is_deployed=True)
 
 
 # ============================================================================
