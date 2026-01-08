@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import {
   Search,
   Wrench,
@@ -20,7 +21,7 @@ const navigationItems = [
   },
   {
     name: '내 모듈',
-    href: '/mymodule',
+    href: '/dashboard/mymodule',
     icon: Puzzle,
   },
   {
@@ -50,6 +51,17 @@ export default function Sidebar() {
 
   return (
     <aside className="flex h-full w-52 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30">
+      {/* Logo */}
+      <div className="px-4 pt-3 pb-4">
+        <Image
+          src="/moduly-logo.png"
+          alt="Moduly"
+          width={80}
+          height={28}
+          priority
+        />
+      </div>
+
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navigationItems.map((item) => {

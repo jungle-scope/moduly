@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Plus } from 'lucide-react';
 
-import CreateAppModal from '../features/app/components/create-app-modal';
-import EditAppModal from '../features/app/components/edit-app-modal';
-import AppCard from '../features/app/components/app-card';
-import { appApi, type App } from '../features/app/api/appApi';
+import CreateAppModal from '@/app/features/app/components/create-app-modal';
+import EditAppModal from '@/app/features/app/components/edit-app-modal';
+import AppCard from '@/app/features/app/components/app-card';
+import { appApi, type App } from '@/app/features/app/api/appApi';
 
 export default function DashboardPage() {
   const router = useRouter();

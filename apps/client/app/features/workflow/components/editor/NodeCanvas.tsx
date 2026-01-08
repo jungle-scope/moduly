@@ -17,6 +17,7 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
+  ConnectionLineType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -495,6 +496,7 @@ export default function NodeCanvas() {
               stroke: '#9ca3af',
               strokeLinecap: 'round',
             }}
+            connectionLineType={ConnectionLineType.Bezier}
             fitView
             attributionPosition="bottom-right"
             className="bg-gray-50"
