@@ -526,7 +526,8 @@ export default function EditorHeader() {
   );
 
   // [NEW] 원격 실행 트리거 효과
-  const lastRunTriggerRef = useRef(0);
+  const lastRunTriggerRef = useRef(runTrigger);
+
   useEffect(() => {
     if (runTrigger > lastRunTriggerRef.current) {
       handleTestRun();
