@@ -1,0 +1,74 @@
+# Worker Deployment
+# 
+# 역할: 백그라운드 작업 처리 (현재는 Placeholder)
+# 
+# API Server와의 주요 차이점:
+# 1. 실행 명령어: API는 uvicorn, Worker는 python/celery
+# 2. 포트: API는 8000 포트 EXPOSE, Worker는 포트 없음
+# 3. Service: API는 Service 있음, Worker는 Service 없음 (외부 접근 불필요)
+# 4. Health Check: API는 HTTP health check, Worker는 없음
+# 5. 리소스: Worker가 더 적은 CPU/메모리 (100m/128Mi vs 200m/256Mi)
+# 6. Replicas: Worker는 1개, API는 2개
+# 
+# 나중에 수정할 부분:
+# - 21-23번 줄: Celery 구현 시 command와 args 수정
+#   예시)
+#   command: ["celery"]
+#   args: ["-A", "apps.server.worker", "worker", "--loglevel=info"]
+# 
+# - 필요시 Health Check 추가 (Celery inspect 사용)
+# - 작업량에 따라 replicas 증가
+# - 리소스 조정 (resources.requests/limits)
+# 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:eks-latest
+        # Placeholder: 실제 Worker 로직이 구현되면 수정
+        command: ["python"]
+        args: ["-c", "import time; print('Worker placeholder running...'); [time.sleep(60) for _ in iter(int, 1)]"]
+        env:
+        - name: DB_HOST
+          value: postgresql.default.svc.cluster.local
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: moduly
+        - name: DB_USER
+          value: postgres
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        - name: REDIS_HOST
+          value: redis-master.default.svc.cluster.local
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: REDIS_PASSWORD
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi

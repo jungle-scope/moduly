@@ -5,8 +5,14 @@ import { LLMNodeData } from '../../../../types/Nodes';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
-import { HelpCircle, BookOpen, MousePointerClick } from 'lucide-react';
+import { HelpCircle, BookOpen, MousePointerClick, Wand2 } from 'lucide-react';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { PromptWizardModal } from '../../../modals/PromptWizardModal';
+import {
+  fetchEligibleKnowledgeBases,
+  sanitizeSelectedKnowledgeBases,
+  isSameKnowledgeSelection,
+} from '@/app/features/workflow/utils/llmKnowledgeBaseSelection';
 
 // LLMModelResponse와 일치하는 백엔드 응답 타입
 type ModelOption = {
@@ -142,6 +148,28 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
+  // 프롬프트 마법사 상태
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardField, setWizardField] = useState<
+    'system' | 'user' | 'assistant'
+  >('system');
+
+  // 마법사 열기 핸들러
+  const openWizard = (field: 'system' | 'user' | 'assistant') => {
+    setWizardField(field);
+    setWizardOpen(true);
+  };
+
+  // 마법사에서 적용된 프롬프트 처리
+  const handleApplyImproved = (improvedPrompt: string) => {
+    const fieldMap = {
+      system: 'system_prompt',
+      user: 'user_prompt',
+      assistant: 'assistant_prompt',
+    } as const;
+    handleFieldChange(fieldMap[wizardField], improvedPrompt);
+  };
+
   const chatModelOptions = useMemo(
     () => modelOptions.filter(isChatModelOption),
     [modelOptions],
@@ -164,24 +192,21 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
       ),
     [chatModelOptions, data.model_id],
   );
-  const groupedFallbackOptions = useMemo(
-    () => {
-      const groups = groupModelsByProvider(fallbackCandidates);
-      if (!data.model_id) return groups;
-      const selectedProvider = (
-        selectedModel?.provider_name || 'Unknown'
-      ).toLowerCase();
-      return [...groups].sort((a, b) => {
-        const aIsSelected = a.provider.toLowerCase() === selectedProvider;
-        const bIsSelected = b.provider.toLowerCase() === selectedProvider;
-        if (aIsSelected !== bIsSelected) {
-          return aIsSelected ? 1 : -1;
-        }
-        return a.provider.localeCompare(b.provider);
-      });
-    },
-    [fallbackCandidates, data.model_id, selectedModel],
-  );
+  const groupedFallbackOptions = useMemo(() => {
+    const groups = groupModelsByProvider(fallbackCandidates);
+    if (!data.model_id) return groups;
+    const selectedProvider = (
+      selectedModel?.provider_name || 'Unknown'
+    ).toLowerCase();
+    return [...groups].sort((a, b) => {
+      const aIsSelected = a.provider.toLowerCase() === selectedProvider;
+      const bIsSelected = b.provider.toLowerCase() === selectedProvider;
+      if (aIsSelected !== bIsSelected) {
+        return aIsSelected ? 1 : -1;
+      }
+      return a.provider.localeCompare(b.provider);
+    });
+  }, [fallbackCandidates, data.model_id, selectedModel]);
   const fallbackDisabled = !data.model_id?.trim();
 
   // 1. 상위 노드
@@ -381,6 +406,33 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     fetchMyModels();
   }, []);
 
+  useEffect(() => {
+    if (!data.knowledgeBases || data.knowledgeBases.length === 0) return;
+    let active = true;
+    const syncKnowledgeBases = async () => {
+      try {
+        const { bases } = await fetchEligibleKnowledgeBases();
+        if (!active) return;
+        const nextSelected = sanitizeSelectedKnowledgeBases(
+          data.knowledgeBases || [],
+          bases,
+        );
+        if (
+          !isSameKnowledgeSelection(nextSelected, data.knowledgeBases || [])
+        ) {
+          updateNodeData(nodeId, { knowledgeBases: nextSelected });
+        }
+      } catch (err) {
+        console.error('[LLMNodePanel] Failed to sync knowledge bases', err);
+      }
+    };
+
+    syncKnowledgeBases();
+    return () => {
+      active = false;
+    };
+  }, [nodeId]);
+
   return (
     <div className="flex flex-col gap-2">
       {/* 1. 모델 선택 */}
@@ -417,7 +469,8 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                   <div className="group relative inline-block">
                     <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
                     <div className="absolute z-50 hidden group-hover:block w-60 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
-                      기본 모델 호출이 실패하거나 타임아웃될 때 대신 사용할 모델입니다.
+                      기본 모델 호출이 실패하거나 타임아웃될 때 대신 사용할
+                      모델입니다.
                       <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
                     </div>
                   </div>
@@ -443,15 +496,9 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                     </option>
                     {groupedFallbackOptions.length > 0 ? (
                       groupedFallbackOptions.map(({ provider, models }) => (
-                        <optgroup
-                          key={provider}
-                          label={provider.toUpperCase()}
-                        >
+                        <optgroup key={provider} label={provider.toUpperCase()}>
                           {models.map((m) => (
-                            <option
-                              key={m.id}
-                              value={m.model_id_for_api_call}
-                            >
+                            <option key={m.id} value={m.model_id_for_api_call}>
                               {m.name}
                             </option>
                           ))}
@@ -470,8 +517,8 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                   )}
                 </div>
                 <p className="text-xs text-gray-500">
-                  Fallback 모델은 다른 Provider 사용을 권장합니다. 다른 Provider를
-                  추가하려면 아래에서 API Key를 등록하세요.
+                  Fallback 모델은 다른 Provider 사용을 권장합니다. 다른
+                  Provider를 추가하려면 아래에서 API Key를 등록하세요.
                 </p>
               </div>
               {/* Provider 설정 링크 */}
@@ -583,16 +630,32 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           )}
 
           <div>
-            <div className="flex items-center mb-1">
-              <label className="text-xs font-semibold text-gray-700">
-                System Prompt
-              </label>
-              <div className="group relative inline-block ml-1">
-                <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
-                <div className="absolute z-50 hidden group-hover:block w-48 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
-                  AI의 역할, 성격, 행동 규칙을 정의합니다. 모든 대화에 일관되게
-                  적용됩니다.
-                  <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center">
+                <label className="text-xs font-semibold text-gray-700">
+                  System Prompt
+                </label>
+                <div className="group relative inline-block ml-1">
+                  <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
+                  <div className="absolute z-50 hidden group-hover:block w-48 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+                    AI의 역할, 성격, 행동 규칙을 정의합니다. 모든 대화에
+                    일관되게 적용됩니다.
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+                  </div>
+                </div>
+              </div>
+              <div className="group/wizard relative">
+                <button
+                  type="button"
+                  onClick={() => openWizard('system')}
+                  disabled={modelOptions.length === 0}
+                  className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                </button>
+                <div className="absolute z-50 hidden group-hover/wizard:block w-32 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg right-0 top-7">
+                  AI가 프롬프트를 개선해드려요
+                  <div className="absolute -top-1 right-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
                 </div>
               </div>
             </div>
@@ -609,16 +672,32 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           </div>
 
           <div>
-            <div className="flex items-center mb-1">
-              <label className="text-xs font-semibold text-gray-700">
-                User Prompt
-              </label>
-              <div className="group relative inline-block ml-1">
-                <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
-                <div className="absolute z-50 hidden group-hover:block w-48 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
-                  사용자가 AI에게 보내는 질문이나 요청입니다. {'{{ 변수명 }}'}{' '}
-                  형식으로 동적 값을 삽입할 수 있습니다.
-                  <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center">
+                <label className="text-xs font-semibold text-gray-700">
+                  User Prompt
+                </label>
+                <div className="group relative inline-block ml-1">
+                  <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
+                  <div className="absolute z-50 hidden group-hover:block w-48 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+                    사용자가 AI에게 보내는 질문이나 요청입니다. {'{{ 변수명 }}'}{' '}
+                    형식으로 동적 값을 삽입할 수 있습니다.
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+                  </div>
+                </div>
+              </div>
+              <div className="group/wizard relative">
+                <button
+                  type="button"
+                  onClick={() => openWizard('user')}
+                  disabled={modelOptions.length === 0}
+                  className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                </button>
+                <div className="absolute z-50 hidden group-hover/wizard:block w-32 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg right-0 top-7">
+                  AI가 프롬프트를 개선해드려요
+                  <div className="absolute -top-1 right-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
                 </div>
               </div>
             </div>
@@ -633,16 +712,32 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           </div>
 
           <div>
-            <div className="flex items-center mb-1">
-              <label className="text-xs font-semibold text-gray-700">
-                Assistant Prompt
-              </label>
-              <div className="group relative inline-block ml-1">
-                <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
-                <div className="absolute z-50 hidden group-hover:block w-48 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
-                  AI 응답의 시작 부분을 미리 지정합니다. 특정 형식이나 톤으로
-                  응답을 유도할 때 유용합니다.
-                  <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center">
+                <label className="text-xs font-semibold text-gray-700">
+                  Assistant Prompt
+                </label>
+                <div className="group relative inline-block ml-1">
+                  <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
+                  <div className="absolute z-50 hidden group-hover:block w-48 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+                    AI 응답의 시작 부분을 미리 지정합니다. 특정 형식이나 톤으로
+                    응답을 유도할 때 유용합니다.
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+                  </div>
+                </div>
+              </div>
+              <div className="group/wizard relative">
+                <button
+                  type="button"
+                  onClick={() => openWizard('assistant')}
+                  disabled={modelOptions.length === 0}
+                  className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                </button>
+                <div className="absolute z-50 hidden group-hover/wizard:block w-32 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg right-0 top-7">
+                  AI가 프롬프트를 개선해드려요
+                  <div className="absolute -top-1 right-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
                 </div>
               </div>
             </div>
@@ -719,6 +814,21 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           )}
         </div>
       </CollapsibleSection>
+
+      {/* 프롬프트 마법사 모달 */}
+      <PromptWizardModal
+        isOpen={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        promptType={wizardField}
+        originalPrompt={
+          wizardField === 'system'
+            ? data.system_prompt || ''
+            : wizardField === 'user'
+              ? data.user_prompt || ''
+              : data.assistant_prompt || ''
+        }
+        onApply={handleApplyImproved}
+      />
     </div>
   );
 }
