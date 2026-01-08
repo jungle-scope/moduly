@@ -17,14 +17,15 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
-  ConnectionLineType,
 } from '@xyflow/react';
+
 import '@xyflow/react/dist/style.css';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { WorkflowNodeData, Node } from '../../types/Nodes';
 import { nodeTypes as coreNodeTypes } from '../nodes';
 import { PuzzleEdge } from '../nodes/edges/PuzzleEdge';
+import { CustomConnectionLine } from '../nodes/edges/CustomConnectionLine';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import NodeDetailsPanel from './NodeDetailsPanel';
@@ -493,12 +494,7 @@ export default function NodeCanvas() {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOptions}
-            connectionLineStyle={{
-              strokeWidth: 2,
-              stroke: '#9ca3af',
-              strokeLinecap: 'round',
-            }}
-            connectionLineType={ConnectionLineType.Bezier}
+            connectionLineComponent={CustomConnectionLine}
             fitView
             attributionPosition="bottom-right"
             className="bg-gray-50"
