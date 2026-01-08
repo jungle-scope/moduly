@@ -1,4 +1,4 @@
-import Header from '../../features/dashboard/components/Header';
+import WorkflowLayoutHeader from '../../features/workflow/components/WorkflowLayoutHeader';
 
 export default function ModuleLayout({
   children,
@@ -8,7 +8,7 @@ export default function ModuleLayout({
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
       {/* Header */}
-      <Header />
+      <WorkflowLayoutHeader />
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">{children}</main>

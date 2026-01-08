@@ -270,6 +270,7 @@ export default function NodeCanvas() {
         zoomOnScroll: false,
         zoomOnPinch: true,
         selectionOnDrag: true,
+        connectionRadius: 50,
       };
     } else {
       return {
@@ -278,6 +279,7 @@ export default function NodeCanvas() {
         zoomOnScroll: true,
         zoomOnPinch: true,
         selectionOnDrag: false,
+        connectionRadius: 50,
       };
     }
   }, [interactiveMode]);
