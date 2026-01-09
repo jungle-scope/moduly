@@ -31,6 +31,8 @@ interface DBSchemaSelectorProps {
   onChange: (value: Record<string, string[]>) => void;
   sensitiveColumns?: Record<string, string[]>;
   onSensitiveColumnsChange?: (value: Record<string, string[]>) => void;
+  aliases?: Record<string, Record<string, string>>; // {table: {column: alias}}
+  onAliasesChange?: (value: Record<string, Record<string, string>>) => void;
 }
 
 export default function DBSchemaSelector({
@@ -39,6 +41,8 @@ export default function DBSchemaSelector({
   onChange,
   sensitiveColumns = {},
   onSensitiveColumnsChange,
+  aliases = {},
+  onAliasesChange,
 }: DBSchemaSelectorProps) {
   const [loading, setLoading] = useState(false);
   const [tables, setTables] = useState<SchemaTable[]>([]);
@@ -54,8 +58,7 @@ export default function DBSchemaSelector({
         const res = await connectorApi.getSchema(connectionId);
         // 응답 구조가 {tables: [...]} 라고 가정한다
         setTables(res.tables || []);
-      } catch (err) {
-        console.error('Failed to fetch schema', err);
+      } catch {
         toast.error('테이블 정보를 불러오는데 실패했습니다.');
       } finally {
         setLoading(false);
@@ -139,6 +142,32 @@ export default function DBSchemaSelector({
       newValue[tableName] = newSensitive;
     }
     onSensitiveColumnsChange(newValue);
+  };
+
+  // Alias 변경
+  const handleAliasChange = (
+    tableName: string,
+    colName: string,
+    alias: string,
+  ) => {
+    if (!onAliasesChange) return;
+
+    const newAliases = { ...aliases };
+    if (!newAliases[tableName]) {
+      newAliases[tableName] = {};
+    }
+
+    if (alias.trim()) {
+      newAliases[tableName][colName] = alias.trim();
+    } else {
+      // Alias 비우면 삭제
+      delete newAliases[tableName][colName];
+      if (Object.keys(newAliases[tableName]).length === 0) {
+        delete newAliases[tableName];
+      }
+    }
+
+    onAliasesChange(newAliases);
   };
 
   if (loading) {
@@ -299,6 +328,23 @@ export default function DBSchemaSelector({
                             {col.type}
                           </span>
                         </label>
+                        {/* Alias 입력 */}
+                        {isChecked && onAliasesChange && (
+                          <input
+                            type="text"
+                            placeholder="alias 입력"
+                            value={aliases[table.table_name]?.[col.name] || ''}
+                            onChange={(e) =>
+                              handleAliasChange(
+                                table.table_name,
+                                col.name,
+                                e.target.value,
+                              )
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-32 text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        )}
                         {isChecked && onSensitiveColumnsChange && (
                           <label
                             className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"

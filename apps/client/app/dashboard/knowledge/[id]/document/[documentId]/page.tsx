@@ -45,6 +45,10 @@ export default function DocumentSettingsPage() {
   const [sensitiveColumns, setSensitiveColumns] = useState<
     Record<string, string[]>
   >({});
+  const [aliases, setAliases] = useState<
+    Record<string, Record<string, string>>
+  >({});
+  const [template, setTemplate] = useState<string>('');
 
   // 설정 상태
   const [chunkSize, setChunkSize] = useState<number>(1000);
@@ -399,6 +403,8 @@ export default function DocumentSettingsPage() {
                 onChange={setSelectedDbItems}
                 sensitiveColumns={sensitiveColumns}
                 onSensitiveColumnsChange={setSensitiveColumns}
+                aliases={aliases}
+                onAliasesChange={setAliases}
               />
             </div>
           </div>

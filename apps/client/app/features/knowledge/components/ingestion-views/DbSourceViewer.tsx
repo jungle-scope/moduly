@@ -7,6 +7,8 @@ interface DbSourceViewerProps {
   onChange: (items: Record<string, string[]>) => void;
   sensitiveColumns?: Record<string, string[]>;
   onSensitiveColumnsChange?: (items: Record<string, string[]>) => void;
+  aliases?: Record<string, Record<string, string>>;
+  onAliasesChange?: (items: Record<string, Record<string, string>>) => void;
 }
 
 export default function DbSourceViewer({
@@ -15,6 +17,8 @@ export default function DbSourceViewer({
   onChange,
   sensitiveColumns,
   onSensitiveColumnsChange,
+  aliases,
+  onAliasesChange,
 }: DbSourceViewerProps) {
   if (!connectionId) {
     return (
@@ -31,6 +35,8 @@ export default function DbSourceViewer({
       onChange={onChange}
       sensitiveColumns={sensitiveColumns}
       onSensitiveColumnsChange={onSensitiveColumnsChange}
+      aliases={aliases}
+      onAliasesChange={onAliasesChange}
     />
   );
 }
