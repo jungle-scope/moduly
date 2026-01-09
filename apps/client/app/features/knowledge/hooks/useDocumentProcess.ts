@@ -23,6 +23,8 @@ interface UseDocumentProcessProps {
     parsingStrategy: 'general' | 'llamaparse';
     selectedDbItems: Record<string, string[]>;
     sensitiveColumns?: Record<string, string[]>;
+    aliases?: Record<string, Record<string, string>>;
+    template?: string;
   };
   connectionId?: string; // 외부에서 주입받을 수 있는 connectionId
   // 범위 선택 관련
@@ -66,10 +68,13 @@ export function useDocumentProcess({
       ([table, cols]) => {
         const sensitiveColumnsForTable =
           settings.sensitiveColumns?.[table] || [];
+        const aliasesForTable = settings.aliases?.[table] || {};
         return {
           table_name: table,
           columns: cols,
           sensitive_columns: sensitiveColumnsForTable,
+          aliases: aliasesForTable,
+          template: settings.template || '',
         };
       },
     );
