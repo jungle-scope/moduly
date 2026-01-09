@@ -118,20 +118,20 @@ def delete_credential(
 @router.get("/stats/top-models")
 def get_top_expensive_models(
     db: Session = Depends(get_db),
-    # Optional: current_user validation if we want to restrict visibility
-    # current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Get Top 3 expensive models for the current month.
+    Get Top 3 expensive models for the current month (user-scoped).
+    각 사용자의 본인 사용량 기준으로 Top 3 모델을 반환합니다.
     """
     try:
         # 1. Determine date range (This Month in UTC mostly, or naive)
         now = datetime.now()
         start_of_month = datetime(now.year, now.month, 1)
 
-        # 2. Query
+        # 2. Query (User-scoped)
         # Join Log -> Model -> Provider
-        # Group by Model
+        # Group by Model, filtered by current user
         results = (
             db.query(
                 LLMModel.name.label("model_name"),
@@ -144,6 +144,7 @@ def get_top_expensive_models(
             .join(LLMModel, LLMUsageLog.model_id == LLMModel.id)
             .join(LLMProvider, LLMModel.provider_id == LLMProvider.id)
             .filter(LLMUsageLog.created_at >= start_of_month)
+            .filter(LLMUsageLog.user_id == current_user.id)  # 사용자별 필터링
             .group_by(LLMModel.id, LLMModel.name, LLMProvider.id, LLMProvider.name)
             .order_by(desc("total_cost"))
             .limit(3)

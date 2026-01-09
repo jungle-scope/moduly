@@ -1,172 +1,137 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus } from 'lucide-react';
+import { ArrowRight, Zap, Workflow, BarChart3 } from 'lucide-react';
 
-import CreateAppModal from '../features/app/components/create-app-modal';
-import EditAppModal from '../features/app/components/edit-app-modal';
-import AppCard from '../features/app/components/app-card';
-import { appApi, type App } from '../features/app/api/appApi';
-
-export default function DashboardPage() {
+export default function DashboardHomePage() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingApp, setEditingApp] = useState<App | null>(null);
-  const [apps, setApps] = useState<App[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    loadApps();
-
-    // 사이드바에서 앱 생성 모달 이벤트 수신
-    const handleOpenModal = () => {
-      setIsCreateModalOpen(true);
-    };
-
-    window.addEventListener('openCreateAppModal', handleOpenModal);
-    return () =>
-      window.removeEventListener('openCreateAppModal', handleOpenModal);
-  }, []);
-
-  const loadApps = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      const data = await appApi.listApps();
-      setApps(data);
-    } catch (err) {
-      setError('앱 목록을 불러오는데 실패했습니다.');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAppClick = (app: App) => {
-    // workflow_id가 있으면 그것으로, 없으면 app_id로 이동
-    const targetId = app.workflow_id || app.id;
-    router.push(`/workflows/${targetId}`);
-  };
-
-  const handleCreateApp = () => {
-    setIsCreateModalOpen(true);
-  };
-
-  const handleEditApp = (e: React.MouseEvent, app: App) => {
-    e.stopPropagation();
-    setEditingApp(app);
-  };
-
-  const handleToggleMarketplace = async (app: App) => {
-    try {
-      await appApi.updateApp(app.id, {
-        is_market: !app.is_market,
-      });
-      loadApps();
-    } catch (err) {
-      console.error('Failed to toggle marketplace status:', err);
-      // 에러 처리 로직 추가 가능 (예: 토스트 메시지)
-    }
-  };
-
-  const filteredApps = apps.filter((app) =>
-    app.name.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
 
   return (
-    <div className="p-8 bg-gradient-to-br from-white via-gray-50 to-gray-100 min-h-full border border-gray-200">
-      {/* 페이지 제목 */}
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">대시보드</h1>
-
-      {/* 검색 및 생성 행 */}
-      <div className="mb-6 flex items-center justify-end gap-3">
-        {/* 검색바 */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search for projects"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-64 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-          />
-        </div>
-
-        {/* 생성 버튼 */}
-        <button
-          onClick={handleCreateApp}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Create
-        </button>
-      </div>
-
-      {/* 에러 메시지 */}
-      {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* 로딩 상태 */}
-      {isLoading && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-sm">로딩 중...</p>
-        </div>
-      )}
-
-      {/* 모듈 카드 그리드 */}
-      {/* 앱 그리드 */}
-      {!isLoading && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* 기존 앱 카드 */}
-          {filteredApps.map((app) => (
-            <AppCard
-              key={app.id}
-              app={app}
-              onClick={handleAppClick}
-              onEdit={handleEditApp}
-              onToggleMarketplace={handleToggleMarketplace}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 검색 결과 없음 상태 */}
-      {!isLoading && filteredApps.length === 0 && searchQuery && (
-        <div className="mt-12 text-center">
-          <p className="text-gray-500 dark:text-gray-400">
-            &quot;{searchQuery}&quot;에 대한 검색 결과가 없습니다.
+    <div className="min-h-full bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Hero Section */}
+      <div className="max-w-7xl mx-auto px-8 py-16">
+        <div className="text-center mb-16">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">
+            환영합니다! 👋
+          </h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Moduly와 함께 워크플로우를 구축하고 자동화하세요
           </p>
         </div>
-      )}
 
-      {/* 앱 생성 모달 */}
-      {isCreateModalOpen && (
-        <CreateAppModal
-          onClose={() => setIsCreateModalOpen(false)}
-          onSuccess={() => {
-            setIsCreateModalOpen(false);
-            loadApps(); // 목록 새로고침
-          }}
-        />
-      )}
+        {/* Quick Actions Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          {/* Create Module Card */}
+          <button
+            onClick={() => router.push('/mymodule')}
+            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-blue-200 text-left"
+          >
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ArrowRight className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
+              <Zap className="w-6 h-6 text-blue-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              내 모듈
+            </h3>
+            <p className="text-gray-600 text-sm">
+              나만의 AI 모듈을 생성하고 관리하세요
+            </p>
+          </button>
 
-      {/* 앱 수정 모달 */}
-      {editingApp && (
-        <EditAppModal
-          app={editingApp}
-          onClose={() => setEditingApp(null)}
-          onSuccess={() => {
-            setEditingApp(null);
-            loadApps(); // 목록 새로고침
-          }}
-        />
-      )}
+          {/* Explore Marketplace Card */}
+          <button
+            onClick={() => router.push('/dashboard/explore')}
+            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-purple-200 text-left"
+          >
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ArrowRight className="w-5 h-5 text-purple-600" />
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+              <Workflow className="w-6 h-6 text-purple-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              마켓플레이스
+            </h3>
+            <p className="text-gray-600 text-sm">
+              다른 사용자들이 만든 모듈을 탐색하세요
+            </p>
+          </button>
+
+          {/* Statistics Card */}
+          <button
+            onClick={() => router.push('/dashboard/statistics')}
+            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 text-left"
+          >
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ArrowRight className="w-5 h-5 text-green-600" />
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
+              <BarChart3 className="w-6 h-6 text-green-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">통계</h3>
+            <p className="text-gray-600 text-sm">
+              사용 현황과 성과를 확인하세요
+            </p>
+          </button>
+        </div>
+
+        {/* Getting Started Section */}
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">시작하기</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold">
+                1
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">모듈 생성</h3>
+                <p className="text-sm text-gray-600">
+                  '내 모듈' 페이지에서 새로운 AI 모듈을 만들어보세요
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-semibold">
+                2
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  워크플로우 구성
+                </h3>
+                <p className="text-sm text-gray-600">
+                  드래그 앤 드롭으로 워크플로우를 쉽게 구성하세요
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-semibold">
+                3
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  테스트 및 배포
+                </h3>
+                <p className="text-sm text-gray-600">
+                  모듈을 테스트하고 마켓플레이스에 공유하세요
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-semibold">
+                4
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">모니터링</h3>
+                <p className="text-sm text-gray-600">
+                  통계 페이지에서 성과를 추적하고 개선하세요
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
