@@ -599,104 +599,109 @@ export default function DocumentSettingsPage() {
                 setStrategy={setParsingStrategy}
               />
             )}
-            <CommonChunkSettings
-              chunkSize={chunkSize}
-              setChunkSize={setChunkSize}
-              chunkOverlap={chunkOverlap}
-              setChunkOverlap={setChunkOverlap}
-              segmentIdentifier={segmentIdentifier}
-              setSegmentIdentifier={setSegmentIdentifier}
-              removeWhitespace={removeWhitespace}
-              setRemoveWhitespace={setRemoveWhitespace}
-              removeUrlsEmails={removeUrlsEmails}
-              setRemoveUrlsEmails={setRemoveUrlsEmails}
-            />
+            {/* DB가 아닐 때만 청크 설정 표시 */}
+            {document?.source_type !== 'DB' && (
+              <CommonChunkSettings
+                chunkSize={chunkSize}
+                setChunkSize={setChunkSize}
+                chunkOverlap={chunkOverlap}
+                setChunkOverlap={setChunkOverlap}
+                segmentIdentifier={segmentIdentifier}
+                setSegmentIdentifier={setSegmentIdentifier}
+                removeWhitespace={removeWhitespace}
+                setRemoveWhitespace={setRemoveWhitespace}
+                removeUrlsEmails={removeUrlsEmails}
+                setRemoveUrlsEmails={setRemoveUrlsEmails}
+              />
+            )}
 
-            {/* 범위 선택 UI */}
-            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                🎯 청크 선택 범위
-              </h4>
+            {/* DB가 아닐 때만 범위 선택 UI 표시 */}
+            {document?.source_type !== 'DB' && (
+              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  🎯 청크 선택 범위
+                </h4>
 
-              {/* 모드 선택 라디오 버튼 */}
-              <div className="space-y-2 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="all"
-                    checked={selectionMode === 'all'}
-                    onChange={(e) => setSelectionMode(e.target.value as any)}
-                    className="w-4 h-4 text-indigo-600"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    전체 선택 (기본)
-                  </span>
-                </label>
+                {/* 모드 선택 라디오 버튼 */}
+                <div className="space-y-2 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="all"
+                      checked={selectionMode === 'all'}
+                      onChange={(e) => setSelectionMode(e.target.value as any)}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      전체 선택 (기본)
+                    </span>
+                  </label>
 
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="range"
-                    checked={selectionMode === 'range'}
-                    onChange={(e) => setSelectionMode(e.target.value as any)}
-                    className="w-4 h-4 text-indigo-600"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    청크 범위 지정
-                  </span>
-                </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="range"
+                      checked={selectionMode === 'range'}
+                      onChange={(e) => setSelectionMode(e.target.value as any)}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      청크 범위 지정
+                    </span>
+                  </label>
 
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="keyword"
-                    checked={selectionMode === 'keyword'}
-                    onChange={(e) => setSelectionMode(e.target.value as any)}
-                    className="w-4 h-4 text-indigo-600"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    키워드 검색
-                  </span>
-                </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="keyword"
+                      checked={selectionMode === 'keyword'}
+                      onChange={(e) => setSelectionMode(e.target.value as any)}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      키워드 검색
+                    </span>
+                  </label>
+                </div>
+
+                {/* 조건부 입력 폼 */}
+                {selectionMode === 'range' && (
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      청크 범위 (예: 1-100, 500-600)
+                    </label>
+                    <input
+                      type="text"
+                      value={chunkRange}
+                      onChange={(e) => setChunkRange(e.target.value)}
+                      placeholder="1-100, 500-600"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      쉼표로 구분하여 여러 범위 입력 가능
+                    </p>
+                  </div>
+                )}
+
+                {selectionMode === 'keyword' && (
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      키워드
+                    </label>
+                    <input
+                      type="text"
+                      value={keywordFilter}
+                      onChange={(e) => setKeywordFilter(e.target.value)}
+                      placeholder="검색할 키워드 입력"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      입력한 키워드를 포함하는 청크만 표시
+                    </p>
+                  </div>
+                )}
               </div>
-
-              {/* 조건부 입력 폼 */}
-              {selectionMode === 'range' && (
-                <div>
-                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                    청크 범위 (예: 1-100, 500-600)
-                  </label>
-                  <input
-                    type="text"
-                    value={chunkRange}
-                    onChange={(e) => setChunkRange(e.target.value)}
-                    placeholder="1-100, 500-600"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    쉼표로 구분하여 여러 범위 입력 가능
-                  </p>
-                </div>
-              )}
-
-              {selectionMode === 'keyword' && (
-                <div>
-                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                    키워드
-                  </label>
-                  <input
-                    type="text"
-                    value={keywordFilter}
-                    onChange={(e) => setKeywordFilter(e.target.value)}
-                    placeholder="검색할 키워드 입력"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    입력한 키워드를 포함하는 청크만 표시
-                  </p>
-                </div>
-              )}
-            </div>
+            )}
 
             <button
               onClick={handlePreviewClick}
