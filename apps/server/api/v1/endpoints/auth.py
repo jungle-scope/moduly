@@ -1,8 +1,10 @@
 import os
 
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from auth.oauth import oauth
 from db.session import get_db
 from schemas.auth import LoginRequest, LoginResponse, SignupRequest
 from services.auth_service import AuthService
@@ -169,19 +171,102 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     )
 
 
+# -----------------------------------------------------------------------------
+# Google OAuth
+# -----------------------------------------------------------------------------
+
+
 @router.get("/google/login")
-def google_login():
+async def google_login(request: Request):
     """
-    구글 OAuth 로그인 시작
+    구글 로그인 리디렉션
+    - 로컬/배포 환경에 따라 redirect_uri를 동적으로 생성
     """
-    # TODO: 구글 OAuth 로직 구현
-    return {"message": "Google login endpoint - implementation needed"}
+    # Debugging
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    print(f"DEBUG: GOOGLE_CLIENT_ID raw: {repr(client_id)}")
+
+    # url_for는 현재 요청의 Host 헤더(또는 Forwarded 헤더)를 기반으로 절대 경로 생성
+    redirect_uri = request.url_for("auth_google_callback")
+    print(f"DEBUG: Generated Redirect URI: {redirect_uri}")
+
+    return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @router.get("/google/callback")
-def google_callback(code: str, db: Session = Depends(get_db)):
+async def auth_google_callback(
+    request: Request, response: Response, db: Session = Depends(get_db)
+):
     """
-    구글 OAuth 콜백 처리
+    구글 로그인 콜백
     """
-    # TODO: 구글 콜백 로직 구현
-    return {"message": "Google callback endpoint - implementation needed", "code": code}
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except Exception as e:
+        # 인증 실패 시 로그인 페이지로 리디렉션 (에러 파라미터 포함 등)
+        print(f"OAuth Error: {e}")
+        return Response(status_code=400, content=f"OAuth Authentication Failed: {e}")
+
+    # 사용자 정보 추출
+    user_info = token.get("userinfo")
+    if not user_info:
+        user_info = await oauth.google.userinfo(token=token)
+
+    email = user_info.get("email")
+    name = user_info.get("name", "Unknown")
+    # Google의 sub 필드가 고유 ID
+    social_id = user_info.get("sub")
+    picture = user_info.get("picture")
+
+    if not email:
+        return Response(status_code=400, content="Email not found in Google account")
+
+    # 사용자 조회 또는 생성
+    user = AuthService.get_or_create_social_user(
+        db=db,
+        email=email,
+        name=name,
+        social_provider="google",
+        social_id=social_id,
+        avatar_url=picture,
+    )
+
+    # 자체 JWT 토큰 생성
+    access_token = AuthService.create_jwt_token(str(user.id))
+
+    # 쿠키 설정
+    is_production, cookie_domain = _get_cookie_config(request)
+
+    # 리디렉션 URL 설정
+    # 로컬 개발 환경(proxy 없이 직접 접근)에서는 프론트엔드 포트(3000)로 리디렉션 필요할 수 있음
+    # 하지만 사용자는 Nginx Reverse Proxy를 사용하는 것으로 추정됨 (8000/3000 분리?)
+    # 사용자의 요청: "url의 경우 로컬과 배포 환경에서 둘 다 동작하게 하고 싶어"
+    # 스마트 감지: Referer를 확인하거나, 혹은 /dashboard로 리디렉션하면
+    # 같은 도메인/포트 서빙이면 문제 없음.
+    # 만약 Nginx가 80포트에서 /api는 백엔드로, /는 프론트로 보낸다면 /dashboard로 충분.
+    # 로컬에서 localhost:3000(프론트), localhost:8000(백엔드)로 따로 띄운다면
+    # localhost:8000에서 localhost:3000으로 리디렉션 필요.
+
+    dashboard_url = "/dashboard"
+
+    # 호스트가 localhost:8000이면 -> localhost:3000으로 보냄 (개발 편의성)
+    host = request.headers.get("host", "")
+    if "localhost:8000" in host or "127.0.0.1:8000" in host:
+        dashboard_url = "http://localhost:3000/dashboard"
+
+    redirect_response = RedirectResponse(url=dashboard_url, status_code=302)
+    redirect_response.set_cookie(
+        key="auth_token",  # 기존 코드에서 사용하는 쿠키 이름 확인 필요 ("auth_token" vs "access_token")
+        # get_current_user에서 "auth_token"을 사용 중임 (line 153)
+        value=access_token,  # Bearer 접두사 없이 사용하는지 확인 필요
+        # AuthService.get_user_from_token 로직 확인 필요.
+        # 기존 로직: token = request.cookies.get("auth_token") -> jwt.decode(token...)
+        # 즉 Bearer 없이 토큰 값만 넣어야 함.
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        domain=cookie_domain,
+        max_age=6 * 60 * 60,
+    )
+
+    return redirect_response
