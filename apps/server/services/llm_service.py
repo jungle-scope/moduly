@@ -663,10 +663,30 @@ class LLMService:
         return [LLMModelResponse.model_validate(m) for m in models]
 
     @staticmethod
+    def _normalize_model_id(model_id: str) -> str:
+        """
+        모델 ID를 정규화하여 KNOWN_MODEL_PRICES와 매칭 가능하게 변환합니다.
+        예: gpt-4o-2024-11-20 -> gpt-4o, claude-3-5-sonnet-20241022 -> claude-3-5-sonnet
+        """
+        import re
+        
+        # 1. Google prefix 제거
+        clean = model_id.replace("models/", "")
+        
+        # 2. 날짜 suffix 패턴 제거
+        # 패턴: -YYYY-MM-DD (예: gpt-4o-2024-11-20)
+        clean = re.sub(r'-\d{4}-\d{2}-\d{2}$', '', clean)
+        # 패턴: -YYYYMMDD (예: claude-3-5-sonnet-20241022)
+        clean = re.sub(r'-\d{8}$', '', clean)
+        
+        return clean
+
+    @staticmethod
     def calculate_cost(db: Session, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
         """
         Calculate cost based on model pricing.
         Falls back to KNOWN_MODEL_PRICES if DB doesn't have pricing info.
+        정규화된 모델 ID로 fallback 시도하여 버전 차이로 인한 매칭 실패 방지.
         """
         input_price = None
         output_price = None
@@ -679,15 +699,24 @@ class LLMService:
             output_price = float(model.output_price_1k)
             print(f"[calculate_cost] DB pricing found for '{model_id}': in={input_price}, out={output_price}")
         else:
-            # 2. Fallback to KNOWN_MODEL_PRICES
-            clean_id = model_id.replace("models/", "")  # Handle Google's prefix
+            # 2. Fallback to KNOWN_MODEL_PRICES (정규화된 ID로 시도)
+            clean_id = model_id.replace("models/", "")  # Google prefix 제거
             pricing = LLMService.KNOWN_MODEL_PRICES.get(clean_id)
+            
+            # 정확한 매칭 실패 시, 정규화된 ID로 재시도
+            if not pricing:
+                normalized_id = LLMService._normalize_model_id(model_id)
+                pricing = LLMService.KNOWN_MODEL_PRICES.get(normalized_id)
+                if pricing:
+                    print(f"[calculate_cost] Normalized fallback for '{model_id}' -> '{normalized_id}': in={pricing['input']}, out={pricing['output']}")
+            
             if pricing:
                 input_price = pricing["input"]
                 output_price = pricing["output"]
-                print(f"[calculate_cost] Fallback pricing for '{model_id}' (clean: '{clean_id}'): in={input_price}, out={output_price}")
+                if clean_id in LLMService.KNOWN_MODEL_PRICES:
+                    print(f"[calculate_cost] Fallback pricing for '{model_id}' (clean: '{clean_id}'): in={input_price}, out={output_price}")
             else:
-                print(f"[calculate_cost] NO PRICING FOUND for '{model_id}' (clean: '{clean_id}'). Available: {list(LLMService.KNOWN_MODEL_PRICES.keys())[:10]}...")
+                print(f"[calculate_cost] NO PRICING FOUND for '{model_id}'. Tried: '{clean_id}', '{LLMService._normalize_model_id(model_id)}'")
         
         # 3. If still no pricing, return 0
         if input_price is None or output_price is None:
