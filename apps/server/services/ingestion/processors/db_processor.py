@@ -109,7 +109,7 @@ class DbProcessor(BaseProcessor):
                 chunks=[], metadata={"error": f"Config setup failed: {str(e)}"}
             )
 
-        # 3. 데이터 패칭 (Schema Info Fetching이 아니라 Data Fetching 메서드가 Connector에 필요)
+        # 3. 데이터 패칭
 
         chunks = []
         try:
@@ -117,11 +117,10 @@ class DbProcessor(BaseProcessor):
             selections = source_config.get("selections", [])
             # 예: [{"table_name": "users", "columns": ["id", "email", "name"]}]
 
-            # [NEW] 1. 모든 선택된 테이블의 스키마를 하나의 chunk로 생성
+            # 모든 선택된 테이블의 스키마를 하나의 chunk로 생성
             try:
                 schema_info = connector.get_schema_info(config_dict)
                 if schema_info and selections:
-                    # 모든 선택된 테이블의 스키마를 하나의 텍스트로 결합
                     combined_schema_text = ""
                     for selection in selections:
                         table_name = selection["table_name"]
@@ -154,45 +153,85 @@ class DbProcessor(BaseProcessor):
             transformer = DbNlTransformer()
             for selection in selections:
                 table_name = selection["table_name"]
-                columns = selection.get("columns", ["*"])  # 컬럼 선택 안하면 전체
+                columns = selection.get("columns", ["*"])  # 컬럼 선택
                 limit = source_config.get("limit", 1000)
 
-                # 민감정보 설정 추출
-                sensitive_info = None
-                if "sensitive_columns" in selection:
-                    sensitive_info = {
-                        "sensitive_columns": selection.get("sensitive_columns", []),
-                    }
+                # 템플릿 설정
+                template = selection.get("template", None)
+                aliases = selection.get("aliases", {})
+                sensitive_columns = selection.get("sensitive_columns", [])
 
-                # [EXISTING] 2. 모든 테이블의 데이터 rows 추가
+                # 템플릿 검증
+                if template and aliases:
+                    from utils.template_utils import validate_template
+
+                    is_valid, error_msg = validate_template(template, aliases)
+                    if not is_valid:
+                        raise Exception(f"Template validation failed: {error_msg}")
+
+                # COUNT(*) - 전체 개수 파악 (진행률 표시용)
+                count_query = f"SELECT COUNT(*) as total FROM {table_name}"
+                total_rows = 0
+                try:
+                    for row in connector.fetch_data(config_dict, count_query):
+                        total_rows = row.get("total", 0)
+                        break
+                except Exception as e:
+                    print(f"[WARNING] COUNT(*) failed: {e}")
+                    total_rows = limit  # Fallback
+
+                print(
+                    f"[INFO] Processing {table_name}: {total_rows} rows (max {limit})"
+                )
+
                 # 쿼리 생성
                 req_cols = ", ".join(columns)
                 query = f"SELECT {req_cols} FROM {table_name} LIMIT {limit}"
 
                 # 커넥터 실행 (Generator)
-                # fetch_data가 dict 형태({"col": "val"})로 yield 한다고 가정
+                row_count = 0
                 for row_dict in connector.fetch_data(config_dict, query):
-                    # 텍스트 변환 (Transformer)
+                    row_count += 1
+
+                    # 진행률 로깅 (100개마다)
+                    if row_count % 100 == 0:
+                        progress = (
+                            (row_count / total_rows) * 100 if total_rows > 0 else 0
+                        )
+                        print(f"[Progress] {row_count}/{total_rows} ({progress:.1f}%)")
+
+                    # 텍스트 변환 (Transformer - Jinja2 템플릿)
                     nl_text = transformer.transform(
-                        row_dict, sensitive_info=sensitive_info
+                        row_dict, template_str=template, aliases=aliases
                     )
 
-                    # 민감 컬럼 정보를 메타데이터에 포함
+                    # 원본 데이터 암호화 (민감 필드만)
+                    from utils.encryption import encryption_manager
+
+                    original_data = dict(row_dict)  # 복사
+                    for col in sensitive_columns:
+                        if col in original_data and original_data[col] is not None:
+                            original_data[col] = encryption_manager.encrypt(
+                                str(original_data[col])
+                            )
+
+                    # 메타데이터 구성
                     metadata = {
                         "source": f"DB:{conn_record.name}:{table_name}",
                         "table": table_name,
+                        "row_index": row_count,
+                        "original_data": original_data,  # 원본 데이터 (민감 필드 암호화)
+                        "sensitive_columns": sensitive_columns,
                     }
-                    if sensitive_info:
-                        metadata["sensitive_columns"] = sensitive_info.get(
-                            "sensitive_columns", []
-                        )
 
                     chunks.append(
                         {
-                            "content": nl_text,
+                            "content": nl_text,  # 템플릿 렌더링된 텍스트 (평문)
                             "metadata": metadata,
                         }
                     )
+
+                print(f"[INFO] Completed {table_name}: {row_count} chunks created")
         except Exception as e:
             return ProcessingResult(chunks=[], metadata={"error": str(e)})
         return ProcessingResult(

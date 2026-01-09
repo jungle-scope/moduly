@@ -376,8 +376,11 @@ class IngestionOrchestrator:
     def _save_to_vector_db(self, doc: Document, chunks: List[Dict[str, Any]]):
         import re
 
+        import tiktoken
+
         from services.llm_service import LLMService
         from utils.encryption import encryption_manager
+        from utils.template_utils import count_tokens
 
         self.db.query(DocumentChunk).filter(
             DocumentChunk.document_id == doc.id
@@ -401,23 +404,98 @@ class IngestionOrchestrator:
         else:
             print("[WARNING] No user_id provided.")
 
+        # ========================================
+        # 토큰 기반 배치 구성
+        # ========================================
+        MAX_TOKENS_PER_TEXT = 8000  # 개별 텍스트 최대 (안전 마진 191)
+        MAX_TEXTS_PER_BATCH = 100  # 배치당 최대 텍스트 개수
+
+        batches = []
+        current_batch = []
+
         for i, chunk in enumerate(chunks):
-            if (i + 1) % 5 == 0:
-                print(f"[DEBUG] {i + 1}/{len(chunks)} 개의 청크 처리 중...")
-
             content = chunk["content"]
+            tokens = count_tokens(content)
 
-            # 1. 평문으로 임베딩 생성
+            # 개별 텍스트 토큰 체크
+            if tokens > MAX_TOKENS_PER_TEXT:
+                print(
+                    f"[WARNING] Text too long ({tokens} tokens), truncating to {MAX_TOKENS_PER_TEXT}..."
+                )
+                # 토큰 수만큼 자르기
+                try:
+                    encoding = tiktoken.encoding_for_model(self.ai_model)
+                    encoded = encoding.encode(content)
+                    truncated = encoded[:MAX_TOKENS_PER_TEXT]
+                    content = encoding.decode(truncated)
+                    chunk["content"] = content
+                except Exception as e:
+                    print(f"[ERROR] Failed to truncate: {e}")
+
+            # 배치 크기 체크
+            if len(current_batch) >= MAX_TEXTS_PER_BATCH:
+                batches.append(current_batch)
+                current_batch = []
+
+            current_batch.append((i, chunk))
+
+        if current_batch:
+            batches.append(current_batch)
+
+        print(
+            f"[INFO] Created {len(batches)} batches (max {MAX_TEXTS_PER_BATCH} texts/batch)"
+        )
+
+        # ========================================
+        # 배치별 임베딩 생성
+        # ========================================
+        all_embeddings = {}  # {chunk_index: embedding}
+
+        for batch_idx, batch in enumerate(batches):
+            batch_texts = [chunk["content"] for _, chunk in batch]
+            batch_indices = [idx for idx, _ in batch]
+
+            print(
+                f"[DEBUG] Processing batch {batch_idx + 1}/{len(batches)} ({len(batch_texts)} texts)..."
+            )
+
             if llm_client:
                 try:
-                    embedding = llm_client.embed(content)
-                except Exception as e:
-                    print(f"[ERROR] Embedding failed for chunk {i}: {e}")
-                    raise Exception(f"OpenAI Embedding Error: {str(e)}")
-            else:
-                embedding = [0.1] * 1536  # Fallback
+                    # 배치 임베딩 호출
+                    batch_embeddings = llm_client.embed_batch(batch_texts)
 
-            # 2. content에서 민감 컬럼만 암호화
+                    # 인덱스 매핑
+                    for idx, embedding in zip(batch_indices, batch_embeddings):
+                        all_embeddings[idx] = embedding
+
+                except Exception as e:
+                    print(f"[ERROR] Batch embedding failed for batch {batch_idx}: {e}")
+                    # Fallback: 개별 임베딩
+                    for idx, chunk in batch:
+                        try:
+                            embedding = llm_client.embed(chunk["content"])
+                            all_embeddings[idx] = embedding
+                        except Exception as e2:
+                            print(
+                                f"[ERROR] Individual embedding also failed for chunk {idx}: {e2}"
+                            )
+                            all_embeddings[idx] = [0.1] * 1536
+            else:
+                # LLM client 없으면 더미 벡터
+                for idx, _ in batch:
+                    all_embeddings[idx] = [0.1] * 1536
+
+        # ========================================
+        # content 암호화 & DB 저장
+        # ========================================
+        for i, chunk in enumerate(chunks):
+            if (i + 1) % 50 == 0:
+                print(f"[DEBUG] {i + 1}/{len(chunks)} 개의 청크 암호화 중...")
+
+            content = chunk["content"]
+            embedding = all_embeddings.get(i, [0.1] * 1536)
+
+            # content에서 민감 컬럼만 암호화
             sensitive_columns = chunk.get("metadata", {}).get("sensitive_columns", [])
             if sensitive_columns:
                 for col in sensitive_columns:
@@ -447,7 +525,7 @@ class IngestionOrchestrator:
             )
             new_chunks.append(new_chunk)
 
-            # Progress polling을 위해 청크를 20%씩 처리
+            # Progress polling을 위해 청크를 10%씩 처리
             update_interval = max(1, int(len(chunks) * 0.1))
             if (i + 1) % update_interval == 0 or (i + 1) == len(chunks):
                 progress = ((i + 1) / len(chunks)) * 100
@@ -458,6 +536,7 @@ class IngestionOrchestrator:
                 self.db.add(doc)  # Ensure doc is attached
                 self.db.commit()
                 print(f"[DEBUG] Progress updated: {progress:.1f}%")
+
         self.db.bulk_save_objects(new_chunks)
 
         # 임베딩 생성 시 사용한 모델명 저장
