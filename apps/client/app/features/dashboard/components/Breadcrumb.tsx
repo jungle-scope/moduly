@@ -22,7 +22,7 @@ export default function Breadcrumb() {
         '/dashboard/explore': '마켓플레이스',
         '/dashboard/statistics': '통계',
         '/dashboard/knowledge': '참고자료',
-        '/dashboard/tools': '도구',
+        '/dashboard/settings': '설정',
         '/modules': '모듈',
       };
 

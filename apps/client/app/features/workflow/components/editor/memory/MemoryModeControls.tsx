@@ -217,7 +217,7 @@ export function useMemoryMode(router = useRouter(), toaster = toast) {
 
   const handleGoToProviderSettings = useCallback(() => {
     setShowKeyPrompt(false);
-    router.push('/settings/provider');
+    router.push('/dashboard/settings');
   }, [router]);
 
   const appendMemoryFlag = useCallback(

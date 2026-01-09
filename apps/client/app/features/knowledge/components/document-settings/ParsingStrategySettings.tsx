@@ -78,7 +78,7 @@ export default function ParsingStrategySettings({
               추천
             </span>
             <Link
-              href="/settings/provider"
+              href="/dashboard/settings"
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
               className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 font-medium z-10"
             >

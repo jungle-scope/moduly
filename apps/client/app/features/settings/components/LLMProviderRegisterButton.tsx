@@ -11,7 +11,7 @@ type Props = {
 export function LLMProviderRegisterButton({
   onClick,
   disabled,
-  href = '/settings/provider',
+  href = '/dashboard/settings',
 }: Props) {
   const router = useRouter();
 

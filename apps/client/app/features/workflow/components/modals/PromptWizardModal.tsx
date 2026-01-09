@@ -114,7 +114,7 @@ export function PromptWizardModal({
 
   const goToProviderSettings = () => {
     onClose();
-    router.push('/settings/provider');
+    router.push('/dashboard/settings');
   };
 
   if (!isOpen) return null;

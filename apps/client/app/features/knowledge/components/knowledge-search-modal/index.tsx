@@ -217,7 +217,7 @@ export default function KnowledgeSearchModal({
                   </select>
                 ) : (
                   <button
-                    onClick={() => router.push('/settings')}
+                    onClick={() => router.push('/dashboard/settings')}
                     className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 font-medium px-2 py-1 bg-red-50 rounded border border-red-200"
                   >
                     <Settings className="w-3 h-3" />
