@@ -10,6 +10,8 @@ import {
   History,
 } from 'lucide-react';
 import { type App } from '../api/appApi';
+import { Tag } from './Tag';
+import { getModuleTags } from '../utils/tagUtils';
 
 interface AppCardProps {
   app: App;
@@ -68,6 +70,13 @@ export default function AppCard({
         >
           {app.icon?.content}
         </div>
+      </div>
+
+      {/* 태그 영역 */}
+      <div className="flex flex-wrap gap-1.5 mt-3 mb-2">
+        {getModuleTags(app).map((tag, index) => (
+          <Tag key={index} label={tag.label} type={tag.type} />
+        ))}
       </div>
 
       <div className="flex items-center justify-between text-xs text-gray-400 mt-2">

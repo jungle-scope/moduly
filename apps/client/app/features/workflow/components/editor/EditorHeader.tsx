@@ -526,7 +526,8 @@ export default function EditorHeader() {
   );
 
   // [NEW] 원격 실행 트리거 효과
-  const lastRunTriggerRef = useRef(0);
+  const lastRunTriggerRef = useRef(runTrigger);
+
   useEffect(() => {
     if (runTrigger > lastRunTriggerRef.current) {
       handleTestRun();
@@ -572,7 +573,7 @@ export default function EditorHeader() {
         >
           <Play className="w-3.5 h-3.5" />
           <span className="text-[13px] font-medium hidden lg:inline">
-            {isExecuting ? '실행 중...' : '미리보기'}
+            {isExecuting ? '실행 중...' : '테스트'}
           </span>
         </button>
 

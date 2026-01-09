@@ -75,7 +75,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
 
       // 워크플로우 에디터로 리다이렉트
       if (response.workflow_id) {
-        router.push(`/workflows/${response.workflow_id}`);
+        router.push(`/modules/${response.workflow_id}`);
       }
     } catch (error: any) {
       console.error('앱 생성 실패:', error);
