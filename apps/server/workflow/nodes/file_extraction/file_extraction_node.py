@@ -1,7 +1,9 @@
 import os
+import tempfile
 from typing import Any, Dict
 
 import pymupdf4llm
+import requests
 
 from ..base.node import Node
 from .entities import FileExtractionNodeData
@@ -41,24 +43,40 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
         # STEP 2. 파일 경로 추출
         file_path = self._extract_file_path(inputs)
 
-        # STEP 3. 파일 존재 확인
-        if not file_path:
-            raise ValueError("파일 경로를 찾을 수 없습니다.")
+        # STEP 3. 파일 준비 (S3 URL이면 다운로드)
+        is_remote = file_path.startswith("http")
+        temp_file_path = None
 
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {file_path}")
-
-        # STEP 4. PDF 텍스트 추출
         try:
-            md_text_chunks = pymupdf4llm.to_markdown(file_path, page_chunks=True)
-        except Exception as e:
-            raise ValueError(f"PDF 파싱 실패: {str(e)}")
+            if is_remote:
+                # S3/HTTP URL에서 파일 다운로드
+                temp_file_path = self._download_file(file_path)
+                target_path = temp_file_path
+            else:
+                # 로컬 파일 확인
+                if not os.path.exists(file_path):
+                    raise FileNotFoundError(f"파일을 찾을 수 없습니다: {file_path}")
+                target_path = file_path
 
-        # STEP 5. 전체 텍스트 합치기
-        full_text = "\n\n".join([chunk["text"] for chunk in md_text_chunks])
+            # STEP 4. PDF 텍스트 추출
+            try:
+                md_text_chunks = pymupdf4llm.to_markdown(target_path, page_chunks=True)
+            except Exception as e:
+                raise ValueError(f"PDF 파싱 실패: {str(e)}")
 
-        # STEP 6. 결과 반환
-        return {"result": full_text, "page_count": len(md_text_chunks)}
+            # STEP 5. 전체 텍스트 합치기
+            full_text = "\n\n".join([chunk["text"] for chunk in md_text_chunks])
+
+            # STEP 6. 결과 반환
+            return {"result": full_text, "page_count": len(md_text_chunks)}
+
+        finally:
+            # 임시 파일 정리
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except Exception as e:
+                    print(f"[Warning] Failed to remove temp file: {e}")
 
     def _extract_file_path(self, inputs: Dict[str, Any]) -> str:
         """
@@ -87,3 +105,26 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
         else:
             # 노드 ID만 있으면 전체 데이터 반환
             return source_data
+
+    def _download_file(self, url: str) -> str:
+        """
+        S3/HTTP URL에서 파일을 다운로드하여 임시 경로를 반환합니다.
+        """
+        try:
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+
+            # 확장자 추론
+            from urllib.parse import urlparse
+
+            path = urlparse(url).path
+            ext = os.path.splitext(path)[1]
+            if not ext:
+                ext = ".pdf"
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                for chunk in response.iter_content(chunk_size=8192):
+                    tmp.write(chunk)
+                return tmp.name
+        except Exception as e:
+            raise RuntimeError(f"Failed to download file from {url}: {e}")
