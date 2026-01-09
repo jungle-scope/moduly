@@ -135,7 +135,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
   return (
     // 배경 (Backdrop)
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={handleBackdropClick}
     >
       {/* 모달 본문 */}
