@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Search, Send, Bot, X, Loader2, Settings } from 'lucide-react';
 import axios from 'axios';
 
@@ -36,7 +35,6 @@ export default function KnowledgeSearchModal({
   onClose,
   knowledgeBaseId,
 }: KnowledgeSearchModalProps) {
-  const router = useRouter();
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -217,7 +215,13 @@ export default function KnowledgeSearchModal({
                   </select>
                 ) : (
                   <button
-                    onClick={() => router.push('/dashboard/settings')}
+                    onClick={() =>
+                      window.open(
+                        '/dashboard/settings',
+                        '_blank',
+                        'noopener,noreferrer',
+                      )
+                    }
                     className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 font-medium px-2 py-1 bg-red-50 rounded border border-red-200"
                   >
                     <Settings className="w-3 h-3" />

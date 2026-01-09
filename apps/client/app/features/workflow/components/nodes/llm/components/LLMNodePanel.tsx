@@ -1,4 +1,3 @@
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 
 import { LLMNodeData } from '../../../../types/Nodes';
@@ -131,7 +130,9 @@ const groupModelsByProvider = (models: ModelOption[]) => {
 };
 
 export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
-  const router = useRouter();
+  const openSettingsTab = useCallback(() => {
+    window.open('/dashboard/settings', '_blank', 'noopener,noreferrer');
+  }, []);
   const { updateNodeData, nodes, edges } = useWorkflowStore();
 
   const systemPromptRef = useRef<HTMLTextAreaElement>(null);
@@ -523,7 +524,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
               </div>
               {/* Provider 설정 링크 */}
               <button
-                onClick={() => router.push('/dashboard/settings')}
+                onClick={openSettingsTab}
                 className="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline text-left"
               >
                 Provider API Key 등록하기
@@ -535,7 +536,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                 사용 가능한 모델이 없습니다.
               </span>
               <button
-                onClick={() => router.push('/dashboard/settings')}
+                onClick={openSettingsTab}
                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
               >
                 Provider 설정하러 가기 →

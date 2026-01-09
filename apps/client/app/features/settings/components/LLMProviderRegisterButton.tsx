@@ -1,7 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-
 type Props = {
   onClick?: () => void;
   disabled?: boolean;
@@ -13,14 +11,17 @@ export function LLMProviderRegisterButton({
   disabled,
   href = '/dashboard/settings',
 }: Props) {
-  const router = useRouter();
+  const openInNewTab = () => {
+    if (typeof window === 'undefined') return;
+    window.open(href, '_blank', 'noopener,noreferrer');
+  };
 
   const handleClick = () => {
     if (disabled) return;
     if (onClick) {
       onClick();
     } else {
-      router.push(href);
+      openInNewTab();
     }
   };
 

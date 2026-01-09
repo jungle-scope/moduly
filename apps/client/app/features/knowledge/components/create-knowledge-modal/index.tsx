@@ -806,6 +806,8 @@ export default function CreateKnowledgeModal({
                           <span>사용 가능한 임베딩 모델이 없습니다.</span>
                           <a
                             href="/dashboard/settings"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="ml-2 underline hover:text-amber-700 dark:hover:text-amber-300"
                           >
                             API 키 등록하기

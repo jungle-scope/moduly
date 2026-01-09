@@ -80,6 +80,8 @@ export default function ParsingStrategySettings({
             <Link
               href="/dashboard/settings"
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 font-medium z-10"
             >
               API 설정 <ChevronRight className="w-2.5 h-2.5" />
