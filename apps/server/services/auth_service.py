@@ -24,7 +24,57 @@ ACCESS_TOKEN_EXPIRE_HOURS = 6  # 6시간
 
 
 class AuthService:
-    """인증 서비스 - 회원가입, 로그인, 비밀번호 관리 (JWT 기반)"""
+    """인증 서비스 - 회원가입, 로그인, 비밀번호 관리 (JWT 기반) + 소셜 로그인"""
+
+    @staticmethod
+    def get_or_create_social_user(
+        db: Session,
+        email: str,
+        name: str,
+        social_provider: str,
+        social_id: str,
+        avatar_url: str | None = None,
+    ) -> User:
+        """
+        소셜 로그인 처리:
+        1. email로 사용자 조회
+        2. 있으면 반환 (필요시 social info 업데이트)
+        3. 없으면 새로 생성 후 반환
+        """
+        user = db.query(User).filter(User.email == email).first()
+
+        if user:
+            # 기존 유저가 있다면 소셜 정보 업데이트 (최초 연동 시 등)
+            is_updated = False
+            if user.social_provider != social_provider:
+                user.social_provider = social_provider
+                is_updated = True
+            if user.social_id != social_id:
+                user.social_id = social_id
+                is_updated = True
+            if avatar_url and user.avatar_url != avatar_url:
+                user.avatar_url = avatar_url
+                is_updated = True
+
+            if is_updated:
+                db.commit()
+                db.refresh(user)
+
+            return user
+
+        # 신규 유저 생성
+        new_user = User(
+            email=email,
+            name=name,
+            social_provider=social_provider,
+            social_id=social_id,
+            avatar_url=avatar_url,
+            # password는 null
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return new_user
 
     @staticmethod
     def hash_password(password: str) -> str:
