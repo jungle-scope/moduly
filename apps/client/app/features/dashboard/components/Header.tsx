@@ -59,7 +59,7 @@ export default function Header() {
   };
 
   return (
-    <header className="relative z-[99] h-14 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between pr-4 border-b border-gray-200">
+    <header className="relative z-40 h-14 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between pr-4 border-b border-gray-200">
       {/* Breadcrumb */}
       <div className="flex items-center ml-8">
         <Breadcrumb />
