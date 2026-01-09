@@ -182,13 +182,8 @@ async def google_login(request: Request):
     구글 로그인 리디렉션
     - 로컬/배포 환경에 따라 redirect_uri를 동적으로 생성
     """
-    # Debugging
-    client_id = os.getenv("GOOGLE_CLIENT_ID")
-    print(f"DEBUG: GOOGLE_CLIENT_ID raw: {repr(client_id)}")
-
     # url_for는 현재 요청의 Host 헤더(또는 Forwarded 헤더)를 기반으로 절대 경로 생성
     redirect_uri = request.url_for("auth_google_callback")
-    print(f"DEBUG: Generated Redirect URI: {redirect_uri}")
 
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
