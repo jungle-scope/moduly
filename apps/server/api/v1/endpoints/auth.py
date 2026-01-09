@@ -232,16 +232,6 @@ async def auth_google_callback(
     # 쿠키 설정
     is_production, cookie_domain = _get_cookie_config(request)
 
-    # 리디렉션 URL 설정
-    # 로컬 개발 환경(proxy 없이 직접 접근)에서는 프론트엔드 포트(3000)로 리디렉션 필요할 수 있음
-    # 하지만 사용자는 Nginx Reverse Proxy를 사용하는 것으로 추정됨 (8000/3000 분리?)
-    # 사용자의 요청: "url의 경우 로컬과 배포 환경에서 둘 다 동작하게 하고 싶어"
-    # 스마트 감지: Referer를 확인하거나, 혹은 /dashboard로 리디렉션하면
-    # 같은 도메인/포트 서빙이면 문제 없음.
-    # 만약 Nginx가 80포트에서 /api는 백엔드로, /는 프론트로 보낸다면 /dashboard로 충분.
-    # 로컬에서 localhost:3000(프론트), localhost:8000(백엔드)로 따로 띄운다면
-    # localhost:8000에서 localhost:3000으로 리디렉션 필요.
-
     dashboard_url = "/dashboard"
 
     # 호스트가 localhost:8000이면 -> localhost:3000으로 보냄 (개발 편의성)
