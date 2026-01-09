@@ -50,11 +50,9 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-52 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30">
+    <aside className="flex h-full w-52 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30 border-r border-gray-200">
       {/* Logo */}
-      <div className="border-b border-gray-100">
-        <Logo />
-      </div>
+      <Logo />
 
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
