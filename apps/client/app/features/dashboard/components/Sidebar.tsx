@@ -2,14 +2,27 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Wrench, BookOpen, BarChart3, Home } from 'lucide-react';
+import {
+  Search,
+  Wrench,
+  BookOpen,
+  BarChart3,
+  Puzzle,
+  Home,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Logo from './Logo';
 
 const navigationItems = [
   {
-    name: '대시보드',
+    name: '홈',
     href: '/dashboard',
     icon: Home,
+  },
+  {
+    name: '내 모듈',
+    href: '/dashboard/mymodule',
+    icon: Puzzle,
   },
   {
     name: '마켓플레이스',
@@ -38,6 +51,11 @@ export default function Sidebar() {
 
   return (
     <aside className="flex h-full w-52 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30">
+      {/* Logo */}
+      <div className="border-b border-gray-100">
+        <Logo />
+      </div>
+
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navigationItems.map((item) => {
@@ -55,7 +73,7 @@ export default function Sidebar() {
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-white',
               )}
             >
-              <Icon className="h-5 w-5 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" />
               <span>{item.name}</span>
             </Link>
           );

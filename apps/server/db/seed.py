@@ -117,8 +117,9 @@ def seed_default_llm_models(db: Session) -> None:
             return "openai" # gpt, o1, o3, dall-e, tts, whisper 등은 기본적으로 OpenAI로 처리
 
     models_seeded_count = 0
+    models_updated_count = 0
 
-    # 3. KNOWN_MODEL_PRICES 순회하며 모델 생성
+    # 3. KNOWN_MODEL_PRICES 순회하며 모델 생성 또는 가격 업데이트
     for model_id, pricing in LLMService.KNOWN_MODEL_PRICES.items():
         provider_name = get_provider_name(model_id)
         provider = provider_map.get(provider_name)
@@ -130,8 +131,14 @@ def seed_default_llm_models(db: Session) -> None:
         # 모델 찾기 또는 생성
         model = None
         if model_id in existing_model_ids:
-            # 모델 객체 찾기
+            # 기존 모델 객체 찾기
             model = next((m for m in existing_models if m.model_id_for_api_call == model_id), None)
+            # [NEW] 기존 모델이지만 가격 정보가 없으면 업데이트
+            if model and (model.input_price_1k is None or model.output_price_1k is None):
+                model.input_price_1k = pricing["input"]
+                model.output_price_1k = pricing["output"]
+                db.add(model)
+                models_updated_count += 1
         else:
             # 새 모델 생성
             new_model_uuid = uuid.uuid4()
@@ -175,9 +182,12 @@ def seed_default_llm_models(db: Session) -> None:
                  db.add(rel)
                  # print(f"   Configs: Linked {model_id} to Credential {cred.credential_name}")
 
-    if models_seeded_count > 0:
-        print(f"🌱 Seeded {models_seeded_count} new LLM models and linked to credentials.")
+    if models_seeded_count > 0 or models_updated_count > 0:
+        if models_seeded_count > 0:
+            print(f"🌱 Seeded {models_seeded_count} new LLM models.")
+        if models_updated_count > 0:
+            print(f"💰 Updated pricing for {models_updated_count} existing models.")
         db.commit()
-        print("✅ Default LLM models seeded!")
+        print("✅ LLM models sync complete!")
     else:
         print("ℹ️ LLM models up to date.")

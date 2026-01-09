@@ -42,7 +42,10 @@ def create_app(
     """
     새로운 앱을 생성합니다. (인증 필요)
     """
-    return AppService.create_app(db, request, user_id=str(current_user.id))
+    try:
+        return AppService.create_app(db, request, user_id=str(current_user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/explore", response_model=List[AppResponse])

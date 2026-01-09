@@ -23,12 +23,13 @@ class OpenAIClient(BaseLLMClient):
     }
     """
 
-    def __init__(self, model_id: str, credentials: Dict[str, Any]):
+    def __init__(self, model_id: str, credentials: Dict[str, Any], provider_name: str = "OpenAI"):
         super().__init__(model_id=model_id, credentials=credentials)
+        self.provider_name = provider_name
         self.api_key = credentials.get("apiKey") or credentials.get("api_key")
         self.base_url = credentials.get("baseUrl") or credentials.get("base_url")
         if not self.api_key or not self.base_url:
-            raise ValueError("OpenAI credentials에 apiKey/baseUrl가 필요합니다.")
+            raise ValueError(f"{self.provider_name} credentials에 apiKey/baseUrl가 필요합니다.")
         self.chat_url = self.base_url.rstrip("/") + "/chat/completions"
         self.embedding_url = self.base_url.rstrip("/") + "/embeddings"
 
@@ -40,7 +41,7 @@ class OpenAIClient(BaseLLMClient):
 
     def embed(self, text: str) -> List[float]:
         """
-        OpenAI Embeddings API 호출.
+        Embeddings API 호출.
         """
         payload = {"model": self.model_id, "input": text}
 
@@ -52,11 +53,11 @@ class OpenAIClient(BaseLLMClient):
                 timeout=30,
             )
         except requests.RequestException as exc:
-            raise ValueError(f"OpenAI 임베딩 호출 실패: {exc}") from exc
+            raise ValueError(f"{self.provider_name} 임베딩 호출 실패: {exc}") from exc
 
         if resp.status_code >= 400:
             raise ValueError(
-                f"OpenAI 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
+                f"{self.provider_name} 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
             )
 
         try:
@@ -64,7 +65,7 @@ class OpenAIClient(BaseLLMClient):
             # OpenAI response format: { "data": [ { "embedding": [...] } ] }
             return data["data"][0]["embedding"]
         except (ValueError, KeyError, IndexError) as exc:
-            raise ValueError("OpenAI 임베딩 응답 파싱 실패") from exc
+            raise ValueError(f"{self.provider_name} 임베딩 응답 파싱 실패") from exc
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
@@ -110,14 +111,14 @@ class OpenAIClient(BaseLLMClient):
 
     def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
-        OpenAI Chat Completions 엔드포인트 호출.
+        Chat Completions 엔드포인트 호출.
 
         Args:
             messages: role/content 형식의 메시지 리스트
             **kwargs: temperature, max_tokens 등 추가 옵션
 
         Returns:
-            OpenAI 응답 JSON 딕셔너리
+            응답 JSON 딕셔너리
 
         Raises:
             ValueError: HTTP 에러/파싱 실패 시
@@ -139,16 +140,16 @@ class OpenAIClient(BaseLLMClient):
                 self.chat_url, headers=self._build_headers(), json=payload, timeout=60
             )
         except requests.RequestException as exc:
-            raise ValueError(f"OpenAI 호출 실패: {exc}") from exc
+            raise ValueError(f"{self.provider_name} 호출 실패: {exc}") from exc
 
         if resp.status_code >= 400:
             snippet = resp.text[:200] if resp.text else ""
-            raise ValueError(f"OpenAI 호출 실패 (status {resp.status_code}): {snippet}")
+            raise ValueError(f"{self.provider_name} 호출 실패 (status {resp.status_code}): {snippet}")
 
         try:
             return resp.json()
         except ValueError as exc:
-            raise ValueError("OpenAI 응답을 JSON으로 파싱할 수 없습니다.") from exc
+            raise ValueError(f"{self.provider_name} 응답을 JSON으로 파싱할 수 없습니다.") from exc
 
     def get_num_tokens(self, messages: List[Dict[str, Any]]) -> int:
         """

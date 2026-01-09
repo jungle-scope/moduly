@@ -25,7 +25,27 @@ from db.session import SessionLocal  # SessionLocal 필요
 
 
 class WorkflowLogger:
-    """워크플로우 실행 로깅을 담당하는 유틸리티 클래스 (Async Version)"""
+    """
+    워크플로우 실행 로깅을 담당하는 유틸리티 클래스 (Async Version)
+
+    Context Manager 패턴을 지원하여 리소스 누수를 방지합니다.
+
+    Usage:
+        # 권장: Context Manager 사용
+        with WorkflowLogger(db) as logger:
+            logger.create_run_log(...)
+            # 자동으로 shutdown() 호출됨
+
+        # 또는 수동 관리
+        logger = WorkflowLogger(db)
+        try:
+            logger.create_run_log(...)
+        finally:
+            logger.shutdown()
+    """
+
+    # Queue 크기 제한 (백프레셔 적용)
+    MAX_QUEUE_SIZE = 1000
 
     def __init__(self, db: Optional[Session] = None):
         """
@@ -33,26 +53,45 @@ class WorkflowLogger:
             db: SQLAlchemy 세션 (하위 호환성을 위해 유지하지만, 실제 로깅은 내부의 별도 세션 사용)
         """
         self.workflow_run_id: Optional[uuid.UUID] = None
-        self.log_queue = queue.Queue()
-        self.is_active = True
+        self.log_queue = queue.Queue(maxsize=self.MAX_QUEUE_SIZE)
+        self._is_shutdown = False
+        self._shutdown_lock = threading.Lock()
 
         # 백그라운드 워커 스레드 시작
         self.worker_thread = threading.Thread(target=self._log_worker, daemon=True)
         self.worker_thread.start()
 
+    def __enter__(self):
+        """Context Manager 진입"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context Manager 종료 - 자동으로 shutdown() 호출"""
+        self.shutdown()
+        return False  # 예외를 다시 raise
+
+    def __del__(self):
+        """
+        객체 소멸 시 안전망 (Safety Net)
+        - Context Manager를 사용하지 않은 경우에도 리소스 정리 시도
+        - 주의: __del__은 호출 시점이 보장되지 않으므로 Context Manager 사용 권장
+        """
+        self.shutdown()
+
     def shutdown(self):
         """
-        로깅 종료 처리
+        로깅 종료 처리 (Thread-safe)
+        - 중복 호출 방지
         - 큐에 남은 작업을 모두 처리할 때까지 대기
         - 워커 스레드 종료
         """
-        """
-        로깅 종료 처리
-        - 큐에 남은 작업을 모두 처리할 때까지 대기
-        - 워커 스레드 종료
-        """
+        with self._shutdown_lock:
+            if self._is_shutdown:
+                return  # 이미 종료됨
+            self._is_shutdown = True
+
         self.log_queue.put(None)  # 워커 중지를 위한 센티널(Sentinel)
-        self.worker_thread.join()
+        self.worker_thread.join(timeout=5.0)  # 최대 5초 대기 (무한 대기 방지)
 
     def _log_worker(self):
         """백그라운드에서 로그를 DB에 기록하는 워커"""
