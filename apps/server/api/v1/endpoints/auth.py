@@ -251,12 +251,8 @@ async def auth_google_callback(
 
     redirect_response = RedirectResponse(url=dashboard_url, status_code=302)
     redirect_response.set_cookie(
-        key="auth_token",  # 기존 코드에서 사용하는 쿠키 이름 확인 필요 ("auth_token" vs "access_token")
-        # get_current_user에서 "auth_token"을 사용 중임 (line 153)
-        value=access_token,  # Bearer 접두사 없이 사용하는지 확인 필요
-        # AuthService.get_user_from_token 로직 확인 필요.
-        # 기존 로직: token = request.cookies.get("auth_token") -> jwt.decode(token...)
-        # 즉 Bearer 없이 토큰 값만 넣어야 함.
+        key="auth_token",
+        value=access_token,
         httponly=True,
         secure=is_production,
         samesite="lax",
