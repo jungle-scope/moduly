@@ -20,46 +20,50 @@ export const FileExtractionNodePanel: React.FC<
     return getUpstreamNodes(nodeId, nodes, edges);
   }, [nodeId, nodes, edges]);
 
-  // 파일 경로 변수 선택 업데이트
-  // ReferencedVariablesControl을 위한 어댑터
-  const variables = useMemo(
-    () => [
-      {
-        name: '',
-        value_selector: data.file_path_variable || ['', ''],
-      },
-    ],
-    [data.file_path_variable],
-  );
+  // 변수 추가 핸들러
+  const handleAddVariable = () => {
+    updateNodeData(nodeId, {
+      referenced_variables: [
+        ...(data.referenced_variables || []),
+        { name: '', value_selector: [] },
+      ],
+    });
+  };
 
+  // 변수 제거 핸들러
+  const handleRemoveVariable = (index: number) => {
+    const newVars = [...(data.referenced_variables || [])];
+    newVars.splice(index, 1);
+    updateNodeData(nodeId, { referenced_variables: newVars });
+  };
+
+  // 변수 업데이트 핸들러
   const handleUpdateVariable = (
     index: number,
     field: 'name' | 'value_selector',
     value: string | string[],
   ) => {
-    if (field === 'value_selector') {
-      updateNodeData(nodeId, {
-        file_path_variable: value as [string, string],
-      });
-    }
+    const newVars = [...(data.referenced_variables || [])];
+    newVars[index] = { ...newVars[index], [field]: value };
+    updateNodeData(nodeId, { referenced_variables: newVars });
   };
 
   return (
     <div className="flex flex-col gap-4">
       {/* 파일 경로 변수 선택기 */}
-      <CollapsibleSection title="File Path Variable">
+      <CollapsibleSection title="입력 변수">
         <ReferencedVariablesControl
-          variables={variables}
+          variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
           onUpdate={handleUpdateVariable}
-          onAdd={() => {}}
-          onRemove={() => {}}
+          onAdd={handleAddVariable}
+          onRemove={handleRemoveVariable}
           title=""
-          description="추출할 PDF 파일의 경로를 가져올 변수를 선택하세요."
-          showAddButton={false}
-          showRemoveButton={false}
-          showItemLabel={false}
-          hideAlias={true}
+          description="텍스트를 추출할 파일을 선택하세요"
+          showAddButton={true}
+          showRemoveButton={true}
+          showItemLabel={true}
+          hideAlias={false}
         />
       </CollapsibleSection>
     </div>

@@ -132,9 +132,6 @@ class AppService:
             .all()
         )
 
-        for app in apps:
-            AppService._populate_owner_name(db, app)
-
         return apps
 
     @staticmethod

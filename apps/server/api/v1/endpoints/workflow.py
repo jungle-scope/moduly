@@ -1,7 +1,5 @@
 import json
-import os
 from typing import List
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -560,31 +558,6 @@ async def stream_workflow(
         except json.JSONDecodeError:
             user_input = {}
 
-        # 파일 필드 처리
-        upload_dir = "uploads/temp"
-        os.makedirs(upload_dir, exist_ok=True)
-
-        for field_name, field_value in form.items():
-            # file_로 시작하는 필드가 파일
-            if field_name.startswith("file_") and hasattr(field_value, "filename"):
-                file = field_value
-
-                if file and file.filename:
-                    # file_변수명에서 변수명 추출
-                    var_name = field_name[5:]  # "file_" 제거
-
-                    # 고유 파일명 생성
-                    unique_filename = f"{workflow_id}_{uuid4().hex[:8]}_{file.filename}"
-                    file_path = os.path.join(upload_dir, unique_filename)
-
-                    # 파일 저장
-                    with open(file_path, "wb") as buffer:
-                        content = await file.read()
-                        buffer.write(content)
-
-                    user_input[var_name] = file_path
-                    print(f"[DEBUG] 파일 저장: {var_name} -> {file_path}")
-
         # 토글 값 분리 (문자열 true/false 허용)
         memory_mode_enabled = str(form.get("memory_mode", "")).lower() == "true"
     else:
@@ -628,6 +601,9 @@ async def stream_workflow(
             # 스트리밍 도중 에러 발생 시 에러 이벤트 전송
             error_event = {"type": "error", "data": {"message": str(e)}}
             yield f"data: {json.dumps(error_event)}\n\n"
+        finally:
+            # [FIX] 클라이언트 연결 끊김 등으로 제너레이터가 중단되어도 리소스 정리 보장
+            engine.logger.shutdown()
 
     # 5. StreamingResponse 반환
     return StreamingResponse(event_generator(), media_type="text/event-stream")
