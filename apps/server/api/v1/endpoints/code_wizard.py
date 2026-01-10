@@ -44,31 +44,52 @@ CODE_WIZARD_SYSTEM_PROMPT = """당신은 Python 코드 생성 전문가입니다
 
 [필수 규칙 - 반드시 준수]
 1. 반드시 `def main(inputs):` 함수를 정의해야 합니다
-2. 입력 변수는 반드시 `inputs['변수명']` 형태로 접근합니다
-3. 함수는 반드시 딕셔너리(dict)를 반환해야 합니다 (예: return {{"result": value}})
-4. Python 표준 라이브러리만 사용 가능합니다 (외부 패키지 설치 불가)
-5. 외부 네트워크 접근은 불가능합니다 (requests, urllib 등 사용 불가)
-6. 파일 I/O는 /tmp 디렉토리만 사용 가능합니다
+2. inputs 딕셔너리에서 변수를 꺼내 사용합니다: `inputs['변수명']`
+3. 함수는 반드시 딕셔너리(dict)를 반환해야 합니다
+4. 반환값은 JSON 직렬화 가능해야 합니다 (문자열, 숫자, 리스트, 딕셔너리 등)
+
+[실행 환경 - Sandbox]
+- Python 3 환경에서 Docker 컨테이너 격리 실행
+- 표준 라이브러리 사용 가능: json, re, datetime, math, collections, itertools 등
+- 제한: 파일 시스템 접근 불가, 시스템 명령어 실행 불가
+- 타임아웃: 기본 10초
 
 [사용 가능한 입력 변수]
 {input_variables}
 
 [출력 형식]
-Python 코드만 출력하세요. 마크다운 코드 블록(```)이나 설명은 불필요합니다.
+Python 코드만 출력하세요. 마크다운 코드 블록(```)이나 설명은 포함하지 마세요.
 
-예시:
+[예시 1: 기본]
 def main(inputs):
     val1 = inputs['num1']
     val2 = inputs['num2']
     result = val1 + val2
-    return {{"result": result}}"""
+    return {{"result": result}}
+
+[예시 2: 문자열 처리]
+def main(inputs):
+    text = inputs['text']
+    return {{
+        "upper": text.upper(),
+        "length": len(text),
+        "words": text.split()
+    }}
+
+[예시 3: JSON 파싱]
+import json
+
+def main(inputs):
+    data = json.loads(inputs['json_str'])
+    return {{"parsed": data, "keys": list(data.keys())}}"""
 
 
 # === Provider별 효율적인 모델 매핑 ===
+# 가성비와 코드 생성 능력을 모두 고려한 모델 선정
 PROVIDER_EFFICIENT_MODELS = {
-    "openai": "gpt-4o-mini",
-    "google": "gemini-1.5-flash",
-    "anthropic": "claude-3-haiku-20240307",
+    "openai": "gpt-4o-mini",               # 압도적인 가성비 + 준수한 코딩 능력
+    "google": "gemini-1.5-flash",          # 매우 저렴 + 긴 컨텍스트
+    "anthropic": "claude-3-5-sonnet-20240620", # 코딩 성능 최강자 (Haiku보다 비싸지만 성능 확실)
 }
 
 
@@ -189,6 +210,18 @@ def generate_code(
         # 8. 코드 정제 (마크다운 코드 블록 제거)
         generated_code = _clean_code_response(generated_code)
         
+        # 9. 코드 검증 및 자동 수정
+        validation_result = _validate_and_fix_code(generated_code)
+        if validation_result["has_errors"]:
+            # 치명적 에러가 있으면 경고와 함께 반환
+            generated_code = validation_result["code"]
+            warnings = validation_result["warnings"]
+            if warnings:
+                # 경고가 있지만 코드는 반환 (프론트에서 표시 가능)
+                print(f"[code_wizard] Code warnings: {warnings}")
+        else:
+            generated_code = validation_result["code"]
+        
         return {"generated_code": generated_code}
         
     except ValueError as e:
@@ -216,3 +249,120 @@ def _clean_code_response(code: str) -> str:
         code = code[:-3].strip()
     
     return code
+
+
+def _validate_and_fix_code(code: str) -> dict:
+    """
+    LLM이 생성한 코드를 검증하고, 가능하면 자동 수정합니다.
+    
+    자동 수정 항목:
+    1. def main(inputs): 함수 정의 없음 → 전체 코드를 main 함수로 래핑
+    2. 다른 함수명 사용 → main으로 교체
+    3. print() 사용 → return으로 변환
+    4. 단순값 return → dict로 래핑
+    
+    Returns:
+        {
+            "code": str,           # 수정된 코드
+            "has_errors": bool,    # 치명적 에러 여부
+            "warnings": List[str]  # 수정/경고 메시지들
+        }
+    """
+    import re
+    
+    warnings = []
+    has_errors = False
+    
+    # === 1. def main(inputs): 함수 정의 확인 및 수정 ===
+    main_pattern = r'def\s+main\s*\(\s*inputs\s*\)\s*:'
+    if not re.search(main_pattern, code):
+        # 1-1. 다른 함수명으로 정의했는지 확인 (예: def process, def run 등)
+        other_func_pattern = r'def\s+(\w+)\s*\(\s*inputs\s*\)\s*:'
+        match = re.search(other_func_pattern, code)
+        if match:
+            old_name = match.group(1)
+            # 함수명을 main으로 자동 교체
+            code = re.sub(
+                rf'def\s+{old_name}\s*\(\s*inputs\s*\)\s*:',
+                'def main(inputs):',
+                code
+            )
+            warnings.append(f"✅ 함수명 '{old_name}'을 'main'으로 자동 수정했습니다.")
+        else:
+            # 1-2. main 함수가 아예 없음 → 전체 코드를 main으로 래핑
+            # import 문은 함수 밖에 유지
+            lines = code.split('\n')
+            import_lines = []
+            body_lines = []
+            
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith('import ') or stripped.startswith('from '):
+                    import_lines.append(line)
+                else:
+                    body_lines.append(line)
+            
+            # body를 main 함수로 래핑
+            if body_lines:
+                # 들여쓰기 추가
+                indented_body = '\n'.join('    ' + line if line.strip() else '' for line in body_lines)
+                
+                # return 문이 없으면 마지막에 빈 dict 반환 추가
+                if 'return ' not in indented_body and 'return{' not in indented_body:
+                    indented_body += '\n    return {"result": "completed"}'
+                
+                new_code_parts = []
+                if import_lines:
+                    new_code_parts.append('\n'.join(import_lines))
+                new_code_parts.append('\ndef main(inputs):')
+                new_code_parts.append(indented_body)
+                
+                code = '\n'.join(new_code_parts)
+                warnings.append("✅ 코드를 'def main(inputs):' 함수로 자동 래핑했습니다.")
+    
+    # === 2. print()를 return으로 변환 ===
+    # 마지막 print 문을 return으로 변경
+    # 패턴: print(something) → return {"result": something}
+    print_pattern = r'(\s*)print\s*\(([^)]+)\)\s*$'
+    
+    # 마지막 print만 변환 (여러 개 있으면 마지막 것만)
+    matches = list(re.finditer(print_pattern, code, re.MULTILINE))
+    if matches and 'return ' not in code:
+        last_match = matches[-1]
+        indent = last_match.group(1)
+        print_content = last_match.group(2).strip()
+        
+        # print 내용이 dict 형태인지 확인
+        if print_content.startswith('{') or print_content.startswith('dict('):
+            replacement = f'{indent}return {print_content}'
+        else:
+            replacement = f'{indent}return {{"result": {print_content}}}'
+        
+        code = code[:last_match.start()] + replacement + code[last_match.end():]
+        warnings.append("✅ 마지막 'print()'를 'return'으로 자동 변환했습니다.")
+    
+    # === 3. 단순값 return을 dict로 래핑 ===
+    # return value → return {"result": value}
+    # 단, return {...} 나 return 변수 (변수가 dict일 수 있음)는 제외
+    
+    # return 문 찾기 (dict가 아닌 리터럴 값만 대상)
+    simple_return_pattern = r'(\s*)return\s+(["\'][^"\']+["\']|\d+(?:\.\d+)?|True|False|None)\s*$'
+    
+    def replace_simple_return(match):
+        indent = match.group(1)
+        value = match.group(2)
+        warnings.append(f"✅ 'return {value}'를 'return {{\"result\": {value}}}'로 자동 래핑했습니다.")
+        return f'{indent}return {{"result": {value}}}'
+    
+    code = re.sub(simple_return_pattern, replace_simple_return, code, flags=re.MULTILINE)
+    
+    # === 4. 최종 검증: return 문 존재 확인 ===
+    if 'return ' not in code and 'return{' not in code:
+        warnings.append("⚠️ 'return' 문이 없습니다. 결과를 반환하도록 수정해주세요.")
+        has_errors = True
+    
+    return {
+        "code": code,
+        "has_errors": has_errors,
+        "warnings": warnings
+    }

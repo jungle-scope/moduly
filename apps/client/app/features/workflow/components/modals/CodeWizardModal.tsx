@@ -3,6 +3,25 @@
 import { useState, useEffect } from 'react';
 import { X, Wand2, Copy, Check, Loader2, ArrowRight, Info, Code } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+// 서버 에러 응답 타입 정의 (개선점 1: 에러 스키마 명확화)
+interface ApiErrorResponse {
+  detail: string | { message: string };
+}
+
+// 에러 메시지 추출 헬퍼 함수
+function extractErrorMessage(errorData: unknown): string {
+  if (typeof errorData === 'object' && errorData !== null && 'detail' in errorData) {
+    const detail = (errorData as ApiErrorResponse).detail;
+    if (typeof detail === 'string') return detail;
+    if (typeof detail === 'object' && detail !== null && 'message' in detail) {
+      return detail.message;
+    }
+  }
+  return '코드 생성에 실패했습니다.';
+}
 
 interface CodeWizardModalProps {
   isOpen: boolean;
@@ -75,8 +94,7 @@ export function CodeWizardModal({
 
       if (!res.ok) {
         const errorData = await res.json();
-        const message = errorData.detail?.message || errorData.detail || '코드 생성에 실패했습니다.';
-        throw new Error(message);
+        throw new Error(extractErrorMessage(errorData));
       }
 
       const data = await res.json();
@@ -104,8 +122,7 @@ export function CodeWizardModal({
   };
 
   const goToProviderSettings = () => {
-    onClose();
-    router.push('/settings/provider');
+    window.open('/dashboard/settings', '_blank');
   };
 
   if (!isOpen) return null;
@@ -226,9 +243,19 @@ export function CodeWizardModal({
                   </div>
                 </div>
               ) : generatedCode ? (
-                <pre className="p-3 whitespace-pre-wrap font-mono text-green-400 text-xs">
+                <SyntaxHighlighter
+                  language="python"
+                  style={vscDarkPlus}
+                  customStyle={{
+                    margin: 0,
+                    padding: '12px',
+                    fontSize: '12px',
+                    background: 'transparent',
+                  }}
+                  wrapLongLines
+                >
                   {generatedCode}
-                </pre>
+                </SyntaxHighlighter>
               ) : (
                 <div className="h-full flex items-center justify-center text-gray-500 text-sm">
                   왼쪽에서 "코드 생성 요청" 버튼을 클릭하세요
