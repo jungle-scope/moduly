@@ -415,18 +415,26 @@ export default function DocumentSettingsPage() {
             className="hover:text-blue-600 flex items-center gap-1"
           >
             <Home className="w-3 h-3" />
-            <span>대시보드</span>
+            <span>홈</span>
           </Link>
           <ChevronRight className="w-3 h-3 text-gray-300" />
           <Link
             href={`/dashboard/knowledge/${kbId}`}
             className="hover:text-blue-600"
           >
-            자료 목록
+            지식
+          </Link>
+          <ChevronRight className="w-3 h-3 text-gray-300" />
+          <Link
+            href={`/dashboard/knowledge/${kbId}`}
+            className="hover:text-blue-600 max-w-[150px] truncate"
+            title={document?.filename}
+          >
+            {document?.filename || '소스'}
           </Link>
           <ChevronRight className="w-3 h-3 text-gray-300" />
           <span className="text-gray-900 dark:text-white font-medium">
-            문서 설정
+            설정
           </span>
         </div>
 
@@ -531,127 +539,128 @@ export default function DocumentSettingsPage() {
       {/* Main Layout (3 Columns) */}
       <div className="flex-1 flex overflow-hidden">
         {/* 1. Left Panel: Settings */}
-        <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-          <div className="p-6">
-            {/* FILE일 때만 파싱 전략 노출 */}
-            {(document?.source_type === 'FILE' || !document?.source_type) && (
-              <ParsingStrategySettings
-                strategy={parsingStrategy}
-                setStrategy={setParsingStrategy}
-              />
-            )}
-            <CommonChunkSettings
-              chunkSize={chunkSize}
-              setChunkSize={setChunkSize}
-              chunkOverlap={chunkOverlap}
-              setChunkOverlap={setChunkOverlap}
-              segmentIdentifier={segmentIdentifier}
-              setSegmentIdentifier={setSegmentIdentifier}
-              removeWhitespace={removeWhitespace}
-              setRemoveWhitespace={setRemoveWhitespace}
-              removeUrlsEmails={removeUrlsEmails}
-              setRemoveUrlsEmails={setRemoveUrlsEmails}
+        <div className="w-80 flex-none h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto p-4 space-y-3">
+          {/* FILE일 때만 파싱 전략 노출 */}
+          {(document?.source_type === 'FILE' || !document?.source_type) && (
+            <ParsingStrategySettings
+              strategy={parsingStrategy}
+              setStrategy={setParsingStrategy}
             />
+          )}
+          <CommonChunkSettings
+            chunkSize={chunkSize}
+            setChunkSize={setChunkSize}
+            chunkOverlap={chunkOverlap}
+            setChunkOverlap={setChunkOverlap}
+            segmentIdentifier={segmentIdentifier}
+            setSegmentIdentifier={setSegmentIdentifier}
+            removeWhitespace={removeWhitespace}
+            setRemoveWhitespace={setRemoveWhitespace}
+            removeUrlsEmails={removeUrlsEmails}
+            setRemoveUrlsEmails={setRemoveUrlsEmails}
+          />
 
-            {/* 범위 선택 UI */}
-            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                🎯 청크 선택 범위
+          {/* 범위 선택 UI - Refined Design */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+              <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <span className="w-5 h-5 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400 text-xs">
+                  🎯
+                </span>
+                청크 선택 범위
               </h4>
+            </div>
 
-              {/* 모드 선택 라디오 버튼 */}
-              <div className="space-y-2 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="all"
-                    checked={selectionMode === 'all'}
-                    onChange={(e) => setSelectionMode(e.target.value as any)}
-                    className="w-4 h-4 text-indigo-600"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    전체 선택 (기본)
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="range"
-                    checked={selectionMode === 'range'}
-                    onChange={(e) => setSelectionMode(e.target.value as any)}
-                    className="w-4 h-4 text-indigo-600"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    청크 범위 지정
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="keyword"
-                    checked={selectionMode === 'keyword'}
-                    onChange={(e) => setSelectionMode(e.target.value as any)}
-                    className="w-4 h-4 text-indigo-600"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    키워드 검색
-                  </span>
-                </label>
+            <div className="p-3">
+              {/* 모드 선택 - Segmented Control Style */}
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectionMode('all')}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    selectionMode === 'all'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  전체
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectionMode('range')}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    selectionMode === 'range'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  범위
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectionMode('keyword')}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    selectionMode === 'keyword'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  키워드
+                </button>
               </div>
 
               {/* 조건부 입력 폼 */}
               {selectionMode === 'range' && (
-                <div>
-                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                    청크 범위 (예: 1-100, 500-600)
-                  </label>
+                <div className="animate-in slide-in-from-top-2 duration-200">
                   <input
                     type="text"
                     value={chunkRange}
                     onChange={(e) => setChunkRange(e.target.value)}
-                    placeholder="1-100, 500-600"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    placeholder="예: 1-100, 500-600"
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    쉼표로 구분하여 여러 범위 입력 가능
+                    쉼표로 구분하여 여러 범위 입력
                   </p>
                 </div>
               )}
 
               {selectionMode === 'keyword' && (
-                <div>
-                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                    키워드
-                  </label>
+                <div className="animate-in slide-in-from-top-2 duration-200">
                   <input
                     type="text"
                     value={keywordFilter}
                     onChange={(e) => setKeywordFilter(e.target.value)}
                     placeholder="검색할 키워드 입력"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    입력한 키워드를 포함하는 청크만 표시
+                    키워드 포함 청크만 표시
                   </p>
                 </div>
               )}
-            </div>
 
-            <button
-              onClick={handlePreviewClick}
-              disabled={isPreviewLoading || isAnalyzing}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            >
-              {isPreviewLoading || analyzingAction === 'preview' ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
+              {selectionMode === 'all' && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-1">
+                  모든 청크가 선택됩니다
+                </p>
               )}
-              설정 적용 및 결과 미리보기
-            </button>
+            </div>
           </div>
+
+          {/* Preview Button - Below Selection Box */}
+          <button
+            onClick={handlePreviewClick}
+            disabled={isPreviewLoading || isAnalyzing}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+          >
+            {isPreviewLoading || analyzingAction === 'preview' ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            결과 미리보기
+          </button>
         </div>
         {/* 2. Center Panel: Original Document View */}
         <div className="flex-1 bg-gray-100 dark:bg-gray-900/50 overflow-hidden flex flex-col border-r border-gray-200 dark:border-gray-700">

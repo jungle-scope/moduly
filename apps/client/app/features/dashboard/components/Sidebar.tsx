@@ -35,7 +35,7 @@ const navigationItems = [
     icon: BarChart3,
   },
   {
-    name: '참고자료',
+    name: '지식 관리',
     href: '/dashboard/knowledge',
     icon: BookOpen,
   },

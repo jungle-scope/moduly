@@ -24,6 +24,12 @@ class KnowledgeBaseResponse(BaseModel):
     embedding_model: str
 
 
+class KnowledgeBaseCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    embedding_model: str = "text-embedding-3-small"
+
+
 class KnowledgeUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None

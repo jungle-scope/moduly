@@ -13,10 +13,12 @@ if SERVER_ENV_PATH.exists():
     load_dotenv(dotenv_path=SERVER_ENV_PATH)
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from api.api import api_router
