@@ -219,7 +219,6 @@ export default function CreateKnowledgeModal({
           const connectorRes = await connectorApi.createConnector(dbConfig);
           if (connectorRes.success && connectorRes.id) {
             connectionId = connectorRes.id;
-            console.log('Connector created: ', connectionId);
           } else {
             console.error('Connector creation failed:', connectorRes.message);
             toast.error(
@@ -257,7 +256,6 @@ export default function CreateKnowledgeModal({
         connectionId: connectionId,
       });
 
-      // console.log(JSON.stringify(response));
       // 성공 시 모달 닫기 및 문서 설정 페이지로 이동
       onClose();
       router.push(
