@@ -17,14 +17,8 @@ export const LLMNode = memo(
         iconColor="#a855f7" // purple-500
       >
         <div className="flex flex-col gap-1">
-          <div className="flex justify-between items-center text-xs text-gray-500">
-            <span>Model</span>
-            <span className="font-medium text-gray-900">
-              {data.provider || '미지정'}
-            </span>
-          </div>
           <div className="text-sm font-semibold text-gray-800 truncate">
-            {data.model_id || '모델을 선택하세요'}
+            {data.model_id || '모델 미지정'}
           </div>
         </div>
       </BaseNode>

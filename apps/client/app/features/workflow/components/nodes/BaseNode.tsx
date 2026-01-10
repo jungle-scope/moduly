@@ -52,7 +52,7 @@ export const SmartHandle: React.FC<HandleProps & { className?: string }> = ({
          노드에 마우스를 올렸을(group-hover) 때만 중앙에 작은 파란색 점이 나타납니다.
          이것이 '연결 가능한 지점'임을 암시(Hint)합니다. 
       */}
-      <div className="w-3 h-3 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-visible duration-300 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+      <div className="w-3 h-3 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
     </Handle>
   );
 };
@@ -270,7 +270,12 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
       right = 'tab'; // 돌출형 (출력)
     }
 
-    return { top, right, bottom, left };
+    return {
+      top: 'flat' as SideShape,
+      right: 'flat' as SideShape,
+      bottom: 'flat' as SideShape,
+      left: 'flat' as SideShape,
+    };
   }, [id, puzzleType]);
 
   const getHandleStyle = (side: 'left' | 'right') => {
@@ -284,11 +289,11 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
     if (side === 'left') {
       if (shape === 'tab') return { left: `-${tabHeight}px` }; // 돌출: -14px
       if (shape === 'blank') return { left: `-${tabHeight + 6}px` }; // 함몰: -20px (더 바깥쪽)
-      return {}; // 평평: 0px
+      return { left: '-20px' }; // 평평: 테두리 선 중앙
     } else {
       if (shape === 'tab') return { right: `-${tabHeight}px` }; // 돌출: -14px
       if (shape === 'blank') return { right: `-${tabHeight + 6}px` }; // 함몰: -20px (더 바깥쪽)
-      return {}; // 평평: 0px
+      return { right: '-20px' }; // 평평: 테두리 선 중앙
     }
   };
 
@@ -299,7 +304,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
         'relative group min-w-[320px] p-7 transition-all', // Padding increased to p-7, min-w to 320px
         className,
       )}
-      style={{ isolation: 'isolate' }}
+      style={{ isolation: 'isolate', overflow: 'visible' }}
     >
       <JigsawBackground
         width={dimensions.width}

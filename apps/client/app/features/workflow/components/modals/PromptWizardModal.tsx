@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { X, Sparkles, Copy, Check, Loader2, ArrowRight, Info } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 interface PromptWizardModalProps {
   isOpen: boolean;
@@ -25,8 +24,7 @@ export function PromptWizardModal({
   originalPrompt,
   onApply,
 }: PromptWizardModalProps) {
-  const router = useRouter();
-  
+
   const [currentPrompt, setCurrentPrompt] = useState(originalPrompt);
   const [improvedPrompt, setImprovedPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -114,7 +112,7 @@ export function PromptWizardModal({
 
   const goToProviderSettings = () => {
     onClose();
-    router.push('/settings/provider');
+    window.open('/dashboard/settings', '_blank', 'noopener,noreferrer');
   };
 
   if (!isOpen) return null;

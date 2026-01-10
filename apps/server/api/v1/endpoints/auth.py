@@ -1,8 +1,10 @@
 import os
 
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from auth.oauth import oauth
 from db.session import get_db
 from schemas.auth import LoginRequest, LoginResponse, SignupRequest
 from services.auth_service import AuthService
@@ -169,19 +171,83 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     )
 
 
+# -----------------------------------------------------------------------------
+# Google OAuth
+# -----------------------------------------------------------------------------
+
+
 @router.get("/google/login")
-def google_login():
+async def google_login(request: Request):
     """
-    구글 OAuth 로그인 시작
+    구글 로그인 리디렉션
+    - 로컬/배포 환경에 따라 redirect_uri를 동적으로 생성
     """
-    # TODO: 구글 OAuth 로직 구현
-    return {"message": "Google login endpoint - implementation needed"}
+    # url_for는 현재 요청의 Host 헤더(또는 Forwarded 헤더)를 기반으로 절대 경로 생성
+    redirect_uri = request.url_for("auth_google_callback")
+
+    return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @router.get("/google/callback")
-def google_callback(code: str, db: Session = Depends(get_db)):
+async def auth_google_callback(
+    request: Request, response: Response, db: Session = Depends(get_db)
+):
     """
-    구글 OAuth 콜백 처리
+    구글 로그인 콜백
     """
-    # TODO: 구글 콜백 로직 구현
-    return {"message": "Google callback endpoint - implementation needed", "code": code}
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except Exception as e:
+        # 인증 실패 시 로그인 페이지로 리디렉션 (에러 파라미터 포함 등)
+        print(f"OAuth Error: {e}")
+        return Response(status_code=400, content=f"OAuth Authentication Failed: {e}")
+
+    # 사용자 정보 추출
+    user_info = token.get("userinfo")
+    if not user_info:
+        user_info = await oauth.google.userinfo(token=token)
+
+    email = user_info.get("email")
+    name = user_info.get("name", "Unknown")
+    # Google의 sub 필드가 고유 ID
+    social_id = user_info.get("sub")
+    picture = user_info.get("picture")
+
+    if not email:
+        return Response(status_code=400, content="Email not found in Google account")
+
+    # 사용자 조회 또는 생성
+    user = AuthService.get_or_create_social_user(
+        db=db,
+        email=email,
+        name=name,
+        social_provider="google",
+        social_id=social_id,
+        avatar_url=picture,
+    )
+
+    # 자체 JWT 토큰 생성
+    access_token = AuthService.create_jwt_token(str(user.id))
+
+    # 쿠키 설정
+    is_production, cookie_domain = _get_cookie_config(request)
+
+    dashboard_url = "/dashboard"
+
+    # 호스트가 localhost:8000이면 -> localhost:3000으로 보냄 (개발 편의성)
+    host = request.headers.get("host", "")
+    if "localhost:8000" in host or "127.0.0.1:8000" in host:
+        dashboard_url = "http://localhost:3000/dashboard"
+
+    redirect_response = RedirectResponse(url=dashboard_url, status_code=302)
+    redirect_response.set_cookie(
+        key="auth_token",
+        value=access_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        domain=cookie_domain,
+        max_age=6 * 60 * 60,
+    )
+
+    return redirect_response

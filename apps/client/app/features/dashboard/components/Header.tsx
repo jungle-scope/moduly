@@ -1,10 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Settings, LogOut } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { authApi } from '../../auth/api/authApi';
+import Breadcrumb from './Breadcrumb';
 
 export default function Header() {
   const router = useRouter();
@@ -59,22 +59,10 @@ export default function Header() {
   };
 
   return (
-    <header className="relative z-[99] h-14 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between px-6">
-      {/* Logo */}
-      <div className="flex items-center">
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-        >
-          <Image
-            src="/moduly-logo.png"
-            alt="Moduly Logo"
-            width={140}
-            height={40}
-            className="h-8 w-auto"
-            priority
-          />
-        </button>
+    <header className="relative z-[99] h-14 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between pr-4 border-b border-gray-200">
+      {/* Breadcrumb */}
+      <div className="flex items-center ml-8">
+        <Breadcrumb />
       </div>
 
       {/* User Profile */}
@@ -84,7 +72,7 @@ export default function Header() {
           className="flex items-center gap-2 text-sm hover:bg-gray-50 rounded-full p-1 transition-colors"
         >
           <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-medium text-sm">
+            <span className="text-white font-medium text-xs">
               {userName.charAt(0).toUpperCase()}
             </span>
           </div>
@@ -115,7 +103,7 @@ export default function Header() {
               <button
                 onClick={() => {
                   setIsDropdownOpen(false);
-                  router.push('/settings');
+                  router.push('/dashboard/settings');
                 }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
