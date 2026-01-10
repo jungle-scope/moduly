@@ -27,7 +27,7 @@ def seed_placeholder_user(db: Session) -> None:
         email="dev@moduly.app",
         name="Dev User",
         password="dev-password",
-        social_provider="email",
+        social_provider="none",
     )
     db.add(dev_user)
     db.commit()
