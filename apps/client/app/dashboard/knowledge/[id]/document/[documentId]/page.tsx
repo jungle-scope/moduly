@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Pencil,
   ListTodo,
+  CircleHelp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
@@ -359,14 +360,18 @@ export default function DocumentSettingsPage() {
         <h4 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
           <Pencil className="w-4 h-4" />
           벡터화 템플릿 작성 (선택사항)
+          <div className="relative group ml-1 flex items-center">
+            <CircleHelp className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 cursor-help transition-colors" />
+            <div className="absolute left-0 top-6 w-80 p-3 bg-gray-900/95 text-white text-xs rounded-lg shadow-xl backdrop-blur-sm z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-relaxed border border-white/10">
+              DB의 row 데이터를 하나의 완성된 문장으로 정의해 주세요.
+              <br />잘 가공된 템플릿은 검색 효율을 높이고, AI가 더 똑똑하고
+              자연스럽게 답변하는 밑거름이 됩니다.
+            </div>
+          </div>
         </h4>
       </div>
 
       <div className="p-4 bg-white dark:bg-gray-800 h-full flex flex-col overflow-y-auto">
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 flex-none">
-          선택한 컬럼의 Alias를 사용하여 템플릿을 작성하세요.
-        </p>
-
         {/* 사용 가능한 Alias 목록 */}
         <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 flex-none">
           <div className="text-xs leading-relaxed">
