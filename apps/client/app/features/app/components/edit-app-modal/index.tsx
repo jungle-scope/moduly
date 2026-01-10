@@ -3,8 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { appApi, type App } from '../../api/appApi';
-import { AppIcon } from '../create-app-modal/app-icon';
-import { AppIconPicker } from '../create-app-modal/app-icon-picker';
+import { AppIcon } from '../create-app-modal/AppIcon';
+import { AppIconPicker } from '../create-app-modal/AppIconPicker';
 import { AppIconSelection } from '../create-app-modal/types';
 import { twMerge } from 'tailwind-merge';
 
