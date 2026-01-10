@@ -53,7 +53,7 @@ if DB_HOST == "localhost":
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_USER = os.getenv("DB_USER", "admin")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "admin123")
-DB_NAME = os.getenv("DB_NAME", "moduly")
+DB_NAME = os.getenv("DB_NAME", "moduly_local")
 
 # 실제 연결할 DB 이름은 moduly_local이 될 수도 있으므로 .env 확인 필요
 # 하지만 코드에서는 .env의 값을 그대로 사용
