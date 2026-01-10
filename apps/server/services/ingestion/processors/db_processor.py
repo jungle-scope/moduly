@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict
 
+from services.ingestion.chunkers.adaptive_db_chunker import AdaptiveDbChunker
 from services.ingestion.processors.base import BaseProcessor, ProcessingResult
 from services.ingestion.transformers.db_nl_transformer import DbNlTransformer
 
@@ -182,6 +183,16 @@ class DbProcessor(BaseProcessor):
                 logger.warning(f"Failed to fetch schema info: {e}")
 
             transformer = DbNlTransformer()
+
+            # ✨ Adaptive Chunker 초기화
+            enable_chunking = source_config.get("enable_auto_chunking", True)
+            chunk_settings = source_config.get("chunk_settings", {})
+
+            chunker = AdaptiveDbChunker(
+                chunk_size=chunk_settings.get("chunk_size", 1000),
+                chunk_overlap=chunk_settings.get("overlap", 150),
+            )
+
             for selection in selections:
                 table_name = selection["table_name"]
                 columns = selection.get("columns", ["*"])  # 컬럼 선택
@@ -258,12 +269,21 @@ class DbProcessor(BaseProcessor):
                         "sensitive_columns": sensitive_columns,
                     }
 
-                    chunks.append(
-                        {
-                            "content": nl_text,  # 템플릿 렌더링된 텍스트 (평문)
-                            "metadata": metadata,
-                        }
-                    )
+                    # ✨ Adaptive Chunking 적용
+                    try:
+                        row_chunks = chunker.chunk_if_needed(
+                            text=nl_text,
+                            metadata=metadata,
+                            enable_chunking=enable_chunking,
+                        )
+
+                        chunks.extend(row_chunks)
+
+                    except ValueError as e:
+                        # 텍스트 너무 길 경우 에러 로깅
+                        logger.error(f"Row {row_count} chunking failed: {e}")
+                        # Skip this row or handle appropriately
+                        continue
 
                 print(f"[INFO] Completed {table_name}: {row_count} chunks created")
         except Exception as e:
