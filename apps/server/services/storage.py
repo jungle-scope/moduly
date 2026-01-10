@@ -87,6 +87,54 @@ class S3StorageService(StorageService):
         # S3 URL
         return f"https://{self.bucket_name}.s3.{self.region}.amazonaws.com/{s3_key}"
 
+    def generate_presigned_upload_url(
+        self,
+        filename: str,
+        content_type: str,
+        user_id: str,
+        expires_in: int = 3600,  # 1시간 유효
+    ) -> dict:
+        """
+        S3 Presigned URL 생성 (프론트엔드 직접 업로드용)
+
+        Args:
+            filename: 원본 파일명
+            content_type: MIME 타입 (예: application/pdf)
+            user_id: 사용자 ID (폴더 분리용)
+            expires_in: URL 유효 시간 (초)
+
+        Returns:
+            dict: {
+                "url": Presigned URL,
+                "key": S3 key,
+                "method": "PUT"
+            }
+        """
+        # 고유한 파일명 생성 (충돌 방지)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        s3_key = f"uploads/{user_id}/{unique_filename}"
+
+        try:
+            # Presigned URL 생성 (PUT 방식)
+            presigned_url = self.s3_client.generate_presigned_url(
+                "put_object",
+                Params={
+                    "Bucket": self.bucket_name,
+                    "Key": s3_key,
+                    "ContentType": content_type,
+                },
+                ExpiresIn=expires_in,
+            )
+
+            return {
+                "url": presigned_url,
+                "key": s3_key,
+                "method": "PUT",
+            }
+        except Exception as e:
+            print(f"[ERROR] Presigned URL generation failed: {e}")
+            raise e
+
     def delete(self, file_path: str):
         key = file_path
 
