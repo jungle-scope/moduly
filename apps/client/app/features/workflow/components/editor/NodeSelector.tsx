@@ -35,7 +35,7 @@ export const NodeSelector = ({ onSelect }: NodeSelectorProps) => {
 
   return (
     <div className="relative flex">
-      <div className="w-[280px] h-[400px] bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col">
+      <div className="w-[220px] h-[400px] bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col">
         {/* Reusing the exact content from sidebar */}
         <NodeLibraryContent
           onSelect={(_type, def) => onSelect(def.id, def)}
