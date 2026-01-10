@@ -1,4 +1,6 @@
 import logging
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Dict
 
 from services.ingestion.processors.base import BaseProcessor, ProcessingResult
@@ -13,6 +15,35 @@ class DbProcessor(BaseProcessor):
     외부 DB 연결 정보를 사용하여 SQL을 실행하고,
     결과 Row를 자연어로 변환하여 청킹합니다.
     """
+
+    @staticmethod
+    def _convert_to_json_serializable(data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Decimal, datetime 등 JSON 직렬화 불가능한 타입을 변환
+
+        Args:
+            data: 원본 row dictionary
+
+        Returns:
+            JSON 직렬화 가능한 dictionary
+        """
+        result = {}
+        for key, value in data.items():
+            if value is None:
+                result[key] = None
+            elif isinstance(value, Decimal):
+                # Decimal -> float or int
+                result[key] = float(value) if value % 1 else int(value)
+            elif isinstance(value, (datetime, date)):
+                # datetime/date -> ISO format string
+                result[key] = value.isoformat()
+            elif isinstance(value, (list, dict)):
+                # 중첩된 구조는 그대로 (PostgreSQL JSON 타입 등)
+                result[key] = value
+            else:
+                # str, int, float, bool 등은 그대로
+                result[key] = value
+        return result
 
     def process(self, source_config: Dict[str, Any]) -> ProcessingResult:
         """
@@ -208,7 +239,10 @@ class DbProcessor(BaseProcessor):
                     # 원본 데이터 암호화 (민감 필드만)
                     from utils.encryption import encryption_manager
 
-                    original_data = dict(row_dict)  # 복사
+                    # ✨ Decimal/datetime 등을 JSON 직렬화 가능한 타입으로 변환
+                    original_data = self._convert_to_json_serializable(row_dict)
+
+                    # 민감 컬럼 암호화
                     for col in sensitive_columns:
                         if col in original_data and original_data[col] is not None:
                             original_data[col] = encryption_manager.encrypt(
