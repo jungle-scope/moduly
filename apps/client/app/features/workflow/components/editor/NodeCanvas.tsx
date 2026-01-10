@@ -1,6 +1,15 @@
 'use client';
 
-import { Sliders, Plus, StickyNote, Play, Trash2 } from 'lucide-react';
+import {
+  Sliders,
+  Plus,
+  StickyNote,
+  Play,
+  Trash2,
+  Workflow,
+  ScrollText,
+  Activity,
+} from 'lucide-react';
 import { NodeSelector } from './NodeSelector';
 import { LogTab } from './tabs/LogTab';
 import { MonitoringTab } from './tabs/MonitoringTab';
@@ -553,7 +562,7 @@ export default function NodeCanvas() {
   const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
 
   return (
-    <div className="flex-1 bg-gray-100 p-2 gap-2 relative flex flex-row overflow-hidden">
+    <div className="flex-1 bg-gradient-to-r from-blue-50 via-white to-blue-50/30 p-2 gap-2 relative flex flex-row overflow-hidden">
       {/* Node Library Sidebar Container */}
       <div
         className={`h-full rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-in-out z-20 ${
@@ -569,20 +578,21 @@ export default function NodeCanvas() {
       </div>
 
       {/* Main Content Area Container */}
-      <div className="flex-1 h-full rounded-xl border border-gray-200 bg-white flex flex-col overflow-hidden">
+      <div className="flex-1 h-full rounded-xl bg-gray-100 flex flex-col overflow-hidden">
         {/* Tab Header */}
-        <div className="h-12 min-h-[48px] border-b border-gray-200 flex items-center px-6 gap-6 bg-white shrink-0">
+        <div className="h-10 min-h-[40px] px-2 pt-2 bg-gray-100 flex items-end gap-2 shrink-0">
           <button
             onClick={() => {
               setActiveTab('editor');
               setIsNodeLibraryOpen(true);
             }}
-            className={`h-full flex items-center gap-2 text-sm font-medium border-b-2 transition-colors px-1 ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
               activeTab === 'editor'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-gray-900'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
             }`}
           >
+            <Workflow className="w-4 h-4" />
             편집
           </button>
           <button
@@ -590,12 +600,13 @@ export default function NodeCanvas() {
               setActiveTab('logs');
               setIsNodeLibraryOpen(false);
             }}
-            className={`h-full flex items-center gap-2 text-sm font-medium border-b-2 transition-colors px-1 ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
               activeTab === 'logs'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-gray-900'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
             }`}
           >
+            <ScrollText className="w-4 h-4" />
             로그
           </button>
           <button
@@ -603,12 +614,13 @@ export default function NodeCanvas() {
               setActiveTab('monitoring');
               setIsNodeLibraryOpen(false);
             }}
-            className={`h-full flex items-center gap-2 text-sm font-medium border-b-2 transition-colors px-1 ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
               activeTab === 'monitoring'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-gray-900'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
             }`}
           >
+            <Activity className="w-4 h-4" />
             모니터링
           </button>
         </div>
@@ -653,7 +665,7 @@ export default function NodeCanvas() {
                 connectionLineComponent={CustomConnectionLine}
                 defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
                 attributionPosition="bottom-right"
-                className="bg-gray-50"
+                className="bg-gray-100"
                 {...reactFlowConfig}
               >
                 <Background

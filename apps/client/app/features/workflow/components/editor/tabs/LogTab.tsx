@@ -227,7 +227,7 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
   };
 
   return (
-    <div className="h-full w-full bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-full w-full bg-gray-100 flex flex-col overflow-hidden">
       {/* Detail/Compare Header Navigation */}
       {(viewMode === 'detail' || viewMode === 'compare') && (
         <div className="px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-2">
