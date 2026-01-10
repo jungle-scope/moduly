@@ -46,7 +46,7 @@ class LLMProvider(Base):
     auth_type: Mapped[str] = mapped_column(
         Text, nullable=False
     )  # api_key, oauth, aws_sigv4
-    doc_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    doc_url: Mapped[str] = mapped_column(Text, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

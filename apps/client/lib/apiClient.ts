@@ -12,7 +12,10 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login';
+        const isLoginPage = window.location.pathname.startsWith('/auth/login');
+        if (!isLoginPage) {
+          window.location.href = '/auth/login';
+        }
       }
     }
     return Promise.reject(error);

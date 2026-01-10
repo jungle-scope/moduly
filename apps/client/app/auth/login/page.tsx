@@ -29,8 +29,28 @@ export default function LoginPage() {
       // 성공: 대시보드로 리다이렉트
       console.log('로그인 성공:', data);
       router.push('/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
+    } catch (err: any) {
+      console.error('Login error:', err);
+      const status = err.response?.status;
+      const data = err.response?.data;
+
+      if (status === 401) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      } else if (status === 422) {
+        // FastAPI Validation Error
+        if (Array.isArray(data?.detail)) {
+          setError('입력한 값이 올바르지 않습니다.');
+        } else {
+          setError('입력 형식이 올바르지 않습니다.');
+        }
+      } else {
+        // 기타 에러 시 사용자 친화적 메시지 또는 서버 응답 메시지 표시
+        setError(
+          typeof data?.detail === 'string'
+            ? data.detail
+            : '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        );
+      }
     } finally {
       setIsLoading(false);
     }

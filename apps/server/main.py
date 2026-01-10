@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent.parent  # apps/server -> apps -> moduly (.env location)
-ENV_PATH = ROOT_DIR / ".env"
+ENV_PATH = BASE_DIR / ".env"
 
 load_dotenv(dotenv_path=ENV_PATH)
 
@@ -19,7 +19,6 @@ from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from api.api import api_router
-from db.base import Base
 from db.models.schedule import Schedule  # noqa: F401
 from db.seed import (
     seed_default_llm_models,
@@ -37,8 +36,8 @@ async def lifespan(app: FastAPI):
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully!")
+    # Base.metadata.create_all(bind=engine)
+    # print("✅ Database tables created successfully!")
 
     # 2. Seed Default LLM Providers (Idempotent)
 

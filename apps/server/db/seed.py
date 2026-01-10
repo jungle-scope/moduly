@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from db.models.llm import LLMProvider
 from db.models.user import User
 
-
 PLACEHOLDER_USER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
 
 
@@ -23,15 +22,18 @@ def seed_placeholder_user(db: Session) -> None:
     if user:
         return
 
+    from services.auth_service import AuthService
+
     dev_user = User(
         id=PLACEHOLDER_USER_ID,
         email="dev@moduly.app",
         name="Dev User",
-        password="dev-password",
+        password=AuthService.hash_password("dev-password"),
+        social_provider="email",
     )
     db.add(dev_user)
     db.commit()
-    print("✅ Placeholder user created!")
+    print("✅ 기본 user유저 (id: dev@moduly.app / password: dev-password ) 생성완료!")
 
 
 def _default_providers() -> Iterable[LLMProvider]:
@@ -79,7 +81,9 @@ def seed_default_llm_providers(db: Session) -> None:
 
     providers_to_add = [p for p in _default_providers() if p.name not in existing_names]
     if not providers_to_add:
-        print(f"ℹ️ LLM providers already exist ({len(existing_providers)}). Skipping seed.")
+        print(
+            f"ℹ️ LLM providers already exist ({len(existing_providers)}). Skipping seed."
+        )
         return
 
     print(f"🌱 Seeding default LLM providers ({len(providers_to_add)} new)...")
@@ -94,8 +98,13 @@ def seed_default_llm_models(db: Session) -> None:
     gpt-4.1, o3-mini와 같은 모델이 DB에 존재하도록 보장합니다.
     또한, 해당 모델이 UI에 표시되도록 기존 Credential과 연결합니다.
     """
+    from db.models.llm import (
+        LLMCredential,
+        LLMModel,
+        LLMProvider,
+        LLMRelCredentialModel,
+    )
     from services.llm_service import LLMService
-    from db.models.llm import LLMProvider, LLMModel, LLMCredential, LLMRelCredentialModel
 
     # 1. 모든 Provider 조회 후 맵핑 생성
     providers = db.query(LLMProvider).all()
@@ -114,7 +123,7 @@ def seed_default_llm_models(db: Session) -> None:
         elif model_id.startswith("llamaparse"):
             return "llamaparse"
         else:
-            return "openai" # gpt, o1, o3, dall-e, tts, whisper 등은 기본적으로 OpenAI로 처리
+            return "openai"  # gpt, o1, o3, dall-e, tts, whisper 등은 기본적으로 OpenAI로 처리
 
     models_seeded_count = 0
     models_updated_count = 0
@@ -123,18 +132,23 @@ def seed_default_llm_models(db: Session) -> None:
     for model_id, pricing in LLMService.KNOWN_MODEL_PRICES.items():
         provider_name = get_provider_name(model_id)
         provider = provider_map.get(provider_name)
-        
+
         if not provider:
             # print(f"⚠️ Provider '{provider_name}' not found for model '{model_id}'. Skipping.")
             continue
-            
+
         # 모델 찾기 또는 생성
         model = None
         if model_id in existing_model_ids:
             # 기존 모델 객체 찾기
-            model = next((m for m in existing_models if m.model_id_for_api_call == model_id), None)
+            model = next(
+                (m for m in existing_models if m.model_id_for_api_call == model_id),
+                None,
+            )
             # [NEW] 기존 모델이지만 가격 정보가 없으면 업데이트
-            if model and (model.input_price_1k is None or model.output_price_1k is None):
+            if model and (
+                model.input_price_1k is None or model.output_price_1k is None
+            ):
                 model.input_price_1k = pricing["input"]
                 model.output_price_1k = pricing["output"]
                 db.add(model)
@@ -146,41 +160,48 @@ def seed_default_llm_models(db: Session) -> None:
                 id=new_model_uuid,
                 provider_id=provider.id,
                 model_id_for_api_call=model_id,
-                name=model_id, 
+                name=model_id,
                 type="embedding" if "embedding" in model_id else "chat",
-                context_window=128000 if "gpt-4" in model_id or "o1" in model_id or "claude" in model_id else 8192,
+                context_window=128000
+                if "gpt-4" in model_id or "o1" in model_id or "claude" in model_id
+                else 8192,
                 input_price_1k=pricing["input"],
                 output_price_1k=pricing["output"],
-                is_active=True
+                is_active=True,
             )
             db.add(model)
             models_seeded_count += 1
             # 중복 방지를 위해 캐시 업데이트
             existing_model_ids.add(model_id)
             existing_models.append(model)
-        
-        if not model: continue
+
+        if not model:
+            continue
 
         # Provider의 기존 Credential에 연결 (선택사항 - 조회 로직 변경으로 인해 필수는 아니지만 안전장치로 유지)
         # 1. 해당 Provider의 모든 Credential 조회
-        creds = db.query(LLMCredential).filter(LLMCredential.provider_id == provider.id).all()
-        
+        creds = (
+            db.query(LLMCredential)
+            .filter(LLMCredential.provider_id == provider.id)
+            .all()
+        )
+
         # 2. 이미 연결된 내역 확인
-        existing_links = db.query(LLMRelCredentialModel).filter(
-            LLMRelCredentialModel.model_id == model.id
-        ).all()
+        existing_links = (
+            db.query(LLMRelCredentialModel)
+            .filter(LLMRelCredentialModel.model_id == model.id)
+            .all()
+        )
         linked_cred_ids = {link.credential_id for link in existing_links}
-        
+
         # 3. 누락된 연결 추가
         for cred in creds:
-             if cred.id not in linked_cred_ids:
-                 rel = LLMRelCredentialModel(
-                     credential_id=cred.id,
-                     model_id=model.id,
-                     is_verified=True
-                 )
-                 db.add(rel)
-                 # print(f"   Configs: Linked {model_id} to Credential {cred.credential_name}")
+            if cred.id not in linked_cred_ids:
+                rel = LLMRelCredentialModel(
+                    credential_id=cred.id, model_id=model.id, is_verified=True
+                )
+                db.add(rel)
+                # print(f"   Configs: Linked {model_id} to Credential {cred.credential_name}")
 
     if models_seeded_count > 0 or models_updated_count > 0:
         if models_seeded_count > 0:
