@@ -11,9 +11,7 @@ export default function DashboardHomePage() {
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-8 py-16">
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            환영합니다! 👋
-          </h1>
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">환영합니다!</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Moduly와 함께 워크플로우를 구축하고 자동화하세요
           </p>
@@ -116,9 +114,7 @@ export default function DashboardHomePage() {
                 2
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1">
-                  워크플로우 구성
-                </h3>
+                <h3 className="font-semibold text-gray-900 mb-1">모듈 구성</h3>
                 <p className="text-sm text-gray-600">
                   드래그 앤 드롭으로 워크플로우를 쉽게 구성하세요
                 </p>
