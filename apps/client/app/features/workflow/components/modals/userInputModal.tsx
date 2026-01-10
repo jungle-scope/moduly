@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { WorkflowVariable } from '../../types/Nodes';
+import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
 
 interface UserInputModalProps {
   variables: WorkflowVariable[];
@@ -44,36 +45,51 @@ export function UserInputModal({
 
   // 파일 전용 state
   const [files, setFiles] = useState<Record<string, File | null>>({});
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleChange = (name: string, value: any) => {
     setInputs((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // 파일이 있는지 확인
     const hasFiles = Object.values(files).some((file) => file !== null);
 
     if (hasFiles) {
-      // FormData 생성
-      const formData = new FormData();
+      setIsUploading(true);
+      try {
+        // S3에 파일 업로드
+        const finalInputs: Record<string, any> = { ...inputs };
 
-      // JSON 데이터 추가 (file 타입 제외)
-      const jsonInputs: Record<string, any> = {};
-      Object.entries(inputs).forEach(([key, value]) => {
-        if (value !== null) {
-          jsonInputs[key] = value;
+        for (const [key, file] of Object.entries(files)) {
+          if (file) {
+            // 1. Presigned URL 요청
+            const presignedData = await knowledgeApi.getPresignedUploadUrl(
+              file.name,
+              file.type || 'application/octet-stream',
+            );
+
+            // 2. S3 직접 업로드
+            await knowledgeApi.uploadToS3(
+              presignedData.upload_url,
+              file,
+              file.type || 'application/octet-stream',
+            );
+
+            // 3. S3 URL 저장 (Query string 제거)
+            const s3Url = presignedData.upload_url.split('?')[0];
+            finalInputs[key] = s3Url;
+          }
         }
-      });
-      formData.append('inputs', JSON.stringify(jsonInputs));
 
-      // 파일들 추가
-      Object.entries(files).forEach(([key, file]) => {
-        if (file) {
-          formData.append(`file_${key}`, file);
-        }
-      });
-
-      onSubmit(formData);
+        // JSON 방식으로 제출
+        onSubmit(finalInputs);
+      } catch (error: any) {
+        console.error('[S3 Upload] Error:', error);
+        alert(`파일 업로드 실패: ${error.message}`);
+      } finally {
+        setIsUploading(false);
+      }
     } else {
       // 파일 없으면 기존 방식 (JSON)
       onSubmit(inputs);
@@ -222,9 +238,10 @@ export function UserInputModal({
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            disabled={isUploading}
+            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
           >
-            실행
+            {isUploading ? '파일 업로드 중...' : '실행'}
           </button>
         </div>
       </div>
