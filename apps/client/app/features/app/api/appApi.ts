@@ -41,6 +41,7 @@ export interface App {
     | 'widget'
     | 'mcp'
     | 'workflow_node';
+  active_deployment_is_active?: boolean;
   owner_name?: string;
   created_at: string;
   updated_at: string;

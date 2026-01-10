@@ -197,18 +197,36 @@ export default function AppCard({
                 disabled={!app.active_deployment_id}
                 title={
                   app.active_deployment_id
-                    ? '배포 상태 토글'
+                    ? app.active_deployment_is_active
+                      ? '배포 비활성화'
+                      : '배포 활성화'
                     : '배포가 없습니다'
                 }
               >
                 {app.active_deployment_id ? (
-                  <ToggleRight className="w-3.5 h-3.5 text-green-600" />
+                  app.active_deployment_is_active ? (
+                    <>
+                      <ToggleRight className="w-3.5 h-3.5 text-green-600" />
+                      <span>배포 끄기</span>
+                      <span className="ml-auto text-xs font-medium text-green-600">
+                        ON
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="w-3.5 h-3.5 text-gray-400" />
+                      <span>배포 켜기</span>
+                      <span className="ml-auto text-xs font-medium text-gray-400">
+                        OFF
+                      </span>
+                    </>
+                  )
                 ) : (
-                  <ToggleLeft className="w-3.5 h-3.5" />
+                  <>
+                    <ToggleLeft className="w-3.5 h-3.5" />
+                    <span>배포 없음</span>
+                  </>
                 )}
-                <span>
-                  {app.active_deployment_id ? '배포 끄기' : '배포 없음'}
-                </span>
               </button>
 
               {/* 서브 모듈 배포 목록 */}
