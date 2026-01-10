@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { DeploymentStep, DeploymentType, DeploymentResult } from './types';
-import { InputStep, SuccessStep, ErrorStep } from './DeployStep';
+import { InputStep } from './InputStep';
+import { SuccessStep } from './SuccessStep';
+import { ErrorStep } from './ErrorStep';
 
 interface Props {
   isOpen: boolean;
