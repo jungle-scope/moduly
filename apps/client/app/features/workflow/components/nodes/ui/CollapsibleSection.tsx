@@ -7,6 +7,7 @@ interface CollapsibleSectionProps {
   defaultOpen?: boolean;
   className?: string;
   icon?: React.ReactNode;
+  showDivider?: boolean; // 섹션 하단 구분선 표시 여부
 }
 
 /**
@@ -20,6 +21,7 @@ export function CollapsibleSection({
   defaultOpen = true,
   className = '',
   icon,
+  showDivider = false,
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -49,6 +51,11 @@ export function CollapsibleSection({
         <div className="mt-2 pl-2 animate-in fade-in slide-in-from-top-1 duration-200">
           {children}
         </div>
+      )}
+
+      {/* Divider */}
+      {showDivider && (
+        <div className="mt-3 border-b border-gray-200" />
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Search,
-  Wrench,
+  Settings,
   BookOpen,
   BarChart3,
   Puzzle,
@@ -40,9 +40,9 @@ const navigationItems = [
     icon: BookOpen,
   },
   {
-    name: '도구',
-    href: '/dashboard/tools',
-    icon: Wrench,
+    name: '설정',
+    href: '/dashboard/settings',
+    icon: Settings,
   },
 ];
 
