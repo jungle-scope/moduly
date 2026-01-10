@@ -222,8 +222,13 @@ export interface ScheduleTriggerNodeData extends BaseNodeData {
 // ============================================================================
 
 // ==================== [FileExtractionNode] ==================================
+export interface FileExtractionVariable {
+  name: string;
+  value_selector: string[];
+}
+
 export interface FileExtractionNodeData extends BaseNodeData {
-  file_path_variable?: [string, string]; // value_selector: [node_id, variable_key]
+  referenced_variables: FileExtractionVariable[];
 }
 // ============================================================================
 
@@ -289,10 +294,7 @@ export type HttpRequestNode = ReactFlowNode<
   HttpRequestNodeData,
   'httpRequestNode'
 >;
-export type SlackPostNode = ReactFlowNode<
-  SlackPostNodeData,
-  'slackPostNode'
->;
+export type SlackPostNode = ReactFlowNode<SlackPostNodeData, 'slackPostNode'>;
 export type NoteNode = ReactFlowNode<NoteNodeData, 'note'>;
 export type LLMNode = ReactFlowNode<LLMNodeData, 'llmNode'>;
 export type ConditionNode = ReactFlowNode<ConditionNodeData, 'conditionNode'>;

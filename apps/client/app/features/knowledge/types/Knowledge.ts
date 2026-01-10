@@ -10,6 +10,11 @@ export interface IngestionResponse {
 export interface KnowledgeCreateRequest {
   sourceType?: SourceType;
   file?: File;
+
+  // [NEW] S3 Direct Upload Fields
+  s3FileUrl?: string;
+  s3FileKey?: string;
+
   apiUrl?: string;
   apiMethod?: string;
   apiHeaders?: string;

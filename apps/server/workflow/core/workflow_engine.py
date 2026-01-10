@@ -304,8 +304,9 @@ class WorkflowEngine:
                 error_msg = str(e)
                 self.logger.update_run_log_error(error_msg)
                 yield {"type": "error", "data": {"message": error_msg}}
-        finally:
-            self.logger.shutdown()
+        # 참고: self.logger.shutdown() 호출 제거됨
+        # 이제 공유 LogWorkerPool을 사용하므로 인스턴스별 종료 불필요
+        # 풀은 앱 종료 시 shutdown_log_worker_pool()으로 종료됨
 
     async def _submit_node(
         self, node_id, results, running_tasks, stream_mode, semaphore, event_queue

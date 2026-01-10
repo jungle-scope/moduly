@@ -5,13 +5,12 @@ WorkflowEngine의 실행 이력을 DB에 기록하는 역할을 담당합니다.
 - WorkflowRun: 워크플로우 전체 실행 로그
 - WorkflowNodeRun: 개별 노드 실행 로그
 
-[성능 개선 사항]
-- 동기식 DB 저장 -> 비동기식 Queue + Worker Thread 방식으로 변경
-- 메인 실행 루프의 지연(Latency)을 최소화
+[리팩토링 이력]
+- v1: 동기식 DB 저장
+- v2: 비동기식 Queue + Worker Thread 방식 (인스턴스별 스레드)
+- v3 (현재): 애플리케이션 레벨 공유 LogWorkerPool 사용
 """
 
-import queue
-import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -21,219 +20,19 @@ from sqlalchemy.orm import Session
 
 from db.models.llm import LLMUsageLog
 from db.models.workflow_run import WorkflowNodeRun, WorkflowRun
-from db.session import SessionLocal  # SessionLocal 필요
 
 
-class WorkflowLogger:
+class WorkflowLoggerDBOps:
     """
-    워크플로우 실행 로깅을 담당하는 유틸리티 클래스 (Async Version)
+    DB 작업 로직만 분리 (LogWorkerPool에서 사용)
 
-    Context Manager 패턴을 지원하여 리소스 누수를 방지합니다.
-
-    Usage:
-        # 권장: Context Manager 사용
-        with WorkflowLogger(db) as logger:
-            logger.create_run_log(...)
-            # 자동으로 shutdown() 호출됨
-
-        # 또는 수동 관리
-        logger = WorkflowLogger(db)
-        try:
-            logger.create_run_log(...)
-        finally:
-            logger.shutdown()
+    기존 WorkflowLogger의 _db_xxx 메서드들을 정적 메서드로 이동하여
+    LogWorkerPool에서 재사용할 수 있도록 함.
     """
 
-    # Queue 크기 제한 (백프레셔 적용)
-    MAX_QUEUE_SIZE = 1000
-
-    def __init__(self, db: Optional[Session] = None):
-        """
-        Args:
-            db: SQLAlchemy 세션 (하위 호환성을 위해 유지하지만, 실제 로깅은 내부의 별도 세션 사용)
-        """
-        self.workflow_run_id: Optional[uuid.UUID] = None
-        self.log_queue = queue.Queue(maxsize=self.MAX_QUEUE_SIZE)
-        self._is_shutdown = False
-        self._shutdown_lock = threading.Lock()
-
-        # 백그라운드 워커 스레드 시작
-        self.worker_thread = threading.Thread(target=self._log_worker, daemon=True)
-        self.worker_thread.start()
-
-    def __enter__(self):
-        """Context Manager 진입"""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context Manager 종료 - 자동으로 shutdown() 호출"""
-        self.shutdown()
-        return False  # 예외를 다시 raise
-
-    def __del__(self):
-        """
-        객체 소멸 시 안전망 (Safety Net)
-        - Context Manager를 사용하지 않은 경우에도 리소스 정리 시도
-        - 주의: __del__은 호출 시점이 보장되지 않으므로 Context Manager 사용 권장
-        """
-        self.shutdown()
-
-    def shutdown(self):
-        """
-        로깅 종료 처리 (Thread-safe)
-        - 중복 호출 방지
-        - 큐에 남은 작업을 모두 처리할 때까지 대기
-        - 워커 스레드 종료
-        """
-        with self._shutdown_lock:
-            if self._is_shutdown:
-                return  # 이미 종료됨
-            self._is_shutdown = True
-
-        self.log_queue.put(None)  # 워커 중지를 위한 센티널(Sentinel)
-        self.worker_thread.join(timeout=5.0)  # 최대 5초 대기 (무한 대기 방지)
-
-    def _log_worker(self):
-        """백그라운드에서 로그를 DB에 기록하는 워커"""
-        # 별도의 DB 세션 생성 (스레드 독립성 보장)
-        session = SessionLocal()
-
-        try:
-            while True:
-                task = self.log_queue.get()
-                if task is None:  # 종료 신호
-                    break
-
-                try:
-                    self._process_task(session, task)
-                except Exception as e:
-                    print(f"[로깅 워커 에러] 작업 처리 실패: {e}")
-                    session.rollback()
-                finally:
-                    self.log_queue.task_done()
-        finally:
-            session.close()
-
-    def _process_task(self, session: Session, task: Dict[str, Any]):
-        """개별 로그 작업 처리 (DB 쓰기)"""
-        task_type = task.get("type")
-        data = task.get("data")
-
-        if task_type == "create_run":
-            self._db_create_run_log(session, data)
-        elif task_type == "update_run_finish":
-            self._db_update_run_log_finish(session, data)
-        elif task_type == "update_run_error":
-            self._db_update_run_log_error(session, data)
-        elif task_type == "create_node":
-            self._db_create_node_log(session, data)
-        elif task_type == "update_node_finish":
-            self._db_update_node_log_finish(session, data)
-        elif task_type == "update_node_error":
-            self._db_update_node_log_error(session, data)
-
-    # ============================================================
-    # 공개 메서드 (큐잉 처리)
-    # ============================================================
-
-    def create_run_log(
-        self,
-        workflow_id: str,
-        user_id: str,
-        user_input: Dict[str, Any],
-        is_deployed: bool,
-        execution_context: Dict[str, Any],
-    ) -> Optional[uuid.UUID]:
-        """워크플로우 실행 로그 생성 (Async)"""
-        if not workflow_id or not user_id:
-            return None
-
-        # UUID 미리 생성
-        run_id = uuid.uuid4()
-        self.workflow_run_id = run_id
-
-        data = {
-            "run_id": run_id,
-            "workflow_id": workflow_id,
-            "user_id": user_id,
-            "user_input": user_input,
-            "is_deployed": is_deployed,
-            "deployment_id": execution_context.get("deployment_id"),
-            "workflow_version": execution_context.get("workflow_version"),
-            "started_at": datetime.now(timezone.utc),
-        }
-        self.log_queue.put({"type": "create_run", "data": data})
-        return run_id
-
-    def update_run_log_finish(self, outputs: Dict[str, Any]):
-        """워크플로우 실행 완료 로그 업데이트 (Async)"""
-        if not self.workflow_run_id:
-            return
-
-        data = {
-            "run_id": self.workflow_run_id,
-            "outputs": outputs,
-            "finished_at": datetime.now(timezone.utc),
-        }
-        self.log_queue.put({"type": "update_run_finish", "data": data})
-
-    def update_run_log_error(self, error_message: str):
-        """워크플로우 실행 에러 로그 업데이트 (Async)"""
-        if not self.workflow_run_id:
-            return
-
-        data = {
-            "run_id": self.workflow_run_id,
-            "error_message": error_message,
-            "finished_at": datetime.now(timezone.utc),
-        }
-        self.log_queue.put({"type": "update_run_error", "data": data})
-
-    def create_node_log(self, node_id: str, node_type: str, inputs: Dict[str, Any]):
-        """노드 실행 로그 생성 (Async)"""
-        if not self.workflow_run_id:
-            return
-
-        data = {
-            "workflow_run_id": self.workflow_run_id,
-            "node_id": node_id,
-            "node_type": node_type,
-            "inputs": inputs,
-            "started_at": datetime.now(timezone.utc),
-        }
-        self.log_queue.put({"type": "create_node", "data": data})
-
-    def update_node_log_finish(self, node_id: str, outputs: Any):
-        """노드 실행 완료 로그 업데이트 (Async)"""
-        if not self.workflow_run_id:
-            return
-
-        data = {
-            "workflow_run_id": self.workflow_run_id,
-            "node_id": node_id,
-            "outputs": outputs,
-            "finished_at": datetime.now(timezone.utc),
-        }
-        self.log_queue.put({"type": "update_node_finish", "data": data})
-
-    def update_node_log_error(self, node_id: str, error_message: str):
-        """노드 실행 에러 로그 업데이트 (Async)"""
-        if not self.workflow_run_id:
-            return
-
-        data = {
-            "workflow_run_id": self.workflow_run_id,
-            "node_id": node_id,
-            "error_message": error_message,
-            "finished_at": datetime.now(timezone.utc),
-        }
-        self.log_queue.put({"type": "update_node_error", "data": data})
-
-    # ============================================================
-    # DB 작업 (워커 스레드에서 실행됨)
-    # ============================================================
-
-    def _db_create_run_log(self, session: Session, data: Dict[str, Any]):
+    @staticmethod
+    def create_run_log(session: Session, data: Dict[str, Any]):
+        """워크플로우 실행 로그 생성"""
         run_log = WorkflowRun(
             id=data["run_id"],
             workflow_id=uuid.UUID(str(data["workflow_id"])),
@@ -250,7 +49,9 @@ class WorkflowLogger:
         session.add(run_log)
         session.commit()
 
-    def _db_update_run_log_finish(self, session: Session, data: Dict[str, Any]):
+    @staticmethod
+    def update_run_log_finish(session: Session, data: Dict[str, Any]):
+        """워크플로우 실행 완료 로그 업데이트"""
         run_log = (
             session.query(WorkflowRun).filter(WorkflowRun.id == data["run_id"]).first()
         )
@@ -260,10 +61,6 @@ class WorkflowLogger:
             run_log.finished_at = data["finished_at"]
 
             if run_log.started_at:
-                # 타임존 인식 계산
-                if run_log.started_at.tzinfo is None:
-                    # DB가 naive datetime을 반환할 경우 (UTC에서는 발생하지 않아야 함)
-                    pass
                 run_log.duration = (
                     run_log.finished_at - run_log.started_at
                 ).total_seconds()
@@ -286,7 +83,9 @@ class WorkflowLogger:
 
             session.commit()
 
-    def _db_update_run_log_error(self, session: Session, data: Dict[str, Any]):
+    @staticmethod
+    def update_run_log_error(session: Session, data: Dict[str, Any]):
+        """워크플로우 실행 에러 로그 업데이트"""
         run_log = (
             session.query(WorkflowRun).filter(WorkflowRun.id == data["run_id"]).first()
         )
@@ -302,7 +101,9 @@ class WorkflowLogger:
 
             session.commit()
 
-    def _db_create_node_log(self, session: Session, data: Dict[str, Any]):
+    @staticmethod
+    def create_node_log(session: Session, data: Dict[str, Any]):
+        """노드 실행 로그 생성"""
         node_run = WorkflowNodeRun(
             workflow_run_id=data["workflow_run_id"],
             node_id=data["node_id"],
@@ -314,7 +115,9 @@ class WorkflowLogger:
         session.add(node_run)
         session.commit()
 
-    def _db_update_node_log_finish(self, session: Session, data: Dict[str, Any]):
+    @staticmethod
+    def update_node_log_finish(session: Session, data: Dict[str, Any]):
+        """노드 실행 완료 로그 업데이트"""
         node_run = (
             session.query(WorkflowNodeRun)
             .filter(WorkflowNodeRun.workflow_run_id == data["workflow_run_id"])
@@ -334,7 +137,9 @@ class WorkflowLogger:
             node_run.finished_at = data["finished_at"]
             session.commit()
 
-    def _db_update_node_log_error(self, session: Session, data: Dict[str, Any]):
+    @staticmethod
+    def update_node_log_error(session: Session, data: Dict[str, Any]):
+        """노드 실행 에러 로그 업데이트"""
         node_run = (
             session.query(WorkflowNodeRun)
             .filter(WorkflowNodeRun.workflow_run_id == data["workflow_run_id"])
@@ -348,3 +153,157 @@ class WorkflowLogger:
             node_run.error_message = data["error_message"]
             node_run.finished_at = data["finished_at"]
             session.commit()
+
+
+class WorkflowLogger:
+    """
+    워크플로우 실행 로깅을 담당하는 유틸리티 클래스
+
+    [리팩토링] 인스턴스별 스레드 대신 공유 LogWorkerPool 사용
+    - 리소스 효율성: 고정된 수의 워커 스레드만 사용
+    - DB 커넥션 절약: 워커 수만큼의 DB 세션만 유지
+    - 간편한 종료: 앱 종료 시 한 번만 shutdown 호출
+
+    Context Manager 패턴을 지원합니다.
+
+    Usage:
+        # 권장: Context Manager 사용
+        with WorkflowLogger() as logger:
+            logger.create_run_log(...)
+
+        # 또는 직접 사용
+        logger = WorkflowLogger()
+        logger.create_run_log(...)
+    """
+
+    def __init__(self, db: Optional[Session] = None):
+        """
+        Args:
+            db: SQLAlchemy 세션 (하위 호환성을 위해 유지, 실제로는 사용하지 않음)
+        """
+        self.workflow_run_id: Optional[uuid.UUID] = None
+
+        # 공유 워커 풀 참조 (지연 로딩)
+        self._pool = None
+
+    def _get_pool(self):
+        """공유 워커 풀을 지연 로딩으로 가져옴"""
+        if self._pool is None:
+            from workflow.core.log_worker_pool import get_log_worker_pool
+
+            self._pool = get_log_worker_pool()
+        return self._pool
+
+    def __enter__(self):
+        """Context Manager 진입"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context Manager 종료 - 공유 풀 사용으로 인스턴스별 종료 불필요"""
+        return False  # 예외를 다시 raise
+
+    def shutdown(self):
+        """
+        로깅 종료 처리 (호환성을 위해 유지)
+
+        공유 LogWorkerPool을 사용하므로 인스턴스별 종료는 no-op.
+        풀은 앱 종료 시 shutdown_log_worker_pool()으로 종료됩니다.
+        """
+        pass
+
+    # ============================================================
+    # 공개 메서드 (공유 풀에 작업 제출)
+    # ============================================================
+
+    def create_run_log(
+        self,
+        workflow_id: str,
+        user_id: str,
+        user_input: Dict[str, Any],
+        is_deployed: bool,
+        execution_context: Dict[str, Any],
+    ) -> Optional[uuid.UUID]:
+        """워크플로우 실행 로그 생성"""
+        if not workflow_id or not user_id:
+            return None
+
+        # UUID 미리 생성
+        run_id = uuid.uuid4()
+        self.workflow_run_id = run_id
+
+        data = {
+            "run_id": run_id,
+            "workflow_id": workflow_id,
+            "user_id": user_id,
+            "user_input": user_input,
+            "is_deployed": is_deployed,
+            "deployment_id": execution_context.get("deployment_id"),
+            "workflow_version": execution_context.get("workflow_version"),
+            "started_at": datetime.now(timezone.utc),
+        }
+        self._get_pool().submit({"type": "create_run", "data": data})
+        return run_id
+
+    def update_run_log_finish(self, outputs: Dict[str, Any]):
+        """워크플로우 실행 완료 로그 업데이트"""
+        if not self.workflow_run_id:
+            return
+
+        data = {
+            "run_id": self.workflow_run_id,
+            "outputs": outputs,
+            "finished_at": datetime.now(timezone.utc),
+        }
+        self._get_pool().submit({"type": "update_run_finish", "data": data})
+
+    def update_run_log_error(self, error_message: str):
+        """워크플로우 실행 에러 로그 업데이트"""
+        if not self.workflow_run_id:
+            return
+
+        data = {
+            "run_id": self.workflow_run_id,
+            "error_message": error_message,
+            "finished_at": datetime.now(timezone.utc),
+        }
+        self._get_pool().submit({"type": "update_run_error", "data": data})
+
+    def create_node_log(self, node_id: str, node_type: str, inputs: Dict[str, Any]):
+        """노드 실행 로그 생성"""
+        if not self.workflow_run_id:
+            return
+
+        data = {
+            "workflow_run_id": self.workflow_run_id,
+            "node_id": node_id,
+            "node_type": node_type,
+            "inputs": inputs,
+            "started_at": datetime.now(timezone.utc),
+        }
+        self._get_pool().submit({"type": "create_node", "data": data})
+
+    def update_node_log_finish(self, node_id: str, outputs: Any):
+        """노드 실행 완료 로그 업데이트"""
+        if not self.workflow_run_id:
+            return
+
+        data = {
+            "workflow_run_id": self.workflow_run_id,
+            "node_id": node_id,
+            "outputs": outputs,
+            "finished_at": datetime.now(timezone.utc),
+        }
+        self._get_pool().submit({"type": "update_node_finish", "data": data})
+
+    def update_node_log_error(self, node_id: str, error_message: str):
+        """노드 실행 에러 로그 업데이트"""
+        if not self.workflow_run_id:
+            return
+
+        data = {
+            "workflow_run_id": self.workflow_run_id,
+            "node_id": node_id,
+            "error_message": error_message,
+            "finished_at": datetime.now(timezone.utc),
+        }
+        self._get_pool().submit({"type": "update_node_error", "data": data})
