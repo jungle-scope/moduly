@@ -13,7 +13,7 @@ class WorkflowService:
     def create_workflow(
         db: Session,
         request: WorkflowCreateRequest,
-        user_id: UUID,  # Changed type hint to UUID
+        user_id: UUID,
     ) -> Workflow:
         """
         새 워크플로우 생성
