@@ -528,7 +528,7 @@ export default function DocumentSettingsPage() {
               {status === 'indexing'
                 ? '처리 중...'
                 : status === 'pending'
-                  ? '설정 저장 및 처리 시작'
+                  ? '처리'
                   : status === 'completed'
                     ? '처리 완료됨'
                     : '저장 및 처리 시작'}

@@ -1,50 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { FileJson, HelpCircle } from 'lucide-react';
 
 interface ParsingStrategySettingsProps {
   strategy: 'general' | 'llamaparse';
   setStrategy: (val: 'general' | 'llamaparse') => void;
-}
-
-// Tooltip Component
-function Tooltip({ text }: { text: string }) {
-  const [show, setShow] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
-  const buttonRef = React.useRef<HTMLButtonElement>(null);
-
-  const handleMouseEnter = () => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setPosition({
-        top: rect.top - 8,
-        left: rect.left + rect.width / 2,
-      });
-    }
-    setShow(true);
-  };
-
-  return (
-    <>
-      <button
-        ref={buttonRef}
-        type="button"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => setShow(false)}
-        className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-      >
-        <HelpCircle className="w-3 h-3" />
-      </button>
-      {show && (
-        <div
-          className="fixed z-[9999] w-48 px-2.5 py-1.5 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded-lg shadow-xl -translate-x-1/2 -translate-y-full pointer-events-none"
-          style={{ top: position.top, left: position.left }}
-        >
-          {text}
-          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
-        </div>
-      )}
-    </>
-  );
 }
 
 export default function ParsingStrategySettings({
@@ -68,9 +27,10 @@ export default function ParsingStrategySettings({
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
           }`}
+          title="텍스트 위주의 단순 문서용 (무료)"
         >
           Basic
-          <Tooltip text="텍스트 위주의 단순 문서용 (무료)" />
+          <HelpCircle className="w-3 h-3 text-gray-400" />
         </button>
         <button
           type="button"
@@ -80,12 +40,13 @@ export default function ParsingStrategySettings({
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
           }`}
+          title="이미지/표 인식 고급 분석 (API 키 필요)"
         >
           Pro
           <span className="absolute -top-1 -right-1 px-1 py-0.5 bg-indigo-500 text-white text-[8px] font-bold rounded">
             추천
           </span>
-          <Tooltip text="이미지/표 인식 고급 분석 (API 키 필요)" />
+          <HelpCircle className="w-3 h-3 text-gray-400" />
         </button>
       </div>
     </section>
