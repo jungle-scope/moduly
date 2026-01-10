@@ -2,6 +2,8 @@
 
 import { Sliders, Plus, StickyNote, Play, Trash2 } from 'lucide-react';
 import { NodeSelector } from './NodeSelector';
+import { LogTab } from './tabs/LogTab';
+import { MonitoringTab } from './tabs/MonitoringTab';
 import NodeLibrarySidebar from './NodeLibrarySidebar';
 import {
   type NodeDefinition,
@@ -548,6 +550,7 @@ export default function NodeCanvas() {
   const [activeTab, setActiveTab] = useState<'editor' | 'logs' | 'monitoring'>(
     'editor',
   );
+  const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
 
   return (
     <div className="flex-1 bg-gray-100 p-2 gap-2 relative flex flex-row overflow-hidden">
@@ -913,26 +916,21 @@ export default function NodeCanvas() {
 
           {/* 2. Logs Tab Content */}
           {activeTab === 'logs' && (
-            <div className="w-full h-full flex items-center justify-center p-8 bg-gray-50">
-              <div className="text-center text-gray-500">
-                <p className="text-lg font-medium mb-1">로그 뷰어</p>
-                <p className="text-sm">
-                  실행 로그를 확인하는 페이지입니다. (준비 중)
-                </p>
-              </div>
-            </div>
+            <LogTab
+              workflowId={String(activeWorkflowId)}
+              initialRunId={initialLogRunId}
+            />
           )}
 
           {/* 3. Monitoring Tab Content */}
           {activeTab === 'monitoring' && (
-            <div className="w-full h-full flex items-center justify-center p-8 bg-gray-50">
-              <div className="text-center text-gray-500">
-                <p className="text-lg font-medium mb-1">모니터링</p>
-                <p className="text-sm">
-                  성과 지표를 확인하는 페이지입니다. (준비 중)
-                </p>
-              </div>
-            </div>
+            <MonitoringTab
+              workflowId={String(activeWorkflowId)}
+              onNavigateToLog={(runId) => {
+                setInitialLogRunId(runId);
+                setActiveTab('logs');
+              }}
+            />
           )}
         </div>
       </div>

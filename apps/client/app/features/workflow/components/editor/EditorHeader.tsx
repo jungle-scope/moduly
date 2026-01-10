@@ -5,8 +5,7 @@ import { useReactFlow } from '@xyflow/react';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
-// [REFACTORED] 로그 & 모니터링 통합 모달 Import
-import { LogAndMonitoringModal } from '@/app/features/workflow/components/modals/LogAndMonitoringModal';
+
 import { Play, ChevronLeft, Settings, Pencil } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 
@@ -103,11 +102,6 @@ export default function EditorHeader() {
       }
     }
   }, [activeWorkflow?.appId, setProjectApp]);
-
-  // [REFACTORED] 로그 & 모니터링 통합 모달 상태 (Removed button but kept state for now if needed, actually removing valid unused state is better)
-  const [isLogAndMonitoringOpen, setIsLogAndMonitoringOpen] = useState(false);
-  const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
-  const [initialTab] = useState<'logs' | 'monitoring'>('logs'); // setInitialTab unused
 
   // ... existing state ...
 
@@ -836,20 +830,6 @@ export default function EditorHeader() {
         <ResultModal
           result={executionResult}
           onClose={() => setShowResultModal(false)}
-        />
-      )}
-
-      {/* 로그 & 모니터링 모달 */}
-      {workflowId && typeof workflowId === 'string' && (
-        <LogAndMonitoringModal
-          isOpen={isLogAndMonitoringOpen}
-          onClose={() => {
-            setIsLogAndMonitoringOpen(false);
-            setInitialLogRunId(null);
-          }}
-          workflowId={workflowId}
-          initialTab={initialTab}
-          initialRunId={initialLogRunId}
         />
       )}
 
