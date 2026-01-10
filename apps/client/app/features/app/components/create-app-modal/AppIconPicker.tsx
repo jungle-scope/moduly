@@ -9,10 +9,10 @@ type Props = {
 
 // 선택 가능한 이모지 목록
 const EMOJIS = [
-  '🤖',
+  '📚',
   '🚀',
   '🌟',
-  '📝',
+  '🤖',
   '🔧',
   '🎨',
   '📈',
@@ -25,8 +25,8 @@ const EMOJIS = [
 
 // 선택 가능한 배경색 목록
 const COLORS = [
-  '#FFEAD5',
   '#D1E9FF',
+  '#FFEAD5',
   '#D4F7D4',
   '#FFE8E8',
   '#E8D4FF',

@@ -26,8 +26,8 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
 
   // 앱 아이콘 상태 (이모지 및 배경색)
   const [appIcon, setAppIcon] = useState<AppIconSelection>({
-    emoji: '🤖',
-    bg: '#FFEAD5',
+    emoji: '📚',
+    bg: '#D1E9FF',
   });
 
   // 아이콘 선택 팝업 표시 여부

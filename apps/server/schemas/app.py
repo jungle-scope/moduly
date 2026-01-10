@@ -16,7 +16,7 @@ class AppCreateRequest(BaseModel):
 
     name: str
     description: Optional[str] = None
-    icon: AppIcon
+    icon: AppIcon = AppIcon(type="emoji", content="📚", background_color="#D1E9FF")
     is_market: bool = False
 
 
