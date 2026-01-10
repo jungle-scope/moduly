@@ -44,7 +44,7 @@ class DeploymentService:
             raise HTTPException(status_code=404, detail="App not found")
 
         # 2. 권한 체크
-        if app.created_by != str(user_id):
+        if app.created_by != user_id:
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to deploy this app.",
@@ -279,7 +279,7 @@ class DeploymentService:
             .join(WorkflowDeployment, App.active_deployment_id == WorkflowDeployment.id)
             .filter(WorkflowDeployment.type == DeploymentType.WORKFLOW_NODE)
             .filter(WorkflowDeployment.is_active == True)
-            .filter(App.created_by == str(user_id))  # [NEW] 내 앱만 조회
+            .filter(App.created_by == user_id)  # [NEW] 내 앱만 조회
         )
 
         if excluded_app_id:
