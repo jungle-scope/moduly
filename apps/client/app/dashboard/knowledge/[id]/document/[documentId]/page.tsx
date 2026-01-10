@@ -11,6 +11,8 @@ import {
   Database,
   Calendar,
   RefreshCw,
+  Pencil,
+  ListTodo,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
@@ -349,6 +351,54 @@ export default function DocumentSettingsPage() {
     );
   }
 
+  // 벡터화 템플릿 입력 UI 렌더러 (우측 패널용)
+  const renderTemplateSection = () => (
+    <div className="flex-none h-[30%] border-b border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+      {/* 템플릿 헤더 (프리뷰 헤더와 통일) */}
+      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center flex-none">
+        <h4 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+          <Pencil className="w-4 h-4" />
+          벡터화 템플릿 작성 (선택사항)
+        </h4>
+      </div>
+
+      <div className="p-4 bg-white dark:bg-gray-800 h-full flex flex-col overflow-y-auto">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 flex-none">
+          선택한 컬럼의 Alias를 사용하여 템플릿을 작성하세요.
+        </p>
+
+        {/* 사용 가능한 Alias 목록 */}
+        <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 flex-none">
+          <div className="text-xs leading-relaxed">
+            <span className="font-medium text-blue-900 dark:text-blue-300 mr-2 inline-block">
+              사용 가능한 Alias:
+            </span>
+            <span className="text-blue-700 dark:text-blue-400 break-all">
+              {Object.keys(aliases).length > 0 ? (
+                Object.values(aliases)
+                  .flatMap((tableAliases) => Object.values(tableAliases))
+                  .filter((alias) => alias)
+                  .map((alias) => `{{ ${alias} }}`)
+                  .join(', ')
+              ) : (
+                <span className="text-gray-400 dark:text-gray-500 italic">
+                  선택된 컬럼의 Alias가 여기에 표시됩니다.
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+
+        <textarea
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+          placeholder="예: {{상품명}}은(는) {{카테고리}} 카테고리의 제품으로, 현재 판매 가격은 {{가격}}원입니다. 제품에 대한 상세한 특징과 설명은 다음과 같습니다: {{상세설명}}"
+          className="w-full flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono overflow-y-auto"
+        />
+      </div>
+    </div>
+  );
+
   // 중앙 패널 렌더러
   const renderCenterPanel = () => {
     if (!document) return null;
@@ -398,57 +448,21 @@ export default function DocumentSettingsPage() {
                 </div>
               )}
             </div>
-            <div className="flex-1 min-h-0 flex flex-col gap-4">
-              <DbSourceViewer
-                connectionId={connectionId} // 업데이트된 ID 사용
-                selectedDbItems={selectedDbItems}
-                onChange={setSelectedDbItems}
-                sensitiveColumns={sensitiveColumns}
-                onSensitiveColumnsChange={setSensitiveColumns}
-                aliases={aliases}
-                onAliasesChange={setAliases}
-              />
-
-              {/* 템플릿 입력 UI */}
-              {Object.keys(selectedDbItems).length > 0 && (
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                    📝 벡터화 템플릿 (선택사항)
-                  </h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    선택한 컬럼의 Alias를 사용하여 템플릿을 작성하세요. 예:{' '}
-                    <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">
-                      {'{{ 상품명 }}은(는) {{ 가격 }}원입니다.'}
-                    </code>
-                  </p>
-
-                  {/* 사용 가능한 Alias 목록 */}
-                  {Object.keys(aliases).length > 0 && (
-                    <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                      <span className="text-xs font-medium text-blue-900 dark:text-blue-300">
-                        사용 가능한 Alias:{' '}
-                      </span>
-                      <span className="text-xs text-blue-700 dark:text-blue-400">
-                        {Object.values(aliases)
-                          .flatMap((tableAliases) =>
-                            Object.values(tableAliases),
-                          )
-                          .filter((alias) => alias)
-                          .map((alias) => `{{ ${alias} }}`)
-                          .join(', ')}
-                      </span>
-                    </div>
-                  )}
-
-                  <textarea
-                    value={template}
-                    onChange={(e) => setTemplate(e.target.value)}
-                    placeholder="템플릿을 입력하세요 (비워두면 기본 key: value 형식 사용)"
-                    className="w-full h-24 text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono"
-                  />
-                </div>
-              )}
+            <div className="flex-1 min-h-0 relative">
+              <div className="absolute inset-0 overflow-y-auto px-1">
+                <DbSourceViewer
+                  connectionId={connectionId} // 업데이트된 ID 사용
+                  selectedDbItems={selectedDbItems}
+                  onChange={setSelectedDbItems}
+                  sensitiveColumns={sensitiveColumns}
+                  onSensitiveColumnsChange={setSensitiveColumns}
+                  aliases={aliases}
+                  onAliasesChange={setAliases}
+                />
+              </div>
             </div>
+
+            {/* 템플릿 UI 제거됨 (우측 패널로 이동) */}
           </div>
         );
       case 'API':
@@ -464,291 +478,329 @@ export default function DocumentSettingsPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="flex-none bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        {/* Breadcrumb - Top Bar */}
-        <div className="px-6 py-2 border-b border-gray-50 dark:border-gray-700/50 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          <Link
-            href="/dashboard"
-            className="hover:text-blue-600 flex items-center gap-1"
-          >
-            <Home className="w-3 h-3" />
-            <span>대시보드</span>
-          </Link>
-          <ChevronRight className="w-3 h-3 text-gray-300" />
-          <Link
-            href={`/dashboard/knowledge/${kbId}`}
-            className="hover:text-blue-600"
-          >
-            자료 목록
-          </Link>
-          <ChevronRight className="w-3 h-3 text-gray-300" />
-          <span className="text-gray-900 dark:text-white font-medium">
-            문서 설정
-          </span>
-        </div>
-
-        {/* Main Title Area */}
-        <div className="px-6 py-5 flex items-start justify-between">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400 mt-1">
-              <FileText className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">
-                {document?.filename || '문서 설정'}
-              </h1>
-
-              {/* Metadata Badges */}
-              <div className="flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium">
-                  {document?.source_type === 'API' && (
-                    <>
-                      <RefreshCw className="w-3 h-3" /> API Source
-                    </>
-                  )}
-                  {document?.source_type === 'DB' && (
-                    <>
-                      <Database className="w-3 h-3" /> Database Source
-                    </>
-                  )}
-                  {(!document?.source_type ||
-                    document?.source_type === 'FILE') && (
-                    <>
-                      <FileText className="w-3 h-3" /> File Source
-                    </>
-                  )}
-                </div>
-                {document?.created_at && (
-                  <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-xs">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(document.created_at).toLocaleDateString('ko-KR')}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* 에러 메시지 */}
-            {status === 'failed' && (
-              <div className="relative group mr-2 cursor-help flex items-center">
-                <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-200 dark:border-red-800 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span className="font-medium max-w-[200px] truncate">
-                    {errorMessage || '처리 실패'}
-                  </span>
-                </div>
-                <div className="absolute top-full right-0 mt-2 w-max max-w-[400px] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                  {errorMessage}
-                </div>
-              </div>
-            )}
-
-            {/* 진행률 표시 */}
-            {status === 'indexing' && (
-              <div className="flex flex-col items-end mr-4 min-w-[120px]">
-                <div className="flex items-center gap-2 mb-1">
-                  <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
-                  <span className="text-blue-600 font-bold text-sm tracking-tight">
-                    {Math.round(progress)}%
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-600 transition-all duration-300"
-                    style={{ width: `${Math.round(progress)}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={handleSaveClick}
-              disabled={
-                isAnalyzing || status === 'completed' || status === 'indexing'
-              }
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+    <div className="h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      <div className="flex flex-col h-full bg-white dark:bg-gray-800 overflow-hidden">
+        {/* Header */}
+        <header className="flex-none bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          {/* Breadcrumb - Top Bar */}
+          <div className="px-6 py-2 border-b border-gray-50 dark:border-gray-700/50 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <Link
+              href="/dashboard"
+              className="hover:text-blue-600 flex items-center gap-1"
             >
-              {analyzingAction === 'save' || status === 'indexing' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              {status === 'indexing'
-                ? '처리 중...'
-                : status === 'pending'
-                  ? '설정 저장 및 처리 시작'
-                  : status === 'completed'
-                    ? '처리 완료됨'
-                    : '저장 및 처리 시작'}
-            </button>
+              <Home className="w-3 h-3" />
+              <span>대시보드</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link
+              href={`/dashboard/knowledge/${kbId}`}
+              className="hover:text-blue-600"
+            >
+              자료 목록
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-gray-900 dark:text-white font-medium">
+              문서 설정
+            </span>
           </div>
-        </div>
-      </header>
-      {/* Main Layout (3 Columns) */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 1. Left Panel: Settings - DB가 아닐 때만 표시 */}
-        {document?.source_type !== 'DB' && (
-          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-            <div className="p-6">
-              {/* FILE일 때만 파싱 전략 노출 */}
-              {(document?.source_type === 'FILE' || !document?.source_type) && (
-                <ParsingStrategySettings
-                  strategy={parsingStrategy}
-                  setStrategy={setParsingStrategy}
-                />
-              )}
-              <CommonChunkSettings
-                chunkSize={chunkSize}
-                setChunkSize={setChunkSize}
-                chunkOverlap={chunkOverlap}
-                setChunkOverlap={setChunkOverlap}
-                segmentIdentifier={segmentIdentifier}
-                setSegmentIdentifier={setSegmentIdentifier}
-                removeWhitespace={removeWhitespace}
-                setRemoveWhitespace={setRemoveWhitespace}
-                removeUrlsEmails={removeUrlsEmails}
-                setRemoveUrlsEmails={setRemoveUrlsEmails}
-              />
 
-              {/* 범위 선택 UI */}
-              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  🎯 청크 선택 범위
-                </h4>
-
-                {/* 모드 선택 라디오 버튼 */}
-                <div className="space-y-2 mb-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="all"
-                      checked={selectionMode === 'all'}
-                      onChange={(e) => setSelectionMode(e.target.value as any)}
-                      className="w-4 h-4 text-indigo-600"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      전체 선택 (기본)
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="range"
-                      checked={selectionMode === 'range'}
-                      onChange={(e) => setSelectionMode(e.target.value as any)}
-                      className="w-4 h-4 text-indigo-600"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      청크 범위 지정
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="keyword"
-                      checked={selectionMode === 'keyword'}
-                      onChange={(e) => setSelectionMode(e.target.value as any)}
-                      className="w-4 h-4 text-indigo-600"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      키워드 검색
-                    </span>
-                  </label>
-                </div>
-
-                {/* 조건부 입력 폼 */}
-                {selectionMode === 'range' && (
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      청크 범위 (예: 1-100, 500-600)
-                    </label>
-                    <input
-                      type="text"
-                      value={chunkRange}
-                      onChange={(e) => setChunkRange(e.target.value)}
-                      placeholder="1-100, 500-600"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      쉼표로 구분하여 여러 범위 입력 가능
-                    </p>
-                  </div>
-                )}
-
-                {selectionMode === 'keyword' && (
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      키워드
-                    </label>
-                    <input
-                      type="text"
-                      value={keywordFilter}
-                      onChange={(e) => setKeywordFilter(e.target.value)}
-                      placeholder="검색할 키워드 입력"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      입력한 키워드를 포함하는 청크만 표시
-                    </p>
-                  </div>
+          {/* Main Title Area */}
+          <div className="px-6 py-5 flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <div
+                className={`p-3 rounded-xl mt-1 ${
+                  document?.source_type === 'DB'
+                    ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
+                    : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                }`}
+              >
+                {document?.source_type === 'DB' ? (
+                  <Database className="w-8 h-8" />
+                ) : (
+                  <FileText className="w-8 h-8" />
                 )}
               </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">
+                  {document?.filename || '문서 설정'}
+                </h1>
+
+                {/* Metadata Badges */}
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium">
+                    {document?.source_type === 'API' && (
+                      <>
+                        <RefreshCw className="w-3 h-3" /> API Source
+                      </>
+                    )}
+                    {document?.source_type === 'DB' && (
+                      <>
+                        <Database className="w-3 h-3" /> Database Source
+                      </>
+                    )}
+                    {(!document?.source_type ||
+                      document?.source_type === 'FILE') && (
+                      <>
+                        <FileText className="w-3 h-3" /> File Source
+                      </>
+                    )}
+                  </div>
+                  {document?.created_at && (
+                    <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-xs">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(document.created_at).toLocaleDateString(
+                        'ko-KR',
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* 에러 메시지 */}
+              {status === 'failed' && (
+                <div className="relative group mr-2 cursor-help flex items-center">
+                  <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-200 dark:border-red-800 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="font-medium max-w-[200px] truncate">
+                      {errorMessage || '처리 실패'}
+                    </span>
+                  </div>
+                  <div className="absolute top-full right-0 mt-2 w-max max-w-[400px] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    {errorMessage}
+                  </div>
+                </div>
+              )}
+
+              {/* 진행률 표시 */}
+              {status === 'indexing' && (
+                <div className="flex flex-col items-end mr-4 min-w-[120px]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
+                    <span className="text-blue-600 font-bold text-sm tracking-tight">
+                      {Math.round(progress)}%
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-600 transition-all duration-300"
+                      style={{ width: `${Math.round(progress)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <button
-                onClick={handlePreviewClick}
-                disabled={isPreviewLoading || isAnalyzing}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                onClick={handleSaveClick}
+                disabled={
+                  isAnalyzing || status === 'completed' || status === 'indexing'
+                }
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
-                {isPreviewLoading || analyzingAction === 'preview' ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                {analyzingAction === 'save' || status === 'indexing' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <RefreshCw className="w-4 h-4" />
+                  <Save className="w-4 h-4" />
                 )}
-                설정 적용 및 결과 미리보기
+                {status === 'indexing'
+                  ? '처리 중...'
+                  : status === 'pending'
+                    ? '설정 저장 및 처리 시작'
+                    : status === 'completed'
+                      ? '처리 완료됨'
+                      : '저장 및 처리 시작'}
               </button>
             </div>
           </div>
-        )}
-        {/* 2. Center Panel: Original Document View */}
-        <div className="flex-1 bg-gray-100 dark:bg-gray-900/50 overflow-hidden flex flex-col border-r border-gray-200 dark:border-gray-700">
-          <div className="px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              {document?.source_type === 'API'
-                ? 'API 데이터 원본 확인'
-                : document?.source_type === 'DB'
-                  ? '테이블 및 컬럼 선택'
-                  : '원본 문서 확인'}
-            </h3>
-            {document?.source_type !== 'DB' && (
-              <span className="text-xs text-gray-500">Read-only</span>
+        </header>
+        {/* Main Layout (3 Columns) */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* 1. Left Panel: Settings - DB가 아닐 때만 표시 */}
+          {document?.source_type !== 'DB' && (
+            <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+              <div className="p-6">
+                {/* FILE일 때만 파싱 전략 노출 */}
+                {(document?.source_type === 'FILE' ||
+                  !document?.source_type) && (
+                  <ParsingStrategySettings
+                    strategy={parsingStrategy}
+                    setStrategy={setParsingStrategy}
+                  />
+                )}
+                <CommonChunkSettings
+                  chunkSize={chunkSize}
+                  setChunkSize={setChunkSize}
+                  chunkOverlap={chunkOverlap}
+                  setChunkOverlap={setChunkOverlap}
+                  segmentIdentifier={segmentIdentifier}
+                  setSegmentIdentifier={setSegmentIdentifier}
+                  removeWhitespace={removeWhitespace}
+                  setRemoveWhitespace={setRemoveWhitespace}
+                  removeUrlsEmails={removeUrlsEmails}
+                  setRemoveUrlsEmails={setRemoveUrlsEmails}
+                />
+
+                {/* 범위 선택 UI */}
+                <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    🎯 청크 선택 범위
+                  </h4>
+
+                  {/* 모드 선택 라디오 버튼 */}
+                  <div className="space-y-2 mb-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="all"
+                        checked={selectionMode === 'all'}
+                        onChange={(e) =>
+                          setSelectionMode(e.target.value as any)
+                        }
+                        className="w-4 h-4 text-indigo-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        전체 선택 (기본)
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="range"
+                        checked={selectionMode === 'range'}
+                        onChange={(e) =>
+                          setSelectionMode(e.target.value as any)
+                        }
+                        className="w-4 h-4 text-indigo-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        청크 범위 지정
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="keyword"
+                        checked={selectionMode === 'keyword'}
+                        onChange={(e) =>
+                          setSelectionMode(e.target.value as any)
+                        }
+                        className="w-4 h-4 text-indigo-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        키워드 검색
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* 조건부 입력 폼 */}
+                  {selectionMode === 'range' && (
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                        청크 범위 (예: 1-100, 500-600)
+                      </label>
+                      <input
+                        type="text"
+                        value={chunkRange}
+                        onChange={(e) => setChunkRange(e.target.value)}
+                        placeholder="1-100, 500-600"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        쉼표로 구분하여 여러 범위 입력 가능
+                      </p>
+                    </div>
+                  )}
+
+                  {selectionMode === 'keyword' && (
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                        키워드
+                      </label>
+                      <input
+                        type="text"
+                        value={keywordFilter}
+                        onChange={(e) => setKeywordFilter(e.target.value)}
+                        placeholder="검색할 키워드 입력"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        입력한 키워드를 포함하는 청크만 표시
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={handlePreviewClick}
+                  disabled={isPreviewLoading || isAnalyzing}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  {isPreviewLoading || analyzingAction === 'preview' ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  설정 적용 및 결과 미리보기
+                </button>
+              </div>
+            </div>
+          )}
+          {/* 2. Center Panel: Original Document View */}
+          <div className="flex-1 bg-gray-100 dark:bg-gray-900/50 overflow-hidden flex flex-col border-r border-gray-200 dark:border-gray-700">
+            <div className="px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                <ListTodo className="w-4 h-4" />
+                {document?.source_type === 'API'
+                  ? 'API 데이터 원본 확인'
+                  : document?.source_type === 'DB'
+                    ? '테이블 및 컬럼 선택'
+                    : '원본 문서 확인'}
+              </h3>
+              {document?.source_type !== 'DB' && (
+                <span className="text-xs text-gray-500">Read-only</span>
+              )}
+            </div>
+            <div className="flex-1 w-full h-full p-4">
+              {renderCenterPanel()}
+            </div>
+          </div>
+          {/* 3. Right Panel: Preview Results */}
+          <div className="flex-1 min-w-0 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-hidden">
+            {document?.source_type === 'DB' ? (
+              <div className="flex flex-col h-full">
+                {renderTemplateSection()}
+                <div className="flex-1 min-h-0 overflow-hidden relative">
+                  <div className="absolute inset-0">
+                    <ChunkPreviewList
+                      previewSegments={previewSegments}
+                      isLoading={isPreviewLoading}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <ChunkPreviewList
+                previewSegments={previewSegments}
+                isLoading={isPreviewLoading}
+              />
             )}
           </div>
-          <div className="flex-1 w-full h-full p-4">{renderCenterPanel()}</div>
         </div>
-        {/* 3. Right Panel: Preview Results */}
-        <ChunkPreviewList
-          previewSegments={previewSegments}
-          isLoading={isPreviewLoading}
-        />
       </div>
+
       {/* 비용 승인 모달 */}
       {showCostConfirm && analyzeResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 mb-4 text-amber-600 dark:text-amber-500">
-              <AlertTriangle className="w-8 h-8" />
-              <h3 className="text-lg font-bold">비용 승인 필요</h3>
-            </div>
-            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-              선택하신{' '}
-              <span className="font-bold text-gray-900 dark:text-white">
-                정밀 파싱(LlamaParse)
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              💰 비용 승인 필요
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              <span className="font-medium text-amber-600">
+                {analyzeResult.cost_estimate.credits} 포인트
               </span>
               은 유료 기능입니다.
               <br />
