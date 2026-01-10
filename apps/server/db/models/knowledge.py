@@ -19,25 +19,32 @@ class KnowledgeBase(Base):
     __tablename__ = "knowledge_bases"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # 임베딩 모델 정보
     embedding_model: Mapped[str] = mapped_column(
-        String(50), default="text-embedding-3-small"
+        String(50), default="text-embedding-3-small", nullable=False
     )
     # 검색 설정
-    top_k: Mapped[int] = mapped_column(Integer, default=5)
-    similarity_threshold: Mapped[float] = mapped_column(Float, default=0.7)
+    top_k: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    similarity_threshold: Mapped[float] = mapped_column(
+        Float, default=0.7, nullable=False
+    )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
@@ -62,9 +69,8 @@ class Document(Base):
     __tablename__ = "documents"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False
     )
-    # 어떤 참고자료 그룹에 속했는지 연결
     knowledge_base_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("knowledge_bases.id"), nullable=False
     )
@@ -79,16 +85,15 @@ class Document(Base):
 
     # 변경 감지용 해시 (API 소스 등에서 사용)
     content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-
     # 상태 관리: pending -> indexing -> completed / failed / waiting_for_approval
-    status: Mapped[str] = mapped_column(String(50), default="pending")
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
 
     # 실패 원인 담는 에러메세지
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # 청킹 설정
-    chunk_size: Mapped[int] = mapped_column(Integer, default=1000)
-    chunk_overlap: Mapped[int] = mapped_column(Integer, default=200)
+    chunk_size: Mapped[int] = mapped_column(Integer, default=500, nullable=False)
+    chunk_overlap: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
 
     # 메타 데이터 (파일 크기, 파싱 결과 요약 등)
     meta_info: Mapped[dict] = mapped_column(JSONB, default={})
@@ -97,10 +102,13 @@ class Document(Base):
     embedding_model: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
@@ -123,8 +131,9 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False
     )
+
     document_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("documents.id"), nullable=False
     )
@@ -137,16 +146,18 @@ class DocumentChunk(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
     # 벡터 데이터
-    embedding: Mapped[list] = mapped_column(Vector())
+    embedding: Mapped[list] = mapped_column(Vector(), nullable=False)
 
     # 문서 내 순서 (나중에 앞뒤 문맥 가져올 때 사용)
-    chunk_index: Mapped[int] = mapped_column(Integer, default=0)
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # 토큰 수 (LLM Context Window 계산용)
-    token_count: Mapped[int] = mapped_column(Integer, default=0)
+    token_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # 청크별 메타데이터 (페이지 번호, 좌표 등 상세 정보)
-    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default={})
+    metadata_: Mapped[dict] = mapped_column(
+        "metadata", JSONB, default={}, nullable=False
+    )
 
     # Relationships
     document: Mapped["Document"] = relationship("Document", back_populates="chunks")
