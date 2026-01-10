@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { Settings, LogOut } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { authApi } from '../../auth/api/authApi';
-import Breadcrumb from './Breadcrumb';
 
 export default function Header() {
   const router = useRouter();
@@ -59,12 +58,7 @@ export default function Header() {
   };
 
   return (
-    <header className="relative z-60 h-14 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-between pr-4 border-b border-gray-200">
-      {/* Breadcrumb */}
-      <div className="flex items-center ml-8">
-        <Breadcrumb />
-      </div>
-
+    <header className="relative z-60 h-14 bg-gradient-to-r from-blue-50 via-white to-white flex items-center justify-end pr-4 border-b border-gray-200">
       {/* User Profile */}
       <div className="relative" ref={dropdownRef}>
         <button

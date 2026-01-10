@@ -69,7 +69,7 @@ const getVerticalShape = (id: string, seedOffset: number): SideShape => {
 };
 
 // === Jigsaw Path Generator ===
-const JigsawBackground = ({
+export const JigsawBackground = ({
   width,
   height,
   shapes,
