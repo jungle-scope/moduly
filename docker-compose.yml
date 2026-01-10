@@ -1,7 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg15
-    container_name: moduly-postgres
+    container_name: moduly-dev-postgres
     environment:
       POSTGRES_DB: moduly
       POSTGRES_USER: admin
@@ -18,7 +18,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: moduly-pgadmin
+    container_name: moduly-dev-pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin

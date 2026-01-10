@@ -25,7 +25,6 @@ export const LLMNode = memo(
         iconColor="#a855f7" // purple-500
       >
         <div className="flex flex-col gap-1">
-          {/* 모델 정보는 항상 표시 */}
           <div className="flex justify-between items-center text-xs text-gray-500">
             <span>Model</span>
             <span className="font-medium text-gray-900">
@@ -33,7 +32,7 @@ export const LLMNode = memo(
             </span>
           </div>
           <div className="text-sm font-semibold text-gray-800 truncate">
-            {data.model_id || '모델을 선택하세요'}
+            {data.model_id || '모델 미지정'}
           </div>
           
           {/* 검증 실패 시에만 경고 배지 추가 */}
