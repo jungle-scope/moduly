@@ -21,6 +21,7 @@ interface AppCardProps {
   onEdit: (e: React.MouseEvent, app: App) => void;
   onToggleMarketplace: (app: App) => void;
   onToggleDeployment: (app: App) => void;
+  onRefresh?: () => void;
 }
 
 export default function AppCard({
@@ -29,6 +30,7 @@ export default function AppCard({
   onEdit,
   onToggleMarketplace,
   onToggleDeployment,
+  onRefresh,
 }: AppCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDeploymentModalOpen, setIsDeploymentModalOpen] = useState(false);
@@ -254,7 +256,7 @@ export default function AppCard({
           onClose={() => setIsDeploymentModalOpen(false)}
           onDeploymentToggle={() => {
             // 배포 토글 시 부모에게 알림 (앱 목록 새로고침)
-            onToggleDeployment(app);
+            onRefresh?.();
           }}
         />
       )}
