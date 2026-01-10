@@ -6,7 +6,7 @@ import { Search, Plus } from 'lucide-react';
 
 import CreateAppModal from '../features/app/components/create-app-modal';
 import EditAppModal from '../features/app/components/edit-app-modal';
-import AppCard from '../features/app/components/app-card';
+import AppCard from '../features/app/components/AppCard';
 import { appApi, type App } from '../features/app/api/appApi';
 
 export default function DashboardPage() {

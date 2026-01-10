@@ -13,7 +13,7 @@ import {
 import { type App } from '../api/appApi';
 import { Tag } from './Tag';
 import { getModuleTags } from '../utils/tagUtils';
-import DeploymentListModal from './deployment-list-modal';
+import DeploymentListModal from './DeploymentListModal';
 
 interface AppCardProps {
   app: App;
