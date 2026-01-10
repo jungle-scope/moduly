@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Sparkles, Copy, Check, Loader2, ArrowRight, Info, ChevronDown } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+
 
 // 템플릿 타입 정의
 type TemplateType = 'email' | 'message' | 'report' | 'custom';
@@ -29,7 +29,7 @@ export function TemplateWizardModal({
   registeredVariables,
   onApply,
 }: TemplateWizardModalProps) {
-  const router = useRouter();
+
   
   // 상태 관리
   const [currentTemplate, setCurrentTemplate] = useState(originalTemplate);
@@ -130,8 +130,7 @@ export function TemplateWizardModal({
 
   // Provider 설정 페이지 이동
   const goToProviderSettings = () => {
-    onClose();
-    router.push('/settings/provider');
+    window.open('/dashboard/settings', '_blank');
   };
 
   if (!isOpen) return null;
