@@ -215,10 +215,18 @@ export function useMemoryMode(router = useRouter(), toaster = toast) {
     setShowMemoryConfirm(false);
   }, []);
 
+  const openProviderSettings = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.open('/dashboard/settings', '_blank', 'noopener,noreferrer');
+      return;
+    }
+    router.push('/dashboard/settings');
+  }, [router]);
+
   const handleGoToProviderSettings = useCallback(() => {
     setShowKeyPrompt(false);
-    router.push('/settings/provider');
-  }, [router]);
+    openProviderSettings();
+  }, [openProviderSettings]);
 
   const appendMemoryFlag = useCallback(
     (inputs: Record<string, any> | FormData) => {
