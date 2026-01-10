@@ -73,7 +73,7 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: ENCRYPTION_KEY
-        # 구글 로그인 관련 설정
+        # 소셜 로그인 관련 설정
         - name: GOOGLE_CLIENT_ID
           valueFrom:
             secretKeyRef:
