@@ -66,12 +66,58 @@ const API_BASE_URL = '/api/v1';
 const api = apiClient;
 
 export const knowledgeApi = {
+  // [NEW] S3 Presigned URL 요청
+  getPresignedUploadUrl: async (
+    filename: string,
+    contentType: string,
+  ): Promise<{
+    upload_url: string;
+    s3_key: string;
+    method: string;
+  }> => {
+    const response = await api.post('/rag/upload/presigned-url', {
+      filename,
+      content_type: contentType,
+    });
+    return response.data;
+  },
+
+  // [NEW] S3 직접 업로드
+  uploadToS3: async (
+    presignedUrl: string,
+    file: File,
+    contentType: string,
+    onProgress?: (progress: number) => void,
+  ): Promise<void> => {
+    // fetch API 사용 (axios는 CORS preflight 이슈 가능성)
+    const response = await fetch(presignedUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+      },
+      body: file,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `S3 upload failed: ${response.status} ${response.statusText}`,
+      );
+    }
+  },
+
   // 참고자료 생성 및 파일 업로드
   uploadKnowledgeBase: async (
     data: KnowledgeCreateRequest,
   ): Promise<IngestionResponse> => {
     const formData = new FormData();
+
+    // [NEW] S3 직접 업로드 정보 (있으면 추가)
+    if (data.s3FileUrl) formData.append('s3FileUrl', data.s3FileUrl);
+    if (data.s3FileKey) formData.append('s3FileKey', data.s3FileKey);
+
+    // [기존] 파일 직접 전송
     if (data.file) formData.append('file', data.file);
+
     if (data.sourceType) formData.append('sourceType', data.sourceType);
     if (data.apiUrl) formData.append('apiUrl', data.apiUrl);
     if (data.apiMethod) formData.append('apiMethod', data.apiMethod);
