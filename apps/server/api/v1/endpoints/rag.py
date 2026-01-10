@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Body,
     Depends,
     File,
     Form,
@@ -35,12 +36,76 @@ from services.storage import get_storage_service
 router = APIRouter()
 
 
+@router.post("/upload/presigned-url")
+async def generate_presigned_url(
+    filename: str = Body(..., embed=True),
+    content_type: str = Body(..., embed=True),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    S3 Presigned URL 생성 (프론트엔드 직접 업로드용)
+
+    브라우저가 S3에 직접 파일을 업로드할 수 있는 임시 URL을 생성합니다.
+    이를 통해 백엔드 서버 부하를 줄이고 업로드 속도를 향상시킬 수 있습니다.
+
+    Args:
+        filename: 업로드할 파일명
+        content_type: 파일의 MIME 타입 (예: application/pdf)
+        current_user: 인증된 사용자
+
+    Returns:
+        dict: {
+            "upload_url": 브라우저가 PUT 요청을 보낼 Presigned URL,
+            "s3_key": S3 객체 키 (나중에 참조용),
+            "method": HTTP 메서드 ("PUT")
+        }
+
+    Example:
+        Request:
+        POST /api/v1/rag/upload/presigned-url
+        {
+            "filename": "document.pdf",
+            "content_type": "application/pdf"
+        }
+
+        Response:
+        {
+            "upload_url": "https://s3.amazonaws.com/...?signature=...",
+            "s3_key": "uploads/user-123/abc-123_document.pdf",
+            "method": "PUT"
+        }
+    """
+    try:
+        storage = get_storage_service()
+
+        # S3 Presigned URL 생성
+        presigned_data = storage.generate_presigned_upload_url(
+            filename=filename,
+            content_type=content_type,
+            user_id=str(current_user.id),
+        )
+
+        return {
+            "upload_url": presigned_data["url"],
+            "s3_key": presigned_data["key"],
+            "method": presigned_data["method"],
+        }
+    except Exception as e:
+        print(f"[ERROR] Presigned URL generation failed: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Presigned URL 생성 실패: {str(e)}"
+        )
+
+
 @router.post("/upload", response_model=IngestionResponse)
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None, alias="file"),
     knowledge_base_id: Optional[UUID] = Form(None, alias="knowledgeBaseId"),
     source_type: str = Form("FILE", alias="sourceType"),
+    # [NEW] S3 Direct Upload Fields
+    s3_file_url: Optional[str] = Form(None, alias="s3FileUrl"),
+    s3_file_key: Optional[str] = Form(None, alias="s3FileKey"),
     # API Config Fields
     api_url: Optional[str] = Form(None, alias="apiUrl"),
     api_method: str = Form("GET", alias="apiMethod"),
@@ -61,6 +126,10 @@ async def upload_document(
 ):
     """
     파일 업로드 및 처리 파이프라인 시작점
+
+    [NEW] S3 Direct Upload 지원:
+    - s3_file_url과 s3_file_key가 제공되면 이미 S3에 업로드된 파일로 처리
+    - file이 제공되면 기존 방식대로 백엔드를 통해 S3에 업로드 (기존 방식)
     """
     # 0. 환경 변수 확인 (Ingestion Mode)
     ingestion_mode = os.getenv("RAG_INGESTION_MODE", "LOCAL").upper()
@@ -95,7 +164,23 @@ async def upload_document(
         source_enum = SourceType.FILE
 
     if source_enum == SourceType.FILE:
-        file_path, filename, meta_info = _prepare_file_source(local_service, file)
+        # [NEW] S3 Direct Upload 방식
+        if s3_file_url and s3_file_key:
+            # 프론트엔드가 이미 S3에 업로드한 경우
+            file_path = s3_file_url
+            # S3 키에서 파일명 추출 (uploads/user-id/uuid_filename.pdf -> uuid_filename.pdf)
+            filename = s3_file_key.split("/")[-1]
+            meta_info = {"s3_key": s3_file_key, "upload_method": "direct"}
+
+        # [기존] 백엔드 중계 업로드 방식
+        elif file:
+            file_path, filename, meta_info = _prepare_file_source(local_service, file)
+            meta_info["upload_method"] = "backend"
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="File or S3 URL is required for FILE source type",
+            )
     elif source_enum == SourceType.API:
         file_path, filename, meta_info = _prepare_api_source(
             api_url, api_method, api_headers, api_body
