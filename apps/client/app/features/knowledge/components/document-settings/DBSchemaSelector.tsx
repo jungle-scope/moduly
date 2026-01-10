@@ -12,6 +12,8 @@ import {
   Square,
   MinusSquare,
   Settings,
+  Lock,
+  LockOpen,
 } from 'lucide-react';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 import { toast } from 'sonner';
@@ -305,14 +307,20 @@ export default function DBSchemaSelector({
                       className="w-3 h-3 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                     />
                     <span
-                      className={
+                      className={`flex items-center gap-1 ${
                         (sensitiveColumns[table.table_name] || []).length ===
                           selectedCols.length && selectedCols.length > 0
                           ? 'text-orange-600 dark:text-orange-400 font-medium'
                           : ''
-                      }
+                      }`}
                     >
-                      🔒 전체 암호화
+                      {(sensitiveColumns[table.table_name] || []).length ===
+                        selectedCols.length && selectedCols.length > 0 ? (
+                        <Lock className="w-3 h-3" />
+                      ) : (
+                        <LockOpen className="w-3 h-3" />
+                      )}{' '}
+                      전체 암호화
                     </span>
                   </div>
                 )}
@@ -382,13 +390,18 @@ export default function DBSchemaSelector({
                               className="w-3 h-3 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                             />
                             <span
-                              className={
+                              className={`flex items-center gap-1 ${
                                 isSensitive
                                   ? 'text-orange-600 dark:text-orange-400 font-medium'
                                   : ''
-                              }
+                              }`}
                             >
-                              🔒 암호화 저장
+                              {isSensitive ? (
+                                <Lock className="w-3 h-3" />
+                              ) : (
+                                <LockOpen className="w-3 h-3" />
+                              )}{' '}
+                              암호화 저장
                             </span>
                           </label>
                         )}
