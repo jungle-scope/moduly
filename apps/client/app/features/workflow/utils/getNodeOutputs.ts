@@ -27,7 +27,9 @@ export const getNodeOutputs = (node: Node): string[] => {
     case 'workflowNode':
       return ['result'];
     case 'fileExtractionNode':
-      return ['result', 'page_count'];
+      return (
+        (node.data?.referenced_variables as any[])?.map((v) => v.name) || []
+      );
 
     case 'githubNode':
       // Get PR: pr_title, pr_body, pr_state, pr_number, files_count, files, diff_url
