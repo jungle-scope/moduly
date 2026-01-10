@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
-ROOT_DIR = BASE_DIR.parent.parent  # apps/server -> apps -> moduly (.env location)
+ROOT_DIR = BASE_DIR.parent.parent  # apps/server -> apps -> moduly (.env 위치)
 ENV_PATH = ROOT_DIR / ".env"
 
 load_dotenv(dotenv_path=ENV_PATH)
@@ -31,28 +31,37 @@ from db.session import engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Startup Logic
+    # 1. 시작 로직
+
+    # LogWorkerPool 초기화 (가장 먼저 시작)
+    from workflow.core.log_worker_pool import (
+        init_log_worker_pool,
+        shutdown_log_worker_pool,
+    )
+
+    init_log_worker_pool()  # 환경변수 LOG_WORKER_COUNT, LOG_QUEUE_SIZE로 설정 가능
+    print("[시작] LogWorkerPool 초기화 완료")
 
     # pgvector 확장 활성화
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully!")
+    print("데이터베이스 테이블 생성 완료")
 
-    # 2. Seed Default LLM Providers (Idempotent)
+    # 2. 기본 LLM 프로바이더 시드 (멱등성 보장)
 
     from db.session import SessionLocal
 
     db = SessionLocal()
     try:
-        # 2.1 Seed Placeholder User (Critical for Dev)
+        # 2.1 플레이스홀더 사용자 시드 (개발 환경 필수)
         seed_placeholder_user(db)
 
-        # 2.2 Seed Providers
+        # 2.2 프로바이더 시드
         seed_default_llm_providers(db)
 
-        # 2.3 기본 모델 시드 (신규)
+        # 2.3 기본 모델 시드
         seed_default_llm_models(db)
 
         # 2.4 기존 모델 가격 동기화 (KNOWN_MODEL_PRICES 기반)
@@ -60,17 +69,17 @@ async def lifespan(app: FastAPI):
 
         result = LLMService.sync_system_prices(db)
         if result["updated_models"] > 0:
-            print(f"💰 Updated pricing for {result['updated_models']} existing models.")
+            print(f"기존 모델 {result['updated_models']}개의 가격 정보 업데이트 완료")
 
-        # 2.5 Initialize SchedulerService (스케줄러 시작)
+        # 2.5 SchedulerService 초기화 (스케줄러 시작)
         from services.scheduler_service import init_scheduler_service
 
-        print("🕐 SchedulerService 초기화 중...")
+        print("SchedulerService 초기화 중...")
         init_scheduler_service(db)
-        print("✅ SchedulerService 초기화 완료!")
+        print("SchedulerService 초기화 완료")
 
     except Exception as e:
-        print(f"⚠️ Failed to seed data: {e}")
+        print(f"시드 데이터 생성 실패: {e}")
         import traceback
 
         traceback.print_exc()
@@ -79,14 +88,20 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown: SchedulerService 종료
+    # 종료 로직
+
+    # LogWorkerPool 종료 (SchedulerService보다 나중에 종료)
+    shutdown_log_worker_pool()
+    print("[종료] LogWorkerPool 종료 완료")
+
+    # SchedulerService 종료
     from services.scheduler_service import get_scheduler_service
 
     try:
         scheduler = get_scheduler_service()
         scheduler.shutdown()
     except Exception as e:
-        print(f"⚠️ SchedulerService 종료 실패: {e}")
+        print(f"SchedulerService 종료 실패: {e}")
 
 
 app = FastAPI(title="Moduly API", lifespan=lifespan)
@@ -104,7 +119,6 @@ app.add_middleware(
 )
 
 # 세션 미들웨어 추가 (OAuth 상태 저장용)
-
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY", "your-secret-key-change-in-production"),
