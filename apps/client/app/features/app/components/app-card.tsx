@@ -7,17 +7,20 @@ import {
   Globe,
   Lock,
   ToggleLeft,
+  ToggleRight,
   History,
 } from 'lucide-react';
 import { type App } from '../api/appApi';
 import { Tag } from './Tag';
 import { getModuleTags } from '../utils/tagUtils';
+import DeploymentListModal from './deployment-list-modal';
 
 interface AppCardProps {
   app: App;
   onClick: (app: App) => void;
   onEdit: (e: React.MouseEvent, app: App) => void;
   onToggleMarketplace: (app: App) => void;
+  onToggleDeployment: (app: App) => void;
 }
 
 export default function AppCard({
@@ -25,8 +28,10 @@ export default function AppCard({
   onClick,
   onEdit,
   onToggleMarketplace,
+  onToggleDeployment,
 }: AppCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDeploymentModalOpen, setIsDeploymentModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -175,27 +180,66 @@ export default function AppCard({
 
               <div className="my-1 border-t border-gray-100" />
 
-              {/* 배포 on/off 토글 (UI 전용) */}
+              {/* 배포 토글 */}
               <button
-                className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50 flex items-center gap-2 cursor-not-allowed"
-                onClick={(e) => e.stopPropagation()}
+                className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 ${
+                  app.active_deployment_id
+                    ? 'text-gray-700 hover:bg-gray-50'
+                    : 'text-gray-400 cursor-not-allowed'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (app.active_deployment_id) {
+                    setIsMenuOpen(false);
+                    onToggleDeployment(app);
+                  }
+                }}
+                disabled={!app.active_deployment_id}
+                title={
+                  app.active_deployment_id
+                    ? '배포 상태 토글'
+                    : '배포가 없습니다'
+                }
               >
-                <ToggleLeft className="w-3.5 h-3.5" />
-                <span>배포 끄기 (준비중)</span>
+                {app.active_deployment_id ? (
+                  <ToggleRight className="w-3.5 h-3.5 text-green-600" />
+                ) : (
+                  <ToggleLeft className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {app.active_deployment_id ? '배포 끄기' : '배포 없음'}
+                </span>
               </button>
 
-              {/* 서브 모듈로 배포된 버전 목록 조회 (UI 전용) */}
+              {/* 서브 모듈 배포 목록 */}
               <button
-                className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50 flex items-center gap-2 cursor-not-allowed"
-                onClick={(e) => e.stopPropagation()}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  setIsDeploymentModalOpen(true);
+                }}
               >
                 <History className="w-3.5 h-3.5" />
-                <span>서브 모듈 배포 목록 (준비중)</span>
+                <span>배포 목록 보기</span>
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* 배포 목록 모달 */}
+      {isDeploymentModalOpen && (
+        <DeploymentListModal
+          appId={app.id}
+          appName={app.name}
+          onClose={() => setIsDeploymentModalOpen(false)}
+          onDeploymentToggle={() => {
+            // 배포 토글 시 부모에게 알림 (앱 목록 새로고침)
+            onToggleDeployment(app);
+          }}
+        />
+      )}
     </div>
   );
 }
