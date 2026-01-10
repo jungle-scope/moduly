@@ -4,10 +4,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
-ROOT_DIR = BASE_DIR.parent.parent  # apps/server -> apps -> moduly (.env location)
-ENV_PATH = ROOT_DIR / ".env"
 
-load_dotenv(dotenv_path=ENV_PATH)
+# apps/server/.env 로드
+SERVER_ENV_PATH = BASE_DIR / ".env"
+if SERVER_ENV_PATH.exists():
+    print(f"Loading .env from {SERVER_ENV_PATH}")
+    load_dotenv(dotenv_path=SERVER_ENV_PATH)
 
 import os
 from contextlib import asynccontextmanager
