@@ -374,8 +374,6 @@ class IngestionOrchestrator:
         return refined
 
     def _save_to_vector_db(self, doc: Document, chunks: List[Dict[str, Any]]):
-        import re
-
         import tiktoken
 
         from services.llm_service import LLMService
@@ -495,29 +493,18 @@ class IngestionOrchestrator:
             content = chunk["content"]
             embedding = all_embeddings.get(i, [0.1] * 1536)
 
-            # content에서 민감 컬럼만 암호화
-            sensitive_columns = chunk.get("metadata", {}).get("sensitive_columns", [])
-            if sensitive_columns:
-                for col in sensitive_columns:
-                    # "colname: value" 패턴 찾아서 암호화
-                    pattern = rf"({re.escape(col)}:\s*)([^\n]+)"
-
-                    def encrypt_match(match):
-                        key = match.group(1)  # "email: "
-                        value = match.group(2)  # "hong@example.com"
-                        try:
-                            encrypted_value = encryption_manager.encrypt(value)
-                            return f"{key}{encrypted_value}"
-                        except Exception as e:
-                            print(f"[ERROR] Failed to encrypt {col}: {e}")
-                            return match.group(0)  # 암호화 실패 시 원본 유지
-
-                    content = re.sub(pattern, encrypt_match, content)
+            # ✨ Content 전체 암호화 (무조건)
+            # 벡터 임베딩 후 content는 항상 암호화하여 저장
+            try:
+                encrypted_content = encryption_manager.encrypt(content)
+            except Exception as e:
+                print(f"[ERROR] Failed to encrypt content for chunk {i}: {e}")
+                encrypted_content = content  # 암호화 실패 시 원본 유지 (fallback)
 
             new_chunk = DocumentChunk(
                 document_id=doc.id,
                 knowledge_base_id=doc.knowledge_base_id,
-                content=content,
+                content=encrypted_content,  # ✨ 암호화된 content 사용
                 chunk_index=i,
                 token_count=chunk.get("token_count", 0),
                 metadata_=chunk["metadata"],
