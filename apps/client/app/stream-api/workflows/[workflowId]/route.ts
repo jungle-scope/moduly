@@ -10,15 +10,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ workflowId: string }> },
 ) {
-  console.log('[Stream Proxy] Request received');
-
   const resolvedParams = await params;
   const workflowId = resolvedParams.workflowId;
-  console.log('[Stream Proxy] workflowId:', workflowId);
 
-  // EKS 내부에서는 Service 이름으로 통신
-  const backendUrl = process.env.API_URL || 'http://api-service:8000';
-  console.log('[Stream Proxy] backendUrl:', backendUrl);
+  // 로컬: http://127.0.0.1:8000, EKS: http://api-service:8000
+  const backendUrl = process.env.API_URL || 'http://127.0.0.1:8000';
 
   // Content-Type 확인
   const contentType = request.headers.get('content-type') || 'application/json';

@@ -1,4 +1,4 @@
-import { X, Pencil, Check } from 'lucide-react';
+import { X, Pencil, Check, Pin } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getNodeDefinitionByType } from '../../config/nodeRegistry';
@@ -45,6 +45,9 @@ export default function NodeDetailsPanel({
   // [NEW] 설명 편집 모드(isDescEditing) 및 입력값(editDesc) 상태 관리
   const [isDescEditing, setIsDescEditing] = useState(false);
   const [editDesc, setEditDesc] = useState('');
+
+  // [NEW] 패널 고정 상태
+  const [isPinned, setIsPinned] = useState(false);
 
   // 노드 변경 시 편집 상태 초기화
   useEffect(() => {
@@ -131,6 +134,9 @@ export default function NodeDetailsPanel({
     if (!nodeId) return;
 
     const handleClickOutside = (event: MouseEvent) => {
+      // 고정되면 닫지 않음
+      if (isPinned) return;
+
       const target = event.target as HTMLElement;
 
       // 패널 내부 클릭 시 닫지 않음
@@ -163,14 +169,14 @@ export default function NodeDetailsPanel({
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [nodeId, onClose]);
+  }, [nodeId, onClose, isPinned]);
 
   if (!nodeId || !selectedNode) return null;
 
   return (
     <div
       ref={panelRef}
-      className="absolute right-0 top-14 bottom-0 w-[400px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200"
+      className="absolute right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200"
     >
       {/* 패널 헤더 */}
       {/* NOTE: [LLM] header prop으로 노드별 아이콘/텍스트를 표시하도록 확장 */}
@@ -261,6 +267,19 @@ export default function NodeDetailsPanel({
         </div>
         <div className="flex items-center gap-2">
           {headerActions}
+          <button
+            onClick={() => setIsPinned(!isPinned)}
+            className={`p-1.5 rounded transition-colors ${
+              isPinned
+                ? 'bg-blue-50 text-blue-600'
+                : 'hover:bg-gray-100 text-gray-400'
+            }`}
+            title={isPinned ? '패널 고정 해제' : '패널 고정'}
+          >
+            <Pin
+              className={`w-4 h-4 ${isPinned ? 'fill-current' : ''} transition-transform`}
+            />
+          </button>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded transition-colors"

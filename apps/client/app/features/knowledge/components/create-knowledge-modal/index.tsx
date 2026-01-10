@@ -212,6 +212,8 @@ export default function CreateKnowledgeModal({
       setIsLoading(true);
 
       let connectionId = undefined;
+      let s3FileUrl = undefined;
+      let s3FileKey = undefined;
 
       // DB 타입이면, 커넥터 생성 API 호출하여 ID 발급 받습니다
       if (sourceType === 'DB') {
@@ -219,7 +221,6 @@ export default function CreateKnowledgeModal({
           const connectorRes = await connectorApi.createConnector(dbConfig);
           if (connectorRes.success && connectorRes.id) {
             connectionId = connectorRes.id;
-            console.log('Connector created: ', connectionId);
           } else {
             console.error('Connector creation failed:', connectorRes.message);
             toast.error(
@@ -238,10 +239,47 @@ export default function CreateKnowledgeModal({
         }
       }
 
+      // [NEW] FILE 타입이면 S3 직접 업로드
+      if (sourceType === 'FILE' && file) {
+        try {
+          // 1. Presigned URL 요청
+          const presignedData = await knowledgeApi.getPresignedUploadUrl(
+            file.name,
+            file.type || 'application/octet-stream',
+          );
+
+          // 2. S3에 직접 업로드
+          await knowledgeApi.uploadToS3(
+            presignedData.upload_url,
+            file,
+            file.type || 'application/octet-stream',
+          );
+
+          // 3. S3 정보 저장
+          s3FileUrl = presignedData.upload_url.split('?')[0]; // Query string 제거
+          s3FileKey = presignedData.s3_key;
+
+          console.log('[S3 Upload] Success:', s3FileKey);
+        } catch (err: any) {
+          console.error('[S3 Upload] Failed:', err);
+          toast.error(`S3 업로드 실패: ${err.message}`);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // 참고자료 생성
       const response = await knowledgeApi.uploadKnowledgeBase({
         sourceType: sourceType,
-        file: sourceType === 'FILE' && file ? file : undefined,
+        // [NEW] S3 직접 업로드 정보 (있으면 전달)
+        s3FileUrl: s3FileUrl,
+        s3FileKey: s3FileKey,
+        // [기존] file은 S3 업로드 실패 시 대체 수단으로만 사용
+        file: s3FileUrl
+          ? undefined
+          : sourceType === 'FILE' && file
+            ? file
+            : undefined,
         apiUrl: sourceType === 'API' ? apiConfig.url : undefined,
         apiMethod: sourceType === 'API' ? apiConfig.method : undefined,
         apiHeaders: sourceType === 'API' ? apiConfig.headers : undefined,
@@ -257,7 +295,6 @@ export default function CreateKnowledgeModal({
         connectionId: connectionId,
       });
 
-      // console.log(JSON.stringify(response));
       // 성공 시 모달 닫기 및 문서 설정 페이지로 이동
       onClose();
       router.push(

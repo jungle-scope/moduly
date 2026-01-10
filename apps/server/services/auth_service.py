@@ -148,17 +148,19 @@ class AuthService:
 
         # 토큰 없음
         if not token:
-            raise HTTPException(status_code=401, detail="Not authenticated")
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
 
         # 토큰 검증
         user_id = AuthService.verify_jwt_token(token)
         if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+            raise HTTPException(
+                status_code=401, detail="유효하지 않거나 만료된 토큰입니다"
+            )
 
         # 사용자 조회
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
-            raise HTTPException(status_code=401, detail="User not found")
+            raise HTTPException(status_code=401, detail="유저를 찾을 수 없습니다")
 
         return user
 
@@ -182,7 +184,7 @@ class AuthService:
         if existing_user:
             from fastapi import HTTPException
 
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(status_code=400, detail="이미 등록된 이메일입니다")
 
         # 사용자 생성
         hashed_pwd = AuthService.hash_password(request.password)
@@ -190,6 +192,7 @@ class AuthService:
             email=request.email,
             name=request.name,
             password=hashed_pwd,
+            social_provider="none",
         )
         db.add(new_user)
         db.commit()
@@ -233,13 +236,17 @@ class AuthService:
         if not user or not user.password:
             from fastapi import HTTPException
 
-            raise HTTPException(status_code=401, detail="Invalid email or password")
+            raise HTTPException(
+                status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다"
+            )
 
         # 비밀번호 검증
         if not AuthService.verify_password(request.password, user.password):
             from fastapi import HTTPException
 
-            raise HTTPException(status_code=401, detail="Invalid email or password")
+            raise HTTPException(
+                status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다"
+            )
 
         # JWT 토큰 생성 (세션 DB 저장 없음)
         token = AuthService.create_jwt_token(user_id=str(user.id))

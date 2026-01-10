@@ -63,7 +63,6 @@ export function useDocumentProcess({
   const createRequestData = (
     strategy: 'general' | 'llamaparse',
   ): DocumentPreviewRequest => {
-    // console.log('[Debug] Settings selectedDbItems:', settings.selectedDbItems);
     const selections = Object.entries(settings.selectedDbItems).map(
       ([table, cols]) => {
         const sensitiveColumnsForTable =
@@ -78,8 +77,6 @@ export function useDocumentProcess({
         };
       },
     );
-    // console.log('[Debug] Transformed selections:', selections);
-    // console.log('[Debug] Document meta_info:', document?.meta_info);
 
     return {
       chunk_size: settings.chunkSize,
@@ -107,14 +104,11 @@ export function useDocumentProcess({
     if (!document) return;
     try {
       const requestData = createRequestData(strategy);
-      console.log('[Debug] Save Request Data:', requestData);
-      console.log('[Debug] Calling processDocument API...');
       const response = await knowledgeApi.processDocument(
         kbId,
         document.id,
         requestData,
       );
-      console.log('[Debug] API Response:', response);
 
       setStatus('indexing');
       setProgress(0);
@@ -143,14 +137,12 @@ export function useDocumentProcess({
     setIsPreviewLoading(true);
     try {
       const requestData = createRequestData(strategy);
-      // console.log('[Debug] Preview Request Data:', requestData);
 
       const response = await knowledgeApi.previewDocumentChunking(
         kbId,
         documentId,
         requestData,
       );
-      console.log('[Debug] Preview Response:', response);
 
       // 서버에서 필터링된 결과를 그대로 사용 (클라이언트 필터링 로직 제거)
       setPreviewSegments(response.segments);

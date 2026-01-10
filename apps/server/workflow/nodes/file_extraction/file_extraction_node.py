@@ -1,7 +1,9 @@
 import os
+import tempfile
 from typing import Any, Dict, Optional
 
 import pymupdf4llm
+import requests
 
 from ..base.node import Node
 from .entities import FileExtractionNodeData
@@ -13,9 +15,9 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
 
     기능:
     - PDF 파일 경로를 받아서 텍스트 추출
+    - S3 URL 또는 로컬 파일 경로 지원
     - pymupdf4llm을 사용하여 마크다운 형식으로 변환
-    - 페이지별 메타데이터 포함
-    - 여러 변수 중 첫 번째 유효한 파일 경로 사용
+    - 여러 변수 처리 및 중복 체크
     - 사용자가 정의한 이름으로 출력 변수 생성
     """
 
@@ -36,11 +38,11 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
             }
         """
 
-        # STEP 1. 필수값 검증
+        # 필수값 검증
         if not self.data.referenced_variables:
             raise ValueError("파일 경로 변수를 선택해주세요.")
 
-        # STEP 2. 각 변수에 대해 파일 추출 수행
+        # 각 변수에 대해 파일 추출 수행
         results = {}
         seen_names = set()  # 중복 체크용
 
@@ -61,30 +63,49 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                 variable.value_selector, inputs
             )
 
-            # 파일 존재 확인
+            # 파일 경로 확인
             if not file_path:
                 raise ValueError(f"파일 경로를 찾을 수 없습니다: {output_name}")
 
-            if not os.path.exists(file_path):
-                raise FileNotFoundError(
-                    f"파일을 찾을 수 없습니다: {file_path} (변수: {output_name})"
-                )
+            # 파일 준비 (S3 URL이면 다운로드, 로컬이면 경로 확인)
+            is_remote = file_path.startswith("http")
+            temp_file_path = None
 
-            # 문서 텍스트 추출
             try:
-                md_text_chunks = pymupdf4llm.to_markdown(file_path, page_chunks=True)
-            except Exception as e:
-                raise ValueError(
-                    f"문서 파싱 실패: {str(e)} (변수: {output_name}, 파일: {file_path})"
-                )
+                if is_remote:
+                    # S3/HTTP URL에서 파일 다운로드
+                    temp_file_path = self._download_file(file_path)
+                    target_path = temp_file_path
+                else:
+                    # 로컬 파일 확인
+                    if not os.path.exists(file_path):
+                        raise FileNotFoundError(
+                            f"파일을 찾을 수 없습니다: {file_path} (변수: {output_name})"
+                        )
+                    target_path = file_path
 
-            # 전체 텍스트 합치기
-            full_text = "\n\n".join([chunk["text"] for chunk in md_text_chunks])
+                # 문서 텍스트 추출
+                try:
+                    md_text_chunks = pymupdf4llm.to_markdown(
+                        target_path, page_chunks=True
+                    )
+                except Exception as e:
+                    raise ValueError(
+                        f"문서 파싱 실패: {str(e)} (변수: {output_name}, 파일: {file_path})"
+                    )
 
-            # 사용자 정의 이름으로 결과 저장
-            results[output_name] = full_text
+                # 전체 텍스트 합치기
+                full_text = "\n\n".join([chunk["text"] for chunk in md_text_chunks])
+                results[output_name] = full_text
 
-        # STEP 3. 결과 반환
+            finally:
+                # 임시 파일 정리
+                if temp_file_path and os.path.exists(temp_file_path):
+                    try:
+                        os.remove(temp_file_path)
+                    except Exception as e:
+                        print(f"[Warning] Failed to remove temp file: {e}")
+
         return results
 
     def _extract_value_from_selector(
@@ -119,3 +140,37 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
         else:
             # 노드 ID만 있으면 전체 데이터 반환
             return source_data
+
+    def _download_file(self, url: str) -> str:
+        """
+        S3/HTTP URL에서 파일을 다운로드하여 임시 경로를 반환합니다.
+
+        Args:
+            url: 다운로드할 파일의 URL
+
+        Returns:
+            임시 파일 경로
+        """
+        try:
+            response = requests.get(url, stream=True, timeout=30)
+            response.raise_for_status()
+
+            # 확장자 추론
+            from urllib.parse import urlparse
+
+            path = urlparse(url).path
+            ext = os.path.splitext(path)[1]
+            if not ext:
+                ext = ".pdf"
+
+            # 임시 파일 생성 및 다운로드
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:  # 빈 chunk 필터링
+                        tmp.write(chunk)
+                return tmp.name
+
+        except requests.RequestException as e:
+            raise RuntimeError(f"파일 다운로드 실패: {url} - {str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"파일 처리 중 오류: {str(e)}")

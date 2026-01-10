@@ -174,6 +174,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
     <div className="flex flex-col gap-2">
       <CollapsibleSection
         title={`분기 조건 (${cases.length}개)`}
+        showDivider
         icon={
           <button
             onClick={(e) => {
@@ -188,14 +189,6 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
         }
       >
         <div className="flex flex-col gap-4">
-          <div className="text-xs text-gray-500 mb-2">
-            각 분기(Case)는 순서대로 평가되며, 첫 번째로 조건이 만족되는 분기로
-            진행됩니다.
-            <br />
-            어떤 조건도 만족하지 않으면{' '}
-            <span className="font-medium">Default</span>로 진행됩니다.
-          </div>
-
           {cases.map((caseItem, caseIndex) => {
             return (
               <div
@@ -206,26 +199,36 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                 <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
                   <div className="flex items-center gap-2">
                     <input
-                      className="text-sm font-medium text-gray-700 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1"
+                      className="text-sm font-medium text-gray-700 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1 transition-colors hover:bg-gray-200/50"
                       value={caseItem.case_name}
                       onChange={(e) =>
                         handleUpdateCaseName(caseIndex, e.target.value)
                       }
                       placeholder={`Case ${caseIndex + 1}`}
                     />
-                    <select
-                      className="text-xs px-2 py-1 rounded border border-gray-300 bg-white"
-                      value={caseItem.logical_operator}
-                      onChange={(e) =>
-                        handleUpdateCaseLogicalOperator(
-                          caseIndex,
-                          e.target.value as 'and' | 'or',
-                        )
-                      }
-                    >
-                      <option value="and">AND</option>
-                      <option value="or">OR</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        className="appearance-none text-xs pl-2 pr-6 py-1 rounded border border-gray-200 bg-white font-medium text-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all cursor-pointer"
+                        value={caseItem.logical_operator}
+                        onChange={(e) =>
+                          handleUpdateCaseLogicalOperator(
+                            caseIndex,
+                            e.target.value as 'and' | 'or',
+                          )
+                        }
+                      >
+                        <option value="and">AND</option>
+                        <option value="or">OR</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-gray-500">
+                        <svg
+                          className="h-3 w-3 fill-current"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -287,7 +290,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                       return (
                         <div
                           key={condition.id}
-                          className="flex flex-col gap-2 p-2 bg-gray-50 rounded border border-gray-200"
+                          className="flex flex-col gap-2 p-3 bg-white rounded-lg border border-gray-200 shadow-sm transition-all hover:border-blue-300/50"
                         >
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">
@@ -306,7 +309,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                           {/* Variable Selector Row */}
                           <div className="flex gap-2">
                             <select
-                              className="h-7 w-1/2 rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none bg-white"
+                              className="w-1/2 appearance-none rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
                               value={condition.variable_selector?.[0] || ''}
                               onChange={(e) => {
                                 handleUpdateCondition(
@@ -330,7 +333,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
 
                             {isStartNode ? (
                               <select
-                                className="h-7 w-1/2 rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none bg-white"
+                                className="w-1/2 appearance-none rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
                                 value={condition.variable_selector?.[1] || ''}
                                 onChange={(e) => {
                                   const currentNode =
@@ -357,7 +360,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                               </select>
                             ) : (
                               <input
-                                className="h-7 w-1/2 rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none"
+                                className="w-1/2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-gray-700 placeholder:font-normal placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors"
                                 placeholder="변수 키"
                                 value={condition.variable_selector?.[1] || ''}
                                 onChange={(e) => {
@@ -376,7 +379,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
 
                           {/* Operator Selector */}
                           <select
-                            className="h-7 w-full rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none bg-white"
+                            className="w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
                             value={condition.operator}
                             onChange={(e) =>
                               handleUpdateCondition(
@@ -396,7 +399,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
 
                           {/* Value Input */}
                           <input
-                            className="h-7 w-full rounded border border-gray-300 px-2 text-xs focus:border-blue-500 focus:outline-none"
+                            className="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-gray-700 placeholder:font-normal placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors"
                             placeholder="비교할 값"
                             value={condition.value}
                             onChange={(e) =>
@@ -430,17 +433,14 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
             </div>
           )}
 
-          <button
-            onClick={handleAddCase}
-            className="w-full py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition-colors"
-          >
-            + 분기 추가
-          </button>
-
           {/* Default 안내 */}
-          <div className="px-3 py-2 bg-gray-100 rounded text-xs text-gray-600">
-            <span className="font-medium">Default:</span> 위의 모든 조건이
-            만족하지 않으면 이 분기로 진행됩니다.
+          <div className="border border-gray-200 rounded-lg overflow-hidden border-l-4 border-l-gray-400">
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+              <div className="text-sm font-medium text-gray-700">Default</div>
+            </div>
+            <div className="p-3 text-xs text-gray-500">
+              위의 모든 조건이 만족하지 않으면 이 분기로 진행됩니다.
+            </div>
           </div>
         </div>
       </CollapsibleSection>

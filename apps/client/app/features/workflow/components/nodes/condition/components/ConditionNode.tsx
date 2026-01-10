@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Handle, Position, Node, NodeProps } from '@xyflow/react';
+import { Position, Node, NodeProps } from '@xyflow/react';
 import { GitFork } from 'lucide-react';
 import { BaseNode, SmartHandle } from '../../BaseNode';
 import { ConditionNodeData } from '../../../../types/Nodes';
@@ -18,13 +18,6 @@ export const ConditionNode = memo(
         iconColor="#f97316" // orange-500
       >
         <div className="p-4 text-sm text-gray-500 text-center">
-          {/* Condition Logic Visualization */}
-          <div className="mb-2">
-            {cases.length > 0
-              ? `${cases.length}개 분기 조건`
-              : '조건에 따라 분기합니다'}
-          </div>
-
           {/* Output Handles - Flexbox Refactor */}
           {/* 탭 높이(14px)만큼 더 바깥으로 내밀기 위해 너비와 마진 조정 (28px + 14px = 42px) */}
           <div className="flex flex-col gap-2 mt-4 z-10 w-[calc(100%+42px)] -mr-[42px] self-end">
@@ -34,7 +27,7 @@ export const ConditionNode = memo(
                 key={caseItem.id}
                 className="flex items-center justify-end h-6 relative z-50"
               >
-                <span className="mr-3 text-xs text-blue-600 font-semibold whitespace-nowrap">
+                <span className="mr-3 text-base text-blue-600 font-semibold whitespace-nowrap">
                   {caseItem.case_name || `Case ${index + 1}`}
                 </span>
                 <SmartHandle
@@ -48,7 +41,7 @@ export const ConditionNode = memo(
 
             {/* Else 핸들 - 항상 마지막 */}
             <div className="flex items-center justify-end h-6 relative z-50">
-              <span className="mr-3 text-xs text-gray-500 font-semibold whitespace-nowrap">
+              <span className="mr-3 text-base text-gray-500 font-semibold whitespace-nowrap">
                 Default
               </span>
               <SmartHandle

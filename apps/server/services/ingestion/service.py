@@ -553,34 +553,3 @@ class IngestionOrchestrator:
             doc.error_message = error_message
             doc.updated_at = datetime.now(timezone.utc)
             self.db.commit()
-
-    def reindex_knowledge_base(self, kb_id: UUID, new_model: str):
-        print(
-            f"[IngestionOrchestrator] re-indexing 시작.. KB {kb_id} with model {new_model}"
-        )
-
-        # 임베딩 모델 업데이트
-        self.ai_model = new_model
-
-        # 해당 KB의 모든 문서 조회
-        documents = (
-            self.db.query(Document).filter(Document.knowledge_base_id == kb_id).all()
-        )
-
-        if not documents:
-            print(f"[IngestionOrchestrator] No documents found for KB {kb_id}")
-            return
-
-        print(f"[IngestionOrchestrator] Found {len(documents)} documents to re-index")
-
-        for doc in documents:
-            try:
-                # 상태를 pending으로 변경하여 UI에 재처리 중임을 표시
-                self._update_status(doc.id, "pending")
-                self.process_document(doc.id)
-            except Exception as e:
-                print(
-                    f"[IngestionOrchestrator] Error re-indexing document {doc.id}: {str(e)}"
-                )
-                # 개별 실패 시 로그 남기고 계속 진행
-                self._update_status(doc.id, "failed", error_message=str(e))
