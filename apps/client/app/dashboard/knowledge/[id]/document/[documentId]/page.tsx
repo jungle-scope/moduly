@@ -589,18 +589,17 @@ export default function DocumentSettingsPage() {
       </header>
       {/* Main Layout (3 Columns) */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 1. Left Panel: Settings */}
-        <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-          <div className="p-6">
-            {/* FILE일 때만 파싱 전략 노출 */}
-            {(document?.source_type === 'FILE' || !document?.source_type) && (
-              <ParsingStrategySettings
-                strategy={parsingStrategy}
-                setStrategy={setParsingStrategy}
-              />
-            )}
-            {/* DB가 아닐 때만 청크 설정 표시 */}
-            {document?.source_type !== 'DB' && (
+        {/* 1. Left Panel: Settings - DB가 아닐 때만 표시 */}
+        {document?.source_type !== 'DB' && (
+          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+            <div className="p-6">
+              {/* FILE일 때만 파싱 전략 노출 */}
+              {(document?.source_type === 'FILE' || !document?.source_type) && (
+                <ParsingStrategySettings
+                  strategy={parsingStrategy}
+                  setStrategy={setParsingStrategy}
+                />
+              )}
               <CommonChunkSettings
                 chunkSize={chunkSize}
                 setChunkSize={setChunkSize}
@@ -613,10 +612,8 @@ export default function DocumentSettingsPage() {
                 removeUrlsEmails={removeUrlsEmails}
                 setRemoveUrlsEmails={setRemoveUrlsEmails}
               />
-            )}
 
-            {/* DB가 아닐 때만 범위 선택 UI 표시 */}
-            {document?.source_type !== 'DB' && (
+              {/* 범위 선택 UI */}
               <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                   🎯 청크 선택 범위
@@ -701,22 +698,22 @@ export default function DocumentSettingsPage() {
                   </div>
                 )}
               </div>
-            )}
 
-            <button
-              onClick={handlePreviewClick}
-              disabled={isPreviewLoading || isAnalyzing}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            >
-              {isPreviewLoading || analyzingAction === 'preview' ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              설정 적용 및 결과 미리보기
-            </button>
+              <button
+                onClick={handlePreviewClick}
+                disabled={isPreviewLoading || isAnalyzing}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {isPreviewLoading || analyzingAction === 'preview' ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                설정 적용 및 결과 미리보기
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         {/* 2. Center Panel: Original Document View */}
         <div className="flex-1 bg-gray-100 dark:bg-gray-900/50 overflow-hidden flex flex-col border-r border-gray-200 dark:border-gray-700">
           <div className="px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
