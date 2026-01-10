@@ -535,12 +535,12 @@ export default function EditorHeader() {
                   .getState()
                   .updateNodeData(data.node_id, { status: 'failure' });
               }
+              // Toast 알림 추가
+              toast.error(`워크플로우 실행 실패: ${data.message}`);
               throw new Error(data.message);
             }
           },
         );
-
-        console.log('[테스트 실행 성공] 결과:', finalResult);
 
         // 결과 모달 표시
         if (finalResult) {
@@ -558,7 +558,7 @@ export default function EditorHeader() {
         setIsExecuting(false);
       }
     },
-    [workflowId, nodes],
+    [appendMemoryFlag, nodes, setCenter, workflowId],
   );
 
   // [NEW] 원격 실행 트리거 효과

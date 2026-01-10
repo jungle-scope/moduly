@@ -62,7 +62,7 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <CollapsibleSection title="Output Variables">
+      <CollapsibleSection title="입력변수" showDivider>
         <ReferencedVariablesControl
           variables={variables}
           upstreamNodes={upstreamNodes}
@@ -71,8 +71,6 @@ export function AnswerNodePanel({ nodeId, data }: AnswerNodePanelProps) {
           onRemove={handleRemoveOutput}
           title=""
           description="최종 출력으로 내보낼 변수를 정의합니다."
-          placeholder="Output Key"
-          emptyMessage="No outputs defined."
         />
       </CollapsibleSection>
     </div>

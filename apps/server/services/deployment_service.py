@@ -593,6 +593,14 @@ class DeploymentService:
                 db, deployment.app_id, deployment_id, scheduler_service
             )
 
+        # 3.1. App의 active_deployment_id 동기화
+        app = db.query(App).filter(App.id == deployment.app_id).first()
+        if app:
+            if new_state:
+                app.active_deployment_id = deployment.id
+            elif app.active_deployment_id == deployment.id:
+                app.active_deployment_id = None
+
         # 4. 현재 배포의 Schedule 처리
         schedule = (
             db.query(Schedule).filter(Schedule.deployment_id == deployment_id).first()

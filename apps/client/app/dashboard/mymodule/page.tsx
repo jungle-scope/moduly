@@ -6,7 +6,7 @@ import { Search, Plus } from 'lucide-react';
 
 import CreateAppModal from '@/app/features/app/components/create-app-modal';
 import EditAppModal from '@/app/features/app/components/edit-app-modal';
-import AppCard from '@/app/features/app/components/app-card';
+import AppCard from '@/app/features/app/components/AppCard';
 import { appApi, type App } from '@/app/features/app/api/appApi';
 
 export default function DashboardPage() {
@@ -72,6 +72,21 @@ export default function DashboardPage() {
     }
   };
 
+  const handleToggleDeployment = async (app: App) => {
+    if (!app.active_deployment_id) {
+      console.error('No active deployment found');
+      return;
+    }
+
+    try {
+      await appApi.toggleDeployment(app.active_deployment_id);
+      loadApps(); // 앱 목록 새로고침하여 최신 배포 상태 반영
+    } catch (err) {
+      console.error('Failed to toggle deployment:', err);
+      alert('배포 상태 변경에 실패했습니다.');
+    }
+  };
+
   const filteredApps = apps.filter((app) =>
     app.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
@@ -131,6 +146,8 @@ export default function DashboardPage() {
               onClick={handleAppClick}
               onEdit={handleEditApp}
               onToggleMarketplace={handleToggleMarketplace}
+              onToggleDeployment={handleToggleDeployment}
+              onRefresh={loadApps}
             />
           ))}
         </div>

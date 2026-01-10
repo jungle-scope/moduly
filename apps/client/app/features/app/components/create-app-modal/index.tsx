@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { appApi } from '../../api/appApi';
-import { AppIcon } from './app-icon';
-import { AppIconPicker } from './app-icon-picker';
+import { AppIcon } from './AppIcon';
+import { AppIconPicker } from './AppIconPicker';
 import { AppIconSelection, CreateAppProps } from './types';
 import { twMerge } from 'tailwind-merge';
 

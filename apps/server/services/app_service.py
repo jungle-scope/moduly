@@ -89,6 +89,24 @@ class AppService:
                 setattr(app, "owner_name", user.name)
 
     @staticmethod
+    def _populate_deployment_status(db: Session, app: App):
+        """App 객체에 active_deployment_is_active 속성을 채웁니다."""
+        from db.models.workflow_deployment import WorkflowDeployment
+
+        if app.active_deployment_id:
+            deployment = (
+                db.query(WorkflowDeployment)
+                .filter(WorkflowDeployment.id == app.active_deployment_id)
+                .first()
+            )
+            if deployment:
+                setattr(app, "active_deployment_is_active", deployment.is_active)
+            else:
+                setattr(app, "active_deployment_is_active", None)
+        else:
+            setattr(app, "active_deployment_is_active", None)
+
+    @staticmethod
     def get_app(db: Session, app_id: str, user_id: str = None):
         """
         특정 앱을 조회합니다.
@@ -111,6 +129,7 @@ class AppService:
             return None
 
         AppService._populate_owner_name(db, app)
+        AppService._populate_deployment_status(db, app)
         return app
 
     @staticmethod
@@ -141,6 +160,10 @@ class AppService:
             for app in apps:
                 setattr(app, "owner_name", user.name)
 
+        # 각 앱에 배포 상태 정보 추가
+        for app in apps:
+            AppService._populate_deployment_status(db, app)
+
         return apps
 
     @staticmethod
@@ -156,12 +179,16 @@ class AppService:
             공개된 App 객체 리스트
         """
         apps = (
-            db.query(App).filter(App.is_market == True, App.created_by != user_id).all()
+            db.query(App)
+            .options(joinedload(App.active_deployment))
+            .filter(App.is_market == True, App.created_by != user_id)
+            .all()
         )
 
-        # owner_name 채우기
+        # owner_name 및 배포 상태 정보 추가
         for app in apps:
             AppService._populate_owner_name(db, app)
+            AppService._populate_deployment_status(db, app)
 
         return apps
 
