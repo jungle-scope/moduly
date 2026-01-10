@@ -82,6 +82,8 @@ export default function NodeCanvas() {
     projectDescription,
     isFullscreen,
     setEdges,
+    isSettingsOpen,
+    toggleSettings,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
@@ -218,18 +220,21 @@ export default function NodeCanvas() {
   );
 
   useEffect(() => {
-    if (isVersionHistoryOpen) {
+    if (isVersionHistoryOpen || isSettingsOpen) {
       setSelectedNodeId(null);
       setSelectedNodeType(null);
       setIsParamPanelOpen(false);
     }
-  }, [isVersionHistoryOpen]);
+  }, [isVersionHistoryOpen, isSettingsOpen]);
 
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       if (node.type && node.type !== 'note') {
         if (isVersionHistoryOpen) {
           toggleVersionHistory();
+        }
+        if (isSettingsOpen) {
+          toggleSettings();
         }
 
         if (selectedNodeId !== node.id) {

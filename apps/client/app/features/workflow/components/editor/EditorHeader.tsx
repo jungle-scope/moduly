@@ -20,6 +20,7 @@ import { ResultModal } from '../modals/ResultModal';
 import { DeploymentModal } from '../modals/DeploymentModal';
 import { DeploymentResultModal } from '../modals/DeploymentResultModal';
 import { InputSchema, OutputSchema } from '../../types/Deployment';
+import { SettingsSidebar } from './SettingsSidebar';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
 import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
 import { appApi } from '@/app/features/app/api/appApi';
@@ -59,6 +60,7 @@ export default function EditorHeader() {
     exitPreview,
     restoreVersion,
     toggleVersionHistory,
+    toggleSettings,
     runTrigger,
   } = useWorkflowStore();
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
@@ -147,14 +149,6 @@ export default function EditorHeader() {
       toast.success('버전이 복원되었습니다.');
     }
   }, [previewingVersion, restoreVersion]);
-
-  // ... (keep handlePublishAsRestAPI etc. unchanged if not visible in this chunk, but this tool call targets a specific range)
-
-  // We need to target the return JSX for the icon.
-  // Since I can't easily jump separate blocks with one replace, I will do two replaces or one large one locally if close enough.
-  // Wait, handleBack is around line 135, and the JSX is around 580. They are far apart.
-  // I should use `multi_replace_file_content` or two `replace_file_content` calls.
-  // The user prompt implies I should just do it. I will use `multi_replace_file_content`.
 
   const handlePublishAsRestAPI = useCallback(() => {
     setDeploymentType('api'); // REST API 배포
@@ -770,7 +764,10 @@ export default function EditorHeader() {
         </div>
 
         {/* Settings (New) */}
-        <button className="px-3 py-1.5 flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors text-gray-600 text-[13px] font-medium">
+        <button
+          onClick={toggleSettings}
+          className="px-3 py-1.5 flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors text-gray-600 text-[13px] font-medium"
+        >
           <Settings className="w-3.5 h-3.5" />
           <span>설정</span>
         </button>
@@ -835,6 +832,7 @@ export default function EditorHeader() {
 
       {/* 버전 기록 사이드바 */}
       <VersionHistorySidebar />
+      <SettingsSidebar />
 
       {/* 미리보기 모드 배너 */}
       {previewingVersion && (
