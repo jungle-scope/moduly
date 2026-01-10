@@ -62,6 +62,17 @@ spec:
           value: "moduly-dev-file-upload"
         - name: AWS_REGION
           value: "ap-northeast-2"
+        # 소셜 로그인 관련 (google)
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GOOGLE_CLIENT_ID
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GOOGLE_CLIENT_SECRET
         resources:
           requests:
             cpu: 200m
