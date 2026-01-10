@@ -192,6 +192,7 @@ class AuthService:
             email=request.email,
             name=request.name,
             password=hashed_pwd,
+            social_provider="none",
         )
         db.add(new_user)
         db.commit()

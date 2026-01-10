@@ -149,7 +149,7 @@ export function LLMParameterSidePanel({
 
   return (
     <div
-      className="absolute right-[400px] top-14 bottom-0 w-[320px] bg-white shadow-xl z-40 flex flex-col border-l border-gray-200"
+      className="absolute right-[400px] top-0 bottom-0 w-[320px] bg-white shadow-xl z-40 flex flex-col border-l border-gray-200"
       style={{
         transition: 'transform 0.3s ease-in-out',
       }}
@@ -197,7 +197,9 @@ export function LLMParameterSidePanel({
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">상위 확률 (Top P)</label>
+              <label className="text-xs font-medium text-gray-700">
+                상위 확률 (Top P)
+              </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.top_p} />
             </div>
             <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">

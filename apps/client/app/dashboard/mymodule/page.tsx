@@ -92,7 +92,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="p-8 bg-gradient-to-br from-white via-gray-50 to-gray-100 min-h-full border border-gray-200">
+    <div className="p-8 bg-gradient-to-br from-white via-gray-50 to-gray-100 min-h-full">
       {/* 페이지 제목 */}
       <h1 className="text-2xl font-bold text-gray-800 mb-6">내 모듈</h1>
 

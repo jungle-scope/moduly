@@ -16,7 +16,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
     password = Column(String(255), nullable=True)  # credential 로그인용 (OAuth는 null)
-    social_provider = Column(String(50), nullable=True)  # 예: 'google'
+    social_provider = Column(String(50), nullable=False)  # 예: 'google', 'none'
     social_id = Column(String(255), nullable=True)  # provider별 고유 ID
     avatar_url = Column(String(255), nullable=True)
     created_at = Column(

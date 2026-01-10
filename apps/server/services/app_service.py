@@ -74,6 +74,7 @@ class AppService:
         db.refresh(app)
         print(f"✅ App created: {app.name} (ID: {app.id})")
 
+        AppService._populate_owner_name(db, app)
         return app
 
     @staticmethod
@@ -151,6 +152,14 @@ class AppService:
             .all()
         )
 
+        # owner_name 채우기 (모두 동일한 소유자)
+        from db.models.user import User
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            for app in apps:
+                setattr(app, "owner_name", user.name)
+
         # 각 앱에 배포 상태 정보 추가
         for app in apps:
             AppService._populate_deployment_status(db, app)
@@ -172,12 +181,13 @@ class AppService:
         apps = (
             db.query(App)
             .options(joinedload(App.active_deployment))
-            .filter(App.is_market, App.created_by != user_id)
+            .filter(App.is_market == True, App.created_by != user_id)
             .all()
         )
 
-        # 각 앱에 배포 상태 정보 추가
+        # owner_name 및 배포 상태 정보 추가
         for app in apps:
+            AppService._populate_owner_name(db, app)
             AppService._populate_deployment_status(db, app)
 
         return apps
@@ -232,6 +242,7 @@ class AppService:
         db.commit()
         db.refresh(app)
 
+        AppService._populate_owner_name(db, app)
         return app
 
     @staticmethod

@@ -8,17 +8,17 @@ interface ValidationBadgeProps {
   className?: string;
 }
 
-export const ValidationBadge = memo(({ message = '확인 필요', className }: ValidationBadgeProps) => {
-  return (
-    <div className={cn("mt-2 w-full", className)}>
-      <div className="w-full flex items-center justify-center bg-red-50 group-hover:bg-red-100 transition-colors duration-200 border border-red-200 group-hover:border-red-300 rounded-md px-3 py-1.5 shadow-sm">
-        <AlertTriangle className="w-3.5 h-3.5 text-red-500 mr-1.5" />
-        <span className="text-xs font-medium text-red-600">
-          {message}
-        </span>
+export const ValidationBadge = memo(
+  ({ message = '확인 필요', className }: ValidationBadgeProps) => {
+    return (
+      <div className={cn('mt-2 w-full', className)}>
+        <div className="w-full flex items-center justify-center bg-red-50 rounded-md px-3 py-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-500 mr-1.5" />
+          <span className="text-xs font-medium text-red-600">{message}</span>
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  },
+);
 
 ValidationBadge.displayName = 'ValidationBadge';
