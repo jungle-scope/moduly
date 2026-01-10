@@ -4,6 +4,7 @@ import { Bot, AlertTriangle } from 'lucide-react';
 
 import { BaseNode } from '../../BaseNode';
 import { LLMNodeData } from '../../../../types/Nodes';
+import { ValidationBadge } from '../../../ui/ValidationBadge';
 
 
 // NOTE: [LLM] LLM 노드 박스 UI (BaseNode를 사용해 일관된 껍데기 유지)
@@ -30,16 +31,9 @@ export const LLMNode = memo(
           </div>
           
           {/* 검증 실패 시 전체 너비 경고 배지 */}
-          {/* 검증 실패 시 전체 너비 경고 배지 (Option A Style) */}
+
           {hasValidationIssue && (
-            <div className="mt-2 w-full">
-              <div className="w-full flex items-center justify-center bg-red-50 group-hover:bg-red-100 transition-colors duration-200 border border-red-200 group-hover:border-red-300 rounded-md px-3 py-1.5 shadow-sm">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-500 mr-1.5" />
-                <span className="text-xs font-medium text-red-600">
-                  확인 필요
-                </span>
-              </div>
-            </div>
+            <ValidationBadge />
           )}
         </div>
       </BaseNode>
