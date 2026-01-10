@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Zap, Workflow, BarChart3 } from 'lucide-react';
+import { ArrowRight, Zap, Workflow, BarChart3, BookOpen } from 'lucide-react';
 
 export default function DashboardHomePage() {
   const router = useRouter();
@@ -20,10 +20,10 @@ export default function DashboardHomePage() {
         </div>
 
         {/* Quick Actions Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           {/* Create Module Card */}
           <button
-            onClick={() => router.push('/mymodule')}
+            onClick={() => router.push('/dashboard/mymodule')}
             className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-blue-200 text-left"
           >
             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -73,6 +73,25 @@ export default function DashboardHomePage() {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">통계</h3>
             <p className="text-gray-600 text-sm">
               사용 현황과 성과를 확인하세요
+            </p>
+          </button>
+
+          {/* Knowledge DB Card */}
+          <button
+            onClick={() => router.push('/dashboard/knowledge')}
+            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-orange-200 text-left"
+          >
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ArrowRight className="w-5 h-5 text-orange-600" />
+            </div>
+            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+              <BookOpen className="w-6 h-6 text-orange-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              지식 DB
+            </h3>
+            <p className="text-gray-600 text-sm">
+              참고 자료와 문서를 관리하세요
             </p>
           </button>
         </div>
