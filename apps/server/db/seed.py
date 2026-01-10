@@ -10,8 +10,8 @@ from typing import Iterable
 
 from sqlalchemy.orm import Session
 
-from db.models.llm import LLMProvider
-from db.models.user import User
+from shared.db.models.llm import LLMProvider
+from shared.db.models.user import User
 
 
 PLACEHOLDER_USER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
@@ -95,7 +95,7 @@ def seed_default_llm_models(db: Session) -> None:
     또한, 해당 모델이 UI에 표시되도록 기존 Credential과 연결합니다.
     """
     from services.llm_service import LLMService
-    from db.models.llm import LLMProvider, LLMModel, LLMCredential, LLMRelCredentialModel
+    from shared.db.models.llm import LLMProvider, LLMModel, LLMCredential, LLMRelCredentialModel
 
     # 1. 모든 Provider 조회 후 맵핑 생성
     providers = db.query(LLMProvider).all()

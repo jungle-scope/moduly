@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from db.models.user import User
-from db.session import get_db
-from schemas.deployment import DeploymentCreate, DeploymentResponse
+from shared.db.models.user import User
+from shared.db.session import get_db
+from shared.schemas.deployment import DeploymentCreate, DeploymentResponse
 from services.deployment_service import DeploymentService
 
 router = APIRouter()
@@ -82,9 +82,9 @@ def get_deployment_info_public(
     """
     from fastapi import HTTPException
 
-    from db.models.app import App
-    from db.models.workflow_deployment import WorkflowDeployment
-    from schemas.deployment import DeploymentInfoResponse
+    from shared.db.models.app import App
+    from shared.db.models.workflow_deployment import WorkflowDeployment
+    from shared.schemas.deployment import DeploymentInfoResponse
 
     # CORS 헤더 추가 (임베딩 위젯 지원)
     response.headers["Access-Control-Allow-Origin"] = "*"

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 
-from db.base import Base
+from shared.db.base import Base
 
 
 class User(Base):

@@ -8,11 +8,11 @@ from fastapi import HTTPException
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from db.models.app import App
-from db.models.schedule import Schedule
-from db.models.workflow import Workflow
-from db.models.workflow_deployment import DeploymentType, WorkflowDeployment
-from schemas.deployment import DeploymentCreate
+from shared.db.models.app import App
+from shared.db.models.schedule import Schedule
+from shared.db.models.workflow import Workflow
+from shared.db.models.workflow_deployment import DeploymentType, WorkflowDeployment
+from shared.schemas.deployment import DeploymentCreate
 from services.workflow_service import WorkflowService
 from workflow.core.workflow_engine import WorkflowEngine
 

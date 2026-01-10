@@ -5,15 +5,15 @@ from typing import List, Optional, Dict, Any
 import requests
 from sqlalchemy.orm import Session, joinedload
 
-from db.models.llm import (
+from shared.db.models.llm import (
     LLMProvider, 
     LLMCredential, 
     LLMModel, 
     LLMUsageLog, 
     LLMRelCredentialModel
 )
-from db.models.user import User
-from schemas.llm import (
+from shared.db.models.user import User
+from shared.schemas.llm import (
     LLMCredentialCreate,
     LLMCredentialResponse,
     LLMProviderResponse,

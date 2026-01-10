@@ -1,9 +1,9 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from db.models.app import App
-from db.models.workflow import Workflow
-from schemas.workflow import WorkflowCreateRequest, WorkflowDraftRequest
+from shared.db.models.app import App
+from shared.db.models.workflow import Workflow
+from shared.schemas.workflow import WorkflowCreateRequest, WorkflowDraftRequest
 
 
 class WorkflowService:

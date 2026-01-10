@@ -1,6 +1,6 @@
 from typing import Dict
 
-from schemas.workflow import NodeSchema
+from shared.schemas.workflow import NodeSchema
 from workflow.nodes.answer import AnswerNode, AnswerNodeData
 from workflow.nodes.base.node import Node
 from workflow.nodes.code import CodeNode, CodeNodeData

@@ -7,14 +7,14 @@ from sqlalchemy.orm import Session
 from api.deps import get_db
 from auth.dependencies import get_current_user
 from connectors.postgres import PostgresConnector
-from db.models.connection import Connection
-from db.models.user import User
-from schemas.connector import (
+from shared.db.models.connection import Connection
+from shared.db.models.user import User
+from shared.schemas.connector import (
     DBConnectionTestRequest,
     DBConnectionTestResponse,
 )
-from schemas.connector_detail import DBConnectionDetailResponse
-from utils.encryption import encryption_manager
+from shared.schemas.connector_detail import DBConnectionDetailResponse
+from shared.utils.encryption import encryption_manager
 
 router = APIRouter()
 

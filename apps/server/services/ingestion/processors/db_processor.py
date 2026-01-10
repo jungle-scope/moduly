@@ -30,7 +30,7 @@ class DbProcessor(BaseProcessor):
 
         # 1. DB 연결 정보 조회 (BaseProcessor의 self.db 사용)
 
-        from db.models.connection import Connection
+        from shared.db.models.connection import Connection
         # ConnectionService가 암호화된 비밀번호 복호화 로직 등을 가지고 있다고 가정
 
         conn_record = (
@@ -50,7 +50,7 @@ class DbProcessor(BaseProcessor):
 
         # 연결 설정 복호화
 
-        from utils.encryption import encryption_manager
+        from shared.utils.encryption import encryption_manager
 
         try:
             # 개별 필드에서 설정 구성 및 비밀번호 복호화

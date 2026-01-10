@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from db.session import SessionLocal
+from shared.db.session import SessionLocal
 
 
 class LogWorkerPool:

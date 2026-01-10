@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any, Dict, List
 
-from db.models.app import App
+from shared.db.models.app import App
 from workflow.nodes.base.node import Node
 
 from .entities import WorkflowNodeData
@@ -52,7 +52,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
         if not app.active_deployment_id:
             raise ValueError(f"[WorkflowNode] App {app.name} has no active deployment")
 
-        from db.models.workflow_deployment import WorkflowDeployment
+        from shared.db.models.workflow_deployment import WorkflowDeployment
 
         deployment = (
             db.query(WorkflowDeployment)

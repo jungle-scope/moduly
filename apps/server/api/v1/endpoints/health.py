@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Response, status
 from sqlalchemy import text
 
-from db.session import SessionLocal
+from shared.db.session import SessionLocal
 
 router = APIRouter()
 

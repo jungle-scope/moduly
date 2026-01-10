@@ -19,7 +19,7 @@ if not os.getenv("MASTER_KEY"):
     os.environ["MASTER_KEY"] = "YYVNBn+8Q3o2GEzefWVUp42wjJaj5T4GpKLqhgRRSZ0="
 
 from core.security import security_service
-from db.models.knowledge import Document
+from shared.db.models.knowledge import Document
 
 
 def test_encryption_flow():

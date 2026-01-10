@@ -6,7 +6,7 @@ from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Text, Integer,
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from db.base import Base
+from shared.db.base import Base
 
 # === Legacy Models (Mapped to renamed tables for reference/migration) ===
 class LegacyLLMProvider(Base):

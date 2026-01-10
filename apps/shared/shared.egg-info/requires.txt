@@ -1,0 +1,8 @@
+sqlalchemy>=2.0.0
+pydantic>=2.0.0
+pgvector
+passlib[bcrypt]
+python-jose[cryptography]
+python-dotenv
+cryptography
+pydantic-settings

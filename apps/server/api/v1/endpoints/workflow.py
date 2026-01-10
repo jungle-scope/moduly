@@ -7,19 +7,19 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from auth.dependencies import get_current_user
-from db.models.app import App
-from db.models.user import User
-from db.models.workflow import Workflow
+from shared.db.models.app import App
+from shared.db.models.user import User
+from shared.db.models.workflow import Workflow
 
 # [NEW] 로깅 모델 및 스키마
-from db.models.workflow_run import WorkflowRun
-from db.session import get_db
-from schemas.log import (
+from shared.db.models.workflow_run import WorkflowRun
+from shared.db.session import get_db
+from shared.schemas.log import (
     DashboardStatsResponse,
     WorkflowRunListResponse,
     WorkflowRunSchema,
 )
-from schemas.workflow import (
+from shared.schemas.workflow import (
     WorkflowCreateRequest,
     WorkflowDraftRequest,
     WorkflowResponse,
@@ -109,8 +109,8 @@ def get_workflow_stats(
     import traceback
 
     try:
-        from db.models.workflow_run import WorkflowNodeRun, WorkflowRun
-        from schemas.log import (
+        from shared.db.models.workflow_run import WorkflowNodeRun, WorkflowRun
+        from shared.schemas.log import (
             DailyRunStat,
             DashboardStatsResponse,
             FailureStat,

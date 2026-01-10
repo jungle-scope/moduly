@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 
-from db.base import Base
+from shared.db.base import Base
 
 
 class Connection(Base):

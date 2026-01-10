@@ -1,9 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.models.knowledge import Document, DocumentChunk, KnowledgeBase
-from db.models.llm import LLMModel
-from schemas.rag import ChunkPreview, RAGResponse
+from shared.db.models.knowledge import Document, DocumentChunk, KnowledgeBase
+from shared.db.models.llm import LLMModel
+from shared.schemas.rag import ChunkPreview, RAGResponse
 from services.llm_service import LLMService
 
 class RetrievalService:

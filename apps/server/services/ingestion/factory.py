@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from db.models.knowledge import SourceType
+from shared.db.models.knowledge import SourceType
 from services.ingestion.processors.base import BaseProcessor
 
 

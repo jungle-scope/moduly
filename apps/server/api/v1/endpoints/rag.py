@@ -16,10 +16,10 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from auth.dependencies import get_current_user
-from db.models.connection import Connection
-from db.models.knowledge import Document, KnowledgeBase, SourceType
-from db.models.user import User
-from schemas.rag import (
+from shared.db.models.connection import Connection
+from shared.db.models.knowledge import Document, KnowledgeBase, SourceType
+from shared.db.models.user import User
+from shared.schemas.rag import (
     ApiPreviewRequest,
     ChunkPreview,
     DocumentAnalyzeResponse,
