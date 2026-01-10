@@ -25,6 +25,13 @@ class RunTriggerMode(str, Enum):
     # SCHEDULER = "scheduler" # 추후 필요시 추가
 
 
+class NodeRunStatus(str, Enum):
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
 class WorkflowRun(Base):
     """
     워크플로우 전체 실행 이력을 저장하는 테이블입니다.
@@ -136,6 +143,7 @@ class WorkflowNodeRun(Base):
         PGUUID(as_uuid=True),
         ForeignKey("workflow_runs.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     # === 노드 정보 ===
@@ -146,22 +154,26 @@ class WorkflowNodeRun(Base):
 
     # === 실행 상태 ===
     # running, success, failed, skipped
-    status: Mapped[str] = mapped_column(String, nullable=False, default="running")
+    status: Mapped[NodeRunStatus] = mapped_column(
+        SQLEnum(NodeRunStatus), nullable=False, default=NodeRunStatus.RUNNING
+    )
 
     # === 상세 데이터 ===
     # 이 노드에 들어온 입력값
-    inputs: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    inputs: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    # 처리 과정 중 추가 데이터 (예: 선택된 분기 핸들 등)
+    process_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
     # 이 노드가 뱉어낸 출력값
     outputs: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    # 처리 과정 중 추가 데이터 (예: 선택된 분기 핸들 등)
-    process_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # === 에러 정보 ===
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # === 시간 정보 ===
     started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
     finished_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
