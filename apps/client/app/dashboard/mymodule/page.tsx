@@ -147,6 +147,7 @@ export default function DashboardPage() {
               onEdit={handleEditApp}
               onToggleMarketplace={handleToggleMarketplace}
               onToggleDeployment={handleToggleDeployment}
+              onRefresh={loadApps}
             />
           ))}
         </div>
