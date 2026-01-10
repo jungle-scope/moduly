@@ -578,7 +578,7 @@ export default function EditorHeader() {
   }, [runTrigger, handleTestRun]);
 
   return (
-    <header className="h-14 w-full bg-white border-b border-gray-200 flex items-center justify-between px-4 z-50">
+    <header className="h-14 w-full bg-gradient-to-r from-blue-50 via-white to-blue-50/30 border-b border-gray-200 flex items-center justify-between px-4 z-50">
       {/* 1. Left Section */}
       <div className="flex items-center gap-3">
         {/* Back Button */}

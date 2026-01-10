@@ -1,243 +1,123 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
-import { getImplementedNodes, NodeDefinition } from '../../config/nodeRegistry';
-import { JigsawBackground } from '../nodes/BaseNode';
+import { flushSync } from 'react-dom';
+import { useState, useRef, useEffect } from 'react';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { NodeLibraryContent } from './NodeLibraryContent';
+import { NodeDefinition } from '../../config/nodeRegistry';
 
 interface NodeLibrarySidebarProps {
   isOpen: boolean;
   onToggle: () => void;
-  onAddNode: (nodeDefId: string, position?: { x: number; y: number }) => void;
-  onOpenAppSearch: () => void;
+  // Canvas handles the drag/drop logic, usually by listening to drag events on the window or canvas.
+  // But here we need to set dataTransfer.
+  onAddNode?: (type: string, position: { x: number; y: number }) => void; // Unused for drag, but kept for interface compat if needed
+  onOpenAppSearch?: () => void;
 }
 
-type TabType = 'nodes' | 'tools' | 'start';
-
-const TABS: { id: TabType; label: string }[] = [
-  { id: 'nodes', label: '노드' },
-  { id: 'tools', label: '도구' },
-  { id: 'start', label: '시작' },
-];
-
-const NODE_TABS: Record<TabType, string[]> = {
-  // 시작: 입력, 웹훅 트리거, 알람 트리거
-  start: ['start', 'webhook-trigger', 'schedule-trigger'],
-  // 노드: LLM, 응답, 코드 실행, IF/ELSE, PDF 텍스트 추출, 템플릿, HTTP 요청
-  nodes: [
-    'llm',
-    'file-extraction',
-    'answer',
-    'code',
-    'condition',
-    'template',
-    'http',
-  ],
-  // 도구: 서브 모듈, slack, github, 메일 검색
-  tools: ['workflow', 'slack-post', 'github', 'mail'],
+const categoryNames: Record<string, string> = {
+  trigger: '시작',
+  llm: '질문 이해',
+  plugin: '도구',
+  workflow: '변환',
+  logic: '논리',
+  database: '데이터베이스',
+  data: '데이터',
 };
 
 export default function NodeLibrarySidebar({
   isOpen,
   onToggle,
-  onAddNode,
   onOpenAppSearch,
+  onAddNode,
 }: NodeLibrarySidebarProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('nodes');
+  const sidebarRef = useRef<HTMLDivElement>(null);
   const [isHovering, setIsHovering] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [hoveredNode, setHoveredNode] = useState<{
-    def: NodeDefinition;
-    top: number;
-  } | null>(null);
+
+  // Hover Card State
+  const [hoveredNode, setHoveredNode] = useState<NodeDefinition | null>(null);
+  const [hoveredNodePos, setHoveredNodePos] = useState<{
+    x: number;
+    y: number;
+  }>({ x: 0, y: 0 });
 
   // Drag Preview State
   const [previewNode, setPreviewNode] = useState<NodeDefinition | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const implementedNodes = useMemo(() => getImplementedNodes(), []);
+  const handleDragStart = (
+    event: React.DragEvent,
+    nodeType: string,
+    nodeDef: NodeDefinition,
+  ) => {
+    // Use nodeDef.id matches what NodeCanvas expects (getNodeDefinition(id))
+    event.dataTransfer.setData('application/reactflow', nodeDef.id);
+    event.dataTransfer.effectAllowed = 'move';
 
-  const categoryNames: Record<string, string> = {
-    trigger: '트리거',
-    llm: 'LLM',
-    plugin: '플러그인',
-    workflow: '서브 모듈',
-    logic: '로직',
-    database: '데이터베이스',
-    data: '데이터',
-  };
+    // JSON payload for data (optional, but good for dropped node init)
+    const initialData = nodeDef.defaultData();
+    event.dataTransfer.setData(
+      'application/json',
+      JSON.stringify({ type: nodeDef.type, data: initialData }),
+    );
 
-  const handleDragStart = (e: React.DragEvent, nodeDefId: string) => {
-    e.dataTransfer.setData('application/reactflow', nodeDefId);
-    e.dataTransfer.effectAllowed = 'move';
+    // Use flushSync to render the React component immediately for drag image
+    flushSync(() => {
+      setPreviewNode(nodeDef);
+    });
 
-    // Set custom drag image
     if (previewRef.current) {
-      // Adjust offset to center the preview under cursor roughly
-      e.dataTransfer.setDragImage(previewRef.current, 160, 40);
+      event.dataTransfer.setDragImage(previewRef.current, 120, 36);
     }
+
+    // Cleanup after drag starts
+    setTimeout(() => {
+      setPreviewNode(null);
+    }, 0);
   };
 
-  const handleNodeClick = (nodeDefId: string) => {
-    const nodeDef = implementedNodes.find((n) => n.id === nodeDefId);
-    if (nodeDef?.type === 'workflowNode') {
-      onOpenAppSearch();
+  const handleHoverNode = (
+    nodeId: string | null,
+    node: any,
+    event: React.MouseEvent,
+  ) => {
+    if (node && event) {
+      const target = event.currentTarget as HTMLElement;
+      if (!target) return;
+
+      const rect = target.getBoundingClientRect();
+      setHoveredNode(node);
+      setHoveredNodePos({ x: rect.right + 10, y: rect.top });
     } else {
-      onAddNode(nodeDefId);
+      setHoveredNode(null);
     }
   };
-
-  const filteredNodes = useMemo(() => {
-    const targetIds = NODE_TABS[activeTab] || [];
-    return implementedNodes
-      .filter((node) => targetIds.includes(node.id))
-      .filter((node) =>
-        node.name.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-  }, [implementedNodes, activeTab, searchQuery]);
 
   return (
     <div
       ref={sidebarRef}
       className={`relative h-full bg-transparent transition-all duration-300 ease-in-out z-20 ${
-        isOpen ? 'w-64' : 'w-16'
+        isOpen ? 'w-64' : 'w-12'
       }`}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
-      {/* Hidden Drag Preview Node */}
+      {/* Main Content Area */}
       <div
-        ref={previewRef}
-        className="absolute top-[-9999px] left-[-9999px] pointer-events-none"
-        style={{ width: 320, height: 120 }}
+        className={`h-full bg-white flex flex-col transition-all duration-300 ${
+          isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-full'
+        } overflow-hidden rounded-xl border-r border-gray-200`}
       >
-        {previewNode && (
-          <div className="relative w-full h-full p-7">
-            <JigsawBackground
-              width={320}
-              height={120}
-              shapes={{
-                top: 'flat',
-                right: 'flat',
-                bottom: 'flat',
-                left: 'flat',
-              }}
-              status="idle"
-            />
-            <div className="relative z-10 flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <div
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
-                  style={{ backgroundColor: previewNode.color }}
-                >
-                  {typeof previewNode.icon === 'string' ? (
-                    <span className="text-xl">{previewNode.icon}</span>
-                  ) : (
-                    previewNode.icon && (
-                      <div className="w-7 h-7">{previewNode.icon}</div>
-                    )
-                  )}
-                </div>
-                <div className="flex flex-col">
-                  <h3 className="text-lg font-bold text-gray-900 leading-none mb-1">
-                    {previewNode.name}
-                  </h3>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <NodeLibraryContent
+          onDragStart={handleDragStart}
+          onSelect={(type, def) => {
+            onAddNode?.(def.id, { x: 100, y: 200 });
+          }}
+          hoveredNode={hoveredNode?.id}
+          onHoverNode={handleHoverNode}
+        />
       </div>
-
-      {isOpen ? (
-        <div className="h-full w-full rounded-xl overflow-hidden">
-          <div className="flex flex-col h-full bg-gray-50/30">
-            {/* 1. Tabs */}
-            <div className="flex w-full items-center bg-gray-50 p-1 rounded-t-xl">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-2 text-sm font-semibold transition-colors rounded-md ${
-                    activeTab === tab.id
-                      ? 'text-blue-600 bg-white'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* 2. Search & Header Info */}
-            <div className="px-4 py-3 border-b border-gray-100 bg-white">
-              <div className="relative mb-3">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="검색 노드"
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* 3. Node List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1 rounded-b-xl">
-              {filteredNodes.map((node) => (
-                <div
-                  key={node.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, node.id)}
-                  onClick={() => handleNodeClick(node.id)}
-                  onMouseEnter={(e) => {
-                    setPreviewNode(node); // For Drag Preview
-                    if (sidebarRef.current) {
-                      const sidebarRect =
-                        sidebarRef.current.getBoundingClientRect();
-                      const itemRect = e.currentTarget.getBoundingClientRect();
-                      // Calculate top relative to sidebar (adjusting for header offset if needed, but rect-rect should be fine)
-                      const relativeTop = itemRect.top - sidebarRect.top;
-                      setHoveredNode({ def: node, top: relativeTop });
-                    }
-                  }}
-                  onMouseLeave={() => setHoveredNode(null)}
-                  className="group flex items-center gap-3 p-2 rounded-lg cursor-move hover:bg-gray-100 transition-colors"
-                >
-                  <div
-                    className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
-                    style={{ backgroundColor: node.color }}
-                  >
-                    {typeof node.icon === 'string' ? (
-                      <span className="text-white text-lg font-bold flex items-center justify-center h-full pb-0.5">
-                        {node.icon}
-                      </span>
-                    ) : (
-                      <div className="text-white w-5 h-5 flex items-center justify-center">
-                        {node.icon}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                    {node.name}
-                  </span>
-                </div>
-              ))}
-
-              {filteredNodes.length === 0 && (
-                <div className="py-8 text-center text-sm text-gray-500">
-                  검색 결과가 없습니다.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {/* Toggle Button */}
       <div className="absolute -right-3 top-20 z-30">
@@ -265,38 +145,90 @@ export default function NodeLibrarySidebar({
         </button>
       </div>
 
-      {/* Hover Card (Popover) - Dynamic Positioning */}
+      {/* Hidden Drag Preview */}
+      <div
+        ref={previewRef}
+        style={{
+          position: 'absolute',
+          top: -9999,
+          left: -9999,
+          // Styles matching the previous manual creation
+          width: '240px',
+          padding: '16px',
+          backgroundColor: 'white',
+          border: '1px solid #d1d5db',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+          pointerEvents: 'none', // Ensure it doesn't interfere
+          zIndex: -1,
+        }}
+      >
+        {previewNode && (
+          <>
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                backgroundColor: previewNode.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: 'white', // Ensure icon is white
+              }}
+            >
+              {
+                // Verify icon rendering. nodeDef.icon is ReactNode.
+                // If it's a component, verify usage.
+                // Usually <Icon />.
+                previewNode.icon
+              }
+            </div>
+            <div
+              style={{
+                fontSize: '15px',
+                fontWeight: '600',
+                color: '#111827',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {previewNode.name}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Hover Card (Popover) - Fixed Position based on calculation */}
       {hoveredNode && isOpen && (
         <div
-          className="absolute left-[266px] z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-4 transition-all duration-200 animate-in fade-in slide-in-from-left-2"
-          style={{ top: hoveredNode.top }}
+          className="fixed z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-4 transition-all duration-200 animate-in fade-in slide-in-from-left-2 pointer-events-none"
+          style={{ left: hoveredNodePos.x, top: hoveredNodePos.y - 20 }}
         >
           <div className="flex items-start gap-3 mb-2">
             <div
               className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
-              style={{ backgroundColor: hoveredNode.def.color }}
+              style={{ backgroundColor: hoveredNode.color }}
             >
-              {typeof hoveredNode.def.icon === 'string' ? (
-                <span className="text-white text-lg font-bold flex items-center justify-center h-full pb-0.5">
-                  {hoveredNode.def.icon}
-                </span>
-              ) : (
-                <div className="text-white w-5 h-5 flex items-center justify-center">
-                  {hoveredNode.def.icon}
-                </div>
-              )}
+              {/* Icon rendering needs to be consistent. NodeDefinition icon is ReactNode | string */}
+              <div className="text-white flex items-center justify-center">
+                {hoveredNode.icon}
+              </div>
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">
-                {hoveredNode.def.name}
-              </h3>
+              <h3 className="font-bold text-gray-900">{hoveredNode.name}</h3>
               <p className="text-xs text-gray-500 font-medium">
-                {categoryNames[hoveredNode.def.category]}
+                {categoryNames[hoveredNode.category]}
               </p>
             </div>
           </div>
           <p className="text-sm text-gray-600 leading-relaxed">
-            {hoveredNode.def.description}
+            {hoveredNode.description}
           </p>
         </div>
       )}

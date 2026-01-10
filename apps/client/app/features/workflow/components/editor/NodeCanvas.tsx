@@ -436,7 +436,7 @@ export default function NodeCanvas() {
       type: 'note',
       data: { content: '', title: '메모' },
       position,
-      style: { width: 200, height: 100 },
+      style: { width: 300, height: 100 },
     };
 
     setNodes([...nodes, newNote]);
@@ -557,7 +557,7 @@ export default function NodeCanvas() {
       {/* Node Library Sidebar Container */}
       <div
         className={`h-full rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-in-out z-20 ${
-          isNodeLibraryOpen ? 'w-64' : 'w-16'
+          isNodeLibraryOpen ? 'w-64' : 'w-12'
         }`}
       >
         <NodeLibrarySidebar
@@ -873,7 +873,7 @@ export default function NodeCanvas() {
               {/* Context Menu Node Selector Modal */}
               {isContextNodeSelectorOpen && (
                 <div
-                  className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-[320px] max-h-[400px] overflow-y-auto"
+                  className="fixed z-50"
                   style={{
                     left: contextMenuPos.x,
                     top:
@@ -889,17 +889,6 @@ export default function NodeCanvas() {
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-medium text-sm text-gray-900">
-                      노드 선택
-                    </span>
-                    <button
-                      onClick={() => setIsContextNodeSelectorOpen(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      ×
-                    </button>
-                  </div>
                   <NodeSelector onSelect={handleSelectNodeFromContext} />
                 </div>
               )}
