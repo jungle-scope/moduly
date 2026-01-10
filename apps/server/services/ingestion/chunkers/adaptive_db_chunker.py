@@ -53,7 +53,7 @@ class AdaptiveDbChunker:
         enable_chunking: bool = True,
     ) -> List[Dict[str, Any]]:
         """
-        조건부 청킹 실행
+        조건부 청킹 실행 (비상 청킹 포함)
 
         Args:
             text: Jinja2 렌더링 결과 (이미 자연어 문장)
@@ -62,24 +62,59 @@ class AdaptiveDbChunker:
 
         Returns:
             List[{"content": str, "metadata": dict}]
-
-        Raises:
-            ValueError: 청킹 비활성화 상태에서 최대 길이 초과 시
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         # 1. 길이 측정
         char_count = len(text)
         token_count = len(self.tokenizer.encode(text))
 
-        # 2. 안전 제한 검증
-        if token_count > self.MAX_TOKEN_LIMIT:
-            if not enable_chunking:
-                raise ValueError(
-                    f"텍스트가 너무 깁니다 ({token_count} tokens > {self.MAX_TOKEN_LIMIT} limit). "
-                    f"자동 청킹을 활성화하거나 템플릿을 수정하세요."
-                )
-            # 청킹 강제 실행
+        # 2. 비상 청킹 임계값 (임베딩 모델 한계)
+        EMERGENCY_THRESHOLD = 8000  # text-embedding-3-small 한계의 ~98%
 
-        # 3. 청킹 필요 여부 판단
+        # 3. 비상 청킹 검증 (사용자 설정 무시)
+        if token_count > EMERGENCY_THRESHOLD:
+            logger.warning(
+                f"🚨 Emergency Chunking 활성화: {token_count} tokens > {EMERGENCY_THRESHOLD} limit. "
+                f"임베딩 모델 한계로 인해 강제 분할합니다."
+            )
+
+            # 비상 청킹 설정 (큰 덩어리 유지)
+            emergency_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=4000,  # 4,000 토큰 (약 16,000 chars)
+                chunk_overlap=400,  # 400 토큰 (10%)
+                length_function=lambda txt: len(self.tokenizer.encode(txt)),
+                separators=["\n\n", "\n", ".", " ", ""],
+                keep_separator=True,
+            )
+
+            raw_chunks = emergency_splitter.split_text(text)
+
+            result_chunks = []
+            for idx, chunk_content in enumerate(raw_chunks):
+                chunk_tokens = len(self.tokenizer.encode(chunk_content))
+
+                result_chunks.append(
+                    {
+                        "content": chunk_content,
+                        "metadata": {
+                            **(metadata or {}),
+                            "char_count": len(chunk_content),
+                            "token_count": chunk_tokens,
+                            "chunked": True,
+                            "emergency_chunked": True,
+                            "chunk_index": idx,
+                            "total_chunks": len(raw_chunks),
+                        },
+                    }
+                )
+
+            logger.info(f"✅ Emergency Chunking 완료: {len(raw_chunks)} chunks 생성")
+            return result_chunks
+
+        # 4. 일반 청킹 필요 여부 판단
         should_chunk = enable_chunking and (
             char_count > self.CHAR_THRESHOLD or token_count > self.TOKEN_THRESHOLD
         )
@@ -98,10 +133,10 @@ class AdaptiveDbChunker:
                 }
             ]
 
-        # 4. RecursiveSplitter로 분할 (Overlap으로 문맥 보존)
+        # 5. RecursiveSplitter로 분할 (Overlap으로 문맥 보존)
         raw_chunks = self.text_splitter.split_text(text)
 
-        # 5. 메타데이터와 함께 반환
+        # 6. 메타데이터와 함께 반환
         result_chunks = []
         for idx, chunk_content in enumerate(raw_chunks):
             chunk_tokens = len(self.tokenizer.encode(chunk_content))
