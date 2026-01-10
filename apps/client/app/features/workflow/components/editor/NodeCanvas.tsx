@@ -1,6 +1,6 @@
 'use client';
 
-import { Sliders, Plus, StickyNote, Play } from 'lucide-react';
+import { Sliders, Plus, StickyNote, Play, Trash2 } from 'lucide-react';
 import { NodeSelector } from './NodeSelector';
 import NodeLibrarySidebar from './NodeLibrarySidebar';
 import {
@@ -18,12 +18,14 @@ import {
   type Viewport,
   type NodeTypes,
 } from '@xyflow/react';
+
 import '@xyflow/react/dist/style.css';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { WorkflowNodeData, Node } from '../../types/Nodes';
 import { nodeTypes as coreNodeTypes } from '../nodes';
 import { PuzzleEdge } from '../nodes/edges/PuzzleEdge';
+import { CustomConnectionLine } from '../nodes/edges/CustomConnectionLine';
 import NotePost from './NotePost';
 import BottomPanel from './BottomPanel';
 import NodeDetailsPanel from './NodeDetailsPanel';
@@ -68,6 +70,7 @@ export default function NodeCanvas() {
     projectIcon,
     projectDescription,
     isFullscreen,
+    setEdges,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
@@ -269,6 +272,7 @@ export default function NodeCanvas() {
         zoomOnScroll: false,
         zoomOnPinch: true,
         selectionOnDrag: true,
+        connectionRadius: 50,
       };
     } else {
       return {
@@ -277,6 +281,7 @@ export default function NodeCanvas() {
         zoomOnScroll: true,
         zoomOnPinch: true,
         selectionOnDrag: false,
+        connectionRadius: 50,
       };
     }
   }, [interactiveMode]);
@@ -300,9 +305,88 @@ export default function NodeCanvas() {
     isOpen: boolean;
   } | null>(null);
 
+  // 노드/Edge 우클릭 삭제 메뉴용 state
+  const [nodeContextMenu, setNodeContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+  } | null>(null);
+  
+  const [edgeContextMenu, setEdgeContextMenu] = useState<{
+    x: number;
+    y: number;
+    edgeId: string;
+  } | null>(null);
+
   const [isContextNodeSelectorOpen, setIsContextNodeSelectorOpen] =
     useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+
+  // 노드 우클릭 핸들러
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setNodeContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
+      setEdgeContextMenu(null);
+      setContextMenu(null);
+    },
+    [],
+  );
+
+  // Edge 우클릭 핸들러
+  const onEdgeContextMenu = useCallback(
+    (event: React.MouseEvent, edge: { id: string }) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setEdgeContextMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id });
+      setNodeContextMenu(null);
+      setContextMenu(null);
+    },
+    [],
+  );
+
+  // 노드 삭제 핸들러
+  const handleDeleteNode = useCallback(() => {
+    if (!nodeContextMenu) return;
+    setNodes(nodes.filter((n) => n.id !== nodeContextMenu.nodeId));
+    setNodeContextMenu(null);
+  }, [nodeContextMenu, nodes, setNodes]);
+
+  // Edge 삭제 핸들러
+  const handleDeleteEdge = useCallback(() => {
+    if (!edgeContextMenu) return;
+    setEdges(edges.filter((e) => e.id !== edgeContextMenu.edgeId));
+    setEdgeContextMenu(null);
+  }, [edgeContextMenu, edges, setEdges]);
+
+  // Delete 키 핸들러
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // input/textarea에서는 무시
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (event.key === 'Delete') {
+        // 선택된 노드가 있으면 삭제
+        const selectedNodes = nodes.filter((n) => n.selected);
+        const selectedEdges = edges.filter((e) => e.selected);
+
+        if (selectedNodes.length > 0 || selectedEdges.length > 0) {
+          event.preventDefault();
+          setNodes(nodes.filter((n) => !n.selected));
+          setEdges(edges.filter((e) => !e.selected));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [nodes, edges, setNodes, setEdges]);
 
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
@@ -312,12 +396,16 @@ export default function NodeCanvas() {
 
       setContextMenu({ x, y, isOpen: true });
       setContextMenuPos({ x, y });
+      setNodeContextMenu(null);
+      setEdgeContextMenu(null);
     },
     [],
   );
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
+    setNodeContextMenu(null);
+    setEdgeContextMenu(null);
   }, []);
 
   const handleAddNodeFromContext = useCallback(() => {
@@ -485,16 +573,14 @@ export default function NodeCanvas() {
             onMoveEnd={handleMoveEnd}
             onNodeClick={handleNodeClick}
             onPaneContextMenu={onPaneContextMenu}
+            onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
             onDrop={onDrop}
             onDragOver={onDragOver}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOptions}
-            connectionLineStyle={{
-              strokeWidth: 2,
-              stroke: '#9ca3af',
-              strokeLinecap: 'round',
-            }}
+            connectionLineComponent={CustomConnectionLine}
             fitView
             attributionPosition="bottom-right"
             className="bg-gray-50"
@@ -674,6 +760,40 @@ export default function NodeCanvas() {
               >
                 <Play className="w-4 h-4 text-gray-500" />
                 테스트 실행
+              </button>
+            </div>
+          )}
+
+          {/* 노드 우클릭 삭제 메뉴 */}
+          {nodeContextMenu && (
+            <div
+              className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[140px]"
+              style={{ top: nodeContextMenu.y, left: nodeContextMenu.x }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleDeleteNode}
+                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                노드 삭제
+              </button>
+            </div>
+          )}
+
+          {/* Edge 우클릭 삭제 메뉴 */}
+          {edgeContextMenu && (
+            <div
+              className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[140px]"
+              style={{ top: edgeContextMenu.y, left: edgeContextMenu.x }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleDeleteEdge}
+                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                연결선 삭제
               </button>
             </div>
           )}

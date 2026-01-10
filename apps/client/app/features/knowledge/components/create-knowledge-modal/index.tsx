@@ -844,7 +844,9 @@ export default function CreateKnowledgeModal({
                         <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
                           <span>사용 가능한 임베딩 모델이 없습니다.</span>
                           <a
-                            href="/settings/provider"
+                            href="/dashboard/settings"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="ml-2 underline hover:text-amber-700 dark:hover:text-amber-300"
                           >
                             API 키 등록하기

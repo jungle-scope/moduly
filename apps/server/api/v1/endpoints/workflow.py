@@ -601,6 +601,9 @@ async def stream_workflow(
             # 스트리밍 도중 에러 발생 시 에러 이벤트 전송
             error_event = {"type": "error", "data": {"message": str(e)}}
             yield f"data: {json.dumps(error_event)}\n\n"
+        finally:
+            # [FIX] 클라이언트 연결 끊김 등으로 제너레이터가 중단되어도 리소스 정리 보장
+            engine.logger.shutdown()
 
     # 5. StreamingResponse 반환
     return StreamingResponse(event_generator(), media_type="text/event-stream")

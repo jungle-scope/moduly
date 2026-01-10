@@ -128,6 +128,21 @@ class ConditionNode(Node[ConditionNodeData]):
             """타입 변환을 지원하는 동등 비교"""
             if a == b:
                 return True
+
+            # Boolean 처리: 문자열 "true"/"false" (대소문자 무시) 처리
+            def is_bool_like(v):
+                return isinstance(v, bool) or (
+                    isinstance(v, str) and v.lower() in ("true", "false")
+                )
+
+            def get_bool(v):
+                if isinstance(v, bool):
+                    return v
+                return v.lower() == "true"
+
+            if is_bool_like(a) and is_bool_like(b):
+                return get_bool(a) == get_bool(b)
+
             try:
                 return safe_float(a) == safe_float(b)
             except (ValueError, TypeError):

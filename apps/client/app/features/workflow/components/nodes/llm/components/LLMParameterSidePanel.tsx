@@ -175,7 +175,7 @@ export function LLMParameterSidePanel({
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <label className="text-xs font-medium text-gray-700">
-                Temperature
+                온도 (Temperature)
               </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.temperature} />
             </div>
@@ -197,7 +197,7 @@ export function LLMParameterSidePanel({
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">Top P</label>
+              <label className="text-xs font-medium text-gray-700">상위 확률 (Top P)</label>
               <DescTooltip text={PARAM_DESCRIPTIONS.top_p} />
             </div>
             <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
@@ -219,7 +219,7 @@ export function LLMParameterSidePanel({
           <div className="flex justify-between items.center">
             <div className="flex items-center">
               <label className="text-xs font-medium text-gray-700">
-                Max Tokens
+                최대 토큰
               </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.max_tokens} />
             </div>
@@ -250,7 +250,7 @@ export function LLMParameterSidePanel({
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <label className="text-xs font-medium text-gray-700">
-                Presence Penalty
+                주제 전환도
               </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.presence_penalty} />
             </div>
@@ -280,7 +280,7 @@ export function LLMParameterSidePanel({
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <label className="text-xs font-medium text-gray-700">
-                Frequency Penalty
+                반복 억제도
               </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.frequency_penalty} />
             </div>
@@ -310,7 +310,7 @@ export function LLMParameterSidePanel({
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <label className="text-xs font-medium text-gray-700">
-                Stop Sequences
+                종료 문자열
               </label>
               <DescTooltip text={PARAM_DESCRIPTIONS.stop} />
             </div>

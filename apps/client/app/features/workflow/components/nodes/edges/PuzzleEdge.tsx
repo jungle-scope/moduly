@@ -135,24 +135,12 @@ export const PuzzleEdge = ({
   // 색상 및 두께 설정
   // 기본: 회색(#9ca3af), 활성: 파란색(#3b82f6)
   const edgeColor = isActive ? '#3b82f6' : '#9ca3af';
-  const edgeWidth = 3.5; // 간선 두께
+  const edgeWidth = 2; // 간선 두께 (노드 테두리와 동일)
 
   return (
     <>
       {/* Markers at connection points */}
       <defs>
-        {/* Start marker - small dot */}
-        <marker
-          id={`dot-start-${id}`}
-          markerWidth="8"
-          markerHeight="8"
-          refX="4"
-          refY="4"
-          markerUnits="userSpaceOnUse"
-        >
-          <circle cx="4" cy="4" r="3" fill={edgeColor} />
-        </marker>
-
         {/* End marker - arrow */}
         <marker
           id={`arrow-end-${id}`}
@@ -167,7 +155,7 @@ export const PuzzleEdge = ({
             points="4,2 13,8 4,14"
             fill="none"
             stroke={edgeColor}
-            strokeWidth="3.5"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -180,7 +168,6 @@ export const PuzzleEdge = ({
       */}
       <BaseEdge
         path={edgePath}
-        markerStart={`url(#dot-start-${id})`}
         markerEnd={`url(#arrow-end-${id})`}
         style={{
           ...style,

@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import {
-  Search,
   ChevronLeft,
   ChevronRight,
   SquarePen,
@@ -33,7 +32,6 @@ export default function NodeLibrarySidebar({
   workflowIcon,
   workflowDescription,
 }: NodeLibrarySidebarProps) {
-  const [searchQuery, setSearchQuery] = useState('');
   const [isHovering, setIsHovering] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -62,36 +60,23 @@ export default function NodeLibrarySidebar({
           updatedApp.description,
         );
         setProjectApp(updatedApp);
-      } catch (e) {
+      } catch {
         toast.error('앱 정보를 새로고침하는데 실패했습니다.');
       }
     }
   };
 
-  // 검색어 기반 노드 필터링
-  const filteredNodes = useMemo(() => {
-    if (!searchQuery.trim()) return implementedNodes;
-
-    const query = searchQuery.toLowerCase();
-    return implementedNodes.filter(
-      (node) =>
-        node.name.toLowerCase().includes(query) ||
-        node.description?.toLowerCase().includes(query) ||
-        node.category.toLowerCase().includes(query),
-    );
-  }, [searchQuery, implementedNodes]);
-
   // 카테고리별 노드 그룹화
   const nodesByCategory = useMemo(() => {
     const groups = new Map<string, NodeDefinition[]>();
-    filteredNodes.forEach((node) => {
+    implementedNodes.forEach((node) => {
       if (!groups.has(node.category)) {
         groups.set(node.category, []);
       }
       groups.get(node.category)!.push(node);
     });
     return groups;
-  }, [filteredNodes]);
+  }, [implementedNodes]);
 
   const categoryNames: Record<string, string> = {
     trigger: '트리거',
@@ -278,20 +263,6 @@ export default function NodeLibrarySidebar({
             </div>
           </div>
 
-          {/* 검색바 */}
-          <div className="px-4 py-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="노드 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 bg-white rounded-lg text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-              />
-            </div>
-          </div>
-
           {/* Node List */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-200">
             {Array.from(nodesByCategory.entries()).map(([category, nodes]) => {
@@ -380,13 +351,6 @@ export default function NodeLibrarySidebar({
                 </div>
               );
             })}
-
-            {/* 빈 상태 */}
-            {filteredNodes.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-sm text-gray-500">검색 결과가 없습니다.</p>
-              </div>
-            )}
           </div>
         </div>
       )}

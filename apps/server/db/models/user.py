@@ -16,7 +16,15 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
     password = Column(String(255), nullable=True)  # credential 로그인용 (OAuth는 null)
+    social_provider = Column(String(50), nullable=True)  # 예: 'google'
+    social_id = Column(String(255), nullable=True)  # provider별 고유 ID
+    avatar_url = Column(String(255), nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
     # TODO: tenant_id 추가.

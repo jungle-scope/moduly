@@ -109,6 +109,7 @@ export const nodeRegistry: NodeDefinition[] = [
       title: 'LLM',
       provider: '',
       model_id: '',
+      fallback_model_id: '',
       system_prompt: '',
       user_prompt: '',
       assistant_prompt: '',
@@ -199,15 +200,15 @@ export const nodeRegistry: NodeDefinition[] = [
   {
     id: 'file-extraction',
     type: 'fileExtractionNode',
-    name: 'PDF 텍스트 추출',
+    name: '문서 추출',
     category: 'logic',
     color: '#4f46e5', // indigo-600 색상
     icon: <FileText className="w-3.5 h-3.5 text-white" />,
     implemented: true,
-    description: 'PDF 파일에서 텍스트를 추출합니다.',
+    description: '문서 파일에서 텍스트를 추출합니다.',
     defaultData: () => ({
-      title: 'PDF 텍스트 추출',
-      file_path_variable: undefined,
+      title: '문서 추출',
+      referenced_variables: [],
     }),
   },
   {
