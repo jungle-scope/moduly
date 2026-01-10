@@ -38,7 +38,7 @@ export const ReferencedVariablesControl: React.FC<
   onRemove,
   placeholder = '변수명',
   emptyMessage = '추가된 변수가 없습니다.',
-  title = 'Referenced Variables',
+  title = '입력변수',
   description = '필드에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요.',
   showAddButton = true,
   showRemoveButton = true,
@@ -75,7 +75,7 @@ export const ReferencedVariablesControl: React.FC<
             <h4 className="text-xs font-semibold text-gray-700">{title}</h4>
           )}
           {description && (
-            <p className="text-[10px] text-gray-500">{description}</p>
+            <p className="text-xs text-gray-500">{description}</p>
           )}
         </div>
 
