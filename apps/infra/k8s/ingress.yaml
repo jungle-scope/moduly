@@ -84,15 +84,3 @@ spec:
             name: api-service
             port:
               number: 8000
-
-  # 3. Grafana 서브도메인
-  - host: grafana.moduly-ai.cloud
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: prometheus-grafana
-            port:
-              number: 80  # Grafana 서비스 포트 확인 필요
