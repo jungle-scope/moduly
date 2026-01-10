@@ -411,24 +411,8 @@ export default function DocumentSettingsPage() {
       case 'DB':
         return (
           <div className="flex flex-col h-full">
-            {/* DB 연결 수정 섹션 */}
-            <div className="mb-4">
-              {!isEditingConnection ? (
-                <button
-                  onClick={handleEditConnection} // [변경] 직접 토글 대신 핸들러 호출
-                  disabled={isLoadingDetails}
-                  className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 shadow-sm disabled:opacity-50"
-                >
-                  {isLoadingDetails ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
-                      로딩 중...
-                    </>
-                  ) : (
-                    '⚙️ DB 연결 설정 수정'
-                  )}
-                </button>
-              ) : (
+            {isEditingConnection ? (
+              <div className="flex-1 overflow-y-auto px-1 py-2 pb-20">
                 <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="text-sm font-semibold text-gray-900">
@@ -451,21 +435,24 @@ export default function DocumentSettingsPage() {
                     initialConfig={connectionDetails}
                   />
                 </div>
-              )}
-            </div>
-            <div className="flex-1 min-h-0 relative">
-              <div className="absolute inset-0 overflow-y-auto px-1">
-                <DbSourceViewer
-                  connectionId={connectionId} // 업데이트된 ID 사용
-                  selectedDbItems={selectedDbItems}
-                  onChange={setSelectedDbItems}
-                  sensitiveColumns={sensitiveColumns}
-                  onSensitiveColumnsChange={setSensitiveColumns}
-                  aliases={aliases}
-                  onAliasesChange={setAliases}
-                />
               </div>
-            </div>
+            ) : (
+              <div className="flex-1 min-h-0 relative">
+                <div className="absolute inset-0 overflow-y-auto px-1">
+                  <DbSourceViewer
+                    connectionId={connectionId} // 업데이트된 ID 사용
+                    selectedDbItems={selectedDbItems}
+                    onChange={setSelectedDbItems}
+                    sensitiveColumns={sensitiveColumns}
+                    onSensitiveColumnsChange={setSensitiveColumns}
+                    aliases={aliases}
+                    onAliasesChange={setAliases}
+                    onEditConnection={handleEditConnection}
+                    isEditingLoading={isLoadingDetails}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* 템플릿 UI 제거됨 (우측 패널로 이동) */}
           </div>
@@ -738,18 +725,20 @@ export default function DocumentSettingsPage() {
                   )}
                 </div>
 
-                <button
-                  onClick={handlePreviewClick}
-                  disabled={isPreviewLoading || isAnalyzing}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  {isPreviewLoading || analyzingAction === 'preview' ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  설정 적용 및 결과 미리보기
-                </button>
+                {document?.source_type !== 'DB' && (
+                  <button
+                    onClick={handlePreviewClick}
+                    disabled={isPreviewLoading || isAnalyzing}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    {isPreviewLoading || analyzingAction === 'preview' ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
+                    설정 적용 및 결과 미리보기
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -764,6 +753,7 @@ export default function DocumentSettingsPage() {
                     ? '테이블 및 컬럼 선택'
                     : '원본 문서 확인'}
               </h3>
+
               {document?.source_type !== 'DB' && (
                 <span className="text-xs text-gray-500">Read-only</span>
               )}
@@ -782,6 +772,20 @@ export default function DocumentSettingsPage() {
                     <ChunkPreviewList
                       previewSegments={previewSegments}
                       isLoading={isPreviewLoading}
+                      headerButton={
+                        <button
+                          onClick={handlePreviewClick}
+                          disabled={isPreviewLoading || isAnalyzing}
+                          className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        >
+                          {isPreviewLoading || analyzingAction === 'preview' ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          )}
+                          {isPreviewLoading ? '분석 중...' : '미리보기'}
+                        </button>
+                      }
                     />
                   </div>
                 </div>

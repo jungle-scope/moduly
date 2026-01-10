@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Square,
   MinusSquare,
+  Settings,
 } from 'lucide-react';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 import { toast } from 'sonner';
@@ -33,6 +34,8 @@ interface DBSchemaSelectorProps {
   onSensitiveColumnsChange?: (value: Record<string, string[]>) => void;
   aliases?: Record<string, Record<string, string>>; // {table: {column: alias}}
   onAliasesChange?: (value: Record<string, Record<string, string>>) => void;
+  onEditConnection?: () => void;
+  isEditingLoading?: boolean;
 }
 
 export default function DBSchemaSelector({
@@ -43,6 +46,8 @@ export default function DBSchemaSelector({
   onSensitiveColumnsChange,
   aliases = {},
   onAliasesChange,
+  onEditConnection,
+  isEditingLoading,
 }: DBSchemaSelectorProps) {
   const [loading, setLoading] = useState(false);
   const [tables, setTables] = useState<SchemaTable[]>([]);
@@ -189,8 +194,8 @@ export default function DBSchemaSelector({
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Search Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-        <div className="relative">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -200,6 +205,21 @@ export default function DBSchemaSelector({
             className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
           />
         </div>
+        {onEditConnection && (
+          <button
+            onClick={onEditConnection}
+            disabled={isEditingLoading}
+            className="px-3 py-2 text-sm font-medium bg-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 shadow-sm disabled:opacity-50 flex items-center gap-1.5 flex-none"
+            title="DB 연결 정보 수정"
+          >
+            {isEditingLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Settings className="w-4 h-4" />
+            )}
+            <span className="hidden sm:inline">DB 연결 수정</span>
+          </button>
+        )}
       </div>
       {/* Table List */}
       <div className="flex-1 overflow-y-auto p-2">

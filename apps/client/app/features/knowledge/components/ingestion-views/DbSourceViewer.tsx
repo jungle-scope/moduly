@@ -9,6 +9,8 @@ interface DbSourceViewerProps {
   onSensitiveColumnsChange?: (items: Record<string, string[]>) => void;
   aliases?: Record<string, Record<string, string>>;
   onAliasesChange?: (items: Record<string, Record<string, string>>) => void;
+  onEditConnection?: () => void;
+  isEditingLoading?: boolean;
 }
 
 export default function DbSourceViewer({
@@ -19,6 +21,8 @@ export default function DbSourceViewer({
   onSensitiveColumnsChange,
   aliases,
   onAliasesChange,
+  onEditConnection,
+  isEditingLoading,
 }: DbSourceViewerProps) {
   if (!connectionId) {
     return (
@@ -37,6 +41,8 @@ export default function DbSourceViewer({
       onSensitiveColumnsChange={onSensitiveColumnsChange}
       aliases={aliases}
       onAliasesChange={onAliasesChange}
+      onEditConnection={onEditConnection}
+      isEditingLoading={isEditingLoading}
     />
   );
 }

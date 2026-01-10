@@ -5,11 +5,13 @@ import { DocumentSegment } from '@/app/features/knowledge/api/knowledgeApi';
 interface ChunkPreviewListProps {
   previewSegments: DocumentSegment[];
   isLoading: boolean;
+  headerButton?: React.ReactNode;
 }
 
 export default function ChunkPreviewList({
   previewSegments,
   isLoading,
+  headerButton,
 }: ChunkPreviewListProps) {
   return (
     <div className="flex-1 bg-white dark:bg-gray-800 overflow-hidden flex flex-col">
@@ -18,9 +20,12 @@ export default function ChunkPreviewList({
           <Check className="w-4 h-4" />
           분할 결과 미리보기
         </h3>
-        <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
-          {previewSegments.length}개 조각
-        </span>
+        <div className="flex items-center gap-2">
+          {headerButton}
+          <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+            {previewSegments.length}개 조각
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50 dark:bg-gray-900/20">
