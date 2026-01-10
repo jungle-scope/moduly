@@ -14,8 +14,6 @@ const categoryNames: Record<string, string> = {
   plugin: '도구',
   workflow: '변환',
   logic: '논리',
-  database: '데이터베이스',
-  data: '데이터',
 };
 
 export const NodeSelector = ({ onSelect }: NodeSelectorProps) => {
