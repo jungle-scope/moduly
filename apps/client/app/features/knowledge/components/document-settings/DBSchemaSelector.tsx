@@ -14,6 +14,7 @@ import {
   Settings,
   Lock,
   LockOpen,
+  CircleHelp,
 } from 'lucide-react';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 import { toast } from 'sonner';
@@ -38,6 +39,8 @@ interface DBSchemaSelectorProps {
   onAliasesChange?: (value: Record<string, Record<string, string>>) => void;
   onEditConnection?: () => void;
   isEditingLoading?: boolean;
+  enableAutoChunking?: boolean;
+  onEnableAutoChunkingChange?: (enabled: boolean) => void;
 }
 
 export default function DBSchemaSelector({
@@ -50,6 +53,8 @@ export default function DBSchemaSelector({
   onAliasesChange,
   onEditConnection,
   isEditingLoading,
+  enableAutoChunking = true,
+  onEnableAutoChunkingChange,
 }: DBSchemaSelectorProps) {
   const [loading, setLoading] = useState(false);
   const [tables, setTables] = useState<SchemaTable[]>([]);
@@ -207,6 +212,29 @@ export default function DBSchemaSelector({
             className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
           />
         </div>
+
+        {/* 자동 청킹 설정 */}
+        <label
+          className="flex items-center gap-2 cursor-pointer group select-none px-2 flex-none"
+          title="자동 청킹 설정"
+        >
+          <input
+            type="checkbox"
+            checked={enableAutoChunking}
+            onChange={(e) => onEnableAutoChunkingChange?.(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            자동 청킹
+          </span>
+          <div className="relative group/tooltip">
+            <CircleHelp className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors" />
+            <div className="invisible group-hover/tooltip:visible absolute right-0 top-full mt-2 z-50 w-64 p-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none">
+              긴 텍스트(1,000자 초과)를 자동으로 분할하여 검색 성능과 정확도를
+              향상시킵니다.
+            </div>
+          </div>
+        </label>
         {onEditConnection && (
           <button
             onClick={onEditConnection}
@@ -223,6 +251,7 @@ export default function DBSchemaSelector({
           </button>
         )}
       </div>
+
       {/* Table List */}
       <div className="flex-1 overflow-y-auto p-2">
         {filteredTables.map((table) => {

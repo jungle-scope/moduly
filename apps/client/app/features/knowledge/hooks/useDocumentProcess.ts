@@ -92,6 +92,8 @@ export function useDocumentProcess({
           ? { connection_id: connectionIdOverride }
           : {}),
       },
+      // 자동 청킹 설정
+      enable_auto_chunking: settings.enableAutoChunking ?? true,
       // 필터링 파라미터 전송
       selection_mode: selectionMode,
       chunk_range: chunkRange,
@@ -104,11 +106,7 @@ export function useDocumentProcess({
     if (!document) return;
     try {
       const requestData = createRequestData(strategy);
-      const response = await knowledgeApi.processDocument(
-        kbId,
-        document.id,
-        requestData,
-      );
+      await knowledgeApi.processDocument(kbId, document.id, requestData);
 
       setStatus('indexing');
       setProgress(0);

@@ -11,6 +11,8 @@ interface DbSourceViewerProps {
   onAliasesChange?: (items: Record<string, Record<string, string>>) => void;
   onEditConnection?: () => void;
   isEditingLoading?: boolean;
+  enableAutoChunking?: boolean;
+  onEnableAutoChunkingChange?: (enabled: boolean) => void;
 }
 
 export default function DbSourceViewer({
@@ -23,6 +25,8 @@ export default function DbSourceViewer({
   onAliasesChange,
   onEditConnection,
   isEditingLoading,
+  enableAutoChunking,
+  onEnableAutoChunkingChange,
 }: DbSourceViewerProps) {
   if (!connectionId) {
     return (
@@ -43,6 +47,8 @@ export default function DbSourceViewer({
       onAliasesChange={onAliasesChange}
       onEditConnection={onEditConnection}
       isEditingLoading={isEditingLoading}
+      enableAutoChunking={enableAutoChunking}
+      onEnableAutoChunkingChange={onEnableAutoChunkingChange}
     />
   );
 }

@@ -63,6 +63,7 @@ export default function DocumentSettingsPage() {
     'general' | 'llamaparse'
   >('general');
   const [apiOriginalData, setApiOriginalData] = useState<any>(null); // API 원본 데이터 (SessionStorage)
+  const [enableAutoChunking, setEnableAutoChunking] = useState<boolean>(true); // 자동 청킹 활성화
 
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
@@ -227,6 +228,7 @@ export default function DocumentSettingsPage() {
       sensitiveColumns,
       aliases,
       template,
+      enableAutoChunking,
     },
     connectionId: connectionId,
     // 범위 선택
@@ -449,6 +451,8 @@ export default function DocumentSettingsPage() {
                     onAliasesChange={setAliases}
                     onEditConnection={handleEditConnection}
                     isEditingLoading={isLoadingDetails}
+                    enableAutoChunking={enableAutoChunking}
+                    onEnableAutoChunkingChange={setEnableAutoChunking}
                   />
                 </div>
               </div>
