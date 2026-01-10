@@ -116,7 +116,7 @@ export default function DashboardHomePage() {
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">모듈 구성</h3>
                 <p className="text-sm text-gray-600">
-                  드래그 앤 드롭으로 워크플로우를 쉽게 구성하세요
+                  드래그 앤 드롭으로 모듈을 쉽게 구성하세요
                 </p>
               </div>
             </div>
