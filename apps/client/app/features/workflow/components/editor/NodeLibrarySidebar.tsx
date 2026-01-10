@@ -3,7 +3,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { getImplementedNodes, NodeDefinition } from '../../config/nodeRegistry';
-import { AppIcon } from '../../../app/api/appApi';
 import { JigsawBackground } from '../nodes/BaseNode';
 
 interface NodeLibrarySidebarProps {
@@ -11,7 +10,6 @@ interface NodeLibrarySidebarProps {
   onToggle: () => void;
   onAddNode: (nodeDefId: string, position?: { x: number; y: number }) => void;
   onOpenAppSearch: () => void;
-  workflowIcon: AppIcon;
 }
 
 type TabType = 'nodes' | 'tools' | 'start';
@@ -44,7 +42,6 @@ export default function NodeLibrarySidebar({
   onToggle,
   onAddNode,
   onOpenAppSearch,
-  workflowIcon,
 }: NodeLibrarySidebarProps) {
   const [activeTab, setActiveTab] = useState<TabType>('nodes');
   const [isHovering, setIsHovering] = useState(false);
@@ -104,8 +101,8 @@ export default function NodeLibrarySidebar({
   return (
     <div
       ref={sidebarRef}
-      className={`relative h-full bg-white border-r border-gray-200 shadow-lg transition-all duration-300 ease-in-out z-20 ${
-        isOpen ? 'w-80' : 'w-16'
+      className={`relative h-full bg-transparent transition-all duration-300 ease-in-out z-20 ${
+        isOpen ? 'w-64' : 'w-16'
       }`}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
@@ -155,100 +152,92 @@ export default function NodeLibrarySidebar({
       </div>
 
       {isOpen ? (
-        <div className="flex flex-col h-full bg-gray-50/30">
-          {/* 1. Tabs */}
-          <div className="flex w-full items-center bg-gray-50 p-1">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2 text-sm font-semibold transition-colors rounded-md ${
-                  activeTab === tab.id
-                    ? 'text-blue-600 bg-white shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        <div className="h-full w-full rounded-xl overflow-hidden">
+          <div className="flex flex-col h-full bg-gray-50/30">
+            {/* 1. Tabs */}
+            <div className="flex w-full items-center bg-gray-50 p-1 rounded-t-xl">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 py-2 text-sm font-semibold transition-colors rounded-md ${
+                    activeTab === tab.id
+                      ? 'text-blue-600 bg-white'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-          {/* 2. Search & Header Info */}
-          <div className="px-4 py-3 border-b border-gray-100 bg-white">
-            <div className="relative mb-3">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
+            {/* 2. Search & Header Info */}
+            <div className="px-4 py-3 border-b border-gray-100 bg-white">
+              <div className="relative mb-3">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="검색 노드"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-              <input
-                type="text"
-                placeholder="검색 노드"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            </div>
+
+            {/* 3. Node List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 rounded-b-xl">
+              {filteredNodes.map((node) => (
+                <div
+                  key={node.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, node.id)}
+                  onClick={() => handleNodeClick(node.id)}
+                  onMouseEnter={(e) => {
+                    setPreviewNode(node); // For Drag Preview
+                    if (sidebarRef.current) {
+                      const sidebarRect =
+                        sidebarRef.current.getBoundingClientRect();
+                      const itemRect = e.currentTarget.getBoundingClientRect();
+                      // Calculate top relative to sidebar (adjusting for header offset if needed, but rect-rect should be fine)
+                      const relativeTop = itemRect.top - sidebarRect.top;
+                      setHoveredNode({ def: node, top: relativeTop });
+                    }
+                  }}
+                  onMouseLeave={() => setHoveredNode(null)}
+                  className="group flex items-center gap-3 p-2 rounded-lg cursor-move hover:bg-gray-100 transition-colors"
+                >
+                  <div
+                    className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
+                    style={{ backgroundColor: node.color }}
+                  >
+                    {typeof node.icon === 'string' ? (
+                      <span className="text-white text-lg font-bold flex items-center justify-center h-full pb-0.5">
+                        {node.icon}
+                      </span>
+                    ) : (
+                      <div className="text-white w-5 h-5 flex items-center justify-center">
+                        {node.icon}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                    {node.name}
+                  </span>
+                </div>
+              ))}
+
+              {filteredNodes.length === 0 && (
+                <div className="py-8 text-center text-sm text-gray-500">
+                  검색 결과가 없습니다.
+                </div>
+              )}
             </div>
           </div>
-
-          {/* 3. Node List */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {filteredNodes.map((node) => (
-              <div
-                key={node.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, node.id)}
-                onClick={() => handleNodeClick(node.id)}
-                onMouseEnter={(e) => {
-                  setPreviewNode(node); // For Drag Preview
-                  if (sidebarRef.current) {
-                    const sidebarRect =
-                      sidebarRef.current.getBoundingClientRect();
-                    const itemRect = e.currentTarget.getBoundingClientRect();
-                    // Calculate top relative to sidebar (adjusting for header offset if needed, but rect-rect should be fine)
-                    const relativeTop = itemRect.top - sidebarRect.top;
-                    setHoveredNode({ def: node, top: relativeTop });
-                  }
-                }}
-                onMouseLeave={() => setHoveredNode(null)}
-                className="group flex items-center gap-3 p-2 rounded-lg cursor-move hover:bg-gray-100 transition-colors"
-              >
-                <div
-                  className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
-                  style={{ backgroundColor: node.color }}
-                >
-                  {typeof node.icon === 'string' ? (
-                    <span className="text-white text-lg font-bold flex items-center justify-center h-full pb-0.5">
-                      {node.icon}
-                    </span>
-                  ) : (
-                    <div className="text-white w-5 h-5 flex items-center justify-center">
-                      {node.icon}
-                    </div>
-                  )}
-                </div>
-                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                  {node.name}
-                </span>
-              </div>
-            ))}
-
-            {filteredNodes.length === 0 && (
-              <div className="py-8 text-center text-sm text-gray-500">
-                검색 결과가 없습니다.
-              </div>
-            )}
-          </div>
         </div>
-      ) : (
-        /* Collapsed State */
-        <div className="flex flex-col items-center py-4 space-y-4">
-          <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center border border-white shadow-sm"
-            style={{ backgroundColor: workflowIcon.background_color }}
-          >
-            <span className="text-white text-lg">{workflowIcon.content}</span>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {/* Toggle Button */}
       <div className="absolute -right-3 top-20 z-30">
@@ -279,20 +268,22 @@ export default function NodeLibrarySidebar({
       {/* Hover Card (Popover) - Dynamic Positioning */}
       {hoveredNode && isOpen && (
         <div
-          className="absolute left-[330px] z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-4 transition-all duration-200 animate-in fade-in slide-in-from-left-2"
+          className="absolute left-[266px] z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-4 transition-all duration-200 animate-in fade-in slide-in-from-left-2"
           style={{ top: hoveredNode.top }}
         >
           <div className="flex items-start gap-3 mb-2">
             <div
-              className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center shadow-sm"
+              className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
               style={{ backgroundColor: hoveredNode.def.color }}
             >
               {typeof hoveredNode.def.icon === 'string' ? (
-                <span className="text-white text-lg font-bold">
+                <span className="text-white text-lg font-bold flex items-center justify-center h-full pb-0.5">
                   {hoveredNode.def.icon}
                 </span>
               ) : (
-                <div className="text-white w-5 h-5">{hoveredNode.def.icon}</div>
+                <div className="text-white w-5 h-5 flex items-center justify-center">
+                  {hoveredNode.def.icon}
+                </div>
               )}
             </div>
             <div>

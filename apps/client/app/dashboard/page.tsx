@@ -13,7 +13,7 @@ export default function DashboardHomePage() {
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold text-gray-900 mb-6">환영합니다!</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Moduly와 함께 워크플로우를 구축하고 자동화하세요
+            Moduly와 함께 모듈을 구축하고 자동화하세요
           </p>
         </div>
 

@@ -646,7 +646,7 @@ export default function EditorHeader() {
       <div className="flex items-center gap-3 relative">
         {/* Memory Mode */}
         {/* Wrapping in a div to match previous style or just button style */}
-        <div className="flex items-center gap-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg">
           <MemoryModeToggle
             isEnabled={isMemoryModeEnabled}
             hasProviderKey={hasProviderKey}
@@ -658,7 +658,7 @@ export default function EditorHeader() {
         {/* Version */}
         <button
           onClick={handleVersionHistory}
-          className="px-3 py-1.5 flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg shadow-sm transition-colors text-gray-600 text-[13px] font-medium"
+          className="px-3 py-1.5 flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors text-gray-600 text-[13px] font-medium"
         >
           <ClockIcon className="w-3.5 h-3.5" />
           <span>버전</span>
@@ -668,7 +668,7 @@ export default function EditorHeader() {
         <button
           onClick={handleTestRun}
           disabled={isExecuting}
-          className={`px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border shadow-sm ${
+          className={`px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border ${
             isExecuting
               ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
               : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
@@ -684,7 +684,7 @@ export default function EditorHeader() {
         <div className="relative">
           <button
             onClick={() => setShowDeployDropdown(!showDeployDropdown)}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm flex items-center gap-1.5 text-[13px]"
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px]"
           >
             게시하기
             <svg
@@ -776,7 +776,7 @@ export default function EditorHeader() {
         </div>
 
         {/* Settings (New) */}
-        <button className="px-3 py-1.5 flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg shadow-sm transition-colors text-gray-600 text-[13px] font-medium">
+        <button className="px-3 py-1.5 flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors text-gray-600 text-[13px] font-medium">
           <Settings className="w-3.5 h-3.5" />
           <span>설정</span>
         </button>
