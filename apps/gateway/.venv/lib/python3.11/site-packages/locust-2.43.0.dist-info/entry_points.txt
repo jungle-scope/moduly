@@ -1,0 +1,5 @@
+[console_scripts]
+locust = locust.main:main
+
+[pytest11]
+locust = pytest_locust.plugin

@@ -5,6 +5,7 @@ shared.egg-info/SOURCES.txt
 shared.egg-info/dependency_links.txt
 shared.egg-info/requires.txt
 shared.egg-info/top_level.txt
+shared/clients/log_client.py
 shared/db/__init__.py
 shared/db/base.py
 shared/db/session.py

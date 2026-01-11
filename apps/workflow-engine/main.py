@@ -15,10 +15,10 @@ from dotenv import load_dotenv
 APPS_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(Path(__file__).parent))  # 현재 디렉토리 (workflow-engine)
 sys.path.insert(0, str(APPS_DIR / "shared"))
-sys.path.insert(0, str(APPS_DIR / "server"))  # workflow, services 등 참조용
+sys.path.insert(0, str(APPS_DIR / "gateway"))  # services 등 참조용
 
-# .env 로드 (server의 .env 공유) - 다른 모듈 임포트 전에 수행
-env_path = APPS_DIR / "server" / ".env"
+# .env 로드 (gateway의 .env 공유) - 다른 모듈 임포트 전에 수행
+env_path = APPS_DIR / "gateway" / ".env"
 if env_path.exists():
     load_dotenv(env_path)
     print(f"[WorkflowEngine] Loading .env from {env_path}")
