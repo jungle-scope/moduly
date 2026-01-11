@@ -1,0 +1,126 @@
+# =============================================================================
+# Git Attributes 설정
+# =============================================================================
+# 이 파일은 Git이 파일을 처리하는 방식을 정의합니다.
+# 주요 목적: OS별 line ending (CRLF vs LF) 차이로 인한 불필요한 변경사항 방지
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 기본 설정: 모든 텍스트 파일
+# -----------------------------------------------------------------------------
+# text=auto: Git이 자동으로 텍스트 파일을 감지하고 line ending을 정규화
+# eol=lf: 저장소에는 LF(\n)로 저장, Windows에서 checkout시 autocrlf 설정에 따라 변환
+* text=auto eol=lf
+
+# -----------------------------------------------------------------------------
+# 소스 코드: LF 강제 (Linux/Mac 서버 환경과 일치)
+# -----------------------------------------------------------------------------
+
+# JavaScript/TypeScript
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+
+# Python
+*.py text eol=lf
+*.pyw text eol=lf
+
+# Shell scripts (Linux/Mac에서 실행될 수 있으므로 반드시 LF)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# -----------------------------------------------------------------------------
+# 설정 파일: LF 강제
+# -----------------------------------------------------------------------------
+
+# YAML/JSON
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+
+# Docker
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+docker-compose*.yml text eol=lf
+.dockerignore text eol=lf
+
+# Terraform
+*.tf text eol=lf
+*.tfvars text eol=lf
+
+# Kubernetes
+*.yaml text eol=lf
+
+# 환경 변수
+.env* text eol=lf
+*.env text eol=lf
+
+# Git 설정
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# -----------------------------------------------------------------------------
+# 문서: LF 강제
+# -----------------------------------------------------------------------------
+
+*.md text eol=lf
+*.txt text eol=lf
+
+# -----------------------------------------------------------------------------
+# 웹 관련 파일: LF 강제
+# -----------------------------------------------------------------------------
+
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.svg text eol=lf
+
+# -----------------------------------------------------------------------------
+# 바이너리 파일: line ending 변환하지 않음
+# -----------------------------------------------------------------------------
+
+# 이미지
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+
+# 폰트
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+
+# 압축 파일
+*.zip binary
+*.tar binary
+*.gz binary
+*.tgz binary
+
+# 기타 바이너리
+*.pdf binary
+*.pyc binary
+*.pyo binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary
+
+# -----------------------------------------------------------------------------
+# Package manager 잠금 파일: merge 충돌 방지
+# -----------------------------------------------------------------------------
+
+# npm
+package-lock.json binary
+pnpm-lock.yaml binary
+yarn.lock binary
+
+# Python
+poetry.lock binary
+Pipfile.lock binary
