@@ -1,11 +1,12 @@
 # .dockerignore
 .git
-.venv
+**/.venv
+**/venv
 __pycache__
 *.pyc
 .env
-apps/client/node_modules
-apps/client/.next
+**/node_modules
+**/.next
 
 # 참고자료 파일업로드 관련
-apps/server/uploads
+**/uploads
