@@ -15,7 +15,6 @@ export const AnswerNode = memo(
         id={id}
         data={data}
         selected={selected}
-        puzzleType="end"
         showSourceHandle={false}
         icon={<MessageSquare className="text-white" />}
         iconColor="#10b981" // green-500

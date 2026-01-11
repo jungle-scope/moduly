@@ -11,7 +11,6 @@ export const ScheduleTriggerNode = memo(
         id={id}
         data={data}
         selected={selected}
-        puzzleType="start"
         showTargetHandle={false} // ScheduleTrigger는 시작 노드이므로 입력 핸들 없음
         icon={<Clock className="text-white" />}
         iconColor="#8b5cf6" // violet-500

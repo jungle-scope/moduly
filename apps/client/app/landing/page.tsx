@@ -3,24 +3,21 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+
 import {
   ArrowRight,
   BarChart3,
-  CheckCircle2,
   ChevronRight,
   Database,
   Github,
   Globe,
   Layout,
   MessageSquare,
-  Play,
-  Share2,
   Users2,
   Workflow,
   Zap,
 } from 'lucide-react';
-import { cn } from '@/lib/utils'; // Assuming this exists, if not I'll implement a simple one or just classNames
+import { cn } from '@/lib/utils';
 
 // ----------------------------------------------------------------------
 // Mock Components for Tab Content
@@ -275,7 +272,6 @@ function CommunityView() {
 // ----------------------------------------------------------------------
 
 export default function LandingPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState('nodes'); // Default tab
 
   const tabs = [
@@ -325,7 +321,6 @@ export default function LandingPage() {
             className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 px-3 py-2 transition-colors mr-2"
           >
             <Github className="w-5 h-5" />
-            <span>4.2k</span>
           </a>
           <Link
             href="/auth/login"
@@ -376,17 +371,6 @@ export default function LandingPage() {
               Talk to sales
             </button>
           </div>
-
-          <div className="mt-8 flex items-center justify-center gap-6 text-sm text-slate-500 animate-in fade-in duration-1000 delay-300">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-500" />
-              <span>No credit card required</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-500" />
-              <span>14-day free trial</span>
-            </div>
-          </div>
         </section>
 
         {/* ------------------- Interactive Feature Tab Section ------------------- */}
@@ -428,30 +412,6 @@ export default function LandingPage() {
               {activeTab === 'reporting' && <ReportingView />}
               {activeTab === 'community' && <CommunityView />}
             </div>
-          </div>
-        </section>
-
-        {/* ------------------- Social Proof / Footer-ish ------------------- */}
-        <section className="py-20 text-center container mx-auto px-4">
-          <p className="text-slate-500 font-medium mb-8">
-            Trusted by innovative teams worldwide
-          </p>
-          <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-            {/* Fake Logos using Text for simplicity */}
-            {[
-              'Acme Corp',
-              'Global Dynamics',
-              'Interstellar',
-              'Massive Dynamic',
-              'Soylent Corp',
-            ].map((name) => (
-              <span
-                key={name}
-                className="text-xl font-bold font-serif text-slate-800"
-              >
-                {name}
-              </span>
-            ))}
           </div>
         </section>
       </main>

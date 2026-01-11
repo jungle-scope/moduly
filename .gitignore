@@ -1,12 +1,13 @@
-# Python
-apps/server/.venv/
-apps/server/venv
+# Python - 모든 앱의 가상환경 무시
+**/.venv/
+**/venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 
 # Node
 apps/client/.next/
+**/node_modules/
 
 # Environment
 .env
@@ -29,7 +30,7 @@ apps/client/.next/
 .DS_Store
 
 # 참고자료 파일업로드 관련
-apps/server/uploads
+**/uploads/
 
 # Terraform 관련 제외
 # 로컬 바이너리 및 플러그인 폴더
@@ -69,4 +70,5 @@ access_key
 
 # 암호
 apps/infra/k8s/secrets.yaml
+infra/k8s/secrets.yaml
 *.secret.yaml
