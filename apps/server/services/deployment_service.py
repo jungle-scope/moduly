@@ -1,20 +1,21 @@
 """Deployment Service - 배포 관련 비즈니스 로직"""
 
+import os
 import secrets
 import uuid
 from typing import Any, Dict, List, Optional
 
+import httpx
 from fastapi import HTTPException
-from sqlalchemy import desc, func
-from sqlalchemy.orm import Session
-
 from shared.db.models.app import App
 from shared.db.models.schedule import Schedule
 from shared.db.models.workflow import Workflow
 from shared.db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from shared.schemas.deployment import DeploymentCreate
+from sqlalchemy import desc, func
+from sqlalchemy.orm import Session
+
 from services.workflow_service import WorkflowService
-from workflow.core.workflow_engine import WorkflowEngine
 
 
 class DeploymentService:
@@ -350,36 +351,32 @@ class DeploymentService:
                 )
         # require_auth가 False면 인증 스킵
 
-        # 5. 그래프 데이터 준비
-        graph_data = deployment.graph_snapshot
-
-        # 6. 워크플로우 실행
+        # 6. 워크플로우 실행 (Proxy to Engine)
         try:
-            # [NEW] 로깅을 위한 컨텍스트 주입
-            execution_context = {
-                "user_id": app.created_by,  # 실행 주체 (앱 소유자에게 비용 청구 시)
-                "workflow_id": str(app.workflow_id) if app.workflow_id else None,
-                "trigger_mode": "app",  # [NEW] 실행 모드 (앱 배포 실행)
+            engine_url = os.getenv("WORKFLOW_ENGINE_URL", "http://localhost:8001")
+
+            # Engine의 /internal/run/{url_slug} 엔드포인트 호출
+            payload = {
+                "user_id": str(app.created_by),
+                "user_input": user_inputs,
+                "is_deployed": True,
                 "deployment_id": str(deployment.id),
                 "workflow_version": deployment.version,
             }
-            engine = WorkflowEngine(
-                graph=graph_data,
-                user_input=user_inputs,
-                is_deployed=True,
-                execution_context=execution_context,
-                db=db,
-            )
-            results = await engine.execute()
-            return {"status": "success", "results": results}
 
-        except ValueError as e:
-            # 필수 노드 누락 등 검증 에러
-            raise HTTPException(status_code=400, detail=str(e))
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{engine_url}/internal/run/{url_slug}", json=payload, timeout=60.0
+                )
 
-        except NotImplementedError as e:
-            # 지원하지 않는 기능 에러
-            raise HTTPException(status_code=501, detail=str(e))
+                if resp.status_code >= 400:
+                    raise HTTPException(status_code=resp.status_code, detail=resp.text)
+
+                result = resp.json()
+                if result.get("status") == "failed":
+                    raise Exception(result.get("error"))
+
+                return {"status": "success", "results": result.get("outputs")}
 
         except Exception as e:
             # 기타 서버 에러

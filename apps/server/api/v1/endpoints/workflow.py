@@ -1,12 +1,10 @@
 import json
+import os
 from typing import List
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
-from starlette.requests import Request
-
-from auth.dependencies import get_current_user
 from shared.db.models.app import App
 from shared.db.models.user import User
 from shared.db.models.workflow import Workflow
@@ -24,8 +22,11 @@ from shared.schemas.workflow import (
     WorkflowDraftRequest,
     WorkflowResponse,
 )
+from sqlalchemy.orm import Session
+from starlette.requests import Request
+
+from auth.dependencies import get_current_user
 from services.workflow_service import WorkflowService
-from workflow.core.workflow_engine import WorkflowEngine
 
 router = APIRouter()
 
@@ -461,7 +462,7 @@ async def execute_workflow(
     current_user: User = Depends(get_current_user),
 ):
     """
-    PostgreSQL에서 워크플로우 초안 데이터를 조회하고, WorkflowEngine을 사용하여 실행합니다. (인증 필요)
+    Workflow Engine으로 실행 요청을 프록시합니다.
     """
     # 1. 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
@@ -472,50 +473,45 @@ async def execute_workflow(
     if workflow.created_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    memory_mode_enabled = False
+    # memory_mode 처리 (프론트엔드 호환성)
     if isinstance(user_input, dict):
-        # 프론트 토글 상태가 실행 입력에 섞여 올 수 있으므로 분리해서 컨텍스트에만 전달
-        memory_mode_enabled = bool(user_input.pop("memory_mode", False))
+        # memory_mode는 user_input에 남겨두면 Engine이 알아서 처리 (또는 Engine 요청 스키마에 맞춰 분리)
+        # 여기서는 그대로 전달하되, Engine의 ExecuteRequest 스키마에 맞게 구성
+        pass
 
-    # 2. 데이터 조회 및 실행
-    try:
-        graph = WorkflowService.get_draft(db, workflow_id)
-        if not graph:
-            raise HTTPException(
-                status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
+    # 2. Workflow Engine으로 요청 프록시
+    engine_url = os.getenv("WORKFLOW_ENGINE_URL", "http://localhost:8001")
+
+    payload = {
+        "user_id": str(current_user.id),
+        "user_input": user_input,
+        "is_deployed": False,
+        "workflow_version": None,
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                f"{engine_url}/internal/execute/{workflow_id}",
+                json=payload,
+                timeout=60.0,
             )
 
-        # WorkflowEngine 인스턴스 생성 및 초기화:
-        # 1. 입력받은 graph(dict)를 NodeSchema/EdgeSchema 객체로 파싱 및 검증
-        # 2. 엣지 정보를 바탕으로 노드 간의 실행 경로(Graph 구조) 빌드
-        # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
-        # execution_context에 'db' 세션을 주입하는 이유:
-        # WorkflowNode(모듈)가 실행될 때 대상 워크플로우의 그래프 데이터를 DB에서 로드해야 하기 때문입니다.
-        # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
-        engine = WorkflowEngine(
-            graph,
-            user_input,
-            execution_context={
-                "user_id": str(current_user.id),
-                "workflow_id": workflow_id,
-                "memory_mode": memory_mode_enabled,
-            },
-            db=db,
-        )
-        print("user_input", user_input)
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
 
-        # 준비된 엔진을 실행 (시작 노드 탐색 -> Queue 기반 순차 실행 -> 결과 반환)
-        return await engine.execute()
-    except ValueError as e:
-        # 노드 검증 실패 등의 입력 오류
-        raise HTTPException(status_code=400, detail=str(e))
-    except NotImplementedError as e:
-        # 미지원 노드 등
-        raise HTTPException(status_code=501, detail=str(e))
-    except Exception as e:
-        # 그 외 서버 에러
-        print(f"Workflow execution failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+            result = resp.json()
+            if result.get("status") == "failed":
+                # Engine 내부 에러
+                raise Exception(result.get("error"))
+
+            return result.get("outputs")
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"Proxy execution failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{workflow_id}/stream")
@@ -526,14 +522,8 @@ async def stream_workflow(
     current_user: User = Depends(get_current_user),
 ):
     """
-    워크플로우를 실행하고 실행 과정을 SSE(Server-Sent Events)로 스트리밍합니다.
-
-    multipart/form-data 지원:
-    - inputs: JSON 문자열 (일반 입력값)
-    - file_변수명: 업로드된 파일들
+    Workflow Engine으로 스트리밍 요청을 프록시합니다.
     """
-
-    memory_mode_enabled = False
     # 1. 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
@@ -550,60 +540,56 @@ async def stream_workflow(
     if "multipart/form-data" in content_type:
         # FormData 파싱
         form = await request.form()
-
-        # inputs 필드에서 JSON 파싱
         inputs_str = form.get("inputs", "{}")
         try:
             user_input = json.loads(inputs_str) if isinstance(inputs_str, str) else {}
         except json.JSONDecodeError:
             user_input = {}
 
-        # 토글 값 분리 (문자열 true/false 허용)
-        memory_mode_enabled = str(form.get("memory_mode", "")).lower() == "true"
+        # memory_mode 등 추가 필드 처리
+        if form.get("memory_mode"):
+            user_input["memory_mode"] = str(form.get("memory_mode")).lower() == "true"
+
     else:
-        # JSON 방식 (기존)
+        # JSON 방식
         try:
             body = await request.json()
             user_input = body if isinstance(body, dict) else {}
-            if isinstance(user_input, dict):
-                memory_mode_enabled = bool(user_input.pop("memory_mode", False))
         except:
             user_input = {}
 
-    # 3. 데이터 조회 및 엔진 초기화
-    try:
-        graph = WorkflowService.get_draft(db, workflow_id)
-        if not graph:
-            raise HTTPException(
-                status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
-            )
+    # 3. Workflow Engine으로 프록시 스트리밍
+    engine_url = os.getenv("WORKFLOW_ENGINE_URL", "http://localhost:8001")
 
-        engine = WorkflowEngine(
-            graph,
-            user_input,
-            execution_context={
-                "user_id": str(current_user.id),
-                "workflow_id": workflow_id,
-                "memory_mode": memory_mode_enabled,
-            },
-            db=db,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    payload = {
+        "user_id": str(current_user.id),
+        "user_input": user_input,
+        "is_deployed": False,
+    }
 
-    # 4. 제너레이터 함수 정의 (SSE 포맷팅)
     async def event_generator():
-        try:
-            async for event in engine.execute_stream():
-                # SSE 포맷: "data: {json_content}\n\n"
-                yield f"data: {json.dumps(event)}\n\n"
-        except Exception as e:
-            # 스트리밍 도중 에러 발생 시 에러 이벤트 전송
-            error_event = {"type": "error", "data": {"message": str(e)}}
-            yield f"data: {json.dumps(error_event)}\n\n"
-        finally:
-            # [FIX] 클라이언트 연결 끊김 등으로 제너레이터가 중단되어도 리소스 정리 보장
-            engine.logger.shutdown()
+        async with httpx.AsyncClient() as client:
+            try:
+                async with client.stream(
+                    "POST",
+                    f"{engine_url}/internal/stream/{workflow_id}",
+                    json=payload,
+                    timeout=None,
+                ) as response:
+                    if response.status_code >= 400:
+                        # 에러 발생 시 에러 이벤트 전송
+                        error_msg = await response.aread()
+                        error_event = {
+                            "type": "error",
+                            "data": {"message": error_msg.decode()},
+                        }
+                        yield f"data: {json.dumps(error_event)}\n\n"
+                        return
 
-    # 5. StreamingResponse 반환
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+            except Exception as e:
+                error_event = {"type": "error", "data": {"message": str(e)}}
+                yield f"data: {json.dumps(error_event)}\n\n"
+
     return StreamingResponse(event_generator(), media_type="text/event-stream")
