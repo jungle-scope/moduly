@@ -36,8 +36,9 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /install /usr/local
 
 # [중요] 앱 코드 복사 (모노레포 구조 유지)
-# Docker build context는 프로젝트 루트이므로 apps/gateway를 복사합니다.
+# Docker build context는 프로젝트 루트입니다.
 COPY apps/gateway /app/apps/gateway
+COPY apps/shared /app/apps/shared
 
 # 보안: Root가 아닌 일반 유저로 실행
 RUN useradd -m appuser
