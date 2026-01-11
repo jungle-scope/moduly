@@ -57,7 +57,7 @@ export function SuccessStep({
       .join('\n');
 
     const authHeader = result.auth_secret
-      ? `  -H "Authorization: Bearer ${result.auth_secret}" \\\n`
+      ? `  -H "Authorization: Bearer ${result.auth_secret.slice(0, 7)}${'\u2022'.repeat(result.auth_secret.length - 7)}" \\\n`
       : '';
 
     return `curl -X POST "${API_URL}" \\
@@ -96,7 +96,7 @@ ${authHeader}  -d '{
         {result.webAppUrl && (
           <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
             <label className="block text-sm font-semibold text-blue-900 mb-2">
-              🌐 웹 앱 공유 링크
+              웹 앱 공유 링크
             </label>
             <p className="text-xs text-blue-700 mb-3">
               이 링크를 공유하면 누구나 워크플로우를 사용할 수 있습니다!
@@ -119,7 +119,7 @@ ${authHeader}  -d '{
         {result.embedUrl && (
           <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
             <label className="block text-sm font-semibold text-purple-900 mb-2">
-              💬 웹사이트 임베딩 코드
+              웹사이트 임베딩 코드
             </label>
             <p className="text-xs text-purple-700 mb-3">
               아래 코드를 복사하여 웹사이트의{' '}
@@ -174,7 +174,7 @@ ${authHeader}  -d '{
         {result.isWorkflowNode && (
           <div className="border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50">
             <label className="block text-sm font-semibold text-indigo-900 mb-2">
-              🧩 서브 모듈 배포 완료
+              서브 모듈 배포 완료
             </label>
             <p className="text-xs text-indigo-700 mb-3">
               이 워크플로우는 이제 다른 워크플로우에서 '서브 모듈'로 불러와
@@ -216,7 +216,9 @@ ${authHeader}  -d '{
               </label>
               <div className="flex gap-2">
                 <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
-                  {result.auth_secret || 'N/A (Public)'}
+                  {result.auth_secret
+                    ? `${result.auth_secret.slice(0, 7)}${'•'.repeat(result.auth_secret.length - 7)}`
+                    : 'N/A (Public)'}
                 </code>
                 {result.auth_secret && (
                   <button
