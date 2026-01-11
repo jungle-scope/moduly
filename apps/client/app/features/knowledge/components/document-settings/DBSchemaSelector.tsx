@@ -207,6 +207,24 @@ export default function DBSchemaSelector({
     let newCols;
     if (isSelected) {
       newCols = currentCols.filter((c) => c !== colName);
+
+      // [FIX] 컬럼 해제 시 해당 Alias도 삭제
+      if (
+        onAliasesChange &&
+        aliases[tableName] &&
+        aliases[tableName][colName]
+      ) {
+        const newAliases = { ...aliases };
+        const tableAliases = { ...newAliases[tableName] };
+        delete tableAliases[colName];
+
+        if (Object.keys(tableAliases).length === 0) {
+          delete newAliases[tableName];
+        } else {
+          newAliases[tableName] = tableAliases;
+        }
+        onAliasesChange(newAliases);
+      }
     } else {
       newCols = [...currentCols, colName];
     }
