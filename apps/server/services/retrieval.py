@@ -101,19 +101,29 @@ class RetrievalService:
 
             # 암호화된 content 복호화
             content = chunk.content
-            encrypted_pattern = r"([\w_]+):\s*(gAAAAAB[A-Za-z0-9_-]+={0,2})"
+            decrypted_content = content
 
-            def decrypt_match(match):
-                key = match.group(1)
-                encrypted_value = match.group(2)
+            if content and content.startswith("gAAAAAB"):
                 try:
-                    decrypted = encryption_manager.decrypt(encrypted_value)
-                    return f"{key}: {decrypted}"
+                    decrypted_content = encryption_manager.decrypt(content)
                 except Exception as e:
-                    print(f"[WARNING] Failed to decrypt {key}: {e}")
-                    return f"{key}: [ENCRYPTED]"
+                    print(f"[WARNING] Failed to decrypt full content: {e}")
+                    decrypted_content = "[ENCRYPTED CONTENT]"
+            else:
+                # 2. 부분 암호화 패턴 매칭 (DB processor의 key: value 형식)
+                encrypted_pattern = r"([\w_]+):\s*(gAAAAAB[A-Za-z0-9_-]+={0,2})"
 
-            decrypted_content = re.sub(encrypted_pattern, decrypt_match, content)
+                def decrypt_match(match):
+                    key = match.group(1)
+                    encrypted_value = match.group(2)
+                    try:
+                        decrypted = encryption_manager.decrypt(encrypted_value)
+                        return f"{key}: {decrypted}"
+                    except Exception as e:
+                        print(f"[WARNING] Failed to decrypt {key}: {e}")
+                        return f"{key}: [ENCRYPTED]"
+
+                decrypted_content = re.sub(encrypted_pattern, decrypt_match, content)
 
             previews.append(
                 ChunkPreview(
@@ -141,29 +151,8 @@ class RetrievalService:
         if not chunks:
             return ""
 
-        decrypted_contents = []
-        for chunk in chunks:
-            content = chunk.content
-
-            # AES 암호화된 값 찾기 (gAAAAAB로 시작하는 Fernet 토큰)
-            encrypted_pattern = r"([\w_]+):\s*(gAAAAAB[A-Za-z0-9_-]+={0,2})"
-
-            def decrypt_match(match):
-                key = match.group(1)
-                encrypted_value = match.group(2)
-                try:
-                    decrypted = encryption_manager.decrypt(encrypted_value)
-                    return f"{key}: {decrypted}"
-                except Exception as e:
-                    print(f"[WARNING] Failed to decrypt {key}: {e}")
-                    # 복호화 실패 시 마스킹 표시
-                    return f"{key}: [ENCRYPTED]"
-
-            # 암호화된 값 복호화
-            decrypted_content = re.sub(encrypted_pattern, decrypt_match, content)
-            decrypted_contents.append(decrypted_content)
-
-        return "\n\n".join(decrypted_contents)
+        # search_documents에서 이미 복호화된 content를 반환하므로 그대로 사용
+        return "\n\n".join([chunk.content for chunk in chunks])
 
     def generate_answer(
         self, query: str, knowledge_base_id: str, model_id: str = "gpt-4o"
