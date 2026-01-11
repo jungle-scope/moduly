@@ -337,9 +337,7 @@ def create_workflow(
     """
     새 워크플로우 생성 (인증 필요)
     """
-    workflow = WorkflowService.create_workflow(
-        db, request, user_id=str(current_user.id)
-    )
+    workflow = WorkflowService.create_workflow(db, request, user_id=current_user.id)
 
     return {
         "id": str(workflow.id),
@@ -363,7 +361,7 @@ def get_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    if workflow.created_by != str(current_user.id):
+    if workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return {
@@ -388,7 +386,7 @@ def list_workflows_by_app(
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
 
-    if app.created_by != str(current_user.id):
+    if app.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     # 워크플로우 목록 조회
@@ -397,7 +395,7 @@ def list_workflows_by_app(
     return [
         {
             "id": str(w.id),
-            "app_id": w.app_id,
+            "app_id": str(w.app_id),
             "created_at": w.created_at.isoformat(),
             "updated_at": w.updated_at.isoformat(),
         }
@@ -424,7 +422,7 @@ def sync_draft_workflow(
     # 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
-    if workflow and workflow.created_by != str(current_user.id):
+    if workflow and workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return WorkflowService.save_draft(
@@ -447,7 +445,7 @@ def get_draft_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    if workflow.created_by != str(current_user.id):
+    if workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return WorkflowService.get_draft(db, workflow_id)
@@ -469,7 +467,7 @@ async def execute_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    if workflow.created_by != str(current_user.id):
+    if workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     memory_mode_enabled = False
@@ -540,7 +538,7 @@ async def stream_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    if workflow.created_by != str(current_user.id):
+    if workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     # 2. Request에서 FormData 파싱
