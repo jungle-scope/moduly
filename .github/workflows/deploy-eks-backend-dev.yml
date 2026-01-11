@@ -1,0 +1,83 @@
+name: Deploy to EKS Dev (Backend)
+
+on:
+  push:
+    branches:
+      - refactor/KAN-373  # dev namespace에 배포
+    paths:
+      - 'apps/server/**'
+      - 'docker/server/**'
+  
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: moduly-server
+  EKS_CLUSTER_NAME: moduly-cluster
+  DEPLOYMENT_NAME: api-server
+  NAMESPACE: dev
+  IMAGE_TAG_PREFIX: dev
+
+jobs:
+  deploy-backend:
+    name: Build & Deploy Backend to EKS (Dev)
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 1. 코드 체크아웃
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # 2. AWS 자격 증명 설정
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    # 3. ECR 로그인
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    # 4. Docker 이미지 빌드 & 푸시
+    - name: Build, tag, and push image to ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # dev 브랜치용 이미지 태그
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-$IMAGE_TAG -f docker/server/Dockerfile .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-$IMAGE_TAG
+        
+        # dev-latest 태그도 푸시
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    # 5. kubectl 설정
+    - name: Configure kubectl
+      run: |
+        aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+    
+    # 6. Deployment 이미지 업데이트
+    - name: Update Kubernetes deployment
+      run: |
+        kubectl set image deployment/$DEPLOYMENT_NAME \
+          api-server=${{ steps.build-image.outputs.image }} \
+          -n $NAMESPACE \
+          --record
+    
+    # 7. Rollout 성공 확인
+    - name: Wait for rollout to complete
+      run: |
+        kubectl rollout status deployment/$DEPLOYMENT_NAME -n $NAMESPACE
+        
+    # 8. 배포 검증
+    - name: Verify deployment
+      run: |
+        kubectl get pods -l app=api-server -n $NAMESPACE
+        kubectl logs deployment/$DEPLOYMENT_NAME -n $NAMESPACE --tail=50

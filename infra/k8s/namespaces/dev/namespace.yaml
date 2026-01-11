@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+  labels:
+    environment: development
+    team: moduly
+---
+# ResourceQuota: 개발 환경 리소스 사용량 제한
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: dev
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    pods: "20"
+---
+# LimitRange: 개별 Pod/Container 리소스 제한
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: dev-limits
+  namespace: dev
+spec:
+  limits:
+  - max:
+      cpu: "1"
+      memory: 1Gi
+    min:
+      cpu: "100m"
+      memory: 128Mi
+    type: Container

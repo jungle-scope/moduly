@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+  namespace: dev
+  labels:
+    app: api-server
+    environment: development
+spec:
+  replicas: 1  # 개발 환경은 replica 1개로 축소
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+    spec:
+      serviceAccountName: api-server-sa  # IRSA 연결
+      containers:
+      - name: api-server
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:dev-latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DB_HOST
+          value: postgresql.default.svc.cluster.local
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: moduly_dev  # 개발 환경용 별도 DB
+        - name: DB_USER
+          value: postgres
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        - name: REDIS_HOST
+          value: redis-master.default.svc.cluster.local
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: REDIS_PASSWORD
+        - name: CORS_ORIGINS
+          value: "https://dev.moduly-ai.cloud,http://localhost:3000,http://127.0.0.1:3000"
+        - name: SECRET_KEY
+          value: "dev_secret_key_moduly"
+        # Sandbox 설정
+        - name: SANDBOX_URL
+          value: "http://sandbox-service.default:8194"
+        - name: SANDBOX_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: SANDBOX_API_KEY
+        # 외부 DB 연동 설정
+        - name: MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: MASTER_KEY
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: ENCRYPTION_KEY
+        # S3 설정 (IRSA)
+        - name: RAG_INGESTION_MODE
+          value: "PROD"
+        - name: S3_BUCKET_NAME
+          value: "moduly-dev-file-upload"
+        - name: AWS_REGION
+          value: "ap-northeast-2"
+        # 소셜 로그인 관련 설정
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GOOGLE_CLIENT_ID
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GOOGLE_CLIENT_SECRET
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: dev
+spec:
+  selector:
+    app: api-server
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP
