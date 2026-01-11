@@ -111,14 +111,10 @@ class IngestionOrchestrator:
 
     def process_document(self, document_id: UUID):
         print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
-        print(f"[DEBUG] DB session active: {self.db is not None}")
         doc = self.db.query(Document).get(document_id)
         if not doc:
             print(f"[DEBUG] Document {document_id} not found.")
             return
-
-        print(f"[DEBUG] Document found - source_type: {doc.source_type}")
-        print(f"[DEBUG] meta_info: {doc.meta_info}")
 
         # 초기 상태 저장 (업데이트 전)
         initial_status = doc.status
@@ -131,12 +127,8 @@ class IngestionOrchestrator:
             print(f"[DEBUG] Processor created: {type(processor).__name__}")
 
             source_config = self._build_config(doc)
-            print(f"[DEBUG] Built config: {source_config}")
 
             result = processor.process(source_config)
-            print(
-                f"[DEBUG] Processor result - chunks: {len(result.chunks)}, metadata: {result.metadata}"
-            )
 
             if result.metadata.get("error"):
                 raise Exception(result.metadata["error"])
@@ -163,9 +155,12 @@ class IngestionOrchestrator:
             doc.content_hash = new_hash
             self.db.commit()
 
-            final_chunks = self._refine_chunks(raw_blocks)
+            if doc.source_type == "DB":
+                final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
+            else:
+                final_chunks = self._refine_chunks(raw_blocks)
 
-            # [NEW] 필터링 적용
+            # 필터링 적용
             meta = doc.meta_info or {}
             selection_mode = meta.get("selection_mode", "all")
             chunk_range = meta.get("chunk_range")
@@ -363,10 +358,23 @@ class IngestionOrchestrator:
                 config.update(config["db_config"])
         return config
 
-    def _refine_chunks(self, raw_blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _refine_chunks(
+        self, raw_blocks: List[Dict[str, Any]], override_chunk_size: int = None
+    ) -> List[Dict[str, Any]]:
         refined = []
+
+        # 청크 사이즈 오버라이드 (DB 대형 Row 처리 등)
+        splitter = self.text_splitter
+        if override_chunk_size is not None:
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=override_chunk_size,
+                chunk_overlap=self.text_splitter._chunk_overlap,
+                separators=self.text_splitter._separators,
+                keep_separator=self.text_splitter._keep_separator,
+            )
+
         for block in raw_blocks:
-            splits = self.text_splitter.split_text(block["content"])
+            splits = splitter.split_text(block["content"])
             original_meta = block.get("metadata", {})
             for split in splits:
                 new_meta = original_meta.copy()
