@@ -10,6 +10,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
 from db.models.knowledge import Document, DocumentChunk, SourceType
+from db.session import SessionLocal  # [NEW] 세션 관리를 위해 추가
 from services.ingestion.factory import IngestionFactory
 from services.storage import get_storage_service  # [NEW]
 
@@ -110,17 +111,29 @@ class IngestionOrchestrator:
         return chunks
 
     def process_document(self, document_id: UUID):
-        print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
-        doc = self.db.query(Document).get(document_id)
-        if not doc:
-            print(f"[DEBUG] Document {document_id} not found.")
-            return
-
-        # 초기 상태 저장 (업데이트 전)
-        initial_status = doc.status
+        # [CRITICAL] 백그라운드 작업 시 API 요청 세션(self.db)은 이미 닫혔을 수 있음.
+        # 따라서 독립적인 세션을 새로 생성하여 사용.
+        session = SessionLocal()
+        self.db = session
 
         try:
+            print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
+            doc = self.db.query(Document).get(document_id)
+            if not doc:
+                print(f"[DEBUG] Document {document_id} not found.")
+                return
+
+            # 초기 상태 저장 (업데이트 전)
+            initial_status = doc.status
+
+            # 이미 처리된 문서인지 확인 (중복 방지)
+            if doc.status == "completed":
+                # 재처리 강제 여부 체크 필요하지만, 일단 로직 유지
+                pass
+
             self._update_status(document_id, "indexing")
+
+            # 1. 문서 소스 타입에 맞는 Processor 생성
             processor = IngestionFactory.get_processor(
                 doc.source_type, self.db, self.user_id
             )
@@ -155,6 +168,8 @@ class IngestionOrchestrator:
             doc.content_hash = new_hash
             self.db.commit()
 
+            # DB 타입인 경우: 템플릿 구조 보존을 위해 무조건적인 재청킹을 피함
+            # 8000 토큰(OpenAI 임베딩 안전 한계)을 넘는 초대형 Row만 분할하도록 설정
             if doc.source_type == "DB":
                 final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
             else:
@@ -184,6 +199,10 @@ class IngestionOrchestrator:
             print(f"[IngestionOrchestrator] Failed: {e}")
             self.db.rollback()
             self._update_status(document_id, "failed", str(e))
+
+        finally:
+            if session:
+                session.close()
 
     def resume_processing(self, document_id: UUID, strategy: str):
         """
@@ -465,6 +484,12 @@ class IngestionOrchestrator:
                 f"[DEBUG] Processing batch {batch_idx + 1}/{len(batches)} ({len(batch_texts)} texts)..."
             )
 
+            # [NEW] 진행률 업데이트 (임베딩 80% 비중)
+            # 전체 청크 중 현재 배치까지의 비율 * 80%
+            current_processed = sum(len(b) for b in batches[: batch_idx + 1])
+            progress = int((current_processed / len(chunks)) * 80)
+            self._update_status(doc.id, "indexing", progress=progress)
+
             if llm_client:
                 try:
                     # 배치 임베딩 호출
@@ -497,6 +522,10 @@ class IngestionOrchestrator:
         for i, chunk in enumerate(chunks):
             if (i + 1) % 50 == 0:
                 print(f"[DEBUG] {i + 1}/{len(chunks)} 개의 청크 암호화 중...")
+                # [NEW] 진행률 업데이트 (나머지 20% 비중)
+                # 80% + (현재 저장 비율 * 20%)
+                progress = 80 + int(((i + 1) / len(chunks)) * 20)
+                self._update_status(doc.id, "indexing", progress=progress)
 
             content = chunk["content"]
             embedding = all_embeddings.get(i, [0.1] * 1536)
@@ -541,10 +570,23 @@ class IngestionOrchestrator:
         self.db.commit()
         print(f"Saved {len(new_chunks)} chunks to Vector DB.")
 
-    def _update_status(self, document_id: UUID, status: str, error_message: str = None):
+    def _update_status(
+        self,
+        document_id: UUID,
+        status: str,
+        error_message: str = None,
+        progress: int = None,
+    ):
         doc = self.db.query(Document).get(document_id)
         if doc:
             doc.status = status
             doc.error_message = error_message
             doc.updated_at = datetime.now(timezone.utc)
+
+            # 진행률 업데이트 (meta_info 활용)
+            if progress is not None:
+                new_meta = dict(doc.meta_info or {})
+                new_meta["progress"] = progress
+                doc.meta_info = new_meta
+
             self.db.commit()
