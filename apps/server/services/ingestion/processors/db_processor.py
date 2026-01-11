@@ -184,7 +184,7 @@ class DbProcessor(BaseProcessor):
 
             transformer = DbNlTransformer()
 
-            # ✨ Adaptive Chunker 초기화
+            # Adaptive Chunker 초기화
             enable_chunking = source_config.get("enable_auto_chunking", True)
             chunk_settings = source_config.get("chunk_settings", {})
 
@@ -193,99 +193,122 @@ class DbProcessor(BaseProcessor):
                 chunk_overlap=chunk_settings.get("overlap", 150),
             )
 
-            for selection in selections:
-                table_name = selection["table_name"]
-                columns = selection.get("columns", ["*"])  # 컬럼 선택
-                limit = source_config.get("limit", 1000)
-
-                # 템플릿 설정
-                template = selection.get("template", None)
-                aliases = selection.get("aliases", {})
-                sensitive_columns = selection.get("sensitive_columns", [])
-
-                # 템플릿 검증
-                if template and aliases:
-                    from utils.template_utils import validate_template
-
-                    is_valid, error_msg = validate_template(template, aliases)
-                    if not is_valid:
-                        raise Exception(f"Template validation failed: {error_msg}")
-
-                # COUNT(*) - 전체 개수 파악 (진행률 표시용)
-                count_query = f"SELECT COUNT(*) as total FROM {table_name}"
-                total_rows = 0
-                try:
-                    for row in connector.fetch_data(config_dict, count_query):
-                        total_rows = row.get("total", 0)
-                        break
-                except Exception as e:
-                    print(f"[WARNING] COUNT(*) failed: {e}")
-                    total_rows = limit  # Fallback
-
-                print(
-                    f"[INFO] Processing {table_name}: {total_rows} rows (max {limit})"
+            # JOIN 모드 체크
+            join_config = source_config.get("join_config", {})
+            if join_config.get("enabled", False) and len(selections) == 2:
+                # 2테이블 JOIN 모드
+                logger.info(
+                    f"Processing with JOIN mode: {selections[0]['table_name']} + {selections[1]['table_name']}"
                 )
+                join_chunks = self._process_with_join(
+                    connector,
+                    config_dict,
+                    selections,
+                    join_config,
+                    source_config,
+                    conn_record,
+                    transformer,
+                    chunker,
+                )
+                chunks.extend(join_chunks)
+            else:
+                # 기존 방식: 각 테이블 독립 처리
+                logger.info(f"Processing {len(selections)} table(s) independently")
+                for selection in selections:
+                    table_name = selection["table_name"]
+                    columns = selection.get("columns", ["*"])  # 컬럼 선택
+                    limit = source_config.get("limit", 1000)
 
-                # 쿼리 생성
-                req_cols = ", ".join(columns)
-                query = f"SELECT {req_cols} FROM {table_name} LIMIT {limit}"
+                    # 템플릿 설정
+                    template = selection.get("template", None)
+                    aliases = selection.get("aliases", {})
+                    sensitive_columns = selection.get("sensitive_columns", [])
 
-                # 커넥터 실행 (Generator)
-                row_count = 0
-                for row_dict in connector.fetch_data(config_dict, query):
-                    row_count += 1
+                    # 템플릿 검증
+                    if template and aliases:
+                        from utils.template_utils import validate_template
 
-                    # 진행률 로깅 (100개마다)
-                    if row_count % 100 == 0:
-                        progress = (
-                            (row_count / total_rows) * 100 if total_rows > 0 else 0
-                        )
-                        print(f"[Progress] {row_count}/{total_rows} ({progress:.1f}%)")
+                        is_valid, error_msg = validate_template(template, aliases)
+                        if not is_valid:
+                            raise Exception(f"Template validation failed: {error_msg}")
 
-                    # 텍스트 변환 (Transformer - Jinja2 템플릿)
-                    nl_text = transformer.transform(
-                        row_dict, template_str=template, aliases=aliases
+                    # COUNT(*) - 전체 개수 파악 (진행률 표시용)
+                    count_query = f"SELECT COUNT(*) as total FROM {table_name}"
+                    total_rows = 0
+                    try:
+                        for row in connector.fetch_data(config_dict, count_query):
+                            total_rows = row.get("total", 0)
+                            break
+                    except Exception as e:
+                        print(f"[WARNING] COUNT(*) failed: {e}")
+                        total_rows = limit  # Fallback
+
+                    print(
+                        f"[INFO] Processing {table_name}: {total_rows} rows (max {limit})"
                     )
 
-                    # 원본 데이터 암호화 (민감 필드만)
-                    from utils.encryption import encryption_manager
+                    # 쿼리 생성
+                    req_cols = ", ".join(columns)
+                    query = f"SELECT {req_cols} FROM {table_name} LIMIT {limit}"
 
-                    # ✨ Decimal/datetime 등을 JSON 직렬화 가능한 타입으로 변환
-                    original_data = self._convert_to_json_serializable(row_dict)
+                    # 커넥터 실행 (Generator)
+                    row_count = 0
+                    for row_dict in connector.fetch_data(config_dict, query):
+                        row_count += 1
 
-                    # 민감 컬럼 암호화
-                    for col in sensitive_columns:
-                        if col in original_data and original_data[col] is not None:
-                            original_data[col] = encryption_manager.encrypt(
-                                str(original_data[col])
+                        # 진행률 로깅 (100개마다)
+                        if row_count % 100 == 0:
+                            progress = (
+                                (row_count / total_rows) * 100 if total_rows > 0 else 0
+                            )
+                            print(
+                                f"[Progress] {row_count}/{total_rows} ({progress:.1f}%)"
                             )
 
-                    # 메타데이터 구성
-                    metadata = {
-                        "source": f"DB:{conn_record.name}:{table_name}",
-                        "table": table_name,
-                        "row_index": row_count,
-                        "original_data": original_data,  # 원본 데이터 (민감 필드 암호화)
-                        "sensitive_columns": sensitive_columns,
-                    }
-
-                    # ✨ Adaptive Chunking 적용
-                    try:
-                        row_chunks = chunker.chunk_if_needed(
-                            text=nl_text,
-                            metadata=metadata,
-                            enable_chunking=enable_chunking,
+                        # 텍스트 변환 (Transformer - Jinja2 템플릿)
+                        nl_text = transformer.transform(
+                            row_dict, template_str=template, aliases=aliases
                         )
 
-                        chunks.extend(row_chunks)
+                        # 원본 데이터 암호화 (민감 필드만)
+                        from utils.encryption import encryption_manager
 
-                    except ValueError as e:
-                        # 텍스트 너무 길 경우 에러 로깅
-                        logger.error(f"Row {row_count} chunking failed: {e}")
-                        # Skip this row or handle appropriately
-                        continue
+                        # ✨ Decimal/datetime 등을 JSON 직렬화 가능한 타입으로 변환
+                        original_data = self._convert_to_json_serializable(row_dict)
 
-                print(f"[INFO] Completed {table_name}: {row_count} chunks created")
+                        # 민감 컬럼 암호화
+                        for col in sensitive_columns:
+                            if col in original_data and original_data[col] is not None:
+                                original_data[col] = encryption_manager.encrypt(
+                                    str(original_data[col])
+                                )
+
+                        # 메타데이터 구성
+                        metadata = {
+                            "source": f"DB:{conn_record.name}:{table_name}",
+                            "table": table_name,
+                            "row_index": row_count,
+                            "original_data": original_data,  # 원본 데이터 (민감 필드 암호화)
+                            "sensitive_columns": sensitive_columns,
+                        }
+
+                        # ✨ Adaptive Chunking 적용
+                        try:
+                            row_chunks = chunker.chunk_if_needed(
+                                text=nl_text,
+                                metadata=metadata,
+                                enable_chunking=enable_chunking,
+                            )
+
+                            chunks.extend(row_chunks)
+
+                        except ValueError as e:
+                            # 텍스트 너무 길 경우 에러 로깅
+                            logger.error(f"Row {row_count} chunking failed: {e}")
+                            # Skip this row or handle appropriately
+                            continue
+
+                    print(f"[INFO] Completed {table_name}: {row_count} chunks created")
         except Exception as e:
             return ProcessingResult(chunks=[], metadata={"error": str(e)})
         return ProcessingResult(
@@ -299,3 +322,65 @@ class DbProcessor(BaseProcessor):
             return PostgresConnector()
         # 추후 mysql, oracle 등 추가
         return None
+
+    def _process_with_join(
+        self,
+        connector,
+        config_dict,
+        selections,
+        join_config,
+        source_config,
+        conn_record,
+        transformer,
+        chunker,
+    ):
+        """2테이블 JOIN 모드 처리"""
+        from jinja2 import Template
+
+        from utils.join_query_utils import convert_to_namespace, generate_join_query
+
+        chunks = []
+        limit = source_config.get("limit", 1000)
+        enable_chunking = source_config.get("enable_auto_chunking", True)
+        # JOIN 쿼리 생성
+        query = generate_join_query(selections, join_config, limit)
+        logger.info(f"Generated JOIN query: {query[:200]}...")
+        # 템플릿 (전역 템플릿 사용)
+        template_str = source_config.get("template", None)
+        row_count = 0
+        for row_dict in connector.fetch_data(config_dict, query):
+            row_count += 1
+            if row_count % 100 == 0:
+                logger.info(f"JOIN processing: {row_count} rows")
+            # 네임스페이스 변환
+            namespaced_data = convert_to_namespace(row_dict)
+            # 템플릿 렌더링
+            if template_str:
+                try:
+                    template = Template(template_str)
+                    nl_text = template.render(**namespaced_data)
+                except Exception as e:
+                    logger.error(f"Template rendering failed: {e}")
+                    nl_text = str(namespaced_data)
+            else:
+                nl_text = str(namespaced_data)
+            # 메타데이터
+            metadata = {
+                "source": f"DB:{conn_record.name}:JOIN",
+                "tables": [s["table_name"] for s in selections],
+                "row_index": row_count,
+                "original_data": self._convert_to_json_serializable(row_dict),
+            }
+            # 청킹
+            try:
+                row_chunks = chunker.chunk_if_needed(
+                    text=nl_text,
+                    metadata=metadata,
+                    enable_chunking=enable_chunking,
+                )
+                chunks.extend(row_chunks)
+            except ValueError as e:
+                logger.error(f"JOIN row {row_count} chunking failed: {e}")
+                continue
+        logger.info(f"JOIN completed: {row_count} rows, {len(chunks)} chunks")
+        return chunks
