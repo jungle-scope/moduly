@@ -6,6 +6,7 @@ on:
       - refactor/KAN-373  # dev namespace에 배포
     paths:
       - 'apps/server/**'
+      - 'apps/gateway/**'
       - 'docker/server/**'
   
   workflow_dispatch:

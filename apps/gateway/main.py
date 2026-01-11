@@ -13,12 +13,13 @@ if GATEWAY_ENV_PATH.exists():
 
 import os
 
-from api.api import api_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from lifespan import lifespan
 from starlette.middleware.sessions import SessionMiddleware
+
+from api.api import api_router
+from lifespan import lifespan
 
 app = FastAPI(title="Moduly API Gateway", lifespan=lifespan)
 
@@ -41,7 +42,7 @@ app.add_middleware(
     https_only=os.getenv("NODE_ENV") == "production",  # 배포 환경에서는 Secure 쿠키
 )
 
-# 정적 파일 서빙 (widget.js)
+# 정적 파일 서빙
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # API 라우터 등록

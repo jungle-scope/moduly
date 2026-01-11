@@ -6,6 +6,7 @@ on:
       - develop  # test 브랜치 푸시 시 자동 배포
     paths:
       - 'apps/server/**'
+      - 'apps/gateway/**'
       - 'docker/server/**'
   
   workflow_dispatch:  # 수동 실행 가능

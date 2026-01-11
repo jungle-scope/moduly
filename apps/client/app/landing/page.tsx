@@ -287,7 +287,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-blue-100">
-      {/* ------------------- Navbar ------------------- */}
+      {/* ------------------ Navbar ------------------ */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/60 lg:px-8 px-4 h-16 flex items-center justify-between transition-all duration-300">
         <div className="flex items-center gap-8">
           {/* Logo */}
