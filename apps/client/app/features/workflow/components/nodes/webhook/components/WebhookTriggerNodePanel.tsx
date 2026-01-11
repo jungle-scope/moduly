@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   WebhookTriggerNodeData,
   VariableMapping,
 } from '../../../../types/Nodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
-import { Plus, Copy, Trash2 } from 'lucide-react';
+import { Plus, Copy, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { appApi } from '@/app/features/app/api/appApi';
 import { webhookApi } from '@/app/features/workflow/api/webhookApi';
@@ -14,6 +15,68 @@ import { PayloadViewerModal } from './PayloadViewerModal';
 interface WebhookTriggerNodePanelProps {
   nodeId: string;
   data: WebhookTriggerNodeData;
+}
+
+// 간단한 Portal Tooltip 컴포넌트
+function PortalTooltip({
+  content,
+  children,
+  className,
+}: {
+  content: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
+
+      // 화면 오른쪽 끝에서 잘리는 것 방지
+      const tooltipWidth = 240; // 예상 너비 (w-60 ~ 240px)
+      let left = rect.left + scrollX + rect.width / 2 - tooltipWidth + 20; // 기본: 우측 정렬 느낌으로
+      if (left < 10) left = 10; // 왼쪽 화면 밖 방지
+
+      setCoords({
+        top: rect.bottom + scrollY + 5,
+        left: left,
+      });
+      setIsVisible(true);
+    }
+  };
+
+  return (
+    <>
+      <div
+        ref={triggerRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setIsVisible(false)}
+        className={className || 'inline-flex items-center'}
+      >
+        {children}
+      </div>
+      {isVisible &&
+        createPortal(
+          <div
+            style={{
+              position: 'absolute',
+              top: coords.top,
+              left: coords.left,
+              zIndex: 9999,
+            }}
+            className="w-60 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-normal break-keep"
+          >
+            {content}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
 }
 
 /**
@@ -30,6 +93,12 @@ export function WebhookTriggerNodePanel({
 
   const [isCaptureMode, setIsCaptureMode] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('');
+  const [webhookUrlWithToken, setWebhookUrlWithToken] = useState<string>('');
+  const [authSecret, setAuthSecret] = useState<string>('');
+  const [showSecret, setShowSecret] = useState(false);
+  const [urlFormat, setUrlFormat] = useState<'integrated' | 'standard'>(
+    'standard',
+  ); // 통합 URL vs 표준 API
   const [isLoadingUrl, setIsLoadingUrl] = useState(true);
   const [urlSlug, setUrlSlug] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,10 +128,19 @@ export function WebhookTriggerNodePanel({
         const app = await appApi.getApp(appId);
         if (app.url_slug) {
           setUrlSlug(app.url_slug);
-          const baseUrl = window.location.origin; // 추후 gateway 등록시 수정 필요
-          const token = app.auth_secret || '[auth-secret]';
-          const url = `${baseUrl}/api/v1/hooks/${app.url_slug}?token=${token}`;
+          const baseUrl = window.location.origin;
+          const secret = app.auth_secret || '[auth-secret]';
+
+          // 분리 방식: URL만
+          const url = `${baseUrl}/api/v1/hooks/${app.url_slug}`;
           setWebhookUrl(url);
+
+          // 통합 방식: URL + Query Parameter
+          const urlWithToken = `${baseUrl}/api/v1/hooks/${app.url_slug}?token=${secret}`;
+          setWebhookUrlWithToken(urlWithToken);
+
+          // Secret 저장
+          setAuthSecret(secret);
         } else {
           setWebhookUrl('URL Slug가 없습니다');
         }
@@ -77,10 +155,6 @@ export function WebhookTriggerNodePanel({
     fetchAppAndGenerateUrl();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleProviderChange = (provider: 'jira' | 'custom') => {
-    updateNodeData(nodeId, { provider });
-  };
 
   const handleAddMapping = () => {
     const newMapping: VariableMapping = {
@@ -115,6 +189,20 @@ export function WebhookTriggerNodePanel({
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(webhookUrl);
     toast.success('Webhook URL이 클립보드에 복사되었습니다!', {
+      duration: 2000,
+    });
+  };
+
+  const handleCopySecret = () => {
+    navigator.clipboard.writeText(authSecret);
+    toast.success('Secret Key가 클립보드에 복사되었습니다!', {
+      duration: 2000,
+    });
+  };
+
+  const handleCopyFullUrl = () => {
+    navigator.clipboard.writeText(webhookUrlWithToken);
+    toast.success('통합 URL이 클립보드에 복사되었습니다!', {
       duration: 2000,
     });
   };
@@ -208,61 +296,187 @@ export function WebhookTriggerNodePanel({
       />
       <div className="flex flex-col gap-2">
         {/* Webhook URL Section */}
-        <CollapsibleSection title="Webhook URL">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={isLoadingUrl ? '로딩 중...' : webhookUrl}
-                readOnly
-                className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50"
-              />
-              <button
-                onClick={handleCopyUrl}
-                disabled={isLoadingUrl}
-                className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                title="Copy URL"
-              >
-                <Copy className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-            {!isCaptureMode ? (
-              <button
-                onClick={handleStartCapture}
-                disabled={isLoadingUrl || !urlSlug}
-                className="w-full px-4 py-2 text-sm font-medium text-white bg-purple-500 rounded hover:bg-purple-600 disabled:bg-gray-300 transition-colors"
-              >
-                캡처 시작
-              </button>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded border border-purple-200">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                  수신 대기 중...
-                </div>
-                <button
-                  onClick={handleCancelCapture}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+        <CollapsibleSection
+          title={
+            <div className="flex items-center gap-1.5">
+              <span>웹훅 테스트</span>
+              <div className="relative group flex items-center translate-y-[0.5px]">
+                <PortalTooltip
+                  content={
+                    <div className="space-y-2">
+                      <div>
+                        캡처 시작 버튼을 누르고 트리거를 작동 시키면, 들어오는
+                        JSON 구조를 자동으로 분석합니다. 필요한 값을 선택하여
+                        변수로 자동매핑 해보세요.
+                      </div>
+                    </div>
+                  }
                 >
-                  취소
-                </button>
+                  <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                </PortalTooltip>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-0">
+            {/* URL 형식 토글 */}
+            <div className="pb-3">
+              <div className="flex w-full rounded-md border border-gray-300 bg-gray-50 p-0.5">
+                <PortalTooltip
+                  className="flex-1 flex"
+                  content={
+                    <div>
+                      <strong className="text-purple-300">통합 URL:</strong>{' '}
+                      Jira, Slack 등 URL만 입력 가능한 서비스용 (인증키 포함)
+                    </div>
+                  }
+                >
+                  <button
+                    onClick={() => setUrlFormat('integrated')}
+                    className={`flex-1 px-4 py-1.5 text-xs font-medium rounded transition-colors ${
+                      urlFormat === 'integrated'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    통합 URL
+                  </button>
+                </PortalTooltip>
+                <PortalTooltip
+                  className="flex-1 flex"
+                  content={
+                    <div>
+                      <strong className="text-blue-300">표준 API:</strong> 자체
+                      개발, GitHub 등 보안과 헤더 설정이 필요한 환경용 (권장)
+                    </div>
+                  }
+                >
+                  <button
+                    onClick={() => setUrlFormat('standard')}
+                    className={`flex-1 px-4 py-1.5 text-xs font-medium rounded transition-colors ${
+                      urlFormat === 'standard'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    표준 API
+                  </button>
+                </PortalTooltip>
+              </div>
+            </div>
+
+            {/* 통합 URL 방식 */}
+            {urlFormat === 'integrated' && (
+              <div className="pt-2">
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">
+                  Webhook URL
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={isLoadingUrl ? '로딩 중...' : webhookUrlWithToken}
+                    readOnly
+                    className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50"
+                  />
+                  <button
+                    onClick={handleCopyFullUrl}
+                    disabled={isLoadingUrl}
+                    className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                    title="Copy URL"
+                  >
+                    <Copy className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
               </div>
             )}
-          </div>
-        </CollapsibleSection>
 
-        {/* Provider Section */}
-        <CollapsibleSection title="연동 서비스">
-          <select
-            value={data.provider}
-            onChange={(e) =>
-              handleProviderChange(e.target.value as 'jira' | 'custom')
-            }
-            className="w-full px-3 py-2 text-sm border rounded bg-white hover:border-purple-400 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
-          >
-            <option value="custom">Custom</option>
-            <option value="jira">Jira</option>
-          </select>
+            {/* 표준 API 방식 */}
+            {urlFormat === 'standard' && (
+              <>
+                <div className="pt-4">
+                  <label className="text-xs font-medium text-gray-700 mb-1.5 block">
+                    Webhook URL
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={isLoadingUrl ? '로딩 중...' : webhookUrl}
+                      readOnly
+                      className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50"
+                    />
+                    <button
+                      onClick={handleCopyUrl}
+                      disabled={isLoadingUrl}
+                      className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                      title="Copy URL"
+                    >
+                      <Copy className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <label className="text-xs font-medium text-gray-700 mb-1.5 block">
+                    Secret Key
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type={showSecret ? 'text' : 'password'}
+                      value={isLoadingUrl ? '로딩 중...' : authSecret}
+                      readOnly
+                      className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50 font-mono"
+                    />
+                    <button
+                      onClick={() => setShowSecret(!showSecret)}
+                      disabled={isLoadingUrl}
+                      className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                      title={showSecret ? 'Hide' : 'Show'}
+                    >
+                      {showSecret ? (
+                        <EyeOff className="w-4 h-4 text-gray-600" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-gray-600" />
+                      )}
+                    </button>
+                    <button
+                      onClick={handleCopySecret}
+                      disabled={isLoadingUrl}
+                      className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                      title="Copy Secret"
+                    >
+                      <Copy className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 캡처 버튼 */}
+            <div className="pt-4">
+              {!isCaptureMode ? (
+                <button
+                  onClick={handleStartCapture}
+                  disabled={isLoadingUrl || !urlSlug}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-purple-500 rounded hover:bg-purple-600 disabled:bg-gray-300 transition-colors"
+                >
+                  캡처 시작
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded border border-purple-200">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                    수신 대기 중...
+                  </div>
+                  <button
+                    onClick={handleCancelCapture}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    취소
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </CollapsibleSection>
 
         {/* Variable Mapping Section */}
