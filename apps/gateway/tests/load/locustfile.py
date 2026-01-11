@@ -3,10 +3,10 @@ Locust 워크플로우 부하 테스트
 
 사용법:
   # Web UI 모드 (브라우저에서 http://localhost:8089 접속)
-  locust -f apps/server/tests/load/locustfile.py --host=http://localhost:8000
+  locust -f apps/gateway/tests/load/locustfile.py --host=http://localhost:8000
 
   # Headless 모드
-  locust -f apps/server/tests/load/locustfile.py --host=http://localhost:8000 \
+  locust -f apps/gateway/tests/load/locustfile.py --host=http://localhost:8000 \
     --headless --users 10 --spawn-rate 2 --run-time 30s
 
 환경변수 (.env):

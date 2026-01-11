@@ -26,6 +26,7 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 ```
 
 **기술 스택:**
+
 - **프론트엔드:** Next.js 16, TypeScript, TailwindCSS, React Flow, Zustand
 - **백엔드:** FastAPI, SQLAlchemy, PostgreSQL, LangChain
 - **인프라:** Docker, Kubernetes
@@ -39,17 +40,20 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 ### 설치 방법
 
 1. **저장소 클론**
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/moduly.git
    cd moduly
    ```
 
 2. **모든 서비스 시작**
+
    ```bash
    docker compose -f docker/docker-compose.yml up -d
    ```
 
 3. **애플리케이션 접속**
+
    - 프론트엔드: http://localhost:3000
    - 백엔드 API: http://localhost:8000
    - API 문서: http://localhost:8000/docs
@@ -80,6 +84,7 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 ### 배포 옵션
 
 **REST API**
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/run/{url_slug} \
   -H "Content-Type: application/json" \
@@ -99,13 +104,15 @@ curl -X POST http://localhost:8000/api/v1/run/{url_slug} \
 활발한 개발을 위해 서비스를 개별적으로 실행할 수 있습니다:
 
 1. **데이터베이스만 시작**
+
    ```bash
    docker compose -f docker-compose.dev.yml up -d
    ```
 
 2. **백엔드 로컬 실행**
+
    ```bash
-   cd apps/server
+   cd apps/gateway
    python -m venv .venv
    source .venv/bin/activate  # Windows: .venv\Scripts\activate
    pip install -r requirements.txt
@@ -123,7 +130,7 @@ curl -X POST http://localhost:8000/api/v1/run/{url_slug} \
 
 ```bash
 # 백엔드 테스트
-cd apps/server
+cd apps/gateway
 pytest
 
 # 프론트엔드 테스트
@@ -131,7 +138,7 @@ cd apps/client
 npm run test
 
 # 린팅
-cd apps/server
+cd apps/gateway
 ruff check .
 
 cd apps/client
