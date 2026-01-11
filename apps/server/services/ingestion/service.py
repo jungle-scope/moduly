@@ -406,7 +406,7 @@ class IngestionOrchestrator:
         # 토큰 기반 배치 구성
         # ========================================
         MAX_TOKENS_PER_TEXT = 8000  # 개별 텍스트 최대 (안전 마진 191)
-        MAX_TEXTS_PER_BATCH = 100  # 배치당 최대 텍스트 개수
+        MAX_TEXTS_PER_BATCH = 50  # 배치당 최대 텍스트 개수
 
         batches = []
         current_batch = []
