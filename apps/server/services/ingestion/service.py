@@ -10,7 +10,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
 from db.models.knowledge import Document, DocumentChunk, SourceType
-from db.session import SessionLocal  # [NEW] 세션 관리를 위해 추가
+from db.session import SessionLocal
 from services.ingestion.factory import IngestionFactory
 from services.storage import get_storage_service  # [NEW]
 
@@ -111,8 +111,6 @@ class IngestionOrchestrator:
         return chunks
 
     def process_document(self, document_id: UUID):
-        # [CRITICAL] 백그라운드 작업 시 API 요청 세션(self.db)은 이미 닫혔을 수 있음.
-        # 따라서 독립적인 세션을 새로 생성하여 사용.
         session = SessionLocal()
         self.db = session
 
@@ -128,12 +126,11 @@ class IngestionOrchestrator:
 
             # 이미 처리된 문서인지 확인 (중복 방지)
             if doc.status == "completed":
-                # 재처리 강제 여부 체크 필요하지만, 일단 로직 유지
                 pass
 
             self._update_status(document_id, "indexing")
 
-            # 1. 문서 소스 타입에 맞는 Processor 생성
+            # 문서 소스 타입에 맞는 Processor 생성
             processor = IngestionFactory.get_processor(
                 doc.source_type, self.db, self.user_id
             )
@@ -168,8 +165,6 @@ class IngestionOrchestrator:
             doc.content_hash = new_hash
             self.db.commit()
 
-            # DB 타입인 경우: 템플릿 구조 보존을 위해 무조건적인 재청킹을 피함
-            # 8000 토큰(OpenAI 임베딩 안전 한계)을 넘는 초대형 Row만 분할하도록 설정
             if doc.source_type == "DB":
                 final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
             else:
@@ -313,9 +308,37 @@ class IngestionOrchestrator:
             raise Exception(f"Processor Error: {result.metadata['error']}")
 
         raw_blocks = result.chunks
+
+        # DB인 경우 이미 Row 단위로 구조화되어 있으므로, Merge & Re-split 하지 않음
+        if source_type == SourceType.DB:
+            # 8000자 초과 시에만 분할
+            final_splits = self._refine_chunks(raw_blocks, override_chunk_size=8000)
+
+            # Tiktoken 인코더 준비
+            try:
+                encoding = tiktoken.encoding_for_model(self.ai_model)
+            except Exception:
+                encoding = tiktoken.get_encoding("cl100k_base")
+
+            preview = []
+            for block in final_splits:
+                content = block["content"]
+                preview.append(
+                    {
+                        "content": content,
+                        "token_count": len(encoding.encode(content)),
+                        "char_count": len(content),
+                    }
+                )
+
+            # 필터링 적용 후 반환
+            return self._filter_chunks(
+                preview, selection_mode, chunk_range, keyword_filter
+            )
+
+        # 2. 전처리
         full_text = "\n".join([b["content"] for b in raw_blocks])
 
-        # 2. Preprocessing (Legacy logic)
         if remove_urls_emails:
             full_text = re.sub(
                 r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
@@ -327,7 +350,7 @@ class IngestionOrchestrator:
             full_text = re.sub(r"[ \t]+", " ", full_text)
             full_text = re.sub(r"\n{3,}", "\n\n", full_text)
 
-        # 3. Chunking
+        # 3. 청킹
         separators = ["\n\n", "\n", ".", " ", ""]
         if segment_identifier:
             identifier = segment_identifier.replace("\\n", "\n")
@@ -342,7 +365,7 @@ class IngestionOrchestrator:
         )
         splits = splitter.split_text(full_text)
 
-        # 4. Return preview format
+        # 4. 미리보기 형식 반환
         try:
             encoding = tiktoken.encoding_for_model(self.ai_model)
         except Exception:
@@ -358,7 +381,7 @@ class IngestionOrchestrator:
                 }
             )
 
-        # [NEW] 필터링 적용
+        # 필터링 적용
         return self._filter_chunks(preview, selection_mode, chunk_range, keyword_filter)
 
     def _build_config(self, doc: Document) -> Dict[str, Any]:
