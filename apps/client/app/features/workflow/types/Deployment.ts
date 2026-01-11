@@ -10,6 +10,7 @@ export interface InputVariable {
   name: string;
   type: string;
   label: string;
+  required?: boolean;
 }
 
 export interface InputSchema {

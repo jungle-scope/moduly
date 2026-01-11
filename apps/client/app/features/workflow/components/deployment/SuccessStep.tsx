@@ -15,7 +15,9 @@ export function SuccessStep({
   deploymentType,
   onClose,
 }: SuccessStepProps) {
-  const [showSchemas, setShowSchemas] = useState(false);
+  const [inputValues, setInputValues] = useState<Record<string, any>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [testResponse, setTestResponse] = useState<string | null>(null);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -44,7 +46,7 @@ export function SuccessStep({
     ) {
       inputsExample = result.input_schema.variables.reduce(
         (acc, variable) => {
-          acc[variable.name] = '';
+          acc[variable.name] = inputValues[variable.name] || '';
           return acc;
         },
         {} as Record<string, string>,
@@ -65,6 +67,42 @@ export function SuccessStep({
 ${authHeader}  -d '{
     "inputs": ${inputsJson}
   }'`;
+  };
+
+  // Handle test execution
+  const handleTestExecute = async () => {
+    setIsLoading(true);
+    setTestResponse(null);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (result.auth_secret) {
+        headers['Authorization'] = `Bearer ${result.auth_secret}`;
+      }
+
+      const response = await fetch(`/api/v1/run/${result.url_slug}`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({ inputs: inputValues }),
+      });
+
+      const data = await response.json();
+      setTestResponse(JSON.stringify(data, null, 2));
+
+      if (response.ok) {
+        toast.success('테스트 실행 완료!', { duration: 1500 });
+      } else {
+        toast.error('API 호출 오류', { duration: 1500 });
+      }
+    } catch (error: any) {
+      setTestResponse(JSON.stringify({ error: error.message }, null, 2));
+      toast.error('테스트 실행 실패', { duration: 1500 });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -188,177 +226,180 @@ ${authHeader}  -d '{
           </div>
         )}
 
-        {/* API Deployment (default) */}
+        {/* API Deployment (default) - Two Column Layout */}
         {!result.webAppUrl && !result.embedUrl && !result.isWorkflowNode && (
-          <>
-            {/* API Endpoint */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                API Endpoint URL
-              </label>
-              <div className="flex gap-2">
-                <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
-                  {API_URL}
-                </code>
-                <button
-                  onClick={() => handleCopy(API_URL)}
-                  className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
-                >
-                  복사
-                </button>
-              </div>
-            </div>
-
-            {/* API Secret Key */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                API Secret Key
-              </label>
-              <div className="flex gap-2">
-                <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
-                  {result.auth_secret
-                    ? `${result.auth_secret.slice(0, 7)}${'•'.repeat(result.auth_secret.length - 7)}`
-                    : 'N/A (Public)'}
-                </code>
-                {result.auth_secret && (
+          <div className="grid grid-cols-2 gap-6">
+            {/* Left Column - API Information */}
+            <div className="space-y-4">
+              {/* API Endpoint */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  API Endpoint URL
+                </label>
+                <div className="flex gap-2">
+                  <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
+                    {API_URL}
+                  </code>
                   <button
-                    onClick={() => handleCopy(result.auth_secret!)}
+                    onClick={() => handleCopy(API_URL)}
                     className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
                   >
                     복사
                   </button>
-                )}
+                </div>
               </div>
-            </div>
 
-            {/* cURL Example */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Test Command (cURL)
-              </label>
-              <div className="relative">
-                <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
-                  {generateCurlExample()}
-                </pre>
-                <button
-                  onClick={() => handleCopy(generateCurlExample())}
-                  className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
-                >
-                  복사
-                </button>
+              {/* API Secret Key */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  API Secret Key
+                </label>
+                <div className="flex gap-2">
+                  <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
+                    {result.auth_secret
+                      ? `${result.auth_secret.slice(0, 7)}${'•'.repeat(result.auth_secret.length - 7)}`
+                      : 'N/A (Public)'}
+                  </code>
+                  {result.auth_secret && (
+                    <button
+                      onClick={() => handleCopy(result.auth_secret!)}
+                      className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
+                    >
+                      복사
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Schema Toggle */}
-            {((result.input_schema &&
-              result.input_schema.variables &&
-              result.input_schema.variables.length > 0) ||
-              (result.output_schema &&
-                result.output_schema.outputs &&
-                result.output_schema.outputs.length > 0)) && (
-              <div className="border-t border-gray-200 pt-4">
-                <button
-                  onClick={() => setShowSchemas(!showSchemas)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-700">
-                      {showSchemas
-                        ? '📂 스키마 정보 숨기기'
-                        : '📋 스키마 정보 보기'}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      (입력/출력 변수)
-                    </span>
+              {/* Input Variables Section */}
+              {result.input_schema &&
+                result.input_schema.variables &&
+                result.input_schema.variables.length > 0 && (
+                  <div>
+                    {/* Section Header */}
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-700">
+                          입력 변수
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({result.input_schema.variables.length}개)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Scrollable Input Variables Form */}
+                    <div className="max-h-[400px] overflow-y-auto pr-2 space-y-4">
+                      {result.input_schema.variables.map((variable, index) => (
+                        <div
+                          key={index}
+                          className="border border-gray-200 rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors"
+                        >
+                          {/* Variable Info Header */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <code className="text-sm font-mono text-blue-700 font-semibold">
+                                {variable.name}
+                              </code>
+                              <span
+                                className={`text-xs px-2 py-1 rounded font-medium ${
+                                  variable.required
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-green-100 text-green-700'
+                                }`}
+                              >
+                                {variable.required ? '필수' : '선택'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded font-medium">
+                                {variable.type}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Input Field */}
+                          <input
+                            type={
+                              variable.type === 'number' ? 'number' : 'text'
+                            }
+                            placeholder={`${variable.label || variable.name} 입력`}
+                            value={inputValues[variable.name] || ''}
+                            onChange={(e) =>
+                              setInputValues({
+                                ...inputValues,
+                                [variable.name]: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <svg
-                    className={`w-5 h-5 text-gray-500 transition-transform ${showSchemas ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                )}
+            </div>
+
+            {/* Right Column - Test Tools */}
+            <div className="space-y-4 border-l border-gray-200 pl-6">
+              {/* cURL Example */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Test Command (cURL)
+                </label>
+                <div className="relative">
+                  <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
+                    {generateCurlExample()}
+                  </pre>
+                  <button
+                    onClick={() => handleCopy(generateCurlExample())}
+                    className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
+                    복사
+                  </button>
+                </div>
+              </div>
 
-                {/* Schema Details */}
-                {showSchemas && (
-                  <div className="mt-4 space-y-4">
-                    {/* Input Schema */}
-                    {result.input_schema &&
-                      result.input_schema.variables &&
-                      result.input_schema.variables.length > 0 && (
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            📥 입력 변수 (Input Variables)
-                          </label>
-                          <div className="bg-blue-50 rounded-lg p-3 space-y-2">
-                            {result.input_schema.variables.map(
-                              (variable, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-center gap-2 text-xs bg-white px-3 py-2 rounded border border-blue-200"
-                                >
-                                  <code className="font-mono text-blue-700 font-semibold">
-                                    {variable.name}
-                                  </code>
-                                  <span className="text-gray-400">:</span>
-                                  <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                                    {variable.type}
-                                  </span>
-                                  {variable.label &&
-                                    variable.label !== variable.name && (
-                                      <span className="text-gray-500 italic ml-auto">
-                                        ({variable.label})
-                                      </span>
-                                    )}
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        </div>
-                      )}
+              {/* Test Execution Button */}
+              <button
+                onClick={handleTestExecute}
+                disabled={isLoading}
+                className={`w-full py-3 rounded-lg font-semibold text-white transition-colors ${
+                  isLoading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {isLoading ? '실행 중...' : '테스트 실행'}
+              </button>
 
-                    {/* Output Schema */}
-                    {result.output_schema &&
-                      result.output_schema.outputs &&
-                      result.output_schema.outputs.length > 0 && (
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            📤 출력 변수 (Output Variables)
-                          </label>
-                          <div className="bg-green-50 rounded-lg p-3 space-y-2">
-                            {result.output_schema.outputs.map(
-                              (output, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-center gap-2 text-xs bg-white px-3 py-2 rounded border border-green-200"
-                                >
-                                  <code className="font-mono text-green-700 font-semibold">
-                                    {output.variable}
-                                  </code>
-                                  {output.label &&
-                                    output.label !== output.variable && (
-                                      <span className="text-gray-500 italic ml-auto">
-                                        ({output.label})
-                                      </span>
-                                    )}
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        </div>
-                      )}
+              {/* Response Result */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  응답 결과
+                </label>
+                {testResponse ? (
+                  <div className="relative">
+                    <pre className="p-4 bg-gray-900 rounded-lg text-xs text-green-400 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700 max-h-[250px] overflow-y-auto">
+                      {testResponse}
+                    </pre>
+                    <button
+                      onClick={() => handleCopy(testResponse)}
+                      className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                    >
+                      복사
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg min-h-[100px] flex items-center justify-center">
+                    <p className="text-sm text-gray-500">
+                      테스트 실행 후 결과가 여기에 표시됩니다
+                    </p>
                   </div>
                 )}
               </div>
-            )}
-          </>
+            </div>
+          </div>
         )}
       </div>
 

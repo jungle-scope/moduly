@@ -105,40 +105,26 @@ export function DeploymentFlowModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 flex flex-col overflow-hidden">
-        {/* Step Indicator */}
-        <div className="px-6 pt-4">
-          <div className="flex items-center gap-2 mb-2">
-            {/* Step 1 */}
-            <div
-              className={`flex-1 h-1 rounded-full transition-all ${
-                currentStep === 'input' ? 'bg-blue-500' : 'bg-gray-200'
-              }`}
-            />
-            <div
-              className={`flex-1 h-1 rounded-full transition-all ${
-                currentStep === 'success' || currentStep === 'error'
-                  ? 'bg-blue-500'
-                  : 'bg-gray-200'
-              }`}
-            />
-          </div>
-
-          {/* Step Labels */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex-1 text-center">
-              <span
-                className={`text-xs ${currentStep === 'input' ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}
-              >
-                설명 입력
-              </span>
-            </div>
-            <div className="flex-1 text-center">
-              <span
-                className={`text-xs ${currentStep === 'success' || currentStep === 'error' ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}
-              >
-                배포 성공
-              </span>
+      <div
+        className={`relative bg-white rounded-lg shadow-xl w-full mx-4 flex flex-col overflow-hidden ${
+          deploymentType === 'api' && currentStep === 'success'
+            ? 'max-w-6xl'
+            : 'max-w-lg'
+        }`}
+      >
+        {/* Compact Step Indicator - Top Right Corner */}
+        <div className="absolute top-4 right-4 z-10">
+          <div className="bg-blue-50 border border-blue-200 rounded-full px-3 py-1 flex items-center gap-2">
+            <span className="text-xs font-semibold text-blue-700">
+              {currentStep === 'input' ? 'Step 1/2' : 'Step 2/2'}
+            </span>
+            <div className="flex items-center gap-1">
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${currentStep === 'input' ? 'bg-blue-600' : 'bg-gray-300'}`}
+              />
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${currentStep === 'success' || currentStep === 'error' ? 'bg-blue-600' : 'bg-gray-300'}`}
+              />
             </div>
           </div>
         </div>
