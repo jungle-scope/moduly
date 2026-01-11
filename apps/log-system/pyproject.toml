@@ -1,0 +1,12 @@
+[project]
+name = "log-system"
+version = "0.1.0"
+description = "Log System Service for Moduly"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "shared", # Local shared package
+]
+
+[tool.setuptools.packages.find]
+where = ["."]

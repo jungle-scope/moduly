@@ -16,10 +16,6 @@ import queue
 import threading
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy.orm import Session
-
-from shared.db.session import SessionLocal
-
 
 class LogWorkerPool:
     """
@@ -159,57 +155,137 @@ class LogWorkerPool:
 
     def _worker_loop(self):
         """워커 스레드 메인 루프"""
-        # 각 워커마다 독립적인 DB 세션 생성
-        session: Session = SessionLocal()
+        import json
+        import uuid
+        from datetime import datetime
+
+        # JSON 시리얼라이저 헬퍼
+        class JSONEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, uuid.UUID):
+                    return str(obj)
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                return super().default(obj)
+
+        log_system_url = os.getenv("LOG_SYSTEM_URL", "http://localhost:8002").rstrip(
+            "/"
+        )
 
         try:
             while True:
                 try:
                     task = self.log_queue.get(timeout=1.0)
                 except queue.Empty:
-                    # 타임아웃 시 종료 플래그 확인 후 계속
                     if self._is_shutdown:
                         break
                     continue
 
-                if task is None:  # 종료 신호
+                if task is None:
                     break
 
                 try:
-                    self._process_task(session, task)
+                    self._process_task_http(task, log_system_url, JSONEncoder)
                 except Exception as e:
-                    print(f"[LogWorkerPool] 작업 처리 중 오류 발생: {e}")
-                    session.rollback()
+                    print(f"[LogWorkerPool] 로그 전송 실패: {e}")
                 finally:
                     self.log_queue.task_done()
         finally:
-            session.close()
+            pass
 
-    def _process_task(self, session: Session, task: Dict[str, Any]):
-        """
-        개별 로그 작업 처리
+    def _process_task_http(self, task: Dict[str, Any], base_url: str, encoder_cls):
+        """HTTP로 로그 시스템에 전송"""
+        import json
 
-        WorkflowLoggerDBOps 클래스의 정적 메서드를 호출하여 DB 작업 수행
-        """
-        from workflow.core.workflow_logger import WorkflowLoggerDBOps
+        import httpx
 
         task_type = task.get("type")
         data = task.get("data")
 
+        url = ""
+        method = "POST"
+        payload = data
+
         if task_type == "create_run":
-            WorkflowLoggerDBOps.create_run_log(session, data)
+            url = f"{base_url}/logs/runs"
+            method = "POST"
+            payload = {
+                "id": data.get("run_id"),
+                "workflow_id": data.get("workflow_id"),
+                "user_id": data.get("user_id"),
+                "status": "running",
+                "trigger_mode": "deployed" if data.get("is_deployed") else "manual",
+                "inputs": data.get("user_input"),
+                "started_at": data.get("started_at"),
+                "workflow_version": data.get("workflow_version"),
+                "deployment_id": data.get("deployment_id"),
+            }
         elif task_type == "update_run_finish":
-            WorkflowLoggerDBOps.update_run_log_finish(session, data)
+            run_id = data.get("run_id")
+            url = f"{base_url}/logs/runs/{run_id}"
+            method = "PATCH"
+            payload = {
+                "status": "success",
+                "outputs": data.get("outputs"),
+                "finished_at": data.get("finished_at"),
+            }
         elif task_type == "update_run_error":
-            WorkflowLoggerDBOps.update_run_log_error(session, data)
+            run_id = data.get("run_id")
+            url = f"{base_url}/logs/runs/{run_id}"
+            method = "PATCH"
+            payload = {
+                "status": "failed",
+                "error_message": data.get("error_message"),
+                "finished_at": data.get("finished_at"),
+            }
         elif task_type == "create_node":
-            WorkflowLoggerDBOps.create_node_log(session, data)
+            run_id = data.get("workflow_run_id")
+            url = f"{base_url}/logs/runs/{run_id}/nodes"
+            method = "POST"
+            payload = {
+                "node_id": data.get("node_id"),
+                "node_type": data.get("node_type"),
+                "status": "running",
+                "inputs": data.get("inputs"),
+                "started_at": data.get("started_at"),
+            }
         elif task_type == "update_node_finish":
-            WorkflowLoggerDBOps.update_node_log_finish(session, data)
+            run_id = data.get("workflow_run_id")
+            node_id = data.get("node_id")
+            url = f"{base_url}/logs/runs/{run_id}/nodes/{node_id}"
+            method = "PATCH"
+            payload = {
+                "status": "success",
+                "outputs": data.get("outputs"),
+                "finished_at": data.get("finished_at"),
+            }
         elif task_type == "update_node_error":
-            WorkflowLoggerDBOps.update_node_log_error(session, data)
+            run_id = data.get("workflow_run_id")
+            node_id = data.get("node_id")
+            url = f"{base_url}/logs/runs/{run_id}/nodes/{node_id}"
+            method = "PATCH"
+            payload = {
+                "status": "failed",
+                "error_message": data.get("error_message"),
+                "finished_at": data.get("finished_at"),
+            }
         else:
             print(f"[LogWorkerPool] 알 수 없는 작업 타입: {task_type}")
+            return
+
+        # 데이터 직렬화 (UUID, datetime 처리)
+        json_data = json.loads(json.dumps(payload, cls=encoder_cls))
+
+        try:
+            if method == "POST":
+                mk_req = httpx.post(url, json=json_data, timeout=5.0)
+            else:
+                mk_req = httpx.patch(url, json=json_data, timeout=5.0)
+
+            if mk_req.status_code >= 400:
+                print(f"[LogWorkerPool] API 에러 ({mk_req.status_code}): {mk_req.text}")
+        except Exception as e:
+            print(f"[LogWorkerPool] 전송 실패: {e}")
 
 
 # ==============================

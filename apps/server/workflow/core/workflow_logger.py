@@ -15,11 +15,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
 from shared.db.models.llm import LLMUsageLog
 from shared.db.models.workflow_run import WorkflowNodeRun, WorkflowRun
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 
 class WorkflowLoggerDBOps:
@@ -223,25 +222,55 @@ class WorkflowLogger:
         is_deployed: bool,
         execution_context: Dict[str, Any],
     ) -> Optional[uuid.UUID]:
-        """워크플로우 실행 로그 생성"""
+        """
+        워크플로우 실행 로그 생성
+
+        [중요] 동기적으로 처리하여 Run이 DB에 생성된 후에만 리턴합니다.
+        이렇게 해야 이후의 Node 로그 생성 시 FK 제약 위반을 방지할 수 있습니다.
+        """
         if not workflow_id or not user_id:
             return None
+
+        import os
+
+        import httpx
 
         # UUID 미리 생성
         run_id = uuid.uuid4()
         self.workflow_run_id = run_id
 
-        data = {
-            "run_id": run_id,
-            "workflow_id": workflow_id,
-            "user_id": user_id,
-            "user_input": user_input,
-            "is_deployed": is_deployed,
-            "deployment_id": execution_context.get("deployment_id"),
+        started_at = datetime.now(timezone.utc)
+
+        payload = {
+            "id": str(run_id),
+            "workflow_id": str(workflow_id),
+            "user_id": str(user_id),
+            "status": "running",
+            "trigger_mode": "deployed" if is_deployed else "manual",
+            "inputs": user_input,
+            "started_at": started_at.isoformat(),
             "workflow_version": execution_context.get("workflow_version"),
-            "started_at": datetime.now(timezone.utc),
+            "deployment_id": str(execution_context.get("deployment_id"))
+            if execution_context.get("deployment_id")
+            else None,
         }
-        self._get_pool().submit({"type": "create_run", "data": data})
+
+        log_system_url = os.getenv("LOG_SYSTEM_URL", "http://localhost:8002").rstrip(
+            "/"
+        )
+
+        try:
+            # 동기적으로 요청하여 Run이 DB에 생성될 때까지 대기
+            response = httpx.post(
+                f"{log_system_url}/logs/runs", json=payload, timeout=5.0
+            )
+            if response.status_code >= 400:
+                print(
+                    f"[WorkflowLogger] Run 생성 실패 ({response.status_code}): {response.text}"
+                )
+        except Exception as e:
+            print(f"[WorkflowLogger] Run 생성 중 에러: {e}")
+
         return run_id
 
     def update_run_log_finish(self, outputs: Dict[str, Any]):
