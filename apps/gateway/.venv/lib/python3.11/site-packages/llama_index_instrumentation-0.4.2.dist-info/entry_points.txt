@@ -1,0 +1,2 @@
+[console_scripts]
+llama-index-instrumentation = llama_index_instrumentation:main
