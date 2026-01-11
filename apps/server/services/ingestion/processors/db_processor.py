@@ -6,6 +6,7 @@ from typing import Any, Dict
 from services.ingestion.chunkers.adaptive_db_chunker import AdaptiveDbChunker
 from services.ingestion.processors.base import BaseProcessor, ProcessingResult
 from services.ingestion.transformers.db_nl_transformer import DbNlTransformer
+from utils.encryption import encryption_manager
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +61,9 @@ class DbProcessor(BaseProcessor):
                 chunks=[], metadata={"error": "No connection_id provided"}
             )
 
-        # 1. DB 연결 정보 조회 (BaseProcessor의 self.db 사용)
+        # DB 연결 정보 조회 (BaseProcessor의 self.db 사용)
 
         from db.models.connection import Connection
-        # ConnectionService가 암호화된 비밀번호 복호화 로직 등을 가지고 있다고 가정
 
         conn_record = (
             self.db.query(Connection).filter(Connection.id == connection_id).first()
@@ -73,7 +73,7 @@ class DbProcessor(BaseProcessor):
                 chunks=[], metadata={"error": "Connection not found"}
             )
 
-        # 2. Connector 인스턴스 생성
+        # Connector 인스턴스 생성
         connector = self._get_connector(conn_record.type)
         if not connector:
             return ProcessingResult(
@@ -81,9 +81,6 @@ class DbProcessor(BaseProcessor):
             )
 
         # 연결 설정 복호화
-
-        from utils.encryption import encryption_manager
-
         try:
             # 개별 필드에서 설정 구성 및 비밀번호 복호화
             try:
@@ -142,12 +139,10 @@ class DbProcessor(BaseProcessor):
             )
 
         # 3. 데이터 패칭
-
         chunks = []
         try:
             # 사용자가 선택한 테이블/컬럼 정보(selections)를 기반으로 데이터 조회
             selections = source_config.get("selections", [])
-            # 예: [{"table_name": "users", "columns": ["id", "email", "name"]}]
 
             # 모든 선택된 테이블의 스키마를 하나의 chunk로 생성
             try:
@@ -166,7 +161,7 @@ class DbProcessor(BaseProcessor):
                                 combined_schema_text += (
                                     f"- {col['name']} ({col['type']})\n"
                                 )
-                            combined_schema_text += "\n"  # 테이블 간 구분
+                            combined_schema_text += "\n"
 
                     # 스키마를 첫 번째 chunk로 추가
                     if combined_schema_text:
@@ -184,8 +179,7 @@ class DbProcessor(BaseProcessor):
 
             transformer = DbNlTransformer()
 
-            # Adaptive Chunker 초기화
-            enable_chunking = source_config.get("enable_auto_chunking", True)
+            # 자동 Chunker 초기화
             chunk_settings = source_config.get("chunk_settings", {})
 
             chunker = AdaptiveDbChunker(
@@ -193,10 +187,9 @@ class DbProcessor(BaseProcessor):
                 chunk_overlap=chunk_settings.get("overlap", 150),
             )
 
-            # JOIN 모드 체크
+            # JOIN 모드 체크(2개까지만 허용)
             join_config = source_config.get("join_config", {})
             if join_config.get("enabled", False) and len(selections) == 2:
-                # 2테이블 JOIN 모드
                 logger.info(
                     f"Processing with JOIN mode: {selections[0]['table_name']} + {selections[1]['table_name']}"
                 )
@@ -211,104 +204,19 @@ class DbProcessor(BaseProcessor):
                     chunker,
                 )
                 chunks.extend(join_chunks)
+            # 단일 테이블인 경우
             else:
-                # 기존 방식: 각 테이블 독립 처리
-                logger.info(f"Processing {len(selections)} table(s) independently")
-                for selection in selections:
-                    table_name = selection["table_name"]
-                    columns = selection.get("columns", ["*"])  # 컬럼 선택
-                    limit = source_config.get("limit", 1000)
-
-                    # 템플릿 설정
-                    template = selection.get("template", None)
-                    aliases = selection.get("aliases", {})
-                    sensitive_columns = selection.get("sensitive_columns", [])
-
-                    # 템플릿 검증
-                    if template and aliases:
-                        from utils.template_utils import validate_template
-
-                        is_valid, error_msg = validate_template(template, aliases)
-                        if not is_valid:
-                            raise Exception(f"Template validation failed: {error_msg}")
-
-                    # COUNT(*) - 전체 개수 파악 (진행률 표시용)
-                    count_query = f"SELECT COUNT(*) as total FROM {table_name}"
-                    total_rows = 0
-                    try:
-                        for row in connector.fetch_data(config_dict, count_query):
-                            total_rows = row.get("total", 0)
-                            break
-                    except Exception as e:
-                        print(f"[WARNING] COUNT(*) failed: {e}")
-                        total_rows = limit  # Fallback
-
-                    print(
-                        f"[INFO] Processing {table_name}: {total_rows} rows (max {limit})"
+                chunks.extend(
+                    self._process_single_table(
+                        connector,
+                        config_dict,
+                        selections,
+                        source_config,
+                        conn_record,
+                        transformer,
+                        chunker,
                     )
-
-                    # 쿼리 생성
-                    req_cols = ", ".join(columns)
-                    query = f"SELECT {req_cols} FROM {table_name} LIMIT {limit}"
-
-                    # 커넥터 실행 (Generator)
-                    row_count = 0
-                    for row_dict in connector.fetch_data(config_dict, query):
-                        row_count += 1
-
-                        # 진행률 로깅 (100개마다)
-                        if row_count % 100 == 0:
-                            progress = (
-                                (row_count / total_rows) * 100 if total_rows > 0 else 0
-                            )
-                            print(
-                                f"[Progress] {row_count}/{total_rows} ({progress:.1f}%)"
-                            )
-
-                        # 텍스트 변환 (Transformer - Jinja2 템플릿)
-                        nl_text = transformer.transform(
-                            row_dict, template_str=template, aliases=aliases
-                        )
-
-                        # 원본 데이터 암호화 (민감 필드만)
-                        from utils.encryption import encryption_manager
-
-                        # ✨ Decimal/datetime 등을 JSON 직렬화 가능한 타입으로 변환
-                        original_data = self._convert_to_json_serializable(row_dict)
-
-                        # 민감 컬럼 암호화
-                        for col in sensitive_columns:
-                            if col in original_data and original_data[col] is not None:
-                                original_data[col] = encryption_manager.encrypt(
-                                    str(original_data[col])
-                                )
-
-                        # 메타데이터 구성
-                        metadata = {
-                            "source": f"DB:{conn_record.name}:{table_name}",
-                            "table": table_name,
-                            "row_index": row_count,
-                            "original_data": original_data,  # 원본 데이터 (민감 필드 암호화)
-                            "sensitive_columns": sensitive_columns,
-                        }
-
-                        # ✨ Adaptive Chunking 적용
-                        try:
-                            row_chunks = chunker.chunk_if_needed(
-                                text=nl_text,
-                                metadata=metadata,
-                                enable_chunking=enable_chunking,
-                            )
-
-                            chunks.extend(row_chunks)
-
-                        except ValueError as e:
-                            # 텍스트 너무 길 경우 에러 로깅
-                            logger.error(f"Row {row_count} chunking failed: {e}")
-                            # Skip this row or handle appropriately
-                            continue
-
-                    print(f"[INFO] Completed {table_name}: {row_count} chunks created")
+                )
         except Exception as e:
             return ProcessingResult(chunks=[], metadata={"error": str(e)})
         return ProcessingResult(
@@ -322,6 +230,55 @@ class DbProcessor(BaseProcessor):
             return PostgresConnector()
         # 추후 mysql, oracle 등 추가
         return None
+
+    def _process_single_table(
+        self,
+        connector,
+        config_dict,
+        selections,
+        source_config,
+        conn_record,
+        transformer,
+        chunker,
+    ):
+        """단일 테이블 모드 처리"""
+        if not selections:
+            logger.warning("No tables selected for processing")
+            return []
+
+        selection = selections[0]
+        table_name = selection["table_name"]
+        logger.info(f"Processing single table: {table_name}")
+
+        columns = selection.get("columns", ["*"])
+        limit = source_config.get("limit", 1000)
+
+        req_cols = ", ".join(columns)
+        query = f"SELECT {req_cols} FROM {table_name} LIMIT {limit}"
+
+        # Strategies
+        def transform_strategy(row_dict):
+            return transformer.transform(
+                row_dict,
+                template_str=selection.get("template"),
+                aliases=selection.get("aliases"),
+            )
+
+        def encryption_key_strategy(table, col):
+            return col
+
+        return self._process_common_logic(
+            connector,
+            query,
+            config_dict,
+            selections,
+            conn_record,
+            transformer,
+            chunker,
+            source_config,
+            transform_strategy,
+            encryption_key_strategy,
+        )
 
     def _process_with_join(
         self,
@@ -339,39 +296,115 @@ class DbProcessor(BaseProcessor):
 
         from utils.join_query_utils import convert_to_namespace, generate_join_query
 
-        chunks = []
         limit = source_config.get("limit", 1000)
-        enable_chunking = source_config.get("enable_auto_chunking", True)
-        # JOIN 쿼리 생성
         query = generate_join_query(selections, join_config, limit)
         logger.info(f"Generated JOIN query: {query[:200]}...")
+
         # 템플릿 (전역 템플릿 사용)
         template_str = source_config.get("template", None)
+        if not template_str and selections:
+            for sel in selections:
+                if sel.get("template"):
+                    template_str = sel.get("template")
+                    break
+
+        # Strategies
+        def transform_strategy(row_dict):
+            # 네임스페이스 변환
+            namespaced_data = convert_to_namespace(row_dict)
+            render_context = namespaced_data.copy()
+
+            # Alias 적용
+            for sel in selections:
+                table = sel["table_name"]
+                table_aliases = sel.get("aliases", {})
+                if table in namespaced_data:
+                    for col, val in namespaced_data[table].items():
+                        if col in table_aliases:
+                            render_context[table_aliases[col]] = val
+
+            if template_str:
+                try:
+                    return Template(template_str).render(**render_context)
+                except Exception as e:
+                    logger.error(f"Template rendering failed: {e}")
+                    return str(namespaced_data)
+            return str(namespaced_data)
+
+        def encryption_key_strategy(table, col):
+            # JOIN 쿼리는 table__col 형식으로 키가 생성됨
+            return f"{table}__{col}"
+
+        return self._process_common_logic(
+            connector,
+            query,
+            config_dict,
+            selections,
+            conn_record,
+            transformer,
+            chunker,
+            source_config,
+            transform_strategy,
+            encryption_key_strategy,
+        )
+
+    def _process_common_logic(
+        self,
+        connector,
+        query,
+        config_dict,
+        selections,
+        conn_record,
+        transformer,
+        chunker,
+        source_config,
+        transform_strategy,
+        encryption_key_strategy,
+    ):
+        """
+        JOIN 모드와 단일 테이블 모드의 공통 처리 로직
+        """
+        chunks = []
+        enable_chunking = source_config.get("enable_auto_chunking", True)
+
         row_count = 0
+        logger.info("Executing query...")
+
         for row_dict in connector.fetch_data(config_dict, query):
             row_count += 1
             if row_count % 100 == 0:
-                logger.info(f"JOIN processing: {row_count} rows")
-            # 네임스페이스 변환
-            namespaced_data = convert_to_namespace(row_dict)
-            # 템플릿 렌더링
-            if template_str:
-                try:
-                    template = Template(template_str)
-                    nl_text = template.render(**namespaced_data)
-                except Exception as e:
-                    logger.error(f"Template rendering failed: {e}")
-                    nl_text = str(namespaced_data)
-            else:
-                nl_text = str(namespaced_data)
-            # 메타데이터
+                logger.info(f"Processing rows: {row_count}")
+
+            # 1. 텍스트 변환 (Strategy)
+            nl_text = transform_strategy(row_dict)
+
+            # 2. 원본 데이터 직렬화
+            original_data = self._convert_to_json_serializable(row_dict)
+
+            # 3. 암호화 (Strategy)
+            for sel in selections:
+                table_name = sel["table_name"]
+                sensitive_cols = sel.get("sensitive_columns", [])
+                for col in sensitive_cols:
+                    # 키 매핑 전략: (table_name, col) -> data_key
+                    key = encryption_key_strategy(table_name, col)
+                    if key in original_data and original_data[key] is not None:
+                        original_data[key] = encryption_manager.encrypt(
+                            str(original_data[key])
+                        )
+
+            # 4. 메타데이터 구성
             metadata = {
-                "source": f"DB:{conn_record.name}:JOIN",
+                "source": f"DB:{conn_record.name}:{'JOIN' if len(selections) > 1 else selections[0]['table_name']}",
                 "tables": [s["table_name"] for s in selections],
                 "row_index": row_count,
-                "original_data": self._convert_to_json_serializable(row_dict),
+                "original_data": original_data,
+                "sensitive_columns": [
+                    c for s in selections for c in s.get("sensitive_columns", [])
+                ],
             }
-            # 청킹
+
+            # 5. 청킹
             try:
                 row_chunks = chunker.chunk_if_needed(
                     text=nl_text,
@@ -380,7 +413,8 @@ class DbProcessor(BaseProcessor):
                 )
                 chunks.extend(row_chunks)
             except ValueError as e:
-                logger.error(f"JOIN row {row_count} chunking failed: {e}")
+                logger.error(f"Row {row_count} chunking failed: {e}")
                 continue
-        logger.info(f"JOIN completed: {row_count} rows, {len(chunks)} chunks")
+
+        logger.info(f"Completed processing: {row_count} rows, {len(chunks)} chunks")
         return chunks

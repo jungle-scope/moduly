@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 import { toast } from 'sonner';
+import { JoinConfig } from '@/app/features/knowledge/api/knowledgeApi';
 
 interface SchemaColumn {
   name: string;
@@ -39,17 +40,6 @@ interface SchemaTable {
   foreign_keys?: ForeignKey[];
 }
 
-interface JoinConfig {
-  enabled: boolean;
-  baseTable: string;
-  joins: Array<{
-    fromTable: string;
-    toTable: string;
-    fromColumn: string;
-    toColumn: string;
-  }>;
-}
-
 interface DBSchemaSelectorProps {
   connectionId: string;
   value: Record<string, string[]>;
@@ -62,6 +52,7 @@ interface DBSchemaSelectorProps {
   isEditingLoading?: boolean;
   enableAutoChunking?: boolean;
   onEnableAutoChunkingChange?: (enabled: boolean) => void;
+  onJoinConfigChange?: (config: JoinConfig | null) => void;
 }
 
 export default function DBSchemaSelector({
@@ -76,6 +67,7 @@ export default function DBSchemaSelector({
   isEditingLoading,
   enableAutoChunking = true,
   onEnableAutoChunkingChange,
+  onJoinConfigChange,
 }: DBSchemaSelectorProps) {
   const [loading, setLoading] = useState(false);
   const [tables, setTables] = useState<SchemaTable[]>([]);
@@ -135,13 +127,13 @@ export default function DBSchemaSelector({
     if (fk) {
       return {
         enabled: true,
-        baseTable: t1,
+        base_table: t1,
         joins: [
           {
-            fromTable: t1,
-            toTable: t2,
-            fromColumn: fk.column,
-            toColumn: fk.referenced_column,
+            from_table: t1,
+            to_table: t2,
+            from_column: fk.column,
+            to_column: fk.referenced_column,
           },
         ],
       };
@@ -152,13 +144,13 @@ export default function DBSchemaSelector({
     if (fk2) {
       return {
         enabled: true,
-        baseTable: t2,
+        base_table: t2,
         joins: [
           {
-            fromTable: t2,
-            toTable: t1,
-            fromColumn: fk2.column,
-            toColumn: fk2.referenced_column,
+            from_table: t2,
+            to_table: t1,
+            from_column: fk2.column,
+            to_column: fk2.referenced_column,
           },
         ],
       };
@@ -170,9 +162,14 @@ export default function DBSchemaSelector({
   // JOIN 설정 상태
   const selectedTables = Object.keys(value);
   const joinConfig = useMemo(
-    () => detectJoinConfig(selectedTables, tables),
-    [selectedTables, tables],
+    () => detectJoinConfig(Object.keys(value), tables),
+    [value, tables],
   );
+
+  // Selected Table Toggle
+  useEffect(() => {
+    onJoinConfigChange?.(joinConfig);
+  }, [joinConfig, onJoinConfigChange]);
 
   // 테이블 전체 선택/해제
   const handleTableToggle = (tableName: string, allColumns: string[]) => {
@@ -356,7 +353,7 @@ export default function DBSchemaSelector({
               )}
             </div>
             <div className="flex-1">
-              {joinConfig ? (
+              {joinConfig && joinConfig.joins ? (
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
@@ -364,19 +361,19 @@ export default function DBSchemaSelector({
                     </h4>
                     <div className="flex items-center gap-2 text-sm">
                       <code className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-700 font-medium text-blue-900 dark:text-blue-100">
-                        {joinConfig.joins[0].fromTable}.
-                        {joinConfig.joins[0].fromColumn}
+                        {joinConfig.joins[0].from_table}.
+                        {joinConfig.joins[0].from_column}
                       </code>
                       <ArrowRight className="w-4 h-4 text-blue-400 dark:text-blue-500" />
                       <code className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-700 font-medium text-blue-900 dark:text-blue-100">
-                        {joinConfig.joins[0].toTable}.
-                        {joinConfig.joins[0].toColumn}
+                        {joinConfig.joins[0].to_table}.
+                        {joinConfig.joins[0].to_column}
                       </code>
                     </div>
                   </div>
                   <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-                    <strong>{joinConfig.baseTable}</strong> 데이터를 중심으로{' '}
-                    <strong>{joinConfig.joins[0].toTable}</strong> 정보를
+                    <strong>{joinConfig.base_table}</strong> 데이터를 중심으로{' '}
+                    <strong>{joinConfig.joins[0].to_table}</strong> 정보를
                     덧붙입니다. (LEFT JOIN)
                   </p>
                 </div>

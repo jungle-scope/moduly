@@ -1,5 +1,6 @@
 import React from 'react';
 import DBSchemaSelector from '@/app/features/knowledge/components/document-settings/DBSchemaSelector';
+import { JoinConfig } from '@/app/features/knowledge/api/knowledgeApi';
 
 interface DbSourceViewerProps {
   connectionId?: string;
@@ -13,6 +14,7 @@ interface DbSourceViewerProps {
   isEditingLoading?: boolean;
   enableAutoChunking?: boolean;
   onEnableAutoChunkingChange?: (enabled: boolean) => void;
+  onJoinConfigChange?: (config: JoinConfig | null) => void;
 }
 
 export default function DbSourceViewer({
@@ -27,6 +29,7 @@ export default function DbSourceViewer({
   isEditingLoading,
   enableAutoChunking,
   onEnableAutoChunkingChange,
+  onJoinConfigChange,
 }: DbSourceViewerProps) {
   if (!connectionId) {
     return (
@@ -49,6 +52,7 @@ export default function DbSourceViewer({
       isEditingLoading={isEditingLoading}
       enableAutoChunking={enableAutoChunking}
       onEnableAutoChunkingChange={onEnableAutoChunkingChange}
+      onJoinConfigChange={onJoinConfigChange}
     />
   );
 }

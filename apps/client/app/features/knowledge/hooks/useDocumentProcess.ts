@@ -5,6 +5,7 @@ import {
   DocumentPreviewRequest,
   DocumentSegment,
   AnalyzeResponse,
+  JoinConfig,
 } from '@/app/features/knowledge/api/knowledgeApi';
 import { DocumentResponse } from '@/app/features/knowledge/types/Knowledge';
 
@@ -26,6 +27,7 @@ interface UseDocumentProcessProps {
     aliases?: Record<string, Record<string, string>>;
     template?: string;
     enableAutoChunking?: boolean;
+    joinConfig?: JoinConfig | null;
   };
   connectionId?: string; // 외부에서 주입받을 수 있는 connectionId
   // 범위 선택 관련
@@ -79,8 +81,6 @@ export function useDocumentProcess({
       },
     );
 
-    const tableNames = Object.keys(settings.selectedDbItems);
-
     return {
       chunk_size: settings.chunkSize,
       chunk_overlap: settings.chunkOverlap,
@@ -91,13 +91,7 @@ export function useDocumentProcess({
       source_type: document?.source_type || 'FILE',
       db_config: {
         selections,
-        join_config:
-          tableNames.length === 2
-            ? {
-                enabled: true,
-                base_table: tableNames[0],
-              }
-            : { enabled: false },
+        join_config: settings.joinConfig || undefined, // Use passed joinConfig directly
         ...(connectionIdOverride
           ? { connection_id: connectionIdOverride }
           : {}),

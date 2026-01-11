@@ -16,7 +16,10 @@ import {
   CircleHelp,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
+import {
+  knowledgeApi,
+  JoinConfig,
+} from '@/app/features/knowledge/api/knowledgeApi';
 import { DocumentResponse } from '@/app/features/knowledge/types/Knowledge';
 import { useDocumentProcess } from '@/app/features/knowledge/hooks/useDocumentProcess';
 import Link from 'next/link'; // Added for Breadcrumb
@@ -64,6 +67,7 @@ export default function DocumentSettingsPage() {
   >('general');
   const [apiOriginalData, setApiOriginalData] = useState<any>(null); // API 원본 데이터 (SessionStorage)
   const [enableAutoChunking, setEnableAutoChunking] = useState<boolean>(true); // 자동 청킹 활성화
+  const [joinConfig, setJoinConfig] = useState<JoinConfig | null>(null); // JOIN 설정 상태
 
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
@@ -229,6 +233,7 @@ export default function DocumentSettingsPage() {
       aliases,
       template,
       enableAutoChunking,
+      joinConfig,
     },
     connectionId: connectionId,
     // 범위 선택
@@ -453,6 +458,7 @@ export default function DocumentSettingsPage() {
                     isEditingLoading={isLoadingDetails}
                     enableAutoChunking={enableAutoChunking}
                     onEnableAutoChunkingChange={setEnableAutoChunking}
+                    onJoinConfigChange={setJoinConfig}
                   />
                 </div>
               </div>
