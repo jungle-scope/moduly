@@ -15,6 +15,9 @@ import {
   Lock,
   LockOpen,
   CircleHelp,
+  Link as LinkIcon,
+  ArrowRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 import { toast } from 'sonner';
@@ -24,9 +27,27 @@ interface SchemaColumn {
   type: string;
 }
 
+interface ForeignKey {
+  column: string;
+  referenced_table: string;
+  referenced_column: string;
+}
+
 interface SchemaTable {
   table_name: string;
   columns: SchemaColumn[];
+  foreign_keys?: ForeignKey[];
+}
+
+interface JoinConfig {
+  enabled: boolean;
+  baseTable: string;
+  joins: Array<{
+    fromTable: string;
+    toTable: string;
+    fromColumn: string;
+    toColumn: string;
+  }>;
 }
 
 interface DBSchemaSelectorProps {
@@ -98,8 +119,71 @@ export default function DBSchemaSelector({
     setExpandedTables(newExpanded);
   };
 
+  // FK 기반 JOIN 설정 자동 감지
+  const detectJoinConfig = (
+    selectedTables: string[],
+    schemas: SchemaTable[],
+  ): JoinConfig | null => {
+    if (selectedTables.length !== 2) return null;
+
+    const [t1, t2] = selectedTables;
+    const s1 = schemas.find((s) => s.table_name === t1);
+    const s2 = schemas.find((s) => s.table_name === t2);
+
+    // t1 → t2 FK?
+    const fk = s1?.foreign_keys?.find((fk) => fk.referenced_table === t2);
+    if (fk) {
+      return {
+        enabled: true,
+        baseTable: t1,
+        joins: [
+          {
+            fromTable: t1,
+            toTable: t2,
+            fromColumn: fk.column,
+            toColumn: fk.referenced_column,
+          },
+        ],
+      };
+    }
+
+    // t2 → t1 FK?
+    const fk2 = s2?.foreign_keys?.find((fk) => fk.referenced_table === t1);
+    if (fk2) {
+      return {
+        enabled: true,
+        baseTable: t2,
+        joins: [
+          {
+            fromTable: t2,
+            toTable: t1,
+            fromColumn: fk2.column,
+            toColumn: fk2.referenced_column,
+          },
+        ],
+      };
+    }
+
+    return null;
+  };
+
+  // JOIN 설정 상태
+  const selectedTables = Object.keys(value);
+  const joinConfig = useMemo(
+    () => detectJoinConfig(selectedTables, tables),
+    [selectedTables, tables],
+  );
+
   // 테이블 전체 선택/해제
   const handleTableToggle = (tableName: string, allColumns: string[]) => {
+    const isCurrentlySelected = tableName in value;
+
+    // 2개 테이블 제한
+    if (!isCurrentlySelected && selectedTables.length >= 2) {
+      toast.error('최대 2개 테이블만 선택 가능합니다');
+      return;
+    }
+
     const currentCols = value[tableName] || [];
     const isAllSelected = currentCols.length == allColumns.length;
 
@@ -116,6 +200,12 @@ export default function DBSchemaSelector({
   const handleColumnToggle = (tableName: string, colName: string) => {
     const currentCols = value[tableName] || [];
     const isSelected = currentCols.includes(colName);
+
+    // 새 테이블의 첫 컬럼 선택 시 2개 제한 체크
+    if (!isSelected && currentCols.length === 0 && selectedTables.length >= 2) {
+      toast.error('최대 2개 테이블만 선택 가능합니다');
+      return;
+    }
 
     let newCols;
     if (isSelected) {
@@ -235,6 +325,8 @@ export default function DBSchemaSelector({
             </div>
           </div>
         </label>
+
+        {/* DB 연결 수정 버튼 */}
         {onEditConnection && (
           <button
             onClick={onEditConnection}
@@ -251,6 +343,58 @@ export default function DBSchemaSelector({
           </button>
         )}
       </div>
+
+      {/* JOIN 설정 패널 */}
+      {selectedTables.length === 2 && (
+        <div className="mx-4 mt-4 mb-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5">
+              {joinConfig ? (
+                <LinkIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              )}
+            </div>
+            <div className="flex-1">
+              {joinConfig ? (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                      테이블 연결됨
+                    </h4>
+                    <div className="flex items-center gap-2 text-sm">
+                      <code className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-700 font-medium text-blue-900 dark:text-blue-100">
+                        {joinConfig.joins[0].fromTable}.
+                        {joinConfig.joins[0].fromColumn}
+                      </code>
+                      <ArrowRight className="w-4 h-4 text-blue-400 dark:text-blue-500" />
+                      <code className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-700 font-medium text-blue-900 dark:text-blue-100">
+                        {joinConfig.joins[0].toTable}.
+                        {joinConfig.joins[0].toColumn}
+                      </code>
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                    <strong>{joinConfig.baseTable}</strong> 데이터를 중심으로{' '}
+                    <strong>{joinConfig.joins[0].toTable}</strong> 정보를
+                    덧붙입니다. (LEFT JOIN)
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-orange-800 dark:text-orange-200 font-medium">
+                    선택한 테이블 간 FK 관계가 없습니다
+                  </p>
+                  <p className="text-xs text-orange-700 dark:text-orange-300">
+                    테이블을 1개만 선택하거나, FK 관계가 있는 테이블을
+                    선택하세요. (현재 상태로는 연결이 불가능합니다.)
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table List */}
       <div className="flex-1 overflow-y-auto p-2">

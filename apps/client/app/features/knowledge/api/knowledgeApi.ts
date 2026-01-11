@@ -17,12 +17,30 @@ export interface DocumentPreviewRequest {
   source_type: SourceType;
   strategy?: 'general' | 'llamaparse';
   db_config?: {
-    selections: { table_name: string; columns: string[] }[];
+    selections: {
+      table_name: string;
+      columns: string[];
+      sensitive_columns?: string[];
+      aliases?: Record<string, string>;
+      template?: string;
+    }[];
+    connection_id?: string;
+    join_config?: {
+      enabled: boolean;
+      base_table?: string;
+      joins?: Array<{
+        from_table: string;
+        to_table: string;
+        from_column: string;
+        to_column: string;
+      }>;
+    };
   } | null;
   // [추가] 필터링 파라미터
   selection_mode?: 'all' | 'range' | 'keyword';
   chunk_range?: string;
   keyword_filter?: string;
+  enable_auto_chunking?: boolean;
 }
 
 export interface DocumentSegment {
