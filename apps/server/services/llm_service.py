@@ -250,6 +250,8 @@ class LLMService:
         remote_models = []
         
         provider = provider_type.lower()
+        if not base_url:
+            raise ValueError(f"Provider {provider_type} has no base_url configured.")
         
         # Google supports OpenAI-compatible /models endpoint validation
         if provider in ["openai", "google"]:
@@ -437,9 +439,10 @@ class LLMService:
 
     @staticmethod
     def get_user_credentials(db: Session, user_id: uuid.UUID) -> List[LLMCredentialResponse]:
-        """List credentials for a user."""
+        """사용자의 유효한 크리덴셜 목록 조회."""
         creds = db.query(LLMCredential).filter(
-            LLMCredential.user_id == user_id
+            LLMCredential.user_id == user_id,
+            LLMCredential.is_valid == True,
         ).all()
         return [LLMCredentialResponse.model_validate(c) for c in creds]
 
@@ -495,7 +498,7 @@ class LLMService:
 
     @staticmethod
     def delete_credential(db: Session, credential_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-        """Delete a credential if it belongs to the user."""
+        """크리덴셜을 실제 삭제하지 않고 비활성화 처리."""
         cred = db.query(LLMCredential).filter(
             LLMCredential.id == credential_id,
             LLMCredential.user_id == user_id
@@ -503,8 +506,8 @@ class LLMService:
         
         if not cred:
             return False
-            
-        db.delete(cred)
+
+        cred.is_valid = False
         db.commit()
         return True
 
@@ -533,15 +536,7 @@ class LLMService:
 
         provider_id = target_model.provider_id if target_model else None
 
-        query = db.query(LLMCredential).filter(
-            LLMCredential.user_id == user_id,
-            LLMCredential.is_valid == True
-        )
-        
-        if provider_id:
-            query = query.filter(LLMCredential.provider_id == provider_id)
-        
-        cred = query.first()
+        cred = LLMService._get_valid_credential_for_user(db, user_id, provider_id)
         
         if not cred:
              # Try placeholder user fallback if in dev mode validation
@@ -599,6 +594,20 @@ class LLMService:
             model_id=target_model,
             credentials={"apiKey": api_key, "baseUrl": base_url}
         )
+
+    @staticmethod
+    def _get_valid_credential_for_user(
+        db: Session,
+        user_id: uuid.UUID,
+        provider_id: Optional[uuid.UUID] = None,
+    ) -> Optional[LLMCredential]:
+        query = db.query(LLMCredential).filter(
+            LLMCredential.user_id == user_id,
+            LLMCredential.is_valid == True,
+        )
+        if provider_id:
+            query = query.filter(LLMCredential.provider_id == provider_id)
+        return query.first()
     @staticmethod
     def get_my_available_models(db: Session, user_id: uuid.UUID) -> List[LLMModelResponse]:
         """
@@ -738,21 +747,53 @@ class LLMService:
         cost: float,
         workflow_run_id: Optional[uuid.UUID] = None,
         node_id: Optional[str] = None
-    ) -> LLMUsageLog:
+    ) -> Optional[LLMUsageLog]:
         """
         Save LLM usage to database.
         """
         # Find model DB ID
-        model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
+        model = (
+            db.query(LLMModel)
+            .filter(LLMModel.model_id_for_api_call == model_id)
+            .first()
+        )
+        if not model:
+            if model_id.startswith("models/"):
+                alt_id = model_id.replace("models/", "", 1)
+            else:
+                alt_id = f"models/{model_id}"
+            model = (
+                db.query(LLMModel)
+                .filter(LLMModel.model_id_for_api_call == alt_id)
+                .first()
+            )
+        if not model:
+            print(f"[LLMService] Usage log skipped: model '{model_id}' not found.")
+            return None
+
+        credential = LLMService._get_valid_credential_for_user(
+            db, user_id, model.provider_id
+        )
+        if not credential and user_id != LLMService.PLACEHOLDER_USER_ID:
+            credential = LLMService._get_valid_credential_for_user(
+                db, LLMService.PLACEHOLDER_USER_ID, model.provider_id
+            )
+        if not credential:
+            print(
+                f"[LLMService] Usage log skipped: no credential for user {user_id}."
+            )
+            return None
         
         log = LLMUsageLog(
             user_id=user_id,
-            model_id=model.id if model else None,
+            credential_id=credential.id,
+            model_id=model.id,
             workflow_run_id=workflow_run_id,
             node_id=node_id,
             prompt_tokens=usage.get("prompt_tokens", 0),
             completion_tokens=usage.get("completion_tokens", 0),
             total_cost=cost,
+            latency_ms=usage.get("latency_ms", 0),
             status="success"
         )
         db.add(log)

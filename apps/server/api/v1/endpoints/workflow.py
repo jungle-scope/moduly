@@ -12,7 +12,7 @@ from db.models.user import User
 from db.models.workflow import Workflow
 
 # [NEW] 로깅 모델 및 스키마
-from db.models.workflow_run import WorkflowRun
+from db.models.workflow_run import NodeRunStatus, RunStatus, WorkflowRun
 from db.session import get_db
 from schemas.log import (
     DashboardStatsResponse,
@@ -134,7 +134,7 @@ def get_workflow_stats(
 
         # === 1. Summary Stats ===
         total_runs = base_query.count()
-        success_count = base_query.filter(WorkflowRun.status == "success").count()
+        success_count = base_query.filter(WorkflowRun.status == RunStatus.SUCCESS).count()
 
         # Avg Duration
         avg_duration = (
@@ -212,7 +212,7 @@ def get_workflow_stats(
             db.query(WorkflowRun)
             .filter(
                 WorkflowRun.workflow_id == workflow_id,
-                WorkflowRun.status == "success",
+                WorkflowRun.status == RunStatus.SUCCESS,
                 WorkflowRun.started_at >= cutoff_date,
                 # WorkflowRun.total_cost > 0 # Optional
             )
@@ -237,7 +237,7 @@ def get_workflow_stats(
             db.query(WorkflowRun)
             .filter(
                 WorkflowRun.workflow_id == workflow_id,
-                WorkflowRun.status == "success",
+                WorkflowRun.status == RunStatus.SUCCESS,
                 WorkflowRun.started_at >= cutoff_date,
             )
             .order_by(WorkflowRun.total_cost.desc())
@@ -267,7 +267,7 @@ def get_workflow_stats(
             .join(WorkflowRun)
             .filter(
                 WorkflowRun.workflow_id == workflow_id,
-                WorkflowNodeRun.status == "failed",
+                WorkflowNodeRun.status == NodeRunStatus.FAILED,
                 WorkflowRun.started_at >= cutoff_date,
             )
             .group_by(
@@ -296,7 +296,7 @@ def get_workflow_stats(
         failed_runs = (
             db.query(WorkflowRun)
             .filter(
-                WorkflowRun.workflow_id == workflow_id, WorkflowRun.status == "failed"
+            WorkflowRun.workflow_id == workflow_id, WorkflowRun.status == RunStatus.FAILED
             )
             .order_by(WorkflowRun.started_at.desc())
             .limit(5)
@@ -304,7 +304,10 @@ def get_workflow_stats(
         )
 
         for run in failed_runs:
-            failed_node = next((n for n in run.node_runs if n.status == "failed"), None)
+            failed_node = next(
+                (n for n in run.node_runs if n.status == NodeRunStatus.FAILED),
+                None,
+            )
             recent_failures.append(
                 RecentFailure(
                     run_id=str(run.id),
