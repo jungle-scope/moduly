@@ -110,7 +110,11 @@ export default function NodeLibrarySidebar({
         <NodeLibraryContent
           onDragStart={handleDragStart}
           onSelect={(type, def) => {
-            onAddNode?.(def.id, { x: 100, y: 200 });
+            if (def.id === 'workflow') {
+              onOpenAppSearch?.();
+            } else {
+              onAddNode?.(def.id, { x: 100, y: 200 });
+            }
           }}
           hoveredNode={hoveredNode?.id}
           onHoverNode={handleHoverNode}

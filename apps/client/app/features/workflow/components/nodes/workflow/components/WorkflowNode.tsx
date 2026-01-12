@@ -78,41 +78,39 @@ export const WorkflowNode = memo(
         (n) => n.type === 'start' || n.type === 'startNode',
       );
 
-      if (!startNode) {
-        return {
-          filteredNodes: nodes.map((n) => ({
-            ...n,
-            draggable: false,
-            selectable: false,
-          })),
-          filteredEdges: edges,
-          containerSize: { width: 600, height: 400 },
-        };
-      }
+      let validNodes: any[] = [];
+      let validEdges: any[] = [];
 
-      // 2. 그래프 순회 (BFS)
-      const reachableNodeIds = new Set<string>();
-      const queue = [startNode.id];
-      reachableNodeIds.add(startNode.id);
+      if (startNode) {
+        // 2. 그래프 순회 (BFS)
+        const reachableNodeIds = new Set<string>();
+        const queue = [startNode.id];
+        reachableNodeIds.add(startNode.id);
 
-      while (queue.length > 0) {
-        const currentNodeId = queue.shift()!;
-        const outgoingEdges = edges.filter((e) => e.source === currentNodeId);
+        while (queue.length > 0) {
+          const currentNodeId = queue.shift()!;
+          const outgoingEdges = edges.filter((e) => e.source === currentNodeId);
 
-        for (const edge of outgoingEdges) {
-          const targetNodeId = edge.target;
-          if (!reachableNodeIds.has(targetNodeId)) {
-            reachableNodeIds.add(targetNodeId);
-            queue.push(targetNodeId);
+          for (const edge of outgoingEdges) {
+            const targetNodeId = edge.target;
+            if (!reachableNodeIds.has(targetNodeId)) {
+              reachableNodeIds.add(targetNodeId);
+              queue.push(targetNodeId);
+            }
           }
         }
-      }
 
-      // 3. 필터링 및 Read-only 속성 주입
-      const validNodes = nodes.filter((n) => reachableNodeIds.has(n.id));
-      const validEdges = edges.filter(
-        (e) => reachableNodeIds.has(e.source) && reachableNodeIds.has(e.target),
-      );
+        // 3. 필터링
+        validNodes = nodes.filter((n) => reachableNodeIds.has(n.id));
+        validEdges = edges.filter(
+          (e) =>
+            reachableNodeIds.has(e.source) && reachableNodeIds.has(e.target),
+        );
+      } else {
+        // Fallback: 시작 노드가 없으면 전체 노드 사용
+        validNodes = nodes;
+        validEdges = edges;
+      }
 
       // 4. 그래프 크기 계산 (Dynamic Sizing)
       const bounds = validNodes.reduce(
@@ -122,7 +120,7 @@ export const WorkflowNode = memo(
         ) => {
           const x = node.position.x;
           const y = node.position.y;
-          // ReactFlow 노드의 대략적인 크기 (measured가 없으면 기본값 사용)
+          // ReactFlow 노드의 대략적인 크기
           const w =
             (node.measured?.width as number) || (node.width as number) || 300;
           const h =
@@ -138,24 +136,28 @@ export const WorkflowNode = memo(
         { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
       );
 
-      const PADDING = 50;
-      const calcWidth =
+      const PADDING = 100; // 패딩 확보
+      let calcWidth =
         bounds.minX === Infinity
           ? 600
           : bounds.maxX - bounds.minX + PADDING * 2;
+
+      // [CRITICAL] 노드 개수에 따른 최소 너비 보정
+      const minWidthByCount = validNodes.length * 250;
+      calcWidth = Math.max(calcWidth, minWidthByCount);
+
       const calcHeight =
         bounds.minY === Infinity
-          ? 400
+          ? 300
           : bounds.maxY - bounds.minY + PADDING * 2;
 
-      // 최소 600x400 ~ 최대 1200x900 제한
-      const containerWidth = Math.min(Math.max(calcWidth, 600), 1200);
-      const containerHeight = Math.min(Math.max(calcHeight, 400), 900);
+      // 최소 600x300 ~ 최대 3000x1200 제한
+      const containerWidth = Math.min(Math.max(calcWidth, 600), 3000);
+      const containerHeight = Math.min(Math.max(calcHeight, 300), 1200);
 
       return {
         filteredNodes: validNodes.map((n) => ({
           ...n,
-          // 내부 캔버스용 강제 설정 (혹시 모를 오동작 방지)
           draggable: false,
           connectable: false,
           selectable: false,
