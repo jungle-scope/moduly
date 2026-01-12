@@ -42,6 +42,7 @@ export default function EditorHeader() {
     toggleSettings,
     runTrigger,
   } = useWorkflowStore();
+  const canPublish = useWorkflowStore((state) => state.canPublish());
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -494,10 +495,17 @@ export default function EditorHeader() {
         </button>
 
         {/* Publish */}
-        <div className="relative">
+        <div className="relative group">
           <button
-            onClick={() => setShowDeployDropdown(!showDeployDropdown)}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px]"
+            onClick={() =>
+              canPublish && setShowDeployDropdown(!showDeployDropdown)
+            }
+            disabled={!canPublish}
+            className={`px-3.5 py-1.5 font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px] ${
+              !canPublish
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             게시하기
             <svg
@@ -514,6 +522,14 @@ export default function EditorHeader() {
               />
             </svg>
           </button>
+
+          {/* Custom Tooltip for Disabled State */}
+          {!canPublish && (
+            <div className="invisible group-hover:visible absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+              시작 노드가 정확히 1개 있어야 게시할 수 있습니다.
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 border-4 border-transparent border-b-gray-900"></div>
+            </div>
+          )}
 
           {/* Deploy Dropdown */}
           {showDeployDropdown && (

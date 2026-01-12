@@ -102,6 +102,15 @@ type WorkflowState = {
     viewport: { x: number; y: number; zoom: number },
   ) => void;
 
+  // === 시작노드 검증 핼퍼 ===
+  getStartNodeType: () =>
+    | 'startNode'
+    | 'webhookTrigger'
+    | 'scheduleTrigger'
+    | null;
+  getStartNodeCount: () => number;
+  canPublish: () => boolean;
+
   // === API 동기화 액션 ===
   setFeatures: (features: Features) => void;
   setEnvVariables: (vars: EnvVariable[]) => void;
@@ -392,6 +401,35 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       w.id === id ? { ...w, viewport } : w,
     );
     set({ workflows: updatedWorkflows });
+  },
+
+  // === 시작노드 검증 핼퍼 ===
+  getStartNodeType: () => {
+    const nodes = get().nodes;
+    const startNode = nodes.find(
+      (n) =>
+        n.type === 'startNode' ||
+        n.type === 'webhookTrigger' ||
+        n.type === 'scheduleTrigger',
+    );
+    return startNode
+      ? (startNode.type as 'startNode' | 'webhookTrigger' | 'scheduleTrigger')
+      : null;
+  },
+
+  getStartNodeCount: () => {
+    const nodes = get().nodes;
+    return nodes.filter(
+      (n) =>
+        n.type === 'startNode' ||
+        n.type === 'webhookTrigger' ||
+        n.type === 'scheduleTrigger',
+    ).length;
+  },
+
+  canPublish: () => {
+    const count = get().getStartNodeCount();
+    return count === 1;
   },
 
   // === API 동기화 액션 ===

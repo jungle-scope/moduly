@@ -17,6 +17,7 @@ interface NodeLibraryContentProps {
     node: any,
     event: React.MouseEvent,
   ) => void;
+  disabledNodeTypes?: string[]; // 비활성화할 노드 타입 목록
 }
 
 // 탭 정의 (이미지와 유사하게 구성)
@@ -31,6 +32,7 @@ export const NodeLibraryContent = ({
   onSelect,
   hoveredNode,
   onHoverNode,
+  disabledNodeTypes = [],
 }: NodeLibraryContentProps) => {
   const [activeTab, setActiveTab] =
     useState<(typeof TABS)[number]['id']>('nodes');
@@ -60,6 +62,11 @@ export const NodeLibraryContent = ({
 
     return matchesSearch && matchesTab && node.implemented;
   });
+
+  // 노드 비활성화 체크
+  const isNodeDisabled = (nodeType: string) => {
+    return disabledNodeTypes.includes(nodeType);
+  };
 
   return (
     <div className="flex flex-col h-full w-full bg-white select-none">
@@ -110,13 +117,27 @@ export const NodeLibraryContent = ({
             {filteredNodes.map((node) => (
               <div
                 key={node.id}
-                draggable={!!onDragStart}
-                onDragStart={(e) => onDragStart?.(e, node.type, node)}
-                onClick={() => onSelect?.(node.type, node)}
+                draggable={!!onDragStart && !isNodeDisabled(node.type)}
+                onDragStart={(e) => {
+                  if (!isNodeDisabled(node.type)) {
+                    onDragStart?.(e, node.type, node);
+                  }
+                }}
+                onClick={() => {
+                  if (!isNodeDisabled(node.type)) {
+                    onSelect?.(node.type, node);
+                  }
+                }}
                 onMouseEnter={(e) => onHoverNode?.(node.id, node, e)}
                 onMouseLeave={(e) => onHoverNode?.(null, null, e)}
-                className={`group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-gray-100/80 active:scale-[0.98] ${
-                  hoveredNode === node.id ? 'bg-gray-100' : ''
+                className={`group flex items-center gap-3 p-2 rounded-lg transition-all ${
+                  isNodeDisabled(node.type)
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'cursor-pointer hover:bg-gray-100/80 active:scale-[0.98]'
+                } ${
+                  hoveredNode === node.id && !isNodeDisabled(node.type)
+                    ? 'bg-gray-100'
+                    : ''
                 }`}
               >
                 <div
