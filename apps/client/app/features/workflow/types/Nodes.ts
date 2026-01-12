@@ -219,6 +219,15 @@ export interface WebhookTriggerNodeData extends BaseNodeData {
 export interface ScheduleTriggerNodeData extends BaseNodeData {
   cron_expression: string; // Cron 표현식 (예: "0 9 * * *")
   timezone: string; // 타임존 (예: "Asia/Seoul", "UTC")
+  ui_config?: {
+    mode: 'basic' | 'advanced';
+    type: 'interval' | 'daily' | 'weekly' | 'monthly';
+    intervalValue?: number;
+    intervalUnit?: 'minutes' | 'hours';
+    time?: string;
+    daysOfWeek?: number[];
+    dayOfMonth?: number;
+  };
 }
 // ============================================================================
 
