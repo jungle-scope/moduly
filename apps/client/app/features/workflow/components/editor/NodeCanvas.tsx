@@ -29,6 +29,7 @@ import {
   type Viewport,
   type NodeTypes,
 } from '@xyflow/react';
+import dagre from 'dagre';
 
 import '@xyflow/react/dist/style.css';
 
@@ -302,13 +303,125 @@ export default function NodeCanvas() {
     }
   }, [interactiveMode]);
 
-  const centerNodes = useCallback(() => {
-    fitView({ padding: 0.2, duration: 300 });
+  const handleAutoLayout = useCallback(() => {
+    // 1. 노드 초기화 및 DAGRE 그래프 생성
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+    // [MODIFIED] 간격을 넓혀서 엣지가 더 잘 보이도록 설정
+    dagreGraph.setGraph({ rankdir: 'LR', ranksep: 100, nodesep: 80 });
+
+    const nodeWidth = 300;
+    const nodeHeight = 150;
+
+    // 2. 연결된 노드와 고립된 노드 분류
+    const connectedNodeIds = new Set<string>();
+    edges.forEach((edge) => {
+      connectedNodeIds.add(edge.source);
+      connectedNodeIds.add(edge.target);
+    });
+
+    const connectedNodes: AppNode[] = [];
+    nodes.forEach((node) => {
+      if (node.type === 'note') return;
+
+      if (connectedNodeIds.has(node.id)) {
+        connectedNodes.push(node);
+        dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+      }
+    });
+
+    edges.forEach((edge) => {
+      if (
+        connectedNodeIds.has(edge.source) &&
+        connectedNodeIds.has(edge.target)
+      ) {
+        dagreGraph.setEdge(edge.source, edge.target);
+      }
+    });
+
+    // 3. Dagre 레이아웃 계산 (연결된 노드)
+    dagre.layout(dagreGraph);
+
+    // 4. 새 위치 적용 및 고립된 노드 배치 준비
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let maxY = 0;
+
+    const layoutedNodes = nodes.map((node) => {
+      if (node.type === 'note') return node;
+
+      if (connectedNodeIds.has(node.id)) {
+        const nodeWithPosition = dagreGraph.node(node.id);
+        const x = nodeWithPosition.x - nodeWidth / 2;
+        const y = nodeWithPosition.y - nodeHeight / 2;
+
+        // Bounding Box 계산
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x + nodeWidth);
+        if (y + nodeHeight > maxY) {
+          maxY = y + nodeHeight;
+        }
+
+        return {
+          ...node,
+          position: { x, y },
+        };
+      }
+      return node;
+    });
+
+    // 만약 연결된 노드가 하나도 없으면 기본값 설정
+    if (minX === Infinity) minX = 0;
+    if (maxX === -Infinity) maxX = 1000; // 기본 너비
+
+    // [MODIFIED] 고립된 노드(Orphan Nodes) 그리드 배치
+    const orphanStartY = maxY + 150; // 연결된 그래프와 충분한 간격
+    let currentX = minX;
+    let currentY = orphanStartY;
+    const gapX = 50;
+    const gapY = 50;
+
+    // 연결된 그래프의 너비를 기준으로 줄바꿈 (최소 1000px 보장)
+    const maxWidth = Math.max(maxX - minX, 1000);
+
+    const finalNodes = layoutedNodes.map((node) => {
+      if (connectedNodeIds.has(node.id) || node.type === 'note') return node;
+
+      // 위치 할당
+      const newNode = {
+        ...node,
+        position: { x: currentX, y: currentY },
+      };
+
+      // 다음 위치 계산
+      currentX += nodeWidth + gapX;
+
+      // 줄바꿈 체크 (시작점으로부터의 거리가 최대 너비를 넘으면)
+      if (currentX - minX > maxWidth) {
+        currentX = minX;
+        currentY += nodeHeight + gapY;
+      }
+
+      return newNode;
+    });
+
+    setNodes(finalNodes);
+
     setTimeout(() => {
+      fitView({ padding: 0.2, duration: 300 });
       const viewport = getViewport();
       updateWorkflowViewport(activeWorkflowId, viewport);
-    }, 300);
-  }, [fitView, getViewport, activeWorkflowId, updateWorkflowViewport]);
+    }, 100);
+  }, [
+    nodes,
+    edges,
+    setNodes,
+    fitView,
+    getViewport,
+    updateWorkflowViewport,
+    activeWorkflowId,
+  ]);
 
   const currentAppId = useMemo(() => {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
@@ -685,7 +798,7 @@ export default function NodeCanvas() {
 
               {/* 플로팅 하단 패널 */}
               <BottomPanel
-                onCenterNodes={centerNodes}
+                onCenterNodes={handleAutoLayout}
                 isPanelOpen={!!selectedNodeId}
                 onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
               />
