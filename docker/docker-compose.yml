@@ -6,7 +6,7 @@ services:
     image: pgvector/pgvector:pg15
     container_name: moduly-postgres
     environment:
-      POSTGRES_DB: moduly
+      POSTGRES_DB: moduly_local
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
     ports:
@@ -33,7 +33,7 @@ services:
       DB_PORT: 5432
       DB_USER: admin
       DB_PASSWORD: admin123
-      DB_NAME: moduly
+      DB_NAME: moduly_local
       
       # JWT Secret (REQUIRED - change in production)
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}

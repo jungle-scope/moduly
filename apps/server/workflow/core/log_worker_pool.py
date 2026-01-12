@@ -14,6 +14,7 @@
 import os
 import queue
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -36,6 +37,9 @@ class LogWorkerPool:
     DEFAULT_WORKER_COUNT = 4
     DEFAULT_QUEUE_SIZE = 10000
     DEFAULT_SHUTDOWN_TIMEOUT = 10.0
+    DEFAULT_RUN_READY_MAX_RETRIES = 8
+    DEFAULT_RUN_READY_RETRY_BASE_DELAY = 0.05
+    DEFAULT_RUN_READY_RETRY_MAX_DELAY = 0.5
 
     def __new__(cls, *args, **kwargs):
         # 스레드 안전 싱글톤을 위한 Double-Checked Locking
@@ -67,6 +71,20 @@ class LogWorkerPool:
         )
         self.shutdown_timeout = float(
             os.getenv("LOG_WORKER_SHUTDOWN_TIMEOUT", self.DEFAULT_SHUTDOWN_TIMEOUT)
+        )
+        self.run_ready_max_retries = int(
+            os.getenv("LOG_RUN_READY_MAX_RETRIES", self.DEFAULT_RUN_READY_MAX_RETRIES)
+        )
+        self.run_ready_retry_base_delay = float(
+            os.getenv(
+                "LOG_RUN_READY_RETRY_BASE_DELAY",
+                self.DEFAULT_RUN_READY_RETRY_BASE_DELAY,
+            )
+        )
+        self.run_ready_retry_max_delay = float(
+            os.getenv(
+                "LOG_RUN_READY_RETRY_MAX_DELAY", self.DEFAULT_RUN_READY_RETRY_MAX_DELAY
+            )
         )
 
         self.log_queue: queue.Queue = queue.Queue(maxsize=self.queue_size)
@@ -176,7 +194,10 @@ class LogWorkerPool:
                     break
 
                 try:
-                    self._process_task(session, task)
+                    retry_reason = self._process_task(session, task)
+                    if retry_reason:
+                        session.rollback()
+                        self._retry_task(task, retry_reason)
                 except Exception as e:
                     print(f"[LogWorkerPool] 작업 처리 중 오류 발생: {e}")
                     session.rollback()
@@ -185,7 +206,7 @@ class LogWorkerPool:
         finally:
             session.close()
 
-    def _process_task(self, session: Session, task: Dict[str, Any]):
+    def _process_task(self, session: Session, task: Dict[str, Any]) -> Optional[str]:
         """
         개별 로그 작업 처리
 
@@ -194,7 +215,11 @@ class LogWorkerPool:
         from workflow.core.workflow_logger import WorkflowLoggerDBOps
 
         task_type = task.get("type")
-        data = task.get("data")
+        data = task.get("data") or {}
+
+        retry_reason = self._ensure_dependencies(session, task_type, data)
+        if retry_reason:
+            return retry_reason
 
         if task_type == "create_run":
             WorkflowLoggerDBOps.create_run_log(session, data)
@@ -210,6 +235,84 @@ class LogWorkerPool:
             WorkflowLoggerDBOps.update_node_log_error(session, data)
         else:
             print(f"[LogWorkerPool] 알 수 없는 작업 타입: {task_type}")
+        return None
+
+    def _ensure_dependencies(
+        self, session: Session, task_type: Optional[str], data: Dict[str, Any]
+    ) -> Optional[str]:
+        if task_type in {"update_run_finish", "update_run_error"}:
+            if not self._workflow_run_exists(session, data.get("run_id")):
+                return "workflow_run_missing"
+        elif task_type == "create_node":
+            if not self._workflow_run_exists(session, data.get("workflow_run_id")):
+                return "workflow_run_missing"
+        elif task_type in {"update_node_finish", "update_node_error"}:
+            if not self._workflow_node_run_exists(
+                session, data.get("workflow_run_id"), data.get("node_id")
+            ):
+                return "workflow_node_missing"
+        return None
+
+    def _workflow_run_exists(self, session: Session, run_id: Any) -> bool:
+        if not run_id:
+            return False
+        try:
+            import uuid
+
+            if isinstance(run_id, str):
+                run_id = uuid.UUID(run_id)
+        except (ValueError, TypeError):
+            return False
+
+        from db.models.workflow_run import WorkflowRun
+
+        return (
+            session.query(WorkflowRun.id)
+            .filter(WorkflowRun.id == run_id)
+            .first()
+            is not None
+        )
+
+    def _workflow_node_run_exists(
+        self, session: Session, run_id: Any, node_id: Optional[str]
+    ) -> bool:
+        if not run_id or not node_id:
+            return False
+        try:
+            import uuid
+
+            if isinstance(run_id, str):
+                run_id = uuid.UUID(run_id)
+        except (ValueError, TypeError):
+            return False
+
+        from db.models.workflow_run import WorkflowNodeRun
+
+        return (
+            session.query(WorkflowNodeRun.id)
+            .filter(WorkflowNodeRun.workflow_run_id == run_id)
+            .filter(WorkflowNodeRun.node_id == node_id)
+            .first()
+            is not None
+        )
+
+    def _retry_task(self, task: Dict[str, Any], reason: str):
+        attempts = int(task.get("attempts", 0)) + 1
+        if attempts > self.run_ready_max_retries:
+            print(
+                "[LogWorkerPool] 작업 드롭됨: "
+                f"type={task.get('type')} reason={reason} attempts={attempts}"
+            )
+            return
+
+        task["attempts"] = attempts
+        delay = min(
+            self.run_ready_retry_base_delay * (2 ** (attempts - 1)),
+            self.run_ready_retry_max_delay,
+        )
+        if delay > 0:
+            time.sleep(delay)
+        self.submit(task)
 
 
 # ==============================

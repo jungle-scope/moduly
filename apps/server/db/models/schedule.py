@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base
@@ -29,12 +29,16 @@ class Schedule(Base):
 
     # Primary Key
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        nullable=False,
+        index=True,
     )
 
     # Foreign Key: Deployment (1:1 관계)
     deployment_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        PGUUID(as_uuid=True),
         ForeignKey("workflow_deployments.id", ondelete="CASCADE"),
         unique=True,  # 한 배포는 하나의 스케줄만
         nullable=False,
@@ -55,7 +59,7 @@ class Schedule(Base):
 
     # 타임존
     timezone: Mapped[str] = mapped_column(
-        String, default="UTC", comment="타임존 (예: Asia/Seoul, UTC)"
+        String, nullable=False, default="UTC", comment="타임존 (예: Asia/Seoul, UTC)"
     )
 
     # 실행 이력
@@ -72,11 +76,14 @@ class Schedule(Base):
 
     # 메타데이터
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )

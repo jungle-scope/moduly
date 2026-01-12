@@ -72,3 +72,8 @@ access_key
 apps/infra/k8s/secrets.yaml
 infra/k8s/secrets.yaml
 *.secret.yaml
+
+# Alembic
+alembic/__pycache__/
+alembic/versions/__pycache__/
+*.pyc

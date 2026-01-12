@@ -8,7 +8,7 @@ from db.session import SessionLocal  # 임시 세션 생성용
 from services.llm_service import LLMService
 from services.retrieval import RetrievalService
 from schemas.rag import ChunkPreview
-from db.models.workflow_run import WorkflowRun, WorkflowNodeRun
+from db.models.workflow_run import RunStatus, WorkflowRun, WorkflowNodeRun
 from db.models.llm import LLMModel
 
 from ..base.node import Node
@@ -331,7 +331,7 @@ class LLMNode(Node[LLMNodeData]):
                 .filter(
                     WorkflowRun.workflow_id == workflow_id,
                     WorkflowRun.user_id == user_id,
-                    WorkflowRun.status == "success",
+                    WorkflowRun.status == RunStatus.SUCCESS,
                 )
                 .order_by(WorkflowRun.started_at.desc())
                 .limit(MEMORY_RUN_LIMIT + 1)
