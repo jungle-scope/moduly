@@ -21,6 +21,7 @@ import {
 import { NoteNode, AppNode } from '../../types/Nodes';
 
 import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   ReactFlow,
   Background,
@@ -678,6 +679,18 @@ export default function NodeCanvas() {
     'editor',
   );
   const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+
+  useEffect(() => {
+    if (tabParam === 'monitoring' || tabParam === 'logs') {
+      setActiveTab(tabParam);
+      setIsNodeLibraryOpen(false);
+    } else if (tabParam === 'editor') {
+      setActiveTab('editor');
+      setIsNodeLibraryOpen(true);
+    }
+  }, [tabParam]);
 
   return (
     <div className="flex-1 bg-gradient-to-r from-blue-50 via-white to-blue-50/30 p-2 gap-2 relative flex flex-row overflow-hidden">

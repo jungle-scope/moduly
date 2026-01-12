@@ -181,7 +181,9 @@ export const MonitoringTab = () => {
 
                 <div
                   className="font-bold text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
-                  onClick={() => router.push(`/modules/${service.id}`)}
+                  onClick={() =>
+                    router.push(`/modules/${service.id}?tab=monitoring`)
+                  }
                 >
                   {service.name}
                 </div>
@@ -236,7 +238,9 @@ export const MonitoringTab = () => {
             <div
               key={service.id}
               className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
-              onClick={() => router.push(`/modules/${service.id}`)}
+              onClick={() =>
+                router.push(`/modules/${service.id}?tab=monitoring`)
+              }
             >
               <div className="flex justify-between items-start mb-3">
                 <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
@@ -315,7 +319,9 @@ export const MonitoringTab = () => {
                       key={fail.run_id + fail.node_id}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                       onClick={() =>
-                        router.push(`/modules/${fail.workflow_id}`)
+                        router.push(
+                          `/modules/${fail.workflow_id}?tab=monitoring`,
+                        )
                       }
                     >
                       <td className="px-4 py-3 text-gray-600">
