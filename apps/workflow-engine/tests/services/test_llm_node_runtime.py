@@ -14,7 +14,7 @@ for p in [ROOT, PARENT_OF_ROOT]:
     if str(p) not in sys.path:
         sys.path.append(str(p))
 
-from services.llm_service import LLMService  # noqa: E402
+from shared.services.llm_service import LLMService  # noqa: E402
 from workflow.nodes.llm.entities import LLMNodeData, LLMVariable  # noqa: E402
 from workflow.nodes.llm.llm_node import LLMNode  # noqa: E402
 

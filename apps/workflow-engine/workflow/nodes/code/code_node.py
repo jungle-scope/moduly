@@ -2,7 +2,8 @@
 
 from typing import Any, Dict
 
-from services.docker_service import DockerSandboxService
+from shared.services.docker_service import DockerSandboxService
+
 from workflow.nodes.base.node import Node
 from workflow.nodes.code.entities import CodeNodeData
 

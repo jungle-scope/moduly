@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
         seed_default_llm_models(db)
 
         # 2.4 기존 모델 가격 동기화 (KNOWN_MODEL_PRICES 기반)
-        from services.llm_service import LLMService
+        from shared.services.llm_service import LLMService
 
         result = LLMService.sync_system_prices(db)
         if result["updated_models"] > 0:

@@ -1,15 +1,14 @@
 import json
-from typing import Any, Dict, List, Optional
 import uuid
+from typing import Any, Dict, List, Optional
 
 from jinja2 import Environment
-
-from shared.db.session import SessionLocal  # 임시 세션 생성용
-from services.llm_service import LLMService
-from services.retrieval import RetrievalService
-from shared.schemas.rag import ChunkPreview
-from shared.db.models.workflow_run import WorkflowRun, WorkflowNodeRun
 from shared.db.models.llm import LLMModel
+from shared.db.models.workflow_run import WorkflowNodeRun, WorkflowRun
+from shared.db.session import SessionLocal  # 임시 세션 생성용
+from shared.schemas.rag import ChunkPreview
+from shared.services.llm_service import LLMService
+from shared.services.retrieval_service import RetrievalService
 
 from ..base.node import Node
 from .entities import LLMNodeData
@@ -81,12 +80,18 @@ class LLMNode(Node[LLMNodeData]):
                 if user_id_str:
                     try:
                         user_id = uuid.UUID(user_id_str)
-                        client = LLMService.get_client_for_user(db_session, user_id=user_id, model_id=self.data.model_id)
+                        client = LLMService.get_client_for_user(
+                            db_session, user_id=user_id, model_id=self.data.model_id
+                        )
                     except Exception as e:
-                        print(f"[LLMNode] User context found but failed to get client: {e}. Fallback to legacy.")
-                
+                        print(
+                            f"[LLMNode] User context found but failed to get client: {e}. Fallback to legacy."
+                        )
+
                 if not client:
-                    client = LLMService.get_client_with_any_credential(db_session, model_id=self.data.model_id)
+                    client = LLMService.get_client_with_any_credential(
+                        db_session, model_id=self.data.model_id
+                    )
             finally:
                 # 임시 세션은 호출 후 정리
                 if temp_session is not None:
@@ -105,18 +110,21 @@ class LLMNode(Node[LLMNodeData]):
         if self.data.knowledgeBases and len(self.data.knowledgeBases) > 0:
             try:
                 # User Prompt를 검색 쿼리로 사용 (렌더링 후)
-                rendered_user_prompt = self._render_prompt(self.data.user_prompt, inputs)
+                rendered_user_prompt = self._render_prompt(
+                    self.data.user_prompt, inputs
+                )
                 if rendered_user_prompt:
-                    knowledge_context, knowledge_metadata = self._execute_knowledge_search(
-                        query=rendered_user_prompt,
-                        db_session=db_session
+                    knowledge_context, knowledge_metadata = (
+                        self._execute_knowledge_search(
+                            query=rendered_user_prompt, db_session=db_session
+                        )
                     )
             except Exception as e:
                 print(f"[LLMNode] Knowledge search failed: {e}")
 
         # STEP 3. 프롬프트 빌드 ------------------------------------------------
         system_content = self._render_prompt(self.data.system_prompt, inputs)
-        
+
         # Knowledge Context 주입 (System Prompt 최상단)
         if knowledge_context:
             rag_header = f"[참고 자료]\n아래 제공된 참고 자료를 바탕으로 답변하세요:\n\n{knowledge_context}\n\n---\n"
@@ -148,7 +156,9 @@ class LLMNode(Node[LLMNodeData]):
             )
 
         if not messages:
-            raise ValueError("프롬프트 렌더링 결과가 모두 비어있습니다. 입력 변수가 올바르게 전달되었는지 확인해주세요.")
+            raise ValueError(
+                "프롬프트 렌더링 결과가 모두 비어있습니다. 입력 변수가 올바르게 전달되었는지 확인해주세요."
+            )
 
         # STEP 4. LLM 호출 ----------------------------------------------------
         # 파라미터 전처리: stop 리스트에서 빈 문자열 제거
@@ -226,17 +236,23 @@ class LLMNode(Node[LLMNodeData]):
             try:
                 # DB 세션이 있으면 비용 계산
                 if db_session:
-                    cost = LLMService.calculate_cost(db_session, used_model_id, prompt_tokens, completion_tokens)
-                    
+                    cost = LLMService.calculate_cost(
+                        db_session, used_model_id, prompt_tokens, completion_tokens
+                    )
+
                     # [NEW] Usage 로깅 저장
                     user_id_str = self.execution_context.get("user_id")
                     workflow_run_id_str = self.execution_context.get("workflow_run_id")
-                    
+
                     if user_id_str:
                         try:
                             # workflow_run_id는 engine에서 string으로 넘겨준다고 가정 (execute_stream 참조)
-                            wf_run_uuid = uuid.UUID(workflow_run_id_str) if workflow_run_id_str else None
-                            
+                            wf_run_uuid = (
+                                uuid.UUID(workflow_run_id_str)
+                                if workflow_run_id_str
+                                else None
+                            )
+
                             LLMService.log_usage(
                                 db=db_session,
                                 user_id=uuid.UUID(user_id_str),
@@ -244,7 +260,7 @@ class LLMNode(Node[LLMNodeData]):
                                 usage=usage,
                                 cost=cost,
                                 workflow_run_id=wf_run_uuid,
-                                node_id=self.id
+                                node_id=self.id,
                             )
                         except Exception as log_err:
                             print(f"[LLMNode] Failed to save usage log: {log_err}")
@@ -253,13 +269,13 @@ class LLMNode(Node[LLMNodeData]):
                 print(f"[LLMNode] Cost calculation/logging failed: {e}")
 
         return {
-            "text": text, 
-            "usage": usage, 
+            "text": text,
+            "usage": usage,
             "model": used_model_id,
             "cost": cost,
             "metadata": {
                 "knowledge_search": knowledge_metadata if knowledge_metadata else None
-            }
+            },
         }
 
     def _render_prompt(self, template: Optional[str], inputs: Dict[str, Any]) -> str:
@@ -432,8 +448,10 @@ class LLMNode(Node[LLMNodeData]):
                 return mid
         return fallback_model
         return fallback_model
-    
-    def _execute_knowledge_search(self, query: str, db_session) -> tuple[str, List[Dict[str, Any]]]:
+
+    def _execute_knowledge_search(
+        self, query: str, db_session
+    ) -> tuple[str, List[Dict[str, Any]]]:
         """
         연결된 지식 베이스에서 문서를 검색합니다.
         KnowledgeNode 로직을 재사용.
@@ -445,18 +463,18 @@ class LLMNode(Node[LLMNodeData]):
                 user_id = uuid.UUID(user_id_str)
             except Exception:
                 pass
-        
+
         if not user_id:
             return "", []
 
         retrieval = RetrievalService(db_session, user_id)
-        
+
         kb_ids = [kb.id for kb in self.data.knowledgeBases if kb.id]
         top_k = self.data.topK or 3
         threshold = self.data.scoreThreshold or 0.5
 
         all_chunks: List[tuple[str, ChunkPreview]] = []
-        
+
         for kb_id in kb_ids:
             chunks = retrieval.search_documents(
                 query,
@@ -485,7 +503,7 @@ class LLMNode(Node[LLMNodeData]):
         for kb_id, chunk in top_chunks:
             # 예: [파일명] 내용...
             context_parts.append(f"[파일: {chunk.filename}]\n{chunk.content}")
-            
+
             # 메타데이터 직렬화
             meta = chunk.dict()
             for key, value in list(meta.items()):

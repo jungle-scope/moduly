@@ -7,9 +7,9 @@ from uuid import UUID
 import tiktoken
 from fastapi import UploadFile
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from shared.db.models.knowledge import Document, DocumentChunk, SourceType
 from sqlalchemy.orm import Session
 
-from shared.db.models.knowledge import Document, DocumentChunk, SourceType
 from services.ingestion.factory import IngestionFactory
 from services.storage import get_storage_service  # [NEW]
 
@@ -374,7 +374,7 @@ class IngestionOrchestrator:
         return refined
 
     def _save_to_vector_db(self, doc: Document, chunks: List[Dict[str, Any]]):
-        from services.llm_service import LLMService
+        from shared.services.llm_service import LLMService
 
         self.db.query(DocumentChunk).filter(
             DocumentChunk.document_id == doc.id
@@ -509,7 +509,7 @@ class IngestionOrchestrator:
         return refined
 
     def _save_to_vector_db(self, doc: Document, chunks: List[Dict[str, Any]]):
-        from services.llm_service import LLMService
+        from shared.services.llm_service import LLMService
 
         self.db.query(DocumentChunk).filter(
             DocumentChunk.document_id == doc.id

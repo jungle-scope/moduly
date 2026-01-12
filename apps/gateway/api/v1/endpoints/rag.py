@@ -12,10 +12,6 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
-from sqlalchemy.orm import Session
-
-from api.deps import get_db
-from auth.dependencies import get_current_user
 from shared.db.models.connection import Connection
 from shared.db.models.knowledge import Document, KnowledgeBase, SourceType
 from shared.db.models.user import User
@@ -27,10 +23,14 @@ from shared.schemas.rag import (
     RAGResponse,
     SearchQuery,
 )
+from shared.services.retrieval_service import RetrievalService
+from sqlalchemy.orm import Session
+
+from api.deps import get_db
+from auth.dependencies import get_current_user
 
 # from services.ingestion_local_service import IngestionService
 from services.ingestion.service import IngestionOrchestrator as IngestionService
-from services.retrieval import RetrievalService
 from services.storage import get_storage_service
 
 router = APIRouter()
