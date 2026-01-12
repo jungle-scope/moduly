@@ -1,0 +1,8 @@
+pyproject.toml
+api/v1/endpoints/logs.py
+log_system.egg-info/PKG-INFO
+log_system.egg-info/SOURCES.txt
+log_system.egg-info/dependency_links.txt
+log_system.egg-info/requires.txt
+log_system.egg-info/top_level.txt
+services/log_service.py

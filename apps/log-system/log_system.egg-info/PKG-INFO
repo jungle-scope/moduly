@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: log-system
+Version: 0.1.0
+Summary: Log System Service for Moduly
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: shared

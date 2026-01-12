@@ -10,3 +10,6 @@ Requires-Dist: python-jose[cryptography]
 Requires-Dist: python-dotenv
 Requires-Dist: cryptography
 Requires-Dist: pydantic-settings
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"

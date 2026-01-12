@@ -29,5 +29,15 @@ shared/schemas/log.py
 shared/schemas/rag.py
 shared/schemas/token.py
 shared/schemas/workflow.py
+shared/services/__init__.py
+shared/services/docker_service.py
+shared/services/llm_service.py
+shared/services/retrieval_service.py
+shared/services/llm_client/__init__.py
+shared/services/llm_client/anthropic_client.py
+shared/services/llm_client/base.py
+shared/services/llm_client/factory.py
+shared/services/llm_client/google_client.py
+shared/services/llm_client/openai_client.py
 shared/utils/__init__.py
 shared/utils/encryption.py

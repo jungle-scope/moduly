@@ -6,3 +6,7 @@ python-jose[cryptography]
 python-dotenv
 cryptography
 pydantic-settings
+
+[dev]
+pytest>=7.0
+pytest-asyncio>=0.21.0

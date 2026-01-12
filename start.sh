@@ -62,20 +62,62 @@ echo "🚀 Moduly 개발 환경 설정 중..."
 echo "🐳 데이터베이스 컨테이너 확인 중..."
 docker compose up -d
 
-# 1. 백엔드 환경 확인 및 설정 (현재 터미널)
-echo "🐍 백엔드 환경 확인 중..."
-cd apps/server
-if [ ! -d ".venv" ]; then
-    echo "가상 환경 생성 중..."
-    python3 -m venv .venv
-    source .venv/bin/activate
-else
-    source .venv/bin/activate
-fi
-# 항상 의존성 최신화 (변경 사항 없으면 빠름)
-echo "📥 백엔드 패키지 설치/업데이트 중..."
-pip install -r requirements.txt
-cd ../.. # 루트 경로로 복귀
+# 1. 백엔드 서비스 실행 (Gateway, Workflow Engine, Log System)
+echo "🐍 백엔드 서비스 실행 준비 중..."
+
+# 공통 함수: 서비스 실행
+run_service() {
+    SERVICE_NAME=$1
+    echo "-------- [${SERVICE_NAME}] 시작 --------"
+    cd apps/${SERVICE_NAME} || exit
+
+    # 가상환경 확인 및 생성
+    if [ ! -d ".venv" ]; then
+        echo "Creating .venv for ${SERVICE_NAME}..."
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
+        
+        # Shared 패키지 설치 (먼저 설치)
+        if [ -d "../shared" ]; then
+             echo "Installing local shared package..."
+             pip install -e ../shared
+        fi
+
+        # 의존성 설치 (Editable mode + Dev dependencies)
+        pip install -e ".[dev]"
+    else
+        source .venv/bin/activate
+        # 의존성 업데이트 (변경 사항 있을 때만 설치됨)
+        if [ -d "../shared" ]; then
+             pip install -e ../shared
+        fi
+        pip install -e ".[dev]"
+    fi
+
+    # 백그라운드로 실행
+    if [ "${SERVICE_NAME}" == "gateway" ]; then
+        PORT=8000
+    elif [ "${SERVICE_NAME}" == "workflow-engine" ]; then
+        PORT=8001
+    elif [ "${SERVICE_NAME}" == "log-system" ]; then
+        PORT=8002
+    fi
+    
+    # nohup 등을 사용하지 않고 단순히 백그라운드로 실행 (개발용)
+    # 실제 운영 환경에서는 supervisor나 docker compose 권장
+    uvicorn main:app --host 0.0.0.0 --port $PORT --reload &
+    
+    cd ../..
+    echo "-------- [${SERVICE_NAME}] 실행 완료 (Port: $PORT) --------"
+}
+
+# Shared 패키지 설치 (각 서비스에서 참조하기 위해 필요할 수 있음, 또는 각 서비스의 toml에서 참조)
+# 여기서는 각 서비스가 로컬 shared를 참조하므로, 각 서비스 venv에서 install -e . 하면 됨.
+
+run_service "gateway"
+run_service "workflow-engine"
+run_service "log-system"
 
 # 2. 프론트엔드 환경 확인 (패키지 설치)
 echo "⚛️  프론트엔드 패키지 설치/업데이트 중..."
@@ -87,7 +129,7 @@ cd ../..
 # 서버가 켜질 때까지 잠시 기다렸다가 실행
 (sleep 5 && open "http://localhost:3000") &
 
-# 4. Concurrently를 사용하여 서버 일괄 실행
-echo "🚀 서버 실행 중..."
+# 4. 프론트엔드 실행
+echo "🚀 프론트엔드 실행 중..."
 cd apps/client
-npm run dev:all
+npm run dev
