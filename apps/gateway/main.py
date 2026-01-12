@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# apps/gateway/.env 로드
+# apps/gateway/.env 로드 -
 GATEWAY_ENV_PATH = BASE_DIR / ".env"
 if GATEWAY_ENV_PATH.exists():
     print(f"[Gateway] Loading .env from {GATEWAY_ENV_PATH}")
