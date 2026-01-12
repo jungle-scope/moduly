@@ -38,7 +38,12 @@ def get_deployments(
     app_id 또는 workflow_id 중 하나는 필수입니다.
     """
     return DeploymentService.list_deployments(
-        db, app_id=app_id, workflow_id=workflow_id, skip=skip, limit=limit
+        db,
+        user_id=current_user.id,
+        app_id=app_id,
+        workflow_id=workflow_id,
+        skip=skip,
+        limit=limit,
     )
 
 

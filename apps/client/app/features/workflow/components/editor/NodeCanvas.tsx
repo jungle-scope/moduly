@@ -1,7 +1,18 @@
 'use client';
 
-import { Sliders, Plus, StickyNote, Play, Trash2 } from 'lucide-react';
+import {
+  Sliders,
+  Plus,
+  StickyNote,
+  Play,
+  Trash2,
+  Workflow,
+  ScrollText,
+  Activity,
+} from 'lucide-react';
 import { NodeSelector } from './NodeSelector';
+import { LogTab } from './tabs/LogTab';
+import { MonitoringTab } from './tabs/MonitoringTab';
 import NodeLibrarySidebar from './NodeLibrarySidebar';
 import {
   type NodeDefinition,
@@ -71,6 +82,8 @@ export default function NodeCanvas() {
     projectDescription,
     isFullscreen,
     setEdges,
+    isSettingsOpen,
+    toggleSettings,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
@@ -207,18 +220,21 @@ export default function NodeCanvas() {
   );
 
   useEffect(() => {
-    if (isVersionHistoryOpen) {
+    if (isVersionHistoryOpen || isSettingsOpen) {
       setSelectedNodeId(null);
       setSelectedNodeType(null);
       setIsParamPanelOpen(false);
     }
-  }, [isVersionHistoryOpen]);
+  }, [isVersionHistoryOpen, isSettingsOpen]);
 
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       if (node.type && node.type !== 'note') {
         if (isVersionHistoryOpen) {
           toggleVersionHistory();
+        }
+        if (isSettingsOpen) {
+          toggleSettings();
         }
 
         if (selectedNodeId !== node.id) {
@@ -311,7 +327,7 @@ export default function NodeCanvas() {
     y: number;
     nodeId: string;
   } | null>(null);
-  
+
   const [edgeContextMenu, setEdgeContextMenu] = useState<{
     x: number;
     y: number;
@@ -327,7 +343,11 @@ export default function NodeCanvas() {
     (event: React.MouseEvent, node: Node) => {
       event.preventDefault();
       event.stopPropagation();
-      setNodeContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
+      setNodeContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        nodeId: node.id,
+      });
       setEdgeContextMenu(null);
       setContextMenu(null);
     },
@@ -339,7 +359,11 @@ export default function NodeCanvas() {
     (event: React.MouseEvent, edge: { id: string }) => {
       event.preventDefault();
       event.stopPropagation();
-      setEdgeContextMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id });
+      setEdgeContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        edgeId: edge.id,
+      });
       setNodeContextMenu(null);
       setContextMenu(null);
     },
@@ -426,7 +450,7 @@ export default function NodeCanvas() {
       type: 'note',
       data: { content: '', title: '메모' },
       position,
-      style: { width: 200, height: 100 },
+      style: { width: 300, height: 100 },
     };
 
     setNodes([...nodes, newNote]);
@@ -536,307 +560,382 @@ export default function NodeCanvas() {
     [screenToFlowPosition, setNodes, nodes],
   );
 
+  // [NEW] 탭 상태
+  const [activeTab, setActiveTab] = useState<'editor' | 'logs' | 'monitoring'>(
+    'editor',
+  );
+  const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
+
   return (
-    <div className="flex-1 bg-gray-50 relative flex flex-row">
-      {/* Node Library Sidebar */}
-      <NodeLibrarySidebar
-        isOpen={isNodeLibraryOpen}
-        onToggle={() => setIsNodeLibraryOpen(!isNodeLibraryOpen)}
-        onAddNode={handleAddNodeFromLibrary}
-        onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
-        workflowName={projectName}
-        workflowIcon={projectIcon}
-        workflowDescription={projectDescription}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
-        {/* App Search Modal */}
-        <AppSearchModal
-          isOpen={searchModalContext.isOpen}
-          onClose={() => setSearchModalContext({ isOpen: false })}
-          onSelect={handleSelectApp}
-          excludedAppId={currentAppId}
+    <div className="flex-1 bg-gradient-to-r from-blue-50 via-white to-blue-50/30 p-2 gap-2 relative flex flex-row overflow-hidden">
+      {/* Node Library Sidebar Container */}
+      <div
+        className={`h-full rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-in-out z-20 ${
+          isNodeLibraryOpen ? 'w-64' : 'w-12'
+        }`}
+      >
+        <NodeLibrarySidebar
+          isOpen={isNodeLibraryOpen}
+          onToggle={() => setIsNodeLibraryOpen(!isNodeLibraryOpen)}
+          onAddNode={handleAddNodeFromLibrary}
+          onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
         />
+      </div>
 
-        {/* ReactFlow 캔버스 */}
-        <div
-          className="flex-1 relative"
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onMoveEnd={handleMoveEnd}
-            onNodeClick={handleNodeClick}
-            onPaneContextMenu={onPaneContextMenu}
-            onNodeContextMenu={onNodeContextMenu}
-            onEdgeContextMenu={onEdgeContextMenu}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            defaultEdgeOptions={defaultEdgeOptions}
-            connectionLineComponent={CustomConnectionLine}
-            fitView
-            attributionPosition="bottom-right"
-            className="bg-gray-50"
-            {...reactFlowConfig}
+      {/* Main Content Area Container */}
+      <div className="flex-1 h-full rounded-xl bg-gray-100 flex flex-col overflow-hidden">
+        {/* Tab Header */}
+        <div className="h-10 min-h-[40px] px-2 pt-2 bg-gray-100 flex items-end gap-2 shrink-0">
+          <button
+            onClick={() => {
+              setActiveTab('editor');
+              setIsNodeLibraryOpen(true);
+            }}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
+              activeTab === 'editor'
+                ? 'bg-white text-gray-900'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+            }`}
           >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={16}
-              size={1}
-              color="#d1d5db"
+            <Workflow className="w-4 h-4" />
+            편집
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('logs');
+              setIsNodeLibraryOpen(false);
+            }}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
+              activeTab === 'logs'
+                ? 'bg-white text-gray-900'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+            }`}
+          >
+            <ScrollText className="w-4 h-4" />
+            로그
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('monitoring');
+              setIsNodeLibraryOpen(false);
+            }}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
+              activeTab === 'monitoring'
+                ? 'bg-white text-gray-900'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            모니터링
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 relative overflow-hidden">
+          {/* 1. Editor Tab Content */}
+          <div
+            className={`w-full h-full relative ${
+              activeTab === 'editor' ? 'block' : 'hidden'
+            }`}
+          >
+            {/* App Search Modal */}
+            <AppSearchModal
+              isOpen={searchModalContext.isOpen}
+              onClose={() => setSearchModalContext({ isOpen: false })}
+              onSelect={handleSelectApp}
+              excludedAppId={currentAppId}
             />
-          </ReactFlow>
 
-          {/* 플로팅 하단 패널 */}
-          <BottomPanel
-            onCenterNodes={centerNodes}
-            isPanelOpen={!!selectedNodeId}
-            onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
-          />
+            {/* ReactFlow 캔버스 */}
+            <div
+              className="w-full h-full relative"
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onMoveEnd={handleMoveEnd}
+                onNodeClick={handleNodeClick}
+                onPaneContextMenu={onPaneContextMenu}
+                onNodeContextMenu={onNodeContextMenu}
+                onEdgeContextMenu={onEdgeContextMenu}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                defaultEdgeOptions={defaultEdgeOptions}
+                connectionLineComponent={CustomConnectionLine}
+                defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
+                attributionPosition="bottom-right"
+                className="bg-gray-100"
+                {...reactFlowConfig}
+              >
+                <Background
+                  variant={BackgroundVariant.Dots}
+                  gap={16}
+                  size={1}
+                  color="#d1d5db"
+                />
+              </ReactFlow>
 
-          {/* [LLM] 파라미터 사이드 패널 */}
-          {isParamPanelOpen &&
-            selectedNodeType === 'llmNode' &&
-            selectedNode && (
-              <LLMParameterSidePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-                onClose={() => setIsParamPanelOpen(false)}
+              {/* 플로팅 하단 패널 */}
+              <BottomPanel
+                onCenterNodes={centerNodes}
+                isPanelOpen={!!selectedNodeId}
+                onOpenAppSearch={() => setSearchModalContext({ isOpen: true })}
               />
-            )}
 
-          {/* 노드 상세 패널 */}
-          <NodeDetailsPanel
-            nodeId={selectedNodeId}
-            onClose={handleClosePanel}
-            header={panelHeader}
-            headerActions={
-              selectedNodeType === 'llmNode' ? (
-                <button
-                  onClick={() => {
-                    setIsRefPanelOpen(false);
-                    setIsParamPanelOpen((prev) => !prev);
+              {/* [LLM] 파라미터 사이드 패널 */}
+              {isParamPanelOpen &&
+                selectedNodeType === 'llmNode' &&
+                selectedNode && (
+                  <LLMParameterSidePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                    onClose={() => setIsParamPanelOpen(false)}
+                  />
+                )}
+
+              {/* 노드 상세 패널 */}
+              <NodeDetailsPanel
+                nodeId={selectedNodeId}
+                onClose={handleClosePanel}
+                header={panelHeader}
+                headerActions={
+                  selectedNodeType === 'llmNode' ? (
+                    <button
+                      onClick={() => {
+                        setIsRefPanelOpen(false);
+                        setIsParamPanelOpen((prev) => !prev);
+                      }}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        isParamPanelOpen
+                          ? 'bg-blue-100 text-blue-600'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                      }`}
+                      title="LLM 파라미터 설정"
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>파라미터</span>
+                    </button>
+                  ) : undefined
+                }
+              >
+                {selectedNode && selectedNodeType === 'startNode' && (
+                  <StartNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'answerNode' && (
+                  <AnswerNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'httpRequestNode' && (
+                  <HttpRequestNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'slackPostNode' && (
+                  <SlackPostNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'codeNode' && (
+                  <CodeNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'conditionNode' && (
+                  <ConditionNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'llmNode' && (
+                  <LLMNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'templateNode' && (
+                  <TemplateNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'workflowNode' && (
+                  <WorkflowNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'fileExtractionNode' && (
+                  <FileExtractionNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'webhookTrigger' && (
+                  <WebhookTriggerNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'scheduleTrigger' && (
+                  <ScheduleTriggerNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'githubNode' && (
+                  <GithubNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+                {selectedNode && selectedNodeType === 'mailNode' && (
+                  <MailNodePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                  />
+                )}
+              </NodeDetailsPanel>
+
+              {/* [LLM] Reference Side Panel */}
+              {isRefPanelOpen &&
+                selectedNodeType === 'llmNode' &&
+                selectedNode && (
+                  <LLMReferenceSidePanel
+                    nodeId={selectedNode.id}
+                    data={selectedNode.data as any}
+                    onClose={() => setIsRefPanelOpen(false)}
+                  />
+                )}
+
+              {/* Context Menu UI */}
+              {contextMenu && (
+                <div
+                  className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]"
+                  style={{ top: contextMenu.y, left: contextMenu.x }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={handleAddNodeFromContext}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4 text-gray-500" />
+                    노드 추가
+                  </button>
+                  <button
+                    onClick={handleAddMemoFromContext}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <StickyNote className="w-4 h-4 text-gray-500" />
+                    메모 추가
+                  </button>
+                  <div className="my-1 border-t border-gray-100" />
+                  <button
+                    onClick={handleTestRunFromContext}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Play className="w-4 h-4 text-gray-500" />
+                    테스트 실행
+                  </button>
+                </div>
+              )}
+
+              {/* 노드 우클릭 삭제 메뉴 */}
+              {nodeContextMenu && (
+                <div
+                  className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[140px]"
+                  style={{ top: nodeContextMenu.y, left: nodeContextMenu.x }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={handleDeleteNode}
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    노드 삭제
+                  </button>
+                </div>
+              )}
+
+              {/* Edge 우클릭 삭제 메뉴 */}
+              {edgeContextMenu && (
+                <div
+                  className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[140px]"
+                  style={{ top: edgeContextMenu.y, left: edgeContextMenu.x }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={handleDeleteEdge}
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    연결선 삭제
+                  </button>
+                </div>
+              )}
+
+              {/* Context Menu Node Selector Modal */}
+              {isContextNodeSelectorOpen && (
+                <div
+                  className="fixed z-50"
+                  style={{
+                    left: contextMenuPos.x,
+                    top:
+                      typeof window !== 'undefined' &&
+                      window.innerHeight - contextMenuPos.y < 420
+                        ? 'auto'
+                        : contextMenuPos.y,
+                    bottom:
+                      typeof window !== 'undefined' &&
+                      window.innerHeight - contextMenuPos.y < 420
+                        ? window.innerHeight - contextMenuPos.y
+                        : 'auto',
                   }}
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                    isParamPanelOpen
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                  }`}
-                  title="LLM 파라미터 설정"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span>파라미터</span>
-                </button>
-              ) : undefined
-            }
-          >
-            {selectedNode && selectedNodeType === 'startNode' && (
-              <StartNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'answerNode' && (
-              <AnswerNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'httpRequestNode' && (
-              <HttpRequestNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'slackPostNode' && (
-              <SlackPostNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'codeNode' && (
-              <CodeNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'conditionNode' && (
-              <ConditionNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'llmNode' && (
-              <LLMNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'templateNode' && (
-              <TemplateNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'workflowNode' && (
-              <WorkflowNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'fileExtractionNode' && (
-              <FileExtractionNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'webhookTrigger' && (
-              <WebhookTriggerNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'scheduleTrigger' && (
-              <ScheduleTriggerNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'githubNode' && (
-              <GithubNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-            {selectedNode && selectedNodeType === 'mailNode' && (
-              <MailNodePanel
-                nodeId={selectedNode.id}
-                data={selectedNode.data as any}
-              />
-            )}
-          </NodeDetailsPanel>
+                  <NodeSelector onSelect={handleSelectNodeFromContext} />
+                </div>
+              )}
 
-          {/* [LLM] Reference Side Panel */}
-          {isRefPanelOpen && selectedNodeType === 'llmNode' && selectedNode && (
-            <LLMReferenceSidePanel
-              nodeId={selectedNode.id}
-              data={selectedNode.data as any}
-              onClose={() => setIsRefPanelOpen(false)}
+              {/* Close Node Selector when clicking outside (overlay) */}
+              {isContextNodeSelectorOpen && (
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsContextNodeSelectorOpen(false)}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* 2. Logs Tab Content */}
+          {activeTab === 'logs' && (
+            <LogTab
+              workflowId={String(activeWorkflowId)}
+              initialRunId={initialLogRunId}
             />
           )}
 
-          {/* Context Menu UI */}
-          {contextMenu && (
-            <div
-              className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]"
-              style={{ top: contextMenu.y, left: contextMenu.x }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={handleAddNodeFromContext}
-                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4 text-gray-500" />
-                노드 추가
-              </button>
-              <button
-                onClick={handleAddMemoFromContext}
-                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-              >
-                <StickyNote className="w-4 h-4 text-gray-500" />
-                메모 추가
-              </button>
-              <div className="my-1 border-t border-gray-100" />
-              <button
-                onClick={handleTestRunFromContext}
-                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-              >
-                <Play className="w-4 h-4 text-gray-500" />
-                테스트 실행
-              </button>
-            </div>
-          )}
-
-          {/* 노드 우클릭 삭제 메뉴 */}
-          {nodeContextMenu && (
-            <div
-              className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[140px]"
-              style={{ top: nodeContextMenu.y, left: nodeContextMenu.x }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={handleDeleteNode}
-                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                노드 삭제
-              </button>
-            </div>
-          )}
-
-          {/* Edge 우클릭 삭제 메뉴 */}
-          {edgeContextMenu && (
-            <div
-              className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[140px]"
-              style={{ top: edgeContextMenu.y, left: edgeContextMenu.x }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={handleDeleteEdge}
-                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                연결선 삭제
-              </button>
-            </div>
-          )}
-
-          {/* Context Menu Node Selector Modal */}
-          {isContextNodeSelectorOpen && (
-            <div
-              className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-[320px] max-h-[400px] overflow-y-auto"
-              style={{
-                left: contextMenuPos.x,
-                top:
-                  typeof window !== 'undefined' &&
-                  window.innerHeight - contextMenuPos.y < 420
-                    ? 'auto'
-                    : contextMenuPos.y,
-                bottom:
-                  typeof window !== 'undefined' &&
-                  window.innerHeight - contextMenuPos.y < 420
-                    ? window.innerHeight - contextMenuPos.y
-                    : 'auto',
+          {/* 3. Monitoring Tab Content */}
+          {activeTab === 'monitoring' && (
+            <MonitoringTab
+              workflowId={String(activeWorkflowId)}
+              onNavigateToLog={(runId) => {
+                setInitialLogRunId(runId);
+                setActiveTab('logs');
               }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-medium text-sm text-gray-900">
-                  노드 선택
-                </span>
-                <button
-                  onClick={() => setIsContextNodeSelectorOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ×
-                </button>
-              </div>
-              <NodeSelector onSelect={handleSelectNodeFromContext} />
-            </div>
-          )}
-
-          {/* Close Node Selector when clicking outside (overlay) */}
-          {isContextNodeSelectorOpen && (
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setIsContextNodeSelectorOpen(false)}
             />
           )}
         </div>

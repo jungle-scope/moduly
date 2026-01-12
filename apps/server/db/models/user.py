@@ -13,6 +13,7 @@ class User(Base):
     """사용자 프로필 테이블 (서비스 전반에서 사용)"""
 
     __tablename__ = "users"
+
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False
     )

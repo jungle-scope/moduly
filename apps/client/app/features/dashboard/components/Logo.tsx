@@ -7,7 +7,7 @@ export default function Logo() {
   const router = useRouter();
 
   return (
-    <div className="h-12 w-52 bg-gradient-to-b from-blue-50 via-white to-blue-50/30 flex items-center px-4 border-r border-gray-200">
+    <div className="h-14 w-full flex items-center px-4">
       <button
         onClick={() => router.push('/dashboard')}
         className="cursor-pointer hover:opacity-80 transition-opacity"

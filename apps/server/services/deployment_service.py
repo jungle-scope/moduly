@@ -166,6 +166,7 @@ class DeploymentService:
     @staticmethod
     def list_deployments(
         db: Session,
+        user_id: uuid.UUID,
         app_id: str = None,
         workflow_id: str = None,
         skip: int = 0,
@@ -176,6 +177,7 @@ class DeploymentService:
 
         Args:
             db: 데이터베이스 세션
+            user_id: 요청 사용자 ID (권한 확인용)
             app_id: 앱 ID (Optional)
             workflow_id: 워크플로우 ID (Optional)
             skip: 페이지네이션 시작 위치
@@ -183,16 +185,30 @@ class DeploymentService:
 
         Returns:
             WorkflowDeployment 객체 리스트
+
+        Raises:
+            HTTPException: 권한이 없는 경우
         """
         if workflow_id and not app_id:
             # workflow_id로 app_id 찾기
-            # App 테이블에 workflow_id 컬럼이 있다고 가정 (App.workflow_id)
             app = db.query(App).filter(App.workflow_id == workflow_id).first()
             if app:
                 app_id = str(app.id)
 
         if not app_id:
             return []
+
+        # [SECURE] App 조회 및 소유권 확인
+        app = db.query(App).filter(App.id == app_id).first()
+        if not app:
+            # 앱이 없으면 빈 리스트 반환하거나 404 (여기선 빈 리스트 유지)
+            return []
+
+        if app.created_by != str(user_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to view deployments for this app.",
+            )
 
         deployments = (
             db.query(WorkflowDeployment)
@@ -202,6 +218,12 @@ class DeploymentService:
             .limit(limit)
             .all()
         )
+
+        # [FIX] App의 url_slug와 auth_secret 주입 (권한 확인 완료됨)
+        for deploy in deployments:
+            deploy.url_slug = app.url_slug
+            deploy.auth_secret = app.auth_secret
+
         return deployments
 
     @staticmethod
@@ -570,6 +592,14 @@ class DeploymentService:
             DeploymentService._deactivate_other_deployments(
                 db, deployment.app_id, deployment_id, scheduler_service
             )
+
+        # 3.1. App의 active_deployment_id 동기화
+        app = db.query(App).filter(App.id == deployment.app_id).first()
+        if app:
+            if new_state:
+                app.active_deployment_id = deployment.id
+            elif app.active_deployment_id == deployment.id:
+                app.active_deployment_id = None
 
         # 4. 현재 배포의 Schedule 처리
         schedule = (
