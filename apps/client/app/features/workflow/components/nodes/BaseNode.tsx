@@ -25,6 +25,8 @@ interface BaseNodeProps {
   icon?: React.ReactNode;
   iconColor?: string;
 
+  targetHandleId?: string;
+  sourceHandleId?: string;
   targetHandleStyle?: React.CSSProperties;
   sourceHandleStyle?: React.CSSProperties;
 }
@@ -122,6 +124,8 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
   selected,
   icon,
   iconColor = '#3b82f6',
+  targetHandleId = 'target',
+  sourceHandleId = 'source',
   targetHandleStyle,
   sourceHandleStyle,
 }) => {
@@ -189,6 +193,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
       <div className="relative z-10">
         {showTargetHandle && (
           <SmartHandle
+            id={targetHandleId}
             type="target"
             position={Position.Left}
             className="-ml-2"
@@ -220,6 +225,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
 
         {showSourceHandle && (
           <SmartHandle
+            id={sourceHandleId}
             type="source"
             position={Position.Right}
             className="-mr-2"

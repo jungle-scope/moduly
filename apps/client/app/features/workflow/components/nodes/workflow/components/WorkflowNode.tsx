@@ -1,6 +1,6 @@
 import { memo, useState, useCallback, useMemo } from 'react';
 import { WorkflowInnerCanvas } from './WorkflowInnerCanvas';
-import { NodeProps } from '@xyflow/react';
+import { NodeProps, useReactFlow, useNodes } from '@xyflow/react';
 import { WorkflowNode as WorkflowNodeType } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 import { ChevronDown, ChevronRight, Loader2, Puzzle } from 'lucide-react';
@@ -14,23 +14,70 @@ import { toast } from 'sonner';
 export const WorkflowNode = memo(
   ({ id, data, selected }: NodeProps<WorkflowNodeType>) => {
     const { updateNodeData } = useWorkflowStore();
+    const { setEdges } = useReactFlow();
+    const nodes = useNodes();
     const [isLoading, setIsLoading] = useState(false);
 
     const isExpanded = data.expanded || false;
+
+    // 상태별 핸들 ID 생성
+    const targetHandleId = isExpanded ? 'target-expanded' : 'target-collapsed';
+    const sourceHandleId = isExpanded ? 'source-expanded' : 'source-collapsed';
 
     const handleToggle = useCallback(
       async (e: React.MouseEvent) => {
         e.stopPropagation();
 
+        // 현재 노드 찾기
+        const currentNode = nodes.find((n) => n.id === id);
+        if (!currentNode) return;
+
+        const currentPosition = currentNode.position || { x: 0, y: 0 };
+        const currentExpanded = (currentNode.data as any).expanded || false;
+
         // 1. 이미 펼쳐져 있으면 닫기
-        if (isExpanded) {
-          updateNodeData(id, { expanded: false });
+        if (currentExpanded) {
+          // 현재 위치를 expandedPosition에 저장하고 닫기
+          updateNodeData(id, {
+            expanded: false,
+            expandedPosition: currentPosition,
+          });
+
+          // 엣지 핸들 업데이트
+          setEdges((eds) =>
+            eds.map((edge) => {
+              if (edge.source === id) {
+                return { ...edge, sourceHandle: 'source-collapsed' };
+              }
+              if (edge.target === id) {
+                return { ...edge, targetHandle: 'target-collapsed' };
+              }
+              return edge;
+            }),
+          );
           return;
         }
 
         // 2. 이미 데이터가 있으면 그냥 펼치기
         if (data.graph_snapshot) {
-          updateNodeData(id, { expanded: true });
+          // 현재 위치를 collapsedPosition에 저장하고 펼치기
+          updateNodeData(id, {
+            expanded: true,
+            collapsedPosition: currentPosition,
+          });
+
+          // 엣지 핸들 업데이트
+          setEdges((eds) =>
+            eds.map((edge) => {
+              if (edge.source === id) {
+                return { ...edge, sourceHandle: 'source-expanded' };
+              }
+              if (edge.target === id) {
+                return { ...edge, targetHandle: 'target-expanded' };
+              }
+              return edge;
+            }),
+          );
           return;
         }
 
@@ -47,7 +94,21 @@ export const WorkflowNode = memo(
               expanded: true,
               graph_snapshot: deployment.graph_snapshot,
               version: deployment.version,
+              collapsedPosition: currentPosition,
             });
+
+            // 엣지 핸들 업데이트
+            setEdges((eds) =>
+              eds.map((edge) => {
+                if (edge.source === id) {
+                  return { ...edge, sourceHandle: 'source-expanded' };
+                }
+                if (edge.target === id) {
+                  return { ...edge, targetHandle: 'target-expanded' };
+                }
+                return edge;
+              }),
+            );
           } catch {
             toast.error('워크플로우 정보를 가져오는데 실패했습니다.');
           } finally {
@@ -58,7 +119,7 @@ export const WorkflowNode = memo(
           toast.warning('세부 정보를 볼 수 없는 노드입니다.');
         }
       },
-      [id, isExpanded, data.deployment_id, data.graph_snapshot, updateNodeData],
+      [id, data, updateNodeData, nodes, setEdges],
     );
 
     // 내부 노드 및 엣지 필터링 (실행 흐름에 연결된 것만)
@@ -219,6 +280,8 @@ export const WorkflowNode = memo(
         showTargetHandle={true}
         icon={<Puzzle className="text-white" />}
         iconColor="#14b8a6" // teal-500
+        targetHandleId={targetHandleId}
+        sourceHandleId={sourceHandleId}
         targetHandleStyle={
           isExpanded ? { top: '56px', left: '-12px' } : undefined
         }
