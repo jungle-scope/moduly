@@ -307,7 +307,7 @@ export function WebhookTriggerNodePanel({
                       <div>
                         캡처 시작 버튼을 누르고 트리거를 작동 시키면, 들어오는
                         JSON 구조를 자동으로 분석합니다. 필요한 값을 선택하여
-                        변수로 자동매핑 해보세요.
+                        변수로 자동매핑 할 수 있습니다.
                       </div>
                     </div>
                   }

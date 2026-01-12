@@ -17,7 +17,7 @@ interface NodeLibraryContentProps {
     node: any,
     event: React.MouseEvent,
   ) => void;
-  disabledNodeTypes?: string[]; // 비활성화할 노드 타입 목록
+  disabledNodeTypes?: string[];
 }
 
 // 탭 정의 (이미지와 유사하게 구성)
