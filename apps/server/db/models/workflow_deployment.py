@@ -18,7 +18,9 @@ class DeploymentType(str, Enum):
     WEBAPP = "webapp"  # 웹 앱으로 배포 (공개)
     WIDGET = "widget"  # 웹 위젯 임베딩 배포 (공개)
     MCP = "mcp"  # Model Context Protocol
-    WORKFLOW_NODE = "workflow_node"  # 워크플로우 노드로 배포 (다른 워크플로우에서 재사용)
+    WORKFLOW_NODE = (
+        "workflow_node"  # 워크플로우 노드로 배포 (다른 워크플로우에서 재사용)
+    )
 
 
 class WorkflowDeployment(Base):
@@ -29,12 +31,15 @@ class WorkflowDeployment(Base):
 
     __tablename__ = "workflow_deployments"
 
-    # 1. Native UUID 사용
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True),
+        primary_key=True,
+        index=True,
+        default=uuid.uuid4,
+        nullable=False,
     )
 
-    # 🔗 원본 앱 (1:N 관계)
+    # 원본 앱 (1:N 관계)
     app_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("apps.id", ondelete="CASCADE"),
@@ -42,10 +47,10 @@ class WorkflowDeployment(Base):
         index=True,
     )
 
-    # 🔢 버전 관리 (1, 2, 3...)
+    # 버전 관리 (1, 2, 3...)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    # 🤖 배포 형태 (Default: API)
+    # 배포 형태 (Default: API)
     type: Mapped[DeploymentType] = mapped_column(
         SQLEnum(DeploymentType),
         default=DeploymentType.API,
@@ -75,8 +80,10 @@ class WorkflowDeployment(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
 
     # 배포 활성화 여부
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

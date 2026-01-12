@@ -32,6 +32,7 @@ from schemas.rag import (
     DocumentPreviewRequest,
     DocumentPreviewResponse,
     DocumentResponse,
+    KnowledgeBaseCreate,
     KnowledgeBaseDetailResponse,
     KnowledgeBaseResponse,
     KnowledgeUpdate,
@@ -39,6 +40,40 @@ from schemas.rag import (
 from services.ingestion.service import IngestionOrchestrator as IngestionService
 
 router = APIRouter()
+
+
+@router.post(
+    "", response_model=KnowledgeBaseResponse, status_code=status.HTTP_201_CREATED
+)
+def create_knowledge_base(
+    kb_in: KnowledgeBaseCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    빈 지식 베이스를 생성합니다. (소스 없음)
+    """
+    # 임베딩 모델 유효성 검사 등은 생략하거나 추후 추가
+    kb = KnowledgeBase(
+        name=kb_in.name,
+        description=kb_in.description,
+        embedding_model=kb_in.embedding_model,
+        user_id=current_user.id,
+    )
+    db.add(kb)
+    db.commit()
+    db.refresh(kb)
+
+    return KnowledgeBaseResponse(
+        id=kb.id,
+        name=kb.name,
+        description=kb.description,
+        document_count=0,
+        created_at=kb.created_at,
+        updated_at=kb.updated_at,
+        source_types=[],
+        embedding_model=kb.embedding_model,
+    )
 
 
 # TODO: is_active column 추가해서 LLM노드와 참고자료 목록에서 모두 사용할 수 있도록 한다

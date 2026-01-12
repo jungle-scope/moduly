@@ -22,27 +22,38 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const data = await authApi.login({
+      await authApi.login({
         email: formData.email,
         password: formData.password,
       });
 
       router.push('/dashboard');
     } catch (err) {
-      const axiosError = err as AxiosError<{ detail: string }>;
+      const axiosError = err as AxiosError<{ detail: string | string[] }>;
       const status = axiosError.response?.status;
+      const data = axiosError.response?.data;
 
-      let message = axiosError.response?.data?.detail;
+      let message: string;
 
-      // 백엔드 메시지가 없으면 상태 코드별로 처리
-      if (!message) {
-        if (status && status >= 500) {
-          message = '서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
-        } else if (!axiosError.response) {
-          message = '네트워크 연결을 확인해주세요.';
+      if (status === 401) {
+        message = '이메일 또는 비밀번호가 올바르지 않습니다.';
+      } else if (status === 422) {
+        // FastAPI Validation Error
+        if (Array.isArray(data?.detail)) {
+          message = '입력한 값이 올바르지 않습니다.';
         } else {
-          message = '로그인에 실패했습니다. 다시 시도해주세요.';
+          message = '입력 형식이 올바르지 않습니다.';
         }
+      } else if (status && status >= 500) {
+        message = '서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (!axiosError.response) {
+        message = '네트워크 연결을 확인해주세요.';
+      } else {
+        // 기타 에러 시 사용자 친화적 메시지 또는 서버 응답 메시지 표시
+        message =
+          typeof data?.detail === 'string'
+            ? data.detail
+            : '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
       }
 
       setError(message);

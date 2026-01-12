@@ -1,6 +1,7 @@
 import {
   IngestionResponse,
   KnowledgeCreateRequest,
+  KnowledgeBaseCreate,
   KnowledgeBaseResponse,
   KnowledgeBaseDetailResponse,
   DocumentResponse,
@@ -54,6 +55,7 @@ export interface AnalyzeResponse {
 export type {
   IngestionResponse,
   KnowledgeCreateRequest,
+  KnowledgeBaseCreate,
   KnowledgeBaseResponse,
   KnowledgeBaseDetailResponse,
 };
@@ -82,12 +84,12 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // [NEW] S3 직접 업로드
+  // S3 직접 업로드
   uploadToS3: async (
     presignedUrl: string,
     file: File,
     contentType: string,
-    onProgress?: (progress: number) => void,
+    // onProgress?: (progress: number) => void,
   ): Promise<void> => {
     // fetch API 사용 (axios는 CORS preflight 이슈 가능성)
     const response = await fetch(presignedUrl, {
@@ -103,6 +105,14 @@ export const knowledgeApi = {
         `S3 upload failed: ${response.status} ${response.statusText}`,
       );
     }
+  },
+
+  // 지식베이스 생성 (빈 KB)
+  createKnowledgeBase: async (
+    data: KnowledgeBaseCreate,
+  ): Promise<KnowledgeBaseResponse> => {
+    const response = await api.post('/knowledge', data);
+    return response.data;
   },
 
   // 참고자료 생성 및 파일 업로드

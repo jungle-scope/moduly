@@ -80,7 +80,7 @@ export default function SearchPlayground({
         {isLoading && (
           <div className="flex flex-col items-center justify-center h-full text-blue-600">
             <Loader2 className="w-8 h-8 animate-spin mb-2" />
-            <p className="text-sm font-medium">지식 베이스 검색 중...</p>
+            <p className="text-sm font-medium">지식베이스 검색 중...</p>
           </div>
         )}
 
@@ -138,7 +138,7 @@ export default function SearchPlayground({
           <textarea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="지식 베이스에 대해 질문해보세요..."
+            placeholder="지식베이스에 대해 질문해보세요..."
             className="w-full pr-12 min-h-[80px] resize-none p-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {

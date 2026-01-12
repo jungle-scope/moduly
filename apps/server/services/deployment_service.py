@@ -44,7 +44,7 @@ class DeploymentService:
             raise HTTPException(status_code=404, detail="App not found")
 
         # 2. 권한 체크
-        if app.created_by != str(user_id):
+        if app.created_by != user_id:
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to deploy this app.",
@@ -166,9 +166,8 @@ class DeploymentService:
     @staticmethod
     def list_deployments(
         db: Session,
-        user_id: uuid.UUID,
-        app_id: str = None,
-        workflow_id: str = None,
+        app_id: uuid.UUID = None,
+        workflow_id: uuid.UUID = None,
         skip: int = 0,
         limit: int = 100,
     ) -> List[WorkflowDeployment]:
@@ -193,22 +192,16 @@ class DeploymentService:
             # workflow_id로 app_id 찾기
             app = db.query(App).filter(App.workflow_id == workflow_id).first()
             if app:
-                app_id = str(app.id)
+                app_id = app.id
 
         if not app_id:
             return []
 
-        # [SECURE] App 조회 및 소유권 확인
+        # [SECURE] App 조회
         app = db.query(App).filter(App.id == app_id).first()
         if not app:
             # 앱이 없으면 빈 리스트 반환하거나 404 (여기선 빈 리스트 유지)
             return []
-
-        if app.created_by != str(user_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You do not have permission to view deployments for this app.",
-            )
 
         deployments = (
             db.query(WorkflowDeployment)
@@ -219,15 +212,10 @@ class DeploymentService:
             .all()
         )
 
-        # [FIX] App의 url_slug와 auth_secret 주입 (권한 확인 완료됨)
-        for deploy in deployments:
-            deploy.url_slug = app.url_slug
-            deploy.auth_secret = app.auth_secret
-
         return deployments
 
     @staticmethod
-    def get_deployment(db: Session, deployment_id: str) -> WorkflowDeployment:
+    def get_deployment(db: Session, deployment_id: uuid.UUID) -> WorkflowDeployment:
         """
         특정 배포 ID의 상세 정보를 조회합니다.
 
@@ -279,7 +267,7 @@ class DeploymentService:
             .join(WorkflowDeployment, App.active_deployment_id == WorkflowDeployment.id)
             .filter(WorkflowDeployment.type == DeploymentType.WORKFLOW_NODE)
             .filter(WorkflowDeployment.is_active == True)
-            .filter(App.created_by == str(user_id))  # [NEW] 내 앱만 조회
+            .filter(App.created_by == user_id)  # [NEW] 내 앱만 조회
         )
 
         if excluded_app_id:

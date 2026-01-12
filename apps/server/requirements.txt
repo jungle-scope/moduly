@@ -2,7 +2,7 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.0
 authlib==1.4.1
-bcrypt==5.0.0
+bcrypt==4.0.1
 blinker==1.9.0
 certifi==2025.8.3
 cffi==2.0.0
@@ -75,3 +75,4 @@ pydantic-settings
 boto3
 locust>=2.20.0
 pytest-asyncio
+alembic>=1.13.0

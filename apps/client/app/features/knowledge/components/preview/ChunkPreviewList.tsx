@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Loader2, RefreshCw } from 'lucide-react';
+import { Check, Loader2, Eye } from 'lucide-react';
 import { DocumentSegment } from '@/app/features/knowledge/api/knowledgeApi';
 
 interface ChunkPreviewListProps {
@@ -30,14 +30,20 @@ export default function ChunkPreviewList({
             <p className="text-sm">문서를 분석하여 조각내고 있습니다...</p>
           </div>
         ) : previewSegments.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-3">
-            <RefreshCw className="w-12 h-12 opacity-20" />
-            <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-3">
-              <RefreshCw className="w-12 h-12 opacity-20" />
-              <p className="text-sm">
-                왼쪽에서 설정을 변경하고 [결과 미리보기]를 눌러주세요.
-              </p>
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-full mb-4">
+              <Eye className="w-8 h-8 text-gray-400 dark:text-gray-500" />
             </div>
+            <p className="text-sm text-gray-600 dark:text-gray-300 font-medium mb-1">
+              미리보기 결과가 없습니다
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              왼쪽에서 설정 후{' '}
+              <span className="text-blue-600 dark:text-blue-400 font-medium">
+                [결과 미리보기]
+              </span>{' '}
+              클릭
+            </p>
           </div>
         ) : (
           previewSegments.map((segment, idx) => (

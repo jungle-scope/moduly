@@ -12,7 +12,7 @@ from db.models.user import User
 from db.models.workflow import Workflow
 
 # [NEW] 로깅 모델 및 스키마
-from db.models.workflow_run import WorkflowRun
+from db.models.workflow_run import NodeRunStatus, RunStatus, WorkflowRun
 from db.session import get_db
 from schemas.log import (
     DashboardStatsResponse,
@@ -134,7 +134,7 @@ def get_workflow_stats(
 
         # === 1. Summary Stats ===
         total_runs = base_query.count()
-        success_count = base_query.filter(WorkflowRun.status == "success").count()
+        success_count = base_query.filter(WorkflowRun.status == RunStatus.SUCCESS).count()
 
         # Avg Duration
         avg_duration = (
@@ -212,7 +212,7 @@ def get_workflow_stats(
             db.query(WorkflowRun)
             .filter(
                 WorkflowRun.workflow_id == workflow_id,
-                WorkflowRun.status == "success",
+                WorkflowRun.status == RunStatus.SUCCESS,
                 WorkflowRun.started_at >= cutoff_date,
                 # WorkflowRun.total_cost > 0 # Optional
             )
@@ -237,7 +237,7 @@ def get_workflow_stats(
             db.query(WorkflowRun)
             .filter(
                 WorkflowRun.workflow_id == workflow_id,
-                WorkflowRun.status == "success",
+                WorkflowRun.status == RunStatus.SUCCESS,
                 WorkflowRun.started_at >= cutoff_date,
             )
             .order_by(WorkflowRun.total_cost.desc())
@@ -267,7 +267,7 @@ def get_workflow_stats(
             .join(WorkflowRun)
             .filter(
                 WorkflowRun.workflow_id == workflow_id,
-                WorkflowNodeRun.status == "failed",
+                WorkflowNodeRun.status == NodeRunStatus.FAILED,
                 WorkflowRun.started_at >= cutoff_date,
             )
             .group_by(
@@ -296,7 +296,7 @@ def get_workflow_stats(
         failed_runs = (
             db.query(WorkflowRun)
             .filter(
-                WorkflowRun.workflow_id == workflow_id, WorkflowRun.status == "failed"
+            WorkflowRun.workflow_id == workflow_id, WorkflowRun.status == RunStatus.FAILED
             )
             .order_by(WorkflowRun.started_at.desc())
             .limit(5)
@@ -304,7 +304,10 @@ def get_workflow_stats(
         )
 
         for run in failed_runs:
-            failed_node = next((n for n in run.node_runs if n.status == "failed"), None)
+            failed_node = next(
+                (n for n in run.node_runs if n.status == NodeRunStatus.FAILED),
+                None,
+            )
             recent_failures.append(
                 RecentFailure(
                     run_id=str(run.id),
@@ -337,9 +340,7 @@ def create_workflow(
     """
     새 워크플로우 생성 (인증 필요)
     """
-    workflow = WorkflowService.create_workflow(
-        db, request, user_id=str(current_user.id)
-    )
+    workflow = WorkflowService.create_workflow(db, request, user_id=current_user.id)
 
     return {
         "id": str(workflow.id),
@@ -363,7 +364,7 @@ def get_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    if workflow.created_by != str(current_user.id):
+    if workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return {
@@ -388,7 +389,7 @@ def list_workflows_by_app(
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
 
-    if app.created_by != str(current_user.id):
+    if app.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     # 워크플로우 목록 조회
@@ -397,7 +398,7 @@ def list_workflows_by_app(
     return [
         {
             "id": str(w.id),
-            "app_id": w.app_id,
+            "app_id": str(w.app_id),
             "created_at": w.created_at.isoformat(),
             "updated_at": w.updated_at.isoformat(),
         }
@@ -424,7 +425,7 @@ def sync_draft_workflow(
     # 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
 
-    if workflow and workflow.created_by != str(current_user.id):
+    if workflow and workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return WorkflowService.save_draft(
@@ -447,7 +448,7 @@ def get_draft_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    if workflow.created_by != str(current_user.id):
+    if workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return WorkflowService.get_draft(db, workflow_id)
@@ -469,7 +470,7 @@ async def execute_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    if workflow.created_by != str(current_user.id):
+    if workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     memory_mode_enabled = False
@@ -540,7 +541,7 @@ async def stream_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    if workflow.created_by != str(current_user.id):
+    if workflow.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     # 2. Request에서 FormData 파싱
