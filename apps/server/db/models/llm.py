@@ -274,7 +274,9 @@ class LLMUsageLog(Base):
     completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_cost: Mapped[Optional[float]] = mapped_column(Numeric(10, 6), nullable=True)
 
-    atency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    latency_ms: Mapped[int] = mapped_column(
+        "atency_ms", Integer, nullable=False, default=0
+    )
     status: Mapped[str] = mapped_column(Text, nullable=False, default="success")
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
