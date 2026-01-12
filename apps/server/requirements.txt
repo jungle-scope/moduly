@@ -74,4 +74,5 @@ apscheduler==3.10.4
 pydantic-settings
 boto3
 locust>=2.20.0
+pytest-asyncio
 alembic>=1.13.0
