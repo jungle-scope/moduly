@@ -501,9 +501,11 @@ export function WebhookTriggerNodePanel({
           </div>
         </CollapsibleSection>
 
+        <div className="my-2 h-px bg-gray-200" />
+
         {/* Variable Mapping Section */}
         <CollapsibleSection
-          title="Variable Mapping"
+          title="입력 변수"
           icon={
             <button
               onClick={(e) => {

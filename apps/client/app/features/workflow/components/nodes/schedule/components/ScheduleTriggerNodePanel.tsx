@@ -357,26 +357,27 @@ export function ScheduleTriggerNodePanel({
               </div>
             </div>
           )}
+        </div>
+      </CollapsibleSection>
 
-          {/* 타임존 선택 (공통) */}
-          <div className="pt-2 border-t border-gray-100">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              타임존 (Timezone)
-            </label>
-            <select
-              value={data.timezone}
-              onChange={(e) =>
-                updateNodeData(nodeId, { timezone: e.target.value })
-              }
-              className="w-full px-3 py-2 text-xs border rounded bg-white hover:border-violet-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
-            >
-              {TIMEZONES.map((tz) => (
-                <option key={tz.value} value={tz.value}>
-                  {tz.label}
-                </option>
-              ))}
-            </select>
-          </div>
+      <div className="my-2 h-px bg-gray-200" />
+
+      <CollapsibleSection title="타임존" defaultOpen={true}>
+        {/* 타임존 선택 (공통) */}
+        <div>
+          <select
+            value={data.timezone}
+            onChange={(e) =>
+              updateNodeData(nodeId, { timezone: e.target.value })
+            }
+            className="w-full px-3 py-2 text-xs border rounded bg-white hover:border-violet-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+          >
+            {TIMEZONES.map((tz) => (
+              <option key={tz.value} value={tz.value}>
+                {tz.label}
+              </option>
+            ))}
+          </select>
         </div>
       </CollapsibleSection>
     </div>
