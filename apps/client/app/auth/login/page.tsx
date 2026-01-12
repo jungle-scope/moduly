@@ -22,7 +22,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const data = await authApi.login({
+      await authApi.login({
         email: formData.email,
         password: formData.password,
       });
