@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 interface CollapsibleSectionProps {
-  title: string;
+  title: string | React.ReactNode;
   children: React.ReactNode;
   defaultOpen?: boolean;
   className?: string;
@@ -54,9 +54,7 @@ export function CollapsibleSection({
       )}
 
       {/* Divider */}
-      {showDivider && (
-        <div className="mt-3 border-b border-gray-200" />
-      )}
+      {showDivider && <div className="mt-3 border-b border-gray-200" />}
     </div>
   );
 }
