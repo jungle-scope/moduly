@@ -100,16 +100,45 @@ export const WorkflowNode = memo(
           }
         }
 
-        // 3. 필터링
-        validNodes = nodes.filter((n) => reachableNodeIds.has(n.id));
-        validEdges = edges.filter(
-          (e) =>
-            reachableNodeIds.has(e.source) && reachableNodeIds.has(e.target),
-        );
+        // 3. 필터링 (노드 중복 제거 및 엣지 중복 제거)
+        const uniqueValidNodesMap = new Map();
+        nodes.forEach((n) => {
+          if (reachableNodeIds.has(n.id)) {
+            uniqueValidNodesMap.set(n.id, n);
+          }
+        });
+        validNodes = Array.from(uniqueValidNodesMap.values());
+
+        const edgeKeys = new Set();
+        validEdges = edges.filter((e) => {
+          if (
+            !uniqueValidNodesMap.has(e.source) ||
+            !uniqueValidNodesMap.has(e.target)
+          ) {
+            return false;
+          }
+          const key = `${e.source}-${e.target}-${e.sourceHandle || ''}-${e.targetHandle || ''}`;
+          if (edgeKeys.has(key)) {
+            return false;
+          }
+          edgeKeys.add(key);
+          return true;
+        });
       } else {
-        // Fallback: 시작 노드가 없으면 전체 노드 사용
-        validNodes = nodes;
-        validEdges = edges;
+        // Fallback: 시작 노드가 없으면 전체 노드 사용 (중복 제거)
+        const uniqueNodesMap = new Map();
+        nodes.forEach((n) => {
+          uniqueNodesMap.set(n.id, n);
+        });
+        validNodes = Array.from(uniqueNodesMap.values());
+
+        const edgeKeys = new Set();
+        validEdges = edges.filter((e) => {
+          const key = `${e.source}-${e.target}-${e.sourceHandle || ''}-${e.targetHandle || ''}`;
+          if (edgeKeys.has(key)) return false;
+          edgeKeys.add(key);
+          return true;
+        });
       }
 
       // 4. 그래프 크기 계산 (Dynamic Sizing)
@@ -136,14 +165,14 @@ export const WorkflowNode = memo(
         { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
       );
 
-      const PADDING = 100; // 패딩 확보
+      const PADDING = 60; // 패딩 확보 (컴팩트하게 조정)
       let calcWidth =
         bounds.minX === Infinity
           ? 600
           : bounds.maxX - bounds.minX + PADDING * 2;
 
       // [CRITICAL] 노드 개수에 따른 최소 너비 보정
-      const minWidthByCount = validNodes.length * 250;
+      const minWidthByCount = validNodes.length * 100;
       calcWidth = Math.max(calcWidth, minWidthByCount);
 
       const calcHeight =
@@ -151,13 +180,21 @@ export const WorkflowNode = memo(
           ? 300
           : bounds.maxY - bounds.minY + PADDING * 2;
 
-      // 최소 600x300 ~ 최대 3000x1200 제한
-      const containerWidth = Math.min(Math.max(calcWidth, 600), 3000);
+      // 최소 600x300 ~ 최대 1800x1200 제한 (가로 축소)
+      let containerWidth = Math.min(Math.max(calcWidth, 600), 1800);
       const containerHeight = Math.min(Math.max(calcHeight, 300), 1200);
+
+      // 가로 길이만 80%로 축소
+      containerWidth = Math.round(containerWidth * 0.8);
 
       return {
         filteredNodes: validNodes.map((n) => ({
           ...n,
+          // 부모/그룹 관계 제거 (독립 렌더링)
+          parentNode: undefined,
+          extent: undefined,
+          expandParent: undefined,
+
           draggable: false,
           connectable: false,
           selectable: false,
@@ -182,6 +219,12 @@ export const WorkflowNode = memo(
         showTargetHandle={true}
         icon={<Puzzle className="text-white" />}
         iconColor="#14b8a6" // teal-500
+        targetHandleStyle={
+          isExpanded ? { top: '56px', left: '-12px' } : undefined
+        }
+        sourceHandleStyle={
+          isExpanded ? { top: '56px', right: '-12px' } : undefined
+        }
       >
         {/* 토글 버튼: 우측 상단 절대 위치 */}
         <button

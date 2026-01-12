@@ -24,6 +24,9 @@ interface BaseNodeProps {
 
   icon?: React.ReactNode;
   iconColor?: string;
+
+  targetHandleStyle?: React.CSSProperties;
+  sourceHandleStyle?: React.CSSProperties;
 }
 
 export const SmartHandle: React.FC<HandleProps & { className?: string }> = ({
@@ -119,6 +122,8 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
   selected,
   icon,
   iconColor = '#3b82f6',
+  targetHandleStyle,
+  sourceHandleStyle,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -159,9 +164,9 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
 
   const getHandleStyle = (side: 'left' | 'right') => {
     if (side === 'left') {
-      return { left: '-20px' };
+      return { left: '-20px', ...targetHandleStyle };
     } else {
-      return { right: '-20px' };
+      return { right: '-20px', ...sourceHandleStyle };
     }
   };
 

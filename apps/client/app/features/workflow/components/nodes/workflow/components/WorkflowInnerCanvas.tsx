@@ -64,7 +64,7 @@ const InnerCanvasContent = ({
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView
-        fitViewOptions={{ padding: 0.4, maxZoom: 0.8 }}
+        fitViewOptions={{ padding: 0.2, maxZoom: 1.25 }}
         proOptions={{ hideAttribution: true }}
         // 상호작용 비활성화 (네비게이션 허용 시 줌/팬만 활성화)
         nodesDraggable={false}
