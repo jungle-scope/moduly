@@ -236,17 +236,17 @@ ${authHeader}  -d '{
 
         {/* Schedule Trigger Deployment */}
         {deploymentType === 'schedule' && result.cronExpression && (
-          <div className="border border-violet-200 rounded-xl bg-gradient-to-br from-violet-50 to-white overflow-hidden shadow-sm">
+          <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="px-5 py-4 border-b border-violet-100 flex items-center gap-3">
-              <div className="p-2 bg-violet-100 rounded-lg text-violet-600">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+              <div className="p-2 bg-gray-100 rounded-lg text-gray-600">
                 <Clock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-violet-900">
+                <h3 className="text-sm font-bold text-gray-900">
                   스케줄링 활성화됨
                 </h3>
-                <p className="text-xs text-violet-500">
+                <p className="text-xs text-gray-500">
                   워크플로우가 자동으로 실행됩니다.
                 </p>
               </div>
@@ -255,32 +255,32 @@ ${authHeader}  -d '{
             <div className="p-5 space-y-5">
               {/* Primary Info: Natural Language Description */}
               <div>
-                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">
                   실행 주기
                 </span>
-                <p className="text-lg font-bold text-violet-900 leading-tight">
+                <p className="text-lg font-bold text-gray-900 leading-tight">
                   {formatCronExpression(result.cronExpression)}
                 </p>
               </div>
 
               {/* Meta Info: Timezone */}
               <div>
-                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">
                   타임존
                 </span>
-                <div className="flex items-center gap-1.5 text-violet-700">
-                  <Globe className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Globe className="w-4 h-4 text-gray-400" />
                   <span className="text-sm font-medium">{result.timezone}</span>
                 </div>
               </div>
 
               {/* Secondary Info: Styled Cron Badge */}
-              <div className="pt-4 border-t border-violet-100">
+              <div className="pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-violet-400 font-medium">
+                  <span className="text-[10px] text-gray-400 font-medium">
                     CRON EXPRESSION
                   </span>
-                  <code className="text-[10px] font-mono font-medium text-violet-600 bg-violet-100/50 px-2 py-1 rounded border border-violet-200/50 tracking-wide">
+                  <code className="text-[10px] font-mono font-medium text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-200 tracking-wide">
                     {result.cronExpression}
                   </code>
                 </div>
