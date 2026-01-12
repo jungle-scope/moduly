@@ -56,7 +56,7 @@ app.add_middleware(
 # API 라우터 등록
 from api.v1.endpoints import execute, health
 
-app.include_router(health.router, tags=["Health"])
+app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(execute.router, prefix="/internal", tags=["Execute"])
 
 
