@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   Database,
   FileText,
   Plus,
@@ -17,7 +16,9 @@ import {
   Bot,
   FolderOpen,
   Webhook,
-  MoreVertical,
+  Home,
+  ChevronRight,
+  Cpu,
 } from 'lucide-react';
 import {
   knowledgeApi,
@@ -46,16 +47,20 @@ export default function KnowledgeDetailPage() {
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
 
-  // Delete Modal State
+  // Delete Modal State (Knowledge Base)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Delete Modal State (Source/Document)
+  const [isSourceDeleteModalOpen, setIsSourceDeleteModalOpen] = useState(false);
+  const [deleteTargetDocId, setDeleteTargetDocId] = useState<string | null>(
+    null,
+  );
+  const [isDeletingSource, setIsDeletingSource] = useState(false);
+
   // Embedding Model Change Modal State
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
-
-  // Menu State
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // 데이터 조회
   const fetchKnowledgeBase = useCallback(
@@ -105,7 +110,7 @@ export default function KnowledgeDetailPage() {
     }
   }, [knowledgeBase, id, fetchKnowledgeBase]);
 
-  // 날짜 포맷팅
+  // 날짜 포맷팅 (상세)
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('ko-KR', {
@@ -115,6 +120,45 @@ export default function KnowledgeDetailPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // 상대 시간 포맷팅
+  const formatRelativeTime = (dateString?: string) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return '방금 전';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}분 전`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}시간 전`;
+    if (diffInSeconds < 604800)
+      return `${Math.floor(diffInSeconds / 86400)}일 전`;
+    return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+  };
+
+  // 파일명에서 확장자 추출
+  const getFileExtension = (filename: string) => {
+    const parts = filename.split('.');
+    if (parts.length > 1) {
+      return parts.pop()?.toUpperCase() || '';
+    }
+    return '';
+  };
+
+  // 확장자 제거한 파일명 (중간 생략 처리)
+  const getTruncatedFilename = (filename: string, maxLength = 30) => {
+    const ext = getFileExtension(filename);
+    const nameWithoutExt = ext
+      ? filename.slice(0, -(ext.length + 1))
+      : filename;
+
+    if (nameWithoutExt.length <= maxLength) return nameWithoutExt;
+
+    const start = nameWithoutExt.slice(0, Math.floor(maxLength / 2) - 1);
+    const end = nameWithoutExt.slice(-(Math.floor(maxLength / 2) - 2));
+    return `${start}...${end}`;
   };
 
   // 상태 뱃지 렌더링
@@ -160,21 +204,24 @@ export default function KnowledgeDetailPage() {
   };
 
   const handleDeleteDocument = async (documentId: string) => {
-    if (
-      !confirm(
-        '정말로 이 문서를 삭제하시겠습니까? 파싱된 데이터도 함께 삭제됩니다.',
-      )
-    ) {
-      return;
-    }
+    setDeleteTargetDocId(documentId);
+    setIsSourceDeleteModalOpen(true);
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!deleteTargetDocId) return;
     try {
-      await knowledgeApi.deleteDocument(documentId);
-      // 성공 시 목록 새로고침
+      setIsDeletingSource(true);
+      await knowledgeApi.deleteDocument(deleteTargetDocId);
       fetchKnowledgeBase();
-      toast.success('자료가 삭제되었습니다.');
+      toast.success('소스가 삭제되었습니다.');
+      setIsSourceDeleteModalOpen(false);
+      setDeleteTargetDocId(null);
     } catch (error) {
       console.error('Failed to delete document:', error);
-      toast.error('자료 삭제에 실패했습니다.');
+      toast.error('소스 삭제에 실패했습니다.');
+    } finally {
+      setIsDeletingSource(false);
     }
   };
 
@@ -269,31 +316,44 @@ export default function KnowledgeDetailPage() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      {/* Header Navigation */}
-      <button
-        onClick={() => router.push('/dashboard/knowledge')}
-        className="flex items-center text-sm text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 mb-6 transition-colors group"
-      >
-        <ArrowLeft className="w-4 h-4 mr-1 group-hover:-translate-x-1 transition-transform" />
-        목록으로 돌아가기
-      </button>
+    <div className="p-8 bg-gray-50/30 dark:bg-gray-900 min-h-screen">
+      {/* Breadcrumb Navigation */}
+      <nav className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 mb-6">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
+          <Home className="w-3.5 h-3.5" />
+          <span>홈</span>
+        </Link>
+        <ChevronRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
+        <Link
+          href="/dashboard/knowledge"
+          className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
+          지식 관리
+        </Link>
+        <ChevronRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
+        <span className="text-gray-700 dark:text-gray-200 font-medium truncate max-w-[200px]">
+          {knowledgeBase.name}
+        </span>
+      </nav>
 
       {/* Title Header */}
       <div className="flex justify-between items-start mb-8">
         {/* Left: Icon + Title Group */}
         <div className="flex flex-1 gap-5">
           {/* Main Icon */}
-          <div className="flex-shrink-0 pt-1">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400">
-              <FolderOpen className="w-8 h-8" />
+          <div className="shrink-0">
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
+              <FolderOpen className="w-5 h-5" />
             </div>
           </div>
 
           {/* Text Content */}
-          <div className="flex-1 min-w-0 pt-1">
+          <div className="flex-1 min-w-0">
             {/* Title Row */}
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-0.5">
               {isEditingName ? (
                 <input
                   type="text"
@@ -302,12 +362,12 @@ export default function KnowledgeDetailPage() {
                   onBlur={handleNameUpdate}
                   onKeyDown={(e) => e.key === 'Enter' && handleNameUpdate()}
                   autoFocus
-                  className="text-2xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
+                  className="text-base font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
                 />
               ) : (
                 <h1
                   onClick={() => setIsEditingName(true)}
-                  className="text-2xl font-bold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors truncate"
+                  className="text-base font-bold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-1 -ml-1 transition-colors truncate"
                   title="클릭하여 이름 수정"
                 >
                   {knowledgeBase.name}
@@ -331,7 +391,7 @@ export default function KnowledgeDetailPage() {
               ) : (
                 <p
                   onClick={() => setIsEditingDesc(true)}
-                  className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 -ml-2 transition-colors truncate ${
+                  className={`text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-1 -ml-1 transition-colors truncate ${
                     knowledgeBase.description
                       ? 'text-gray-500 dark:text-gray-400'
                       : 'text-gray-400 dark:text-gray-500 italic'
@@ -342,87 +402,55 @@ export default function KnowledgeDetailPage() {
                 </p>
               )}
             </div>
-            {/* Metadata Row */}
-            <div className="flex items-center gap-4 mt-3 text-sm text-gray-500 dark:text-gray-400">
+
+            {/* Model Badge - Clean Badge UI */}
+            <div className="flex items-center gap-2 mt-2">
               <button
                 onClick={() => setIsModelModalOpen(true)}
-                className="flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group relative"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-full border border-gray-200 dark:border-gray-600 transition-colors"
                 title="클릭하여 모델 변경"
               >
-                <Settings className="w-4 h-4" />
-                <span>
-                  모델:{' '}
-                  <span className="font-medium text-gray-700 dark:text-gray-300">
-                    {knowledgeBase.embedding_model}
-                  </span>
-                </span>
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity absolute -right-5 text-xs">
-                  ✏️
-                </span>
+                <Cpu className="w-3.5 h-3.5 text-blue-500" />
+                <span>{knowledgeBase.embedding_model}</span>
+                <Settings className="w-3 h-3 text-gray-400" />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Right: Action Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0 ml-4 pt-1">
-          {/* More Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors mr-1"
-              title="더보기"
-            >
-              <MoreVertical className="w-5 h-5" />
-            </button>
-
-            {isMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setIsMenuOpen(false)}
-                />
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-20 overflow-hidden py-1">
-                  <button
-                    onClick={() => {
-                      setIsDeleteModalOpen(true);
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    자료 그룹 삭제
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+        {/* Right: Action Buttons - Horizontal Layout */}
+        <div className="flex items-center gap-2 shrink-0 ml-4">
           <button
             onClick={() => setIsSearchModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-white rounded-lg transition-colors mr-2 shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-white text-sm rounded-lg transition-colors shadow-sm"
           >
-            <Bot className="w-5 h-5 mr-1.5 text-blue-600 dark:text-blue-400" />
+            <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             AI 답변 테스트
           </button>
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
           >
-            <Plus className="w-5 h-5 mr-1.5" />
-            자료 추가
+            <Plus className="w-4 h-4" />
+            소스 추가
+          </button>
+          <button
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm rounded-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            삭제
           </button>
         </div>
       </div>
 
-      {/* Document List */}
+      {/* Source List */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/50">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <Database className="w-5 h-5 text-gray-500" />
-            자료 목록
-            <span className="ml-2 text-sm font-normal text-gray-500 bg-white dark:bg-gray-600 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-500">
+        <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Database className="w-4 h-4 text-gray-500" />
+            소스 목록
+            <span className="ml-1 text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
               {knowledgeBase.documents.length}개
             </span>
           </h2>
@@ -432,12 +460,12 @@ export default function KnowledgeDetailPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800/50">
-                <th className="px-6 py-4 w-24">종류</th>
-                <th className="px-6 py-4">파일명 / 소스명</th>
-                <th className="px-6 py-4">상태</th>
-                <th className="px-6 py-4">청크 수</th>
-                <th className="px-6 py-4">업데이트 일시</th>
-                <th className="px-6 py-4 text-right">작업</th>
+                <th className="px-5 py-2.5 w-20">종류</th>
+                <th className="px-5 py-2.5">파일명 / 소스명</th>
+                <th className="px-5 py-2.5">상태</th>
+                <th className="px-5 py-2.5">청크 수</th>
+                <th className="px-5 py-2.5">업데이트 일시</th>
+                <th className="px-5 py-2.5 text-right">작업</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -459,7 +487,8 @@ export default function KnowledgeDetailPage() {
                         onClick={() => setIsUploadModalOpen(true)}
                         className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                       >
-                        <Plus className="w-4 h-4 mr-1.5" />첫 번째 자료 추가하기
+                        <Plus className="w-4 h-4 mr-1.5" />
+                        첫번째 소스 추가하기
                       </button>
                     </div>
                   </td>
@@ -470,7 +499,7 @@ export default function KnowledgeDetailPage() {
                     key={doc.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-2.5">
                       {doc.source_type === 'DB' ? (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 text-xs font-semibold border border-purple-100 dark:border-purple-800">
                           <Database className="w-3.5 h-3.5" />
@@ -488,14 +517,20 @@ export default function KnowledgeDetailPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white max-w-xs">
+                    <td className="px-5 py-2.5 font-medium text-sm text-gray-900 dark:text-white max-w-xs">
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/dashboard/knowledge/${knowledgeBase.id}/document/${doc.id}`}
                           className="hover:text-blue-600 hover:underline truncate"
+                          title={doc.filename}
                         >
-                          {doc.filename}
+                          {getTruncatedFilename(doc.filename)}
                         </Link>
+                        {getFileExtension(doc.filename) && (
+                          <span className="shrink-0 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-semibold rounded uppercase">
+                            {getFileExtension(doc.filename)}
+                          </span>
+                        )}
                       </div>
                       {doc.error_message && (
                         <p
@@ -506,45 +541,45 @@ export default function KnowledgeDetailPage() {
                         </p>
                       )}
                     </td>
-                    <td className="px-6 py-4">
-                      {renderStatusBadge(doc.status)}
+                    <td className="px-5 py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        {renderStatusBadge(doc.status)}
+                        {doc.source_type &&
+                          ['API', 'DB'].includes(doc.source_type) && (
+                            <button
+                              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all"
+                              onClick={() =>
+                                handleSyncDocument(
+                                  doc.id,
+                                  doc.source_type as SourceType,
+                                )
+                              }
+                              title="최신 데이터 동기화"
+                            >
+                              <RotateCw className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-500 text-sm">
+                    <td className="px-5 py-2.5 text-gray-500 text-xs">
                       {doc.chunk_count > 0
                         ? `${doc.chunk_count.toLocaleString()}개`
                         : '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-500 text-sm">
-                      {formatDate(doc.updated_at || doc.created_at)}
+                    <td
+                      className="px-5 py-2.5 text-gray-500 text-xs cursor-default"
+                      title={formatDate(doc.updated_at || doc.created_at)}
+                    >
+                      {formatRelativeTime(doc.updated_at || doc.created_at)}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end">
-                        {doc.source_type &&
-                          ['API', 'DB'].includes(doc.source_type) && (
-                            <>
-                              <button
-                                className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                onClick={() =>
-                                  handleSyncDocument(
-                                    doc.id,
-                                    doc.source_type as SourceType,
-                                  )
-                                }
-                                title="최신 데이터 동기화"
-                              >
-                                <RotateCw className="h-4 w-4" />
-                              </button>
-                              <div className="w-px h-3 bg-gray-200 dark:bg-gray-700 mx-3" />
-                            </>
-                          )}
-                        <button
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          onClick={() => handleDeleteDocument(doc.id)}
-                          title="삭제"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <td className="px-5 py-2.5 text-right">
+                      <button
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        title="삭제"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -578,7 +613,7 @@ export default function KnowledgeDetailPage() {
             <div className="flex justify-between items-start">
               <h3 className="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
                 <Trash2 className="w-5 h-5" />
-                자료 그룹 삭제
+                지식베이스 삭제
               </h3>
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
@@ -590,13 +625,12 @@ export default function KnowledgeDetailPage() {
 
             <div className="space-y-4">
               <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-800 dark:text-red-300">
-                <p className="font-semibold mb-1">경고: 복구할 수 없습니다.</p>
-                <p>
-                  삭제하시려면 자료 그룹 이름{' '}
-                  <span className="font-bold underline">
-                    {knowledgeBase.name}
-                  </span>
-                  과 똑같이 입력해주세요.
+                <p className="font-semibold mb-2">
+                  ⚠️ 경고: 복구할 수 없습니다.
+                </p>
+                <p>삭제하시려면 지식베이스 이름을 정확히 입력해주세요:</p>
+                <p className="mt-2 px-3 py-2 bg-white dark:bg-gray-800 rounded border border-red-200 dark:border-red-800 font-bold text-red-700 dark:text-red-300">
+                  {knowledgeBase.name}
                 </p>
               </div>
 
@@ -605,7 +639,7 @@ export default function KnowledgeDetailPage() {
                 value={deleteConfirmName}
                 onChange={(e) => setDeleteConfirmName(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
-                placeholder="자료 그룹 이름 입력"
+                placeholder="지식베이스 이름 입력"
               />
 
               <div className="flex justify-end gap-3 pt-2">
@@ -632,6 +666,60 @@ export default function KnowledgeDetailPage() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Source Delete Confirmation Modal */}
+      {isSourceDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-sm w-full p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                  소스 삭제
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  이 작업은 되돌릴 수 없습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+              <p>정말로 이 소스를 삭제하시겠습니까?</p>
+              <p className="mt-1 text-xs opacity-80">
+                임베딩 데이터도 함께 삭제됩니다.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setIsSourceDeleteModalOpen(false);
+                  setDeleteTargetDocId(null);
+                }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmDeleteDocument}
+                disabled={isDeletingSource}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeletingSource ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    삭제 중...
+                  </>
+                ) : (
+                  '삭제'
+                )}
+              </button>
             </div>
           </div>
         </div>
