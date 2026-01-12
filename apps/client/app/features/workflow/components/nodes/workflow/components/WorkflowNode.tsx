@@ -1,6 +1,6 @@
 import { memo, useState, useCallback, useMemo } from 'react';
 import { WorkflowInnerCanvas } from './WorkflowInnerCanvas';
-import { NodeProps, useReactFlow, useNodes } from '@xyflow/react';
+import { NodeProps, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import { WorkflowNode as WorkflowNodeType } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 import { ChevronDown, ChevronRight, Loader2, Puzzle } from 'lucide-react';
@@ -14,113 +14,10 @@ import { toast } from 'sonner';
 export const WorkflowNode = memo(
   ({ id, data, selected }: NodeProps<WorkflowNodeType>) => {
     const { updateNodeData } = useWorkflowStore();
-    const { setEdges } = useReactFlow();
+    const { setNodes, setEdges } = useReactFlow();
     const nodes = useNodes();
+    const edges = useEdges();
     const [isLoading, setIsLoading] = useState(false);
-
-    const isExpanded = data.expanded || false;
-
-    // 상태별 핸들 ID 생성
-    const targetHandleId = isExpanded ? 'target-expanded' : 'target-collapsed';
-    const sourceHandleId = isExpanded ? 'source-expanded' : 'source-collapsed';
-
-    const handleToggle = useCallback(
-      async (e: React.MouseEvent) => {
-        e.stopPropagation();
-
-        // 현재 노드 찾기
-        const currentNode = nodes.find((n) => n.id === id);
-        if (!currentNode) return;
-
-        const currentPosition = currentNode.position || { x: 0, y: 0 };
-        const currentExpanded = (currentNode.data as any).expanded || false;
-
-        // 1. 이미 펼쳐져 있으면 닫기
-        if (currentExpanded) {
-          // 현재 위치를 expandedPosition에 저장하고 닫기
-          updateNodeData(id, {
-            expanded: false,
-            expandedPosition: currentPosition,
-          });
-
-          // 엣지 핸들 업데이트
-          setEdges((eds) =>
-            eds.map((edge) => {
-              if (edge.source === id) {
-                return { ...edge, sourceHandle: 'source-collapsed' };
-              }
-              if (edge.target === id) {
-                return { ...edge, targetHandle: 'target-collapsed' };
-              }
-              return edge;
-            }),
-          );
-          return;
-        }
-
-        // 2. 이미 데이터가 있으면 그냥 펼치기
-        if (data.graph_snapshot) {
-          // 현재 위치를 collapsedPosition에 저장하고 펼치기
-          updateNodeData(id, {
-            expanded: true,
-            collapsedPosition: currentPosition,
-          });
-
-          // 엣지 핸들 업데이트
-          setEdges((eds) =>
-            eds.map((edge) => {
-              if (edge.source === id) {
-                return { ...edge, sourceHandle: 'source-expanded' };
-              }
-              if (edge.target === id) {
-                return { ...edge, targetHandle: 'target-expanded' };
-              }
-              return edge;
-            }),
-          );
-          return;
-        }
-
-        // 3. 데이터가 없고 deployment_id가 있으면 서버에서 가져오기
-        if (data.deployment_id) {
-          setIsLoading(true);
-          try {
-            const deployment = await workflowApi.getDeployment(
-              data.deployment_id,
-            );
-
-            // 데이터 저장 및 펼치기
-            updateNodeData(id, {
-              expanded: true,
-              graph_snapshot: deployment.graph_snapshot,
-              version: deployment.version,
-              collapsedPosition: currentPosition,
-            });
-
-            // 엣지 핸들 업데이트
-            setEdges((eds) =>
-              eds.map((edge) => {
-                if (edge.source === id) {
-                  return { ...edge, sourceHandle: 'source-expanded' };
-                }
-                if (edge.target === id) {
-                  return { ...edge, targetHandle: 'target-expanded' };
-                }
-                return edge;
-              }),
-            );
-          } catch {
-            toast.error('워크플로우 정보를 가져오는데 실패했습니다.');
-          } finally {
-            setIsLoading(false);
-          }
-        } else {
-          // deployment_id가 없는 경우 (구버전 데이터 등)
-          toast.warning('세부 정보를 볼 수 없는 노드입니다.');
-        }
-      },
-      [id, data, updateNodeData, nodes, setEdges],
-    );
 
     // 내부 노드 및 엣지 필터링 (실행 흐름에 연결된 것만)
     const { filteredNodes, filteredEdges, containerSize } = useMemo(() => {
@@ -270,6 +167,197 @@ export const WorkflowNode = memo(
       };
     }, [data.graph_snapshot]);
 
+    const isExpanded = data.expanded || false;
+
+    // 상태별 핸들 ID 생성
+    const targetHandleId = isExpanded ? 'target-expanded' : 'target-collapsed';
+    const sourceHandleId = isExpanded ? 'source-expanded' : 'source-collapsed';
+
+    const handleToggle = useCallback(
+      async (e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        // 현재 노드 찾기
+        const currentNode = nodes.find((n) => n.id === id);
+        if (!currentNode) return;
+
+        const currentPosition = currentNode.position || { x: 0, y: 0 };
+        const currentExpanded = (currentNode.data as any).expanded || false;
+
+        // 1. 이미 펼쳐져 있으면 닫기
+        if (currentExpanded) {
+          // 크기 변화 계산 (펼친 상태 → 접힌 상태)
+          const collapsedWidth = 300;
+          const expandedWidth = containerSize?.width || 600;
+          const widthDelta = collapsedWidth - expandedWidth; // 음수 (왼쪽으로 이동)
+
+          // 연결된 모든 하위 노드 찾기 (BFS)
+          const descendantNodeIds = new Set<string>();
+          const queue = [id];
+
+          while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            const outgoingEdges = edges.filter((e) => e.source === currentId);
+
+            for (const edge of outgoingEdges) {
+              if (!descendantNodeIds.has(edge.target)) {
+                descendantNodeIds.add(edge.target);
+                queue.push(edge.target);
+              }
+            }
+          }
+
+          // 현재 위치를 expandedPosition에 저장하고 닫기
+          updateNodeData(id, {
+            expanded: false,
+            expandedPosition: currentPosition,
+          });
+
+          // 연결된 모든 하위 노드들의 위치 조정
+          if (descendantNodeIds.size > 0) {
+            setNodes((nds) =>
+              nds.map((node) => {
+                if (descendantNodeIds.has(node.id)) {
+                  return {
+                    ...node,
+                    position: {
+                      x: node.position.x + widthDelta,
+                      y: node.position.y,
+                    },
+                  };
+                }
+                return node;
+              }),
+            );
+          }
+
+          // 엣지 핸들 업데이트
+          setEdges((eds) =>
+            eds.map((edge) => {
+              if (edge.source === id) {
+                return { ...edge, sourceHandle: 'source-collapsed' };
+              }
+              if (edge.target === id) {
+                return { ...edge, targetHandle: 'target-collapsed' };
+              }
+              return edge;
+            }),
+          );
+          return;
+        }
+
+        // 2. 이미 데이터가 있으면 그냥 펼치기
+        if (data.graph_snapshot) {
+          // 크기 변화 계산 (접힌 상태 → 펼친 상태)
+          const collapsedWidth = 300;
+          const expandedWidth = containerSize?.width || 600;
+          const widthDelta = expandedWidth - collapsedWidth; // 양수 (오른쪽으로 이동)
+
+          // 연결된 모든 하위 노드 찾기 (BFS)
+          const descendantNodeIds = new Set<string>();
+          const queue = [id];
+
+          while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            const outgoingEdges = edges.filter((e) => e.source === currentId);
+
+            for (const edge of outgoingEdges) {
+              if (!descendantNodeIds.has(edge.target)) {
+                descendantNodeIds.add(edge.target);
+                queue.push(edge.target);
+              }
+            }
+          }
+
+          // 현재 위치를 collapsedPosition에 저장하고 펼치기
+          updateNodeData(id, {
+            expanded: true,
+            collapsedPosition: currentPosition,
+          });
+
+          // 연결된 모든 하위 노드들의 위치 조정
+          if (descendantNodeIds.size > 0) {
+            setNodes((nds) =>
+              nds.map((node) => {
+                if (descendantNodeIds.has(node.id)) {
+                  return {
+                    ...node,
+                    position: {
+                      x: node.position.x + widthDelta,
+                      y: node.position.y,
+                    },
+                  };
+                }
+                return node;
+              }),
+            );
+          }
+
+          // 엣지 핸들 업데이트
+          setEdges((eds) =>
+            eds.map((edge) => {
+              if (edge.source === id) {
+                return { ...edge, sourceHandle: 'source-expanded' };
+              }
+              if (edge.target === id) {
+                return { ...edge, targetHandle: 'target-expanded' };
+              }
+              return edge;
+            }),
+          );
+          return;
+        }
+
+        // 3. 데이터가 없고 deployment_id가 있으면 서버에서 가져오기
+        if (data.deployment_id) {
+          setIsLoading(true);
+          try {
+            const deployment = await workflowApi.getDeployment(
+              data.deployment_id,
+            );
+
+            // 데이터 저장 및 펼치기
+            updateNodeData(id, {
+              expanded: true,
+              graph_snapshot: deployment.graph_snapshot,
+              version: deployment.version,
+              collapsedPosition: currentPosition,
+            });
+
+            // 엣지 핸들 업데이트
+            setEdges((eds) =>
+              eds.map((edge) => {
+                if (edge.source === id) {
+                  return { ...edge, sourceHandle: 'source-expanded' };
+                }
+                if (edge.target === id) {
+                  return { ...edge, targetHandle: 'target-expanded' };
+                }
+                return edge;
+              }),
+            );
+          } catch {
+            toast.error('워크플로우 정보를 가져오는데 실패했습니다.');
+          } finally {
+            setIsLoading(false);
+          }
+        } else {
+          // deployment_id가 없는 경우 (구버전 데이터 등)
+          toast.warning('세부 정보를 볼 수 없는 노드입니다.');
+        }
+      },
+      [
+        id,
+        data,
+        updateNodeData,
+        nodes,
+        setEdges,
+        setNodes,
+        edges,
+        containerSize,
+      ],
+    );
+
     return (
       <BaseNode
         id={id}
@@ -318,7 +406,6 @@ export const WorkflowNode = memo(
                 <WorkflowInnerCanvas
                   nodes={filteredNodes}
                   edges={filteredEdges}
-                  allowNavigation={true}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400 text-sm">

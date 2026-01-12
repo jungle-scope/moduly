@@ -327,7 +327,101 @@ export default function NodeCanvas() {
 
       if (connectedNodeIds.has(node.id)) {
         connectedNodes.push(node);
-        dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+
+        let width = nodeWidth;
+        let height = nodeHeight;
+
+        // 서브모듈 노드가 펼쳐져 있는 경우 동적 크기 계산
+        if (
+          node.type === 'workflowNode' &&
+          (node.data as any).expanded &&
+          (node.data as any).graph_snapshot
+        ) {
+          try {
+            const snapshot = (node.data as any).graph_snapshot;
+            const subNodes = (snapshot.nodes as any[]) || [];
+            const subEdges = (snapshot.edges as any[]) || [];
+
+            // 시작 노드 찾기
+            const startNode = subNodes.find(
+              (n) => n.type === 'start' || n.type === 'startNode',
+            );
+
+            let validNodes = subNodes;
+
+            // 시작 노드가 있으면 도달 가능한 노드만 필터링 (WorkflowNode와 동일 로직)
+            if (startNode) {
+              const reachableIds = new Set<string>([startNode.id]);
+              const queue = [startNode.id];
+
+              while (queue.length > 0) {
+                const curr = queue.shift()!;
+                const outgoing = subEdges.filter((e) => e.source === curr);
+                for (const e of outgoing) {
+                  if (!reachableIds.has(e.target)) {
+                    reachableIds.add(e.target);
+                    queue.push(e.target);
+                  }
+                }
+              }
+              validNodes = subNodes.filter((n) => reachableIds.has(n.id));
+            }
+
+            if (validNodes.length > 0) {
+              const bounds = validNodes.reduce(
+                (acc, n) => {
+                  const x = n.position.x;
+                  const y = n.position.y;
+                  const w =
+                    (n.measured?.width as number) || (n.width as number) || 300;
+                  const h =
+                    (n.measured?.height as number) ||
+                    (n.height as number) ||
+                    150;
+                  return {
+                    minX: Math.min(acc.minX, x),
+                    maxX: Math.max(acc.maxX, x + w),
+                    minY: Math.min(acc.minY, y),
+                    maxY: Math.max(acc.maxY, y + h),
+                  };
+                },
+                {
+                  minX: Infinity,
+                  maxX: -Infinity,
+                  minY: Infinity,
+                  maxY: -Infinity,
+                },
+              );
+
+              const PADDING = 60;
+              let calcWidth =
+                bounds.minX === Infinity
+                  ? 600
+                  : bounds.maxX - bounds.minX + PADDING * 2;
+
+              // 최소 너비 보정
+              const minWidthByCount = validNodes.length * 100;
+              calcWidth = Math.max(calcWidth, minWidthByCount);
+
+              const calcHeight =
+                bounds.minY === Infinity
+                  ? 300
+                  : bounds.maxY - bounds.minY + PADDING * 2;
+
+              // 제한 적용
+              const containerWidth = Math.min(Math.max(calcWidth, 600), 1800);
+              const containerHeight = Math.min(Math.max(calcHeight, 300), 1200);
+
+              // 80% 축소 적용
+              width = Math.round(containerWidth * 0.8);
+              height = containerHeight;
+            }
+          } catch (e) {
+            console.error('Failed to calculate submodule size for layout', e);
+          }
+        }
+
+        dagreGraph.setNode(node.id, { width, height });
       }
     });
 
@@ -353,14 +447,14 @@ export default function NodeCanvas() {
 
       if (connectedNodeIds.has(node.id)) {
         const nodeWithPosition = dagreGraph.node(node.id);
-        const x = nodeWithPosition.x - nodeWidth / 2;
-        const y = nodeWithPosition.y - nodeHeight / 2;
+        const x = nodeWithPosition.x - nodeWithPosition.width / 2;
+        const y = nodeWithPosition.y - nodeWithPosition.height / 2;
 
         // Bounding Box 계산
         minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x + nodeWidth);
-        if (y + nodeHeight > maxY) {
-          maxY = y + nodeHeight;
+        maxX = Math.max(maxX, x + nodeWithPosition.width);
+        if (y + nodeWithPosition.height > maxY) {
+          maxY = y + nodeWithPosition.height;
         }
 
         return {
