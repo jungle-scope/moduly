@@ -44,7 +44,7 @@ class DeploymentService:
             raise HTTPException(status_code=404, detail="App not found")
 
         # 2. 권한 체크
-        if app.created_by != str(user_id):
+        if app.created_by != user_id:
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to deploy this app.",
@@ -166,8 +166,8 @@ class DeploymentService:
     @staticmethod
     def list_deployments(
         db: Session,
-        app_id: str = None,
-        workflow_id: str = None,
+        app_id: uuid.UUID = None,
+        workflow_id: uuid.UUID = None,
         skip: int = 0,
         limit: int = 100,
     ) -> List[WorkflowDeployment]:
@@ -189,7 +189,7 @@ class DeploymentService:
             # App 테이블에 workflow_id 컬럼이 있다고 가정 (App.workflow_id)
             app = db.query(App).filter(App.workflow_id == workflow_id).first()
             if app:
-                app_id = str(app.id)
+                app_id = app.id
 
         if not app_id:
             return []
@@ -205,7 +205,7 @@ class DeploymentService:
         return deployments
 
     @staticmethod
-    def get_deployment(db: Session, deployment_id: str) -> WorkflowDeployment:
+    def get_deployment(db: Session, deployment_id: uuid.UUID) -> WorkflowDeployment:
         """
         특정 배포 ID의 상세 정보를 조회합니다.
 
@@ -257,7 +257,7 @@ class DeploymentService:
             .join(WorkflowDeployment, App.active_deployment_id == WorkflowDeployment.id)
             .filter(WorkflowDeployment.type == DeploymentType.WORKFLOW_NODE)
             .filter(WorkflowDeployment.is_active == True)
-            .filter(App.created_by == str(user_id))  # [NEW] 내 앱만 조회
+            .filter(App.created_by == user_id)  # [NEW] 내 앱만 조회
         )
 
         if excluded_app_id:

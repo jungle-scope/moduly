@@ -23,7 +23,7 @@ def update_app(
     앱 정보를 수정합니다. (본인 앱만)
     """
     try:
-        app = AppService.update_app(db, app_id, request, user_id=str(current_user.id))
+        app = AppService.update_app(db, app_id, request, user_id=current_user.id)
         if not app:
             raise HTTPException(
                 status_code=404, detail="App not found or permission denied"
@@ -43,7 +43,7 @@ def create_app(
     새로운 앱을 생성합니다. (인증 필요)
     """
     try:
-        return AppService.create_app(db, request, user_id=str(current_user.id))
+        return AppService.create_app(db, request, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -59,7 +59,7 @@ def list_explore_apps(
     """
     공개된 앱 목록 조회 (커뮤니티 탐색)
     """
-    return AppService.list_explore_apps(db, user_id=str(current_user.id))
+    return AppService.list_explore_apps(db, user_id=current_user.id)
 
 
 @router.get("", response_model=List[AppResponse])
@@ -70,7 +70,7 @@ def list_apps(
     """
     현재 유저의 앱 목록 조회
     """
-    apps = AppService.get_user_apps(db, user_id=str(current_user.id))
+    apps = AppService.get_user_apps(db, user_id=current_user.id)
     return apps
 
 
@@ -83,7 +83,7 @@ def get_app(
     """
     특정 앱 정보 조회
     """
-    app = AppService.get_app(db, app_id, user_id=str(current_user.id))
+    app = AppService.get_app(db, app_id, user_id=current_user.id)
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
     return app
@@ -99,9 +99,7 @@ def clone_app(
     앱을 복제합니다. (내 스튜디오로 복사)
     """
     try:
-        app = AppService.clone_app(
-            db, user_id=str(current_user.id), source_app_id=app_id
-        )
+        app = AppService.clone_app(db, user_id=current_user.id, source_app_id=app_id)
         if not app:
             raise HTTPException(status_code=404, detail="App not found")
         return app
@@ -118,7 +116,7 @@ def delete_app(
     """
     앱을 삭제합니다. (본인 앱만)
     """
-    result = AppService.delete_app(db, app_id, user_id=str(current_user.id))
+    result = AppService.delete_app(db, app_id, user_id=current_user.id)
     if not result:
         # 삭제 실패 (존재하지 않거나 권한 없음)
         raise HTTPException(
