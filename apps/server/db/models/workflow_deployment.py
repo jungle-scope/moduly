@@ -14,7 +14,7 @@ from db.base import Base
 class DeploymentType(str, Enum):
     """배포 타입"""
 
-    API = "api"  # REST API로 배포 (인증 필요)
+    API = "api"  # REST API / 웹훅 배포
     WEBAPP = "webapp"  # 웹 앱으로 배포 (공개)
     WIDGET = "widget"  # 웹 위젯 임베딩 배포 (공개)
     MCP = "mcp"  # Model Context Protocol
