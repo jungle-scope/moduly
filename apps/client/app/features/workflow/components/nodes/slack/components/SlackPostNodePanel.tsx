@@ -130,6 +130,74 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
     return Array.from(missing);
   }, [data.message, data.blocks, availableVariables]);
 
+  const trimmedUrl = (data.url || '').trim();
+  const blocksText = (data.blocks || '').trim();
+  const blocksJsonError = useMemo(() => {
+    if (!blocksText) return false;
+    try {
+      JSON.parse(blocksText);
+      return false;
+    } catch {
+      return true;
+    }
+  }, [blocksText]);
+
+  const isWebhookUrlValid = useMemo(() => {
+    if (mode !== 'webhook') return true;
+    return (
+      trimmedUrl.startsWith('https://hooks.slack.com/') &&
+      trimmedUrl.includes('/services/')
+    );
+  }, [mode, trimmedUrl]);
+
+  const validationIssues = useMemo(() => {
+    const issues: string[] = [];
+    const hasMessage = !!data.message?.trim();
+    const hasValidBlocks = !!blocksText && !blocksJsonError;
+
+    if (mode === 'webhook') {
+      if (!trimmedUrl) {
+        issues.push('Web Hook URL이 필요합니다.');
+      } else if (!isWebhookUrlValid) {
+        issues.push('Web Hook URL 형식이 올바르지 않습니다.');
+      }
+    } else {
+      if (!trimmedUrl) {
+        issues.push('Slack API 엔드포인트가 필요합니다.');
+      }
+      if (!data.authConfig?.token?.trim()) {
+        issues.push('봇 토큰이 필요합니다.');
+      }
+      if (!data.channel?.trim()) {
+        issues.push('채널 ID가 필요합니다.');
+      }
+    }
+
+    if (!hasMessage && !hasValidBlocks) {
+      issues.push('메시지 또는 유효한 블록 JSON이 필요합니다.');
+    }
+
+    if (blocksJsonError) {
+      issues.push('블록 JSON이 유효하지 않습니다.');
+    }
+
+    if (missingVariables.length > 0) {
+      issues.push('등록되지 않은 입력변수가 있습니다.');
+    }
+
+    return issues;
+  }, [
+    mode,
+    trimmedUrl,
+    data.message,
+    data.authConfig?.token,
+    data.channel,
+    blocksText,
+    blocksJsonError,
+    isWebhookUrlValid,
+    missingVariables.length,
+  ]);
+
   // Slack 전용 필드로 구성된 payload를 HTTP body에 자동 반영
   useEffect(() => {
     if (payloadInfo.preview !== data.body) {
@@ -271,6 +339,16 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
 
   return (
     <div className="flex flex-col gap-3">
+      {validationIssues.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
+          <p className="font-semibold mb-1">⚠️ 실행을 위해 확인이 필요합니다:</p>
+          <ul className="list-disc list-inside">
+            {validationIssues.map((issue, index) => (
+              <li key={index}>{issue}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-medium text-gray-700">전송 방식</label>
         <div className="bg-gray-100 p-1 rounded-lg inline-flex w-full gap-1">
