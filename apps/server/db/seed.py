@@ -22,16 +22,18 @@ def seed_placeholder_user(db: Session) -> None:
     if user:
         return
 
+    from services.auth_service import AuthService
+
     dev_user = User(
         id=PLACEHOLDER_USER_ID,
         email="dev@moduly.app",
         name="Dev User",
-        password="dev-password",
+        password=AuthService.hash_password("dev-password"),
         social_provider="none",
     )
     db.add(dev_user)
     db.commit()
-    print("✅ Placeholder user created!")
+    print("✅ 기본 user유저 (id: dev@moduly.app / password: dev-password ) 생성완료!")
 
 
 def _default_providers() -> Iterable[LLMProvider]:

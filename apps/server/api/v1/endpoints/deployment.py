@@ -39,7 +39,6 @@ def get_deployments(
     """
     return DeploymentService.list_deployments(
         db,
-        user_id=current_user.id,
         app_id=app_id,
         workflow_id=workflow_id,
         skip=skip,

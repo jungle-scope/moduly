@@ -107,7 +107,7 @@ class AppService:
             setattr(app, "active_deployment_is_active", None)
 
     @staticmethod
-    def get_app(db: Session, app_id: str, user_id: str = None):
+    def get_app(db: Session, app_id: str, user_id=None):
         """
         특정 앱을 조회합니다.
 
@@ -133,7 +133,7 @@ class AppService:
         return app
 
     @staticmethod
-    def get_user_apps(db: Session, user_id: str):
+    def get_user_apps(db: Session, user_id):
         """
         특정 유저의 모든 앱을 조회합니다.
 
@@ -167,7 +167,7 @@ class AppService:
         return apps
 
     @staticmethod
-    def list_explore_apps(db: Session, user_id: str):
+    def list_explore_apps(db: Session, user_id):
         """
         마켓플레이스에 공개된 앱 목록을 조회합니다.
 
@@ -193,7 +193,7 @@ class AppService:
         return apps
 
     @staticmethod
-    def update_app(db: Session, app_id: str, request: AppUpdateRequest, user_id: str):
+    def update_app(db: Session, app_id: str, request: AppUpdateRequest, user_id):
         """
         앱 정보를 수정합니다.
 
