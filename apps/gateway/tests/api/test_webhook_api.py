@@ -2,6 +2,13 @@ import unittest
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
+import sys
+import pathlib
+
+# Ensure root (gateway) is in sys.path
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
 
 from api.v1.endpoints.webhook import CAPTURE_SESSIONS
 from shared.db.session import get_db

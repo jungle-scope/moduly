@@ -14,7 +14,8 @@ dependencies = [
     "python-jose[cryptography]",
     "python-dotenv",
     "cryptography",
-    "pydantic-settings"
+    "pydantic-settings",
+    "tiktoken"
 ]
 
 [project.optional-dependencies]

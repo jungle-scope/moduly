@@ -4,6 +4,12 @@ version = "0.1.0"
 description = "워크플로우 실행 전용 마이크로서비스"
 requires-python = ">=3.11"
 dependencies = [
+    "beautifulsoup4>=4.12.0",
+    "pymupdf4llm>=0.0.1",
+    "PyGithub>=2.1.0",
+    "jinja2>=3.1.0",
+    "requests>=2.31.0",
+    "tiktoken>=0.5.0",
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0",
     "httpx>=0.26.0",

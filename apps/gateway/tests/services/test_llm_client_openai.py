@@ -17,7 +17,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from services.llm_client.openai_client import OpenAIClient
+from shared.services.llm_client.openai_client import OpenAIClient
 
 
 def test_openai_invoke_success(monkeypatch):
@@ -31,7 +31,7 @@ def test_openai_invoke_success(monkeypatch):
             json=lambda: dummy_response,
         )
 
-    monkeypatch.setattr("services.llm_client.openai_client.requests.post", fake_post)
+    monkeypatch.setattr("shared.services.llm_client.openai_client.requests.post", fake_post)
 
     client = OpenAIClient(
         model_id="gpt-4o",
@@ -47,7 +47,7 @@ def test_openai_invoke_failure(monkeypatch):
     def fake_post(url, headers=None, json=None, timeout=None):
         return SimpleNamespace(status_code=401, text="unauthorized")
 
-    monkeypatch.setattr("services.llm_client.openai_client.requests.post", fake_post)
+    monkeypatch.setattr("shared.services.llm_client.openai_client.requests.post", fake_post)
 
     client = OpenAIClient(
         model_id="gpt-4o",
@@ -65,11 +65,11 @@ def test_openai_token_estimate():
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
-        "services.llm_client.openai_client.tiktoken.encoding_for_model",
+        "shared.services.llm_client.openai_client.tiktoken.encoding_for_model",
         lambda *_args, **_kwargs: DummyEnc(),
     )
     monkeypatch.setattr(
-        "services.llm_client.openai_client.tiktoken.get_encoding",
+        "shared.services.llm_client.openai_client.tiktoken.get_encoding",
         lambda *_args, **_kwargs: DummyEnc(),
     )
 

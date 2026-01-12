@@ -6,7 +6,7 @@ from uuid import UUID
 
 import tiktoken
 from fastapi import UploadFile
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from shared.db.models.knowledge import Document, DocumentChunk, SourceType
 from sqlalchemy.orm import Session
 
