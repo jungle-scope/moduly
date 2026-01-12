@@ -16,7 +16,7 @@ APPS_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(Path(__file__).parent))  # 현재 디렉토리 (workflow-engine)
 sys.path.insert(0, str(APPS_DIR / "shared"))
 
-# .env 로드 (로컬 또는 프로젝트 루트) -- 다른 모듈 임포트 전에 수행
+# .env 로드 (로컬 또는 프로젝트 루트) - 다른 모듈 임포트 전에 수행
 LOCAL_ENV_PATH = Path(__file__).parent / ".env"
 ROOT_ENV_PATH = APPS_DIR.parent / ".env"
 
