@@ -211,6 +211,7 @@ export interface VariableMapping {
 export interface WebhookTriggerNodeData extends BaseNodeData {
   provider: 'jira' | 'custom';
   variable_mappings: VariableMapping[];
+  captured_payload?: any; // 테스트용 Payload (캡처된 데이터)
 }
 // ============================================================================
 

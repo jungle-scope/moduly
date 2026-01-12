@@ -179,6 +179,7 @@ export default function EditorHeader() {
           version: response.version,
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
+          graph_snapshot: response.graph_snapshot ?? null,
         };
 
         // 배포 타입별 추가 정보
@@ -212,74 +213,6 @@ export default function EditorHeader() {
     },
     [deploymentType, activeWorkflow?.appId],
   );
-
-  const handleTestRun = useCallback(async () => {
-    setErrorMsg(null);
-
-    // 1. StartNode 찾기
-    const startNode = nodes.find(
-      (node) =>
-        node.type === 'startNode' ||
-        node.type === 'webhookTrigger' ||
-        node.type === 'scheduleTrigger',
-    );
-    if (!startNode) {
-      const errorContent =
-        '시작 노드를 찾을 수 없습니다. 워크플로우에 입력 노드, 웹훅 트리거, 또는 스케줄 트리거를 추가해주세요.';
-      console.warn('start node가 없습니다.');
-      setErrorMsg(errorContent);
-      return;
-    }
-
-    // 2. 유효성 검사
-    let variables: WorkflowVariable[] = [];
-
-    if (startNode.type === 'startNode') {
-      const data = startNode.data as StartNodeData;
-      variables = data.variables || [];
-      for (const variable of variables) {
-        const otherNames = variables
-          .filter((v) => v.id !== variable.id)
-          .map((v) => v.name);
-        let error = validateVariableName(
-          variable.name,
-          variable.label,
-          otherNames,
-        );
-        if (!error) {
-          error = validateVariableSettings(
-            variable.type,
-            variable.options,
-            variable.maxLength,
-          );
-        }
-        if (error) {
-          const errorContent = `유효성 검사 실패: [${
-            variable.label || variable.name
-          }] ${error}`;
-          console.warn(errorContent);
-          setErrorMsg(errorContent);
-          return;
-        }
-      }
-    } else if (startNode.type === 'webhookTrigger') {
-      // Webhook Trigger인 경우 전체 JSON Body를 입력받음
-      variables = [
-        {
-          id: '__json_payload__',
-          name: '__json_payload__',
-          label: 'JSON Payload (Body)',
-          type: 'paragraph',
-          required: true,
-          placeholder: '{"issue": {"key": "TEST-123"}}',
-        },
-      ];
-    }
-
-    // 3. 변수 저장 후 모달 표시
-    setModalVariables(variables);
-    setShowModal(true);
-  }, [nodes]);
 
   const handleModalClose = useCallback(() => {
     setShowModal(false);
@@ -400,6 +333,88 @@ export default function EditorHeader() {
     },
     [appendMemoryFlag, nodes, setCenter, workflowId],
   );
+
+  const handleTestRun = useCallback(async () => {
+    setErrorMsg(null);
+
+    // 1. StartNode 찾기
+    const startNode = nodes.find(
+      (node) =>
+        node.type === 'startNode' ||
+        node.type === 'webhookTrigger' ||
+        node.type === 'scheduleTrigger',
+    );
+    if (!startNode) {
+      const errorContent =
+        '시작 노드를 찾을 수 없습니다. 워크플로우에 입력 노드, 웹훅 트리거, 또는 스케줄 트리거를 추가해주세요.';
+      console.warn('start node가 없습니다.');
+      setErrorMsg(errorContent);
+      return;
+    }
+
+    // 2. 유효성 검사
+    let variables: WorkflowVariable[] = [];
+
+    if (startNode.type === 'startNode') {
+      const data = startNode.data as StartNodeData;
+      variables = data.variables || [];
+      for (const variable of variables) {
+        const otherNames = variables
+          .filter((v) => v.id !== variable.id)
+          .map((v) => v.name);
+        let error = validateVariableName(
+          variable.name,
+          variable.label,
+          otherNames,
+        );
+        if (!error) {
+          error = validateVariableSettings(
+            variable.type,
+            variable.options,
+            variable.maxLength,
+          );
+        }
+        if (error) {
+          const errorContent = `유효성 검사 실패: [${
+            variable.label || variable.name
+          }] ${error}`;
+          console.warn(errorContent);
+          setErrorMsg(errorContent);
+          return;
+        }
+      }
+    } else if (startNode.type === 'webhookTrigger') {
+      // Webhook Trigger인 경우 전체 JSON Body를 입력받음
+      variables = [
+        {
+          id: '__json_payload__',
+          name: '__json_payload__',
+          label: 'JSON Payload (Body)',
+          type: 'paragraph',
+          required: true,
+          placeholder: '{"issue": {"key": "TEST-123"}}',
+        },
+      ];
+    }
+
+    // 3. Webhook Trigger이고 캡처된 Payload가 있으면 바로 실행 (모달 스킵)
+    if (
+      startNode.type === 'webhookTrigger' &&
+      (startNode.data as any).captured_payload
+    ) {
+      const capturedPayload = (startNode.data as any).captured_payload;
+      toast.info('저장된 Payload로 워크플로우를 실행합니다.');
+      // handleModalSubmit에 __json_payload__ 형태로 전달
+      await handleModalSubmit({
+        __json_payload__: JSON.stringify(capturedPayload),
+      });
+      return;
+    }
+
+    // 4. 변수 저장 후 모달 표시
+    setModalVariables(variables);
+    setShowModal(true);
+  }, [nodes, handleModalSubmit]);
 
   // [NEW] 원격 실행 트리거 효과
   const lastRunTriggerRef = useRef(runTrigger);

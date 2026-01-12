@@ -224,6 +224,13 @@ export function WebhookTriggerNodePanel({
           if (status.status === 'captured' && status.payload) {
             // Payload 캡처 성공
             setCapturedPayload(status.payload);
+
+            // 노드 데이터에 캡처된 Paylaod 저장 (테스트용)
+            updateNodeData(nodeId, {
+              ...data,
+              captured_payload: status.payload,
+            });
+
             setIsModalOpen(true);
             handleCancelCapture();
             toast.success('Webhook Payload가 캡처되었습니다!', {
@@ -476,6 +483,21 @@ export function WebhookTriggerNodePanel({
                 </div>
               )}
             </div>
+
+            {/* 캡처된 Payload 상태 표시 */}
+            {data.captured_payload && (
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700 flex items-center justify-between">
+                <span>
+                  ✅ 테스트용 Payload 저장됨 (테스트 버튼으로 즉시 실행 가능)
+                </span>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="px-2 py-0.5 bg-white border border-green-200 rounded text-[10px] hover:bg-green-50 transition-colors"
+                >
+                  보기
+                </button>
+              </div>
+            )}
           </div>
         </CollapsibleSection>
 
