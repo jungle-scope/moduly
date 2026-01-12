@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { HelpCircle, Plus, Trash2 } from 'lucide-react';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { HttpVariable, SlackPostNodeData } from '../../../../types/Nodes';
@@ -98,7 +98,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
       try {
         payload.blocks = JSON.parse(data.blocks);
       } catch {
-        warnings.push('Blocks JSON을 해석할 수 없어 제외했습니다.');
+        warnings.push('블록 JSON을 해석할 수 없어 제외했습니다.');
       }
     }
 
@@ -129,6 +129,74 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
     }
     return Array.from(missing);
   }, [data.message, data.blocks, availableVariables]);
+
+  const trimmedUrl = (data.url || '').trim();
+  const blocksText = (data.blocks || '').trim();
+  const blocksJsonError = useMemo(() => {
+    if (!blocksText) return false;
+    try {
+      JSON.parse(blocksText);
+      return false;
+    } catch {
+      return true;
+    }
+  }, [blocksText]);
+
+  const isWebhookUrlValid = useMemo(() => {
+    if (mode !== 'webhook') return true;
+    return (
+      trimmedUrl.startsWith('https://hooks.slack.com/') &&
+      trimmedUrl.includes('/services/')
+    );
+  }, [mode, trimmedUrl]);
+
+  const validationIssues = useMemo(() => {
+    const issues: string[] = [];
+    const hasMessage = !!data.message?.trim();
+    const hasValidBlocks = !!blocksText && !blocksJsonError;
+
+    if (mode === 'webhook') {
+      if (!trimmedUrl) {
+        issues.push('Web Hook URL이 필요합니다.');
+      } else if (!isWebhookUrlValid) {
+        issues.push('Web Hook URL 형식이 올바르지 않습니다.');
+      }
+    } else {
+      if (!trimmedUrl) {
+        issues.push('Slack API 엔드포인트가 필요합니다.');
+      }
+      if (!data.authConfig?.token?.trim()) {
+        issues.push('봇 토큰이 필요합니다.');
+      }
+      if (!data.channel?.trim()) {
+        issues.push('채널 ID가 필요합니다.');
+      }
+    }
+
+    if (!hasMessage && !hasValidBlocks) {
+      issues.push('메시지 또는 유효한 블록 JSON이 필요합니다.');
+    }
+
+    if (blocksJsonError) {
+      issues.push('블록 JSON이 유효하지 않습니다.');
+    }
+
+    if (missingVariables.length > 0) {
+      issues.push('등록되지 않은 입력변수가 있습니다.');
+    }
+
+    return issues;
+  }, [
+    mode,
+    trimmedUrl,
+    data.message,
+    data.authConfig?.token,
+    data.channel,
+    blocksText,
+    blocksJsonError,
+    isWebhookUrlValid,
+    missingVariables.length,
+  ]);
 
   // Slack 전용 필드로 구성된 payload를 HTTP body에 자동 반영
   useEffect(() => {
@@ -194,7 +262,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
       if (nextMode === 'webhook') {
         updateNodeData(nodeId, {
           slackMode: 'webhook',
-          url: 'https://hooks.slack.com/services/XXX/YYY/ZZZ',
+          url: '',
           authType: 'none',
           authConfig: {},
         });
@@ -271,6 +339,16 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
 
   return (
     <div className="flex flex-col gap-3">
+      {validationIssues.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
+          <p className="font-semibold mb-1">⚠️ 실행을 위해 확인이 필요합니다:</p>
+          <ul className="list-disc list-inside">
+            {validationIssues.map((issue, index) => (
+              <li key={index}>{issue}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-medium text-gray-700">전송 방식</label>
         <div className="bg-gray-100 p-1 rounded-lg inline-flex w-full gap-1">
@@ -294,18 +372,18 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             onClick={() => handleModeChange('webhook')}
             type="button"
           >
-            Webhook
+            Web Hook
           </button>
         </div>
         <p className="text-[11px] text-gray-600">
-          Webhook 또는 API 모드를 고르고, URL/토큰을 붙여넣으면 요청이 자동
+          Web Hook 또는 API 모드를 고르고, URL/토큰을 붙여넣으면 요청이 자동
           구성됩니다.
         </p>
       </div>
 
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-gray-700">
-          {mode === 'api' ? 'Slack API 엔드포인트' : 'Webhook URL'}
+          {mode === 'api' ? 'Slack API 엔드포인트' : 'Web Hook URL'}
         </label>
         <div className="flex gap-2 items-center">
           <span className="px-2 py-1 rounded-md bg-[#4A154B]/10 text-[#4A154B] text-[11px] font-bold">
@@ -335,6 +413,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             >
               🔗 Slack Webhook 발급 가이드
             </a>
+            <div className="mt-2 border-b border-gray-200" />
           </div>
         ) : (
           <p className="text-[10px] text-gray-500">
@@ -344,49 +423,55 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
       </div>
 
       {mode === 'api' && (
-        <CollapsibleSection title="Slack API 인증" defaultOpen>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-700">
-              Bot Token (Bearer)
-            </label>
-            <input
-              type="password"
-              className="h-9 w-full rounded border border-gray-300 px-3 text-sm font-mono focus:outline-none focus:border-[#4A154B]"
-              placeholder="xoxb-..."
-              value={data.authConfig?.token || ''}
-              onChange={(e) =>
-                updateNodeData(nodeId, {
-                  authType: 'bearer',
-                  authConfig: { ...data.authConfig, token: e.target.value },
-                })
-              }
-            />
-            <a
-              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white text-[#4A154B] border border-[#4A154B]/40 text-xs font-semibold hover:bg-[#4A154B]/10 transition-colors w-fit"
-              href="https://api.slack.com/authentication/token-types#bot"
-              target="_blank"
-              rel="noreferrer"
-            >
-              🔗 Slack Bot Token 발급 가이드
-            </a>
+        <>
+          <div className="border-b border-gray-200" />
+          <CollapsibleSection title="Slack API 인증" defaultOpen showDivider>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium text-gray-700">
+                봇 토큰 (Bearer)
+              </label>
+              <input
+                type="password"
+                className="h-9 w-full rounded border border-gray-300 px-3 text-sm font-mono focus:outline-none focus:border-[#4A154B]"
+                placeholder="xoxb-..."
+                value={data.authConfig?.token || ''}
+                onChange={(e) =>
+                  updateNodeData(nodeId, {
+                    authType: 'bearer',
+                    authConfig: { ...data.authConfig, token: e.target.value },
+                  })
+                }
+              />
+              <a
+                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white text-[#4A154B] border border-[#4A154B]/40 text-xs font-semibold hover:bg-[#4A154B]/10 transition-colors w-fit"
+                href="https://api.slack.com/authentication/token-types#bot"
+                target="_blank"
+                rel="noreferrer"
+              >
+                🔗 Slack 봇 토큰 발급 가이드
+              </a>
 
-            <label className="text-xs font-medium text-gray-700">채널 ID</label>
-            <input
-              className="h-9 w-full rounded border border-gray-300 px-3 text-sm font-mono focus:outline-none focus:border-[#4A154B]"
-              placeholder="C0123456789 (채널 ID)"
-              value={data.channel || ''}
-              onChange={(e) => handleUpdateData('channel', e.target.value)}
-            />
-            <p className="text-[10px] text-gray-500">
-              공개/비공개 채널 ID를 입력하세요. # 없이 ID 형태로 넣는 것이
-              안전합니다.
-            </p>
-          </div>
-        </CollapsibleSection>
+              <label className="text-xs font-medium text-gray-700">
+                채널 ID
+              </label>
+              <input
+                className="h-9 w-full rounded border border-gray-300 px-3 text-sm font-mono focus:outline-none focus:border-[#4A154B]"
+                placeholder="C0123456789 (채널 ID)"
+                value={data.channel || ''}
+                onChange={(e) => handleUpdateData('channel', e.target.value)}
+              />
+              <p className="text-[10px] text-gray-500">
+                공개/비공개 채널 ID를 입력하세요. # 없이 ID 형태로 넣는 것이
+                안전합니다.
+              </p>
+            </div>
+          </CollapsibleSection>
+        </>
       )}
 
       <CollapsibleSection
         title="헤더 / 타임아웃"
+        showDivider
         icon={
           <button
             onClick={(e) => {
@@ -394,7 +479,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
               handleAddHeader();
             }}
             className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="Add Header"
+            title="헤더 추가"
           >
             <Plus className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -410,7 +495,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
               <div key={index} className="flex gap-2 items-center">
                 <input
                   className="h-8 w-1/3 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-[#4A154B]"
-                  placeholder="Key"
+                  placeholder="키"
                   value={header.key}
                   onChange={(e) =>
                     handleUpdateHeader(index, 'key', e.target.value)
@@ -418,7 +503,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
                 />
                 <input
                   className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-[#4A154B]"
-                  placeholder="Value"
+                  placeholder="값"
                   value={header.value}
                   onChange={(e) =>
                     handleUpdateHeader(index, 'value', e.target.value)
@@ -427,7 +512,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
                 <button
                   className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
                   onClick={() => handleRemoveHeader(index)}
-                  title="Remove"
+                  title="삭제"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -441,9 +526,18 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">
-              타임아웃 (ms)
-            </label>
+            <div className="flex items-center gap-1">
+              <label className="text-xs font-medium text-gray-700">
+                타임아웃 (ms)
+              </label>
+              <div className="group relative inline-block">
+                <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                <div className="absolute z-50 hidden group-hover:block w-56 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+                  요청이 이 시간 내에 끝나지 않으면 자동으로 실패 처리됩니다.
+                  <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+                </div>
+              </div>
+            </div>
             <input
               type="number"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-[#4A154B]"
@@ -457,7 +551,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="변수 매핑">
+      <CollapsibleSection title="입력변수" showDivider>
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -465,11 +559,11 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
           onAdd={handleAddVariable}
           onRemove={handleRemoveVariable}
           title=""
-          description=""
+          description="메시지/블록에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="메시지" defaultOpen={true}>
+      <CollapsibleSection title="메시지" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <div className="relative">
@@ -503,14 +597,14 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             </div>
             {missingVariables.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-                <p className="font-semibold mb-1">⚠️ 등록되지 않은 변수:</p>
+                <p className="font-semibold mb-1">⚠️ 등록되지 않은 입력변수:</p>
                 <ul className="list-disc list-inside">
                   {missingVariables.map((err, i) => (
                     <li key={i}>{err}</li>
                   ))}
                 </ul>
                 <p className="mt-1 text-[10px] text-red-500">
-                  변수 매핑에 추가하거나 템플릿에서 제거하세요.
+                  입력변수에 추가하거나 템플릿에서 제거하세요.
                 </p>
               </div>
             )}
@@ -518,7 +612,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Blocks (선택)" defaultOpen={false}>
+      <CollapsibleSection title="블록 (선택)" defaultOpen={false} showDivider>
         <div className="flex flex-col gap-3">
           <div className="rounded border border-dashed border-[#4A154B]/30 bg-[#4A154B]/5 p-3 text-[11px] text-gray-700 space-y-2">
             <div className="font-semibold text-[#4A154B] flex items-center gap-2">
@@ -539,7 +633,9 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             </a>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Blocks</label>
+            <label className="text-xs font-medium text-gray-700">
+              블록(JSON)
+            </label>
             <div className="relative">
               <textarea
                 ref={blocksRef}
@@ -571,12 +667,16 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             </div>
           </div>
           <p className="text-[10px] text-gray-500">
-            JSON이 유효하지 않으면 payload에서 제외되고 경고가 표시됩니다.
+            JSON이 유효하지 않으면 페이로드에서 제외되고 경고가 표시됩니다.
           </p>
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Payload Preview (HTTP Body)" defaultOpen>
+      <CollapsibleSection
+        title="페이로드 미리보기 (HTTP 본문)"
+        defaultOpen
+        showDivider
+      >
         <div className="flex flex-col gap-2">
           <textarea
             className="w-full h-32 rounded border border-gray-300 p-2 text-xs font-mono shadow-sm bg-gray-50"
@@ -591,6 +691,10 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
               ))}
             </div>
           )}
+          <p className="text-[10px] text-gray-500">
+            이 영역은 옵션이 아니라, 실제로 전송될 HTTP 본문을 미리 보여주는
+            용도입니다.
+          </p>
         </div>
       </CollapsibleSection>
     </div>

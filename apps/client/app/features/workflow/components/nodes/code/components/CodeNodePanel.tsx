@@ -99,15 +99,15 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
     [nodeId, updateNodeData],
   );
 
-  // 입력 변수 이름 목록 (코드 마법사용)
+  // 입력변수 이름 목록 (코드 마법사용)
   const inputVariableNames = useMemo(() => {
     return (data.inputs || []).map(input => input.name).filter(Boolean);
   }, [data.inputs]);
 
   return (
     <div className="flex flex-col h-full gap-2">
-      {/* 입력 변수 섹션 */}
-      <CollapsibleSection title="입력 변수" showDivider>
+      {/* 입력변수 섹션 */}
+      <CollapsibleSection title="입력변수" showDivider>
         <div className="flex flex-col gap-3">
           <ReferencedVariablesControl
             variables={variables}
@@ -133,7 +133,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
       <CollapsibleSection title="Python 코드" showDivider>
         <div className="flex flex-col gap-2">
           <p className="text-xs text-gray-500">
-             실행할 Python 코드를 작성하세요. 입력 변수는 <code>inputs</code> 딕셔너리로 접근할 수 있습니다.
+             실행할 Python 코드를 작성하세요. 입력변수는 <code>inputs</code> 딕셔너리로 접근할 수 있습니다.
           </p>
           <div className="flex flex-col bg-gray-900 border rounded-lg overflow-hidden h-64">
           <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
@@ -255,7 +255,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
                   <code className="px-2 py-1 bg-gray-200 rounded font-mono text-xs">
                     inputs['변수명']
                   </code>{' '}
-                  으로 입력 변수 사용
+                  으로 입력변수 사용
                 </div>
                 <button
                   onClick={() => setIsExpanded(false)}
