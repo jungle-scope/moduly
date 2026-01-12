@@ -344,7 +344,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
       </div>
 
       {mode === 'api' && (
-        <CollapsibleSection title="Slack API 인증" defaultOpen>
+        <CollapsibleSection title="Slack API 인증" defaultOpen showDivider>
           <div className="flex flex-col gap-2">
             <label className="text-xs font-medium text-gray-700">
               Bot Token (Bearer)
@@ -387,6 +387,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
 
       <CollapsibleSection
         title="헤더 / 타임아웃"
+        showDivider
         icon={
           <button
             onClick={(e) => {
@@ -457,7 +458,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="변수 매핑">
+      <CollapsibleSection title="변수 매핑" showDivider>
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -469,7 +470,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="메시지" defaultOpen={true}>
+      <CollapsibleSection title="메시지" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <div className="relative">
@@ -518,7 +519,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Blocks (선택)" defaultOpen={false}>
+      <CollapsibleSection title="Blocks (선택)" defaultOpen={false} showDivider>
         <div className="flex flex-col gap-3">
           <div className="rounded border border-dashed border-[#4A154B]/30 bg-[#4A154B]/5 p-3 text-[11px] text-gray-700 space-y-2">
             <div className="font-semibold text-[#4A154B] flex items-center gap-2">
@@ -576,7 +577,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Payload Preview (HTTP Body)" defaultOpen>
+      <CollapsibleSection title="Payload Preview (HTTP Body)" defaultOpen showDivider>
         <div className="flex flex-col gap-2">
           <textarea
             className="w-full h-32 rounded border border-gray-300 p-2 text-xs font-mono shadow-sm bg-gray-50"

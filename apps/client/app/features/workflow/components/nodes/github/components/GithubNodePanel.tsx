@@ -165,7 +165,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
       </div>
 
       {/* 2. 인증 */}
-      <CollapsibleSection title="Authentication" defaultOpen={true}>
+      <CollapsibleSection title="Authentication" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-gray-700">
             GitHub Personal Access Token
@@ -181,7 +181,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
       </CollapsibleSection>
 
       {/* 3. 참조 변수 (LLM과 유사) */}
-      <CollapsibleSection title="Referenced Variables">
+      <CollapsibleSection title="Referenced Variables" showDivider>
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -194,7 +194,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
       </CollapsibleSection>
 
       {/* 3. 저장소 정보 */}
-      <CollapsibleSection title="Repository" defaultOpen={true}>
+      <CollapsibleSection title="Repository" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">Owner</label>
@@ -238,7 +238,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
 
       {/* 4. 코멘트 내용 (PR 코멘트 액션 전용) */}
       {data.action === 'comment_pr' && (
-        <CollapsibleSection title="Comment Body" defaultOpen={true}>
+        <CollapsibleSection title="Comment Body" defaultOpen={true} showDivider>
           <div className="flex flex-col gap-2 relative">
             <textarea
               ref={commentBodyRef}

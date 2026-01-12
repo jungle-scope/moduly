@@ -193,7 +193,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
   return (
     <div className="flex flex-col gap-2">
       {/* 1. 서버 설정 */}
-      <CollapsibleSection title="Server Settings" defaultOpen={true}>
+      <CollapsibleSection title="Server Settings" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
@@ -276,7 +276,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
       </CollapsibleSection>
 
       {/* 2. 계정 */}
-      <CollapsibleSection title="Account" defaultOpen={true}>
+      <CollapsibleSection title="Account" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">Email</label>
@@ -308,7 +308,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
       </CollapsibleSection>
 
       {/* 3. 참조 변수 */}
-      <CollapsibleSection title="Referenced Variables" defaultOpen={false}>
+      <CollapsibleSection title="Referenced Variables" defaultOpen={false} showDivider>
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -321,7 +321,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
       </CollapsibleSection>
 
       {/* 4. 검색 옵션 */}
-      <CollapsibleSection title="Search Options" defaultOpen={true}>
+      <CollapsibleSection title="Search Options" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-2 relative">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">Keyword</label>

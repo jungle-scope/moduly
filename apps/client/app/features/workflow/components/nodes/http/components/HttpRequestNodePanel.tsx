@@ -222,7 +222,7 @@ export function HttpRequestNodePanel({
       </div>
 
       {/* 2. 참조된 변수 */}
-      <CollapsibleSection title="Referenced Variables" defaultOpen={true}>
+      <CollapsibleSection title="Referenced Variables" defaultOpen={true} showDivider>
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -232,7 +232,7 @@ export function HttpRequestNodePanel({
           title=""
         />
       </CollapsibleSection>
-      <CollapsibleSection title="Authentication">
+      <CollapsibleSection title="Authentication" showDivider>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <select
@@ -310,6 +310,7 @@ export function HttpRequestNodePanel({
       {/* 3. 헤더 */}
       <CollapsibleSection
         title="Headers"
+        showDivider
         icon={
           <button
             onClick={(e) => {
@@ -366,7 +367,7 @@ export function HttpRequestNodePanel({
 
       {/* 4. 본문 (POST/PUT/PATCH 전용) */}
       {['POST', 'PUT', 'PATCH'].includes(data.method || '') && (
-        <CollapsibleSection title="Body">
+        <CollapsibleSection title="Body" showDivider>
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">Content-Type: JSON</span>
@@ -387,7 +388,7 @@ export function HttpRequestNodePanel({
       )}
 
       {/* 5. 설정 (타임아웃) */}
-      <CollapsibleSection title="Settings" defaultOpen={false}>
+      <CollapsibleSection title="Settings" defaultOpen={false} showDivider>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-gray-700">
             Timeout (ms)
