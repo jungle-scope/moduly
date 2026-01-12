@@ -60,6 +60,30 @@ jobs:
       run: |
         aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
     
+    # [추가] 5.5 Alembic 데이터베이스 마이그레이션 실행
+    - name: Run Alembic Migration
+      run: |
+        echo "Starting Alembic migration using ConfigMap..."
+        kubectl run alembic-migration-${{ github.run_id }} \
+          --image=${{ steps.build-image.outputs.image }} \
+          --restart=Never \
+          --attach=true \
+          --overrides='{
+            "spec": {
+              "containers": [{
+                "name": "alembic",
+                "image": "${{ steps.build-image.outputs.image }}",
+                "command": ["/bin/sh", "-c"],
+                "args": ["cd /app/apps/server && alembic upgrade head"],
+                "envFrom": [
+                  {"configMapRef": {"name": "api-server-config"}},
+                  {"secretRef": {"name": "app-secrets"}}
+                ]
+              }]
+            }
+          }'
+
+
     # 6. Deployment 이미지 업데이트
     - name: Update Kubernetes deployment
       run: |
