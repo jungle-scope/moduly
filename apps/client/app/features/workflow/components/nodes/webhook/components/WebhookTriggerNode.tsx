@@ -14,9 +14,9 @@ export const WebhookTriggerNode = memo(
         iconColor="#a855f7"
       >
         <div className="flex flex-col">
-          <div className="text-xs text-gray-500 font-medium">
+          {/* <div className="text-xs text-gray-500 font-medium">
             {data.provider === 'jira' ? 'Jira' : 'Custom'} Webhook
-          </div>
+          </div> */}
         </div>
       </BaseNode>
     );
