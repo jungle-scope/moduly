@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Copy, Check, Loader2, ArrowRight, Info, ChevronDown } from 'lucide-react';
+import { X, Sparkles, Copy, Check, Loader2, ArrowRight, Info, ChevronDown, Code } from 'lucide-react';
 
 
 // 템플릿 타입 정의
@@ -238,6 +238,26 @@ export function TemplateWizardModal({
               placeholder="개선할 Jinja2 템플릿을 입력하세요...&#10;예: 안녕하세요, {{ user_name }}님!"
               className="flex-1 w-full p-3 text-sm font-mono border border-gray-300 rounded-lg resize-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 focus:outline-none"
             />
+
+            {/* 입력 변수 미리보기 */}
+            {registeredVariables.length > 0 && (
+              <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
+                  <Code className="w-3 h-3" />
+                  사용 가능한 입력 변수
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {registeredVariables.map((v, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded font-mono"
+                    >
+                      {`{{ ${v} }}`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* 왼쪽 하단 버튼 영역 */}
             <div className="mt-4">
