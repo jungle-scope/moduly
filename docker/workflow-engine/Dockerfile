@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 # pyproject.toml에 shared 의존성이 아직 없더라도, 
 # 추후 확장을 위해 shared도 COPY 해두는 것이 일관성 유지에 좋습니다.
 COPY apps/shared /build/apps/shared
-# RUN pip install --no-cache-dir --prefix=/install ./apps/shared 
+RUN pip install --no-cache-dir --prefix=/install ./apps/shared 
 # (현재 workflow-engine은 shared 의존성이 pyproject.toml에 명시 안되어있을 수 있으나 
 # 필요하다면 주석 해제. 에러 방지를 위해 우선 생략하되 코드는 남겨둠)
 
@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /install /usr/local
 
 COPY apps/workflow-engine /app/apps/workflow-engine
-# COPY apps/shared /app/apps/shared
+COPY apps/shared /app/apps/shared
 
 RUN useradd -m appuser
 USER appuser
