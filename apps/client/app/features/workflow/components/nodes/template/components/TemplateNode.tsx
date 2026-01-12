@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { LayoutTemplate } from 'lucide-react';
 import { BaseNodeData, TemplateNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
+import { ValidationBadge } from '../../../ui/ValidationBadge';
 
 interface TemplateNodeProps {
   id: string;
@@ -14,6 +15,25 @@ export const TemplateNode: React.FC<TemplateNodeProps> = ({
   data,
   selected,
 }) => {
+  const missingVariables = useMemo(() => {
+    const template = data.template || '';
+    const registeredNames = new Set(
+      (data.variables || []).map((v) => v.name?.trim()).filter(Boolean),
+    );
+    const errors: string[] = [];
+
+    const regex = /{{\s*([^}]+?)\s*}}/g;
+    let match;
+    while ((match = regex.exec(template)) !== null) {
+      const varName = match[1].trim();
+      if (varName && !registeredNames.has(varName)) {
+        errors.push(varName);
+      }
+    }
+
+    return Array.from(new Set(errors));
+  }, [data.template, data.variables]);
+
   return (
     <BaseNode
       id={id}
@@ -22,12 +42,11 @@ export const TemplateNode: React.FC<TemplateNodeProps> = ({
       icon={<LayoutTemplate className="text-white" />}
       iconColor="#ec4899" // pink-500
     >
-      <div className="flex flex-col gap-2 p-1">
+      <div className="flex flex-col gap-1">
         <div className="text-xs text-gray-500">
-          <p className="text-[10px] leading-snug">
-            템플릿과 변수를 설정하여 텍스트를 생성
-          </p>
+          {data.variables?.length || 0}개 입력 변수
         </div>
+        {missingVariables.length > 0 && <ValidationBadge />}
       </div>
     </BaseNode>
   );

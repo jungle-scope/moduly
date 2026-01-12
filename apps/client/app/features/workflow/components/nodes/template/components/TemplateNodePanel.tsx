@@ -218,7 +218,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
   return (
     <div className="flex flex-col gap-2">
       {/* 1. 변수 매핑 */}
-      <CollapsibleSection title="Variables">
+      <CollapsibleSection title="입력변수" showDivider>
         <ReferencedVariablesControl
           variables={data.variables || []}
           upstreamNodes={upstreamNodes}
@@ -226,25 +226,20 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
           onAdd={handleAddVariable}
           onRemove={handleRemoveVariable}
           title=""
-          description="템플릿에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
+          description="템플릿에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
       </CollapsibleSection>
 
       {/* 2. 템플릿 에디터 */}
-      <CollapsibleSection title="Template">
+      <CollapsibleSection title="템플릿" showDivider>
         <div className="flex flex-col gap-2 relative">
-          {/* 헤더: 설명(좌측) + 마법사 버튼(우측) */}
-          <div className="flex items-start justify-between mb-1">
-            <div className="flex flex-col gap-0.5">
-              <p className="text-xs text-gray-500 leading-snug">
-                원하는 내용을 자유롭게 템플릿으로 작성하세요.
-              </p>
-              <p className="text-xs text-gray-500 leading-snug">
-                변수가 필요한 곳에는 <code className="bg-gray-100 px-1 rounded text-gray-600 font-mono">{`{{ }}`}</code>를 사용하여 감싸주시면 됩니다.
-              </p>
-            </div>
-            
-            <div className="group/wizard relative ml-2">
+          {/* 헤더: 설명 + 마법사 버튼 */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-500 leading-snug">
+              원하는 내용을 자유롭게 템플릿으로 작성하세요.
+            </p>
+
+            <div className="group/wizard relative shrink-0">
               <button
                 type="button"
                 onClick={() => setShowWizardModal(true)}
@@ -254,9 +249,10 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
                     ? "Provider를 먼저 등록해주세요" 
                     : "AI로 템플릿 작성/개선하기"
                 }
-                className="p-1.5 text-pink-500 hover:text-pink-700 hover:bg-pink-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-1.5 py-0.5 text-pink-500 hover:text-pink-700 hover:bg-pink-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[10px]"
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-3 h-3" />
+                <span>템플릿 마법사</span>
               </button>
               <div className="absolute z-50 hidden group-hover/wizard:block w-36 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg right-0 top-8">
                 AI가 템플릿을 작성/개선해드려요
@@ -264,6 +260,11 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
               </div>
             </div>
           </div>
+          <p className="text-xs text-gray-500 leading-snug">
+            변수가 필요한 곳에는{' '}
+            <code className="bg-gray-100 px-1 rounded text-gray-600 font-mono">{`{{ }}`}</code>
+            를 사용하여 감싸주시면 됩니다.
+          </p>
 
           <div className="relative w-full">
             <textarea
