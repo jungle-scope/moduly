@@ -60,6 +60,14 @@ app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(execute.router, prefix="/internal", tags=["Execute"])
 
 
+@app.get("/")
+async def root():
+    """
+    로드 밸런서 Health Check 대응을 위한 루트 엔드포인트
+    """
+    return {"status": "ok", "service": "workflow-engine"}
+
+
 if __name__ == "__main__":
     import uvicorn
 
