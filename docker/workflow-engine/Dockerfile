@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y \
 
 COPY --from=builder /install /usr/local
 
-COPY apps/workflow-engine /app/apps/workflow-engine
+COPY apps/workflow-engine /app/apps/workflow
 COPY apps/shared /app/apps/shared
 
 RUN useradd -m appuser
