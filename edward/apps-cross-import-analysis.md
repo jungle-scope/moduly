@@ -2,15 +2,17 @@
 
 분석 대상: `gateway`, `log-system`, `workflow-engine`
 
+> [!TIP] > **해결됨**: 아래 문제들은 2026-01-12에 해결되었습니다.
+
 ---
 
-## 분석 결과 요약
+## 분석 결과 요약 (해결 후)
 
-| 앱              | 직접 Import           | 간접 참조                |
-| --------------- | --------------------- | ------------------------ |
-| gateway         | 없음                  | 없음                     |
-| log-system      | 없음                  | gateway `.env` 파일 참조 |
-| workflow-engine | gateway sys.path 추가 | log-system HTTP API 호출 |
+| 앱              | 직접 Import | 간접 참조                      |
+| --------------- | ----------- | ------------------------------ |
+| gateway         | 없음        | 없음                           |
+| log-system      | 없음        | 없음 (프로젝트 루트 .env 참조) |
+| workflow-engine | 없음        | log-system HTTP API 호출       |
 
 ---
 
@@ -27,50 +29,45 @@
 
 ### 2. log-system
 
-#### gateway `.env` 파일 참조
+#### .env 파일 참조 (해결됨)
 
 **파일**: `main.py`
 
 ```python
-# Try loading shared env from gateway if not in own dir
-GATEWAY_ENV_PATH = BASE_DIR / "../gateway/.env"
+# Try loading from local, then project root
+LOCAL_ENV_PATH = BASE_DIR / ".env"
+ROOT_ENV_PATH = APPS_DIR.parent / ".env"
 ```
 
-- 환경 변수 공유 목적으로 gateway의 `.env` 파일 경로를 참조
-- 코드 로직의 Python import는 아님
+- 로컬 .env 우선, 없으면 프로젝트 루트 .env 참조
+- gateway 의존성 제거됨
 
 ---
 
 ### 3. workflow-engine
 
-#### gateway 참조
+#### gateway 참조 (해결됨)
 
 **파일**: `main.py`
 
 ```python
-sys.path.insert(0, str(APPS_DIR / "gateway"))  # services 등 참조용
+# shared 패키지 경로만 추가
+sys.path.insert(0, str(APPS_DIR / "shared"))
 
-# .env 로드 (gateway의 .env 공유) - 다른 모듈 임포트 전에 수행
-env_path = APPS_DIR / "gateway" / ".env"
+# .env 로드 (로컬 또는 프로젝트 루트)
+LOCAL_ENV_PATH = Path(__file__).parent / ".env"
+ROOT_ENV_PATH = APPS_DIR.parent / ".env"
 ```
 
-- `sys.path`에 gateway 경로를 추가하여 gateway의 모듈(`services` 등)을 import 가능하게 설정
-- gateway의 `.env` 파일을 공유하여 환경 변수 로드
+- gateway sys.path 제거됨 (실제로 사용하지 않았음)
+- .env 로딩: 로컬 우선, 프로젝트 루트 순서
 
 #### log-system HTTP 통신
 
-**파일**: `workflow/core/workflow_logger.py`
+**파일**: `workflow/core/workflow_logger.py`, `workflow/core/log_worker_pool.py`
 
 ```python
 log_system_url = os.getenv("LOG_SYSTEM_URL", "http://localhost:8002").rstrip(...)
-f"{log_system_url}/logs/runs", json=payload, timeout=5.0
-```
-
-**파일**: `workflow/core/log_worker_pool.py`
-
-```python
-log_system_url = os.getenv("LOG_SYSTEM_URL", "http://localhost:8002").rstrip(...)
-self._process_task_http(task, log_system_url, JSONEncoder)
 ```
 
 - 직접적인 Python import가 아닌 HTTP API 호출 방식
@@ -78,28 +75,21 @@ self._process_task_http(task, log_system_url, JSONEncoder)
 
 ---
 
-## 의존성 다이어그램
+## 의존성 다이어그램 (해결 후)
 
 ```
 gateway (독립)
-    ^
-    |
-    +-- sys.path, .env 참조
-    |
+
 workflow-engine -----> log-system
                 HTTP API 호출
 
-log-system
-    |
-    +-- gateway .env 참조 (환경변수만)
+log-system (독립)
 ```
 
 ---
 
-## 주의사항
+## 결론
 
-1. **workflow-engine의 gateway 의존성**: `sys.path.insert`로 gateway 경로를 추가하여 gateway의 `services` 모듈을 직접 import할 수 있는 상태. 이는 강한 결합(tight coupling)을 의미하며, 독립 배포 시 문제가 될 수 있음.
-
-2. **환경변수 공유**: log-system과 workflow-engine 모두 gateway의 `.env` 파일을 참조. 중앙화된 설정 관리가 필요할 수 있음.
-
-3. **HTTP 통신**: workflow-engine → log-system 간 통신은 HTTP API를 사용하여 느슨한 결합(loose coupling) 유지.
+1. **gateway 의존성 제거됨**: workflow-engine이 gateway를 sys.path에 추가하던 불필요한 코드 삭제
+2. **.env 공유 방식 개선**: 각 앱이 로컬 .env 또는 프로젝트 루트 .env를 참조
+3. **HTTP 통신**: workflow-engine → log-system 간 통신은 HTTP API를 사용하여 느슨한 결합 유지
