@@ -1,11 +1,12 @@
 import { useCallback, useState, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import Editor from '@monaco-editor/react';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, Wand2 } from 'lucide-react';
 import { CodeNodeData, CodeNodeInput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { CodeWizardModal } from '../../../modals/CodeWizardModal';
 
 interface CodeNodePanelProps {
   nodeId: string;
@@ -29,6 +30,7 @@ const DEFAULT_CODE = `def main(inputs):
 export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
   const { updateNodeData, nodes, edges } = useWorkflowStore();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isCodeWizardOpen, setIsCodeWizardOpen] = useState(false);
 
   const upstreamNodes = useMemo(
     () => getUpstreamNodes(nodeId, nodes, edges),
@@ -89,10 +91,23 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
     [data.inputs, nodeId, updateNodeData],
   );
 
+  // 코드 마법사에서 생성된 코드 적용
+  const handleApplyCode = useCallback(
+    (generatedCode: string) => {
+      updateNodeData(nodeId, { code: generatedCode });
+    },
+    [nodeId, updateNodeData],
+  );
+
+  // 입력 변수 이름 목록 (코드 마법사용)
+  const inputVariableNames = useMemo(() => {
+    return (data.inputs || []).map(input => input.name).filter(Boolean);
+  }, [data.inputs]);
+
   return (
     <div className="flex flex-col h-full gap-2">
       {/* 입력 변수 섹션 */}
-      <CollapsibleSection title="입력 변수">
+      <CollapsibleSection title="입력 변수" showDivider>
         <div className="flex flex-col gap-3">
           <ReferencedVariablesControl
             variables={variables}
@@ -101,15 +116,8 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
             onAdd={handleAddVariable}
             onRemove={handleRemoveVariable}
             title=""
-            description=""
+            description="코드에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
           />
-
-          {data.inputs?.length === 0 && (
-            <p className="text-xs text-gray-500 py-2 text-center">
-              입력 변수를 추가하여 다른 노드의 데이터를 사용하세요
-            </p>
-          )}
-
           {/* 사용 힌트 */}
           <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
             💡 코드에서{' '}
@@ -122,17 +130,31 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
       </CollapsibleSection>
 
       {/* 코드 에디터 섹션 */}
-      <CollapsibleSection title="Python 코드">
-        <div className="flex flex-col bg-gray-900 border rounded-lg overflow-hidden h-64">
+      <CollapsibleSection title="Python 코드" showDivider>
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-gray-500">
+             실행할 Python 코드를 작성하세요. 입력 변수는 <code>inputs</code> 딕셔너리로 접근할 수 있습니다.
+          </p>
+          <div className="flex flex-col bg-gray-900 border rounded-lg overflow-hidden h-64">
           <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
             <h3 className="text-xs font-medium text-gray-400">Editor</h3>
-            <button
-              onClick={() => setIsExpanded(true)}
-              className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
-              title="크게 보기"
-            >
-              <Maximize2 className="w-3 h-3" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsCodeWizardOpen(true)}
+                className="px-2 py-1 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-gray-700 rounded transition-colors flex items-center gap-1"
+                title="코드 마법사"
+              >
+                <Wand2 className="w-3 h-3" />
+                마법사
+              </button>
+              <button
+                onClick={() => setIsExpanded(true)}
+                className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                title="크게 보기"
+              >
+                <Maximize2 className="w-3 h-3" />
+              </button>
+            </div>
           </div>
           <div className="flex-1">
             <Editor
@@ -154,10 +176,11 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
             />
           </div>
         </div>
+      </div>
       </CollapsibleSection>
 
       {/* 고급 설정 */}
-      <CollapsibleSection title="고급 설정" defaultOpen={false}>
+      <CollapsibleSection title="고급 설정" defaultOpen={false} showDivider>
         <div className="px-2 pb-2 space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-sm text-gray-700">
@@ -245,6 +268,14 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
           </div>
         </div>
       )}
+
+      {/* 코드 마법사 모달 */}
+      <CodeWizardModal
+        isOpen={isCodeWizardOpen}
+        onClose={() => setIsCodeWizardOpen(false)}
+        inputVariables={inputVariableNames}
+        onApply={handleApplyCode}
+      />
     </div>
   );
 }
