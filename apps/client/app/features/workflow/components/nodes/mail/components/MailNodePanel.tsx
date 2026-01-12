@@ -193,11 +193,11 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
   return (
     <div className="flex flex-col gap-2">
       {/* 1. 서버 설정 */}
-      <CollapsibleSection title="Server Settings" defaultOpen={true} showDivider>
+      <CollapsibleSection title="서버 설정" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
-              Provider
+              메일 서비스
             </label>
             <select
               className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
@@ -210,13 +210,13 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               <option value="naver">Naver</option>
               <option value="daum">Daum</option>
               <option value="outlook">Outlook</option>
-              <option value="custom">Custom</option>
+              <option value="custom">직접 설정</option>
             </select>
           </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
-              IMAP Server
+              IMAP 서버
             </label>
             <input
               type="text"
@@ -234,7 +234,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
 
           <div className="flex gap-2">
             <div className="flex flex-col gap-1 flex-1">
-              <label className="text-xs font-medium text-gray-700">Port</label>
+              <label className="text-xs font-medium text-gray-700">포트</label>
               <input
                 type="number"
                 className={`h-8 w-full rounded border px-2 text-sm focus:outline-none ${
@@ -253,7 +253,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">
-                Use SSL
+                SSL 사용
               </label>
               <input
                 type="checkbox"
@@ -269,17 +269,17 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             <p className="text-[10px] text-gray-500"></p>
           ) : (
             <p className="text-[10px] text-blue-600">
-              ℹ️ Provider 선택 시 서버 설정이 자동으로 구성됩니다
+              ℹ️ 메일 서비스 선택 시 서버 설정이 자동으로 구성됩니다
             </p>
           )}
         </div>
       </CollapsibleSection>
 
       {/* 2. 계정 */}
-      <CollapsibleSection title="Account" defaultOpen={true} showDivider>
+      <CollapsibleSection title="계정" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Email</label>
+            <label className="text-xs font-medium text-gray-700">이메일</label>
             <input
               type="email"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
@@ -291,12 +291,12 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
-              Password
+              비밀번호
             </label>
             <input
               type="password"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
-              placeholder="App password"
+              placeholder="앱 비밀번호"
               value={data.password || ''}
               onChange={(e) => handleUpdateData('password', e.target.value)}
             />
@@ -308,7 +308,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
       </CollapsibleSection>
 
       {/* 3. 참조 변수 */}
-      <CollapsibleSection title="Referenced Variables" defaultOpen={false} showDivider>
+      <CollapsibleSection title="입력변수" defaultOpen={false} showDivider>
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -316,19 +316,21 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           onAdd={handleAddVariable}
           onRemove={handleRemoveVariable}
           title=""
-          description="검색 조건에서 사용할 변수를 정의합니다"
+          description="검색 조건에서 사용할 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
       </CollapsibleSection>
 
       {/* 4. 검색 옵션 */}
-      <CollapsibleSection title="Search Options" defaultOpen={true} showDivider>
+      <CollapsibleSection title="검색 옵션" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-2 relative">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Keyword</label>
+            <label className="text-xs font-medium text-gray-700">
+              검색 키워드
+            </label>
             <textarea
               ref={keywordRef}
               className="w-full h-20 rounded border border-gray-300 p-2 text-xs font-mono focus:outline-none focus:border-blue-500 resize-y"
-              placeholder="Search keyword..."
+              placeholder="검색 키워드를 입력하세요..."
               value={data.keyword || ''}
               onChange={(e) => handleUpdateData('keyword', e.target.value)}
               onKeyUp={handleKeyUp}
@@ -354,34 +356,34 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
                     className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
                     onClick={() => insertVariable(v.name)}
                   >
-                    {v.name || '(No Name)'}
+                    {v.name || '(이름 없음)'}
                   </button>
                 ))
               ) : (
                 <div className="px-4 py-2 text-sm text-gray-400">
-                  등록된 변수가 없습니다
+                  등록된 입력변수가 없습니다.
                 </div>
               )}
             </div>
           )}
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Sender</label>
+            <label className="text-xs font-medium text-gray-700">보낸 사람</label>
             <input
               type="text"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
-              placeholder="sender@example.com"
+              placeholder="예) sender@example.com"
               value={data.sender || ''}
               onChange={(e) => handleUpdateData('sender', e.target.value)}
             />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Subject</label>
+            <label className="text-xs font-medium text-gray-700">제목</label>
             <input
               type="text"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
-              placeholder="Email subject..."
+              placeholder="메일 제목..."
               value={data.subject || ''}
               onChange={(e) => handleUpdateData('subject', e.target.value)}
             />
@@ -390,7 +392,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">
-                Start Date
+                시작 날짜
               </label>
               <input
                 type="date"
@@ -399,13 +401,13 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
                 onChange={(e) => handleUpdateData('start_date', e.target.value)}
               />
               <p className="text-[10px] text-gray-500">
-                💡 Default: 7 days ago
+                💡 기본값: 7일 전
               </p>
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">
-                End Date
+                종료 날짜
               </label>
               <input
                 type="date"
@@ -418,7 +420,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
 
           {/* 폴더 */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Folder</label>
+            <label className="text-xs font-medium text-gray-700">폴더</label>
             <select
               className="h-8 rounded border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:border-blue-500"
               value={data.folder || 'INBOX'}
@@ -435,7 +437,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           {/* 최대 결과 수 */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
-              Max Results
+              최대 결과 수
             </label>
             <input
               type="number"
@@ -451,7 +453,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               }}
             />
             <p className="text-[10px] text-gray-500">
-              💡 Default: 5 (if empty)
+              💡 기본값: 5 (비어있을 때)
             </p>
           </div>
 
@@ -467,7 +469,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               }
             />
             <label htmlFor="unread-only" className="text-xs text-gray-700">
-              Unread only
+              읽지 않은 메일만
             </label>
           </div>
 
@@ -482,7 +484,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               }
             />
             <label htmlFor="mark-as-read" className="text-xs text-gray-700">
-              Mark as read after search
+              검색 후 읽음 처리
             </label>
           </div>
         </div>

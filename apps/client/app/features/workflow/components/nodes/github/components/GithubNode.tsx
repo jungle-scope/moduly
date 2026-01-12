@@ -14,8 +14,8 @@ const defaultActionColor = 'bg-gray-100 text-gray-700 border-gray-200';
 
 // Action display names
 const actionNames: Record<string, string> = {
-  get_pr: 'Get PR',
-  comment_pr: 'Comment',
+  get_pr: 'PR 가져오기',
+  comment_pr: 'PR 코멘트',
 };
 
 export const GithubNode = memo(
@@ -46,7 +46,7 @@ export const GithubNode = memo(
                 : 'Repo를 설정하세요'}
             </div>
           </div>
-          {data.pr_number && (
+          {Number(data.pr_number) > 0 && (
             <div className="text-[10px] text-gray-500">
               PR #{data.pr_number}
             </div>

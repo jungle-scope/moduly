@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
-import { Plus, Trash2 } from 'lucide-react';
+import { HelpCircle, Plus, Trash2 } from 'lucide-react';
 import {
   HttpRequestNodeData,
   HttpMethod,
@@ -220,9 +220,10 @@ export function HttpRequestNodePanel({
           autoComplete="off"
         />
       </div>
+      <div className="border-b border-gray-200" />
 
-      {/* 2. 참조된 변수 */}
-      <CollapsibleSection title="Referenced Variables" defaultOpen={true} showDivider>
+      {/* 2. 입력변수 */}
+      <CollapsibleSection title="입력변수" defaultOpen={true} showDivider>
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -232,7 +233,7 @@ export function HttpRequestNodePanel({
           title=""
         />
       </CollapsibleSection>
-      <CollapsibleSection title="Authentication" showDivider>
+      <CollapsibleSection title="인증" showDivider>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <select
@@ -242,7 +243,7 @@ export function HttpRequestNodePanel({
                 handleUpdateData('authType', e.target.value as AuthType)
               }
             >
-              <option value="none">No Authentication</option>
+              <option value="none">인증 없음</option>
               <option value="bearer">Bearer Token</option>
               <option value="apiKey">API Key</option>
             </select>
@@ -250,10 +251,10 @@ export function HttpRequestNodePanel({
 
           {data.authType === 'bearer' && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-700">Token</label>
+              <label className="text-xs font-medium text-gray-700">토큰</label>
               <input
                 className="w-full h-8 rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
-                placeholder="Ex) eyJhbGciOiJIUzI1Ni..."
+                placeholder="예) eyJhbGciOiJIUzI1Ni..."
                 value={data.authConfig?.token || ''}
                 onChange={(e) =>
                   handleUpdateData('authConfig', {
@@ -263,7 +264,7 @@ export function HttpRequestNodePanel({
                 }
               />
               <p className="text-[10px] text-gray-400">
-                Authorization: Bearer {'{token}'}
+                예: Authorization: Bearer {'{token}'}
               </p>
             </div>
           )}
@@ -272,11 +273,11 @@ export function HttpRequestNodePanel({
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-700">
-                  Header Name
+                  헤더 이름
                 </label>
                 <input
                   className="w-full h-8 rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
-                  placeholder="Ex) X-API-Key"
+                  placeholder="예) X-API-Key"
                   value={data.authConfig?.apiKeyHeader || 'X-API-Key'}
                   onChange={(e) =>
                     handleUpdateData('authConfig', {
@@ -287,12 +288,10 @@ export function HttpRequestNodePanel({
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-700">
-                  API Key
-                </label>
+                <label className="text-xs font-medium text-gray-700">API Key</label>
                 <input
                   className="w-full h-8 rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
-                  placeholder="Ex) my-secret-key-123"
+                  placeholder="예) my-secret-key-123"
                   value={data.authConfig?.apiKeyValue || ''}
                   onChange={(e) =>
                     handleUpdateData('authConfig', {
@@ -309,7 +308,7 @@ export function HttpRequestNodePanel({
 
       {/* 3. 헤더 */}
       <CollapsibleSection
-        title="Headers"
+        title="헤더"
         showDivider
         icon={
           <button
@@ -318,7 +317,7 @@ export function HttpRequestNodePanel({
               handleAddHeader();
             }}
             className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="Add Header"
+            title="헤더 추가"
           >
             <Plus className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -329,7 +328,7 @@ export function HttpRequestNodePanel({
             <div key={index} className="flex gap-2 items-center">
               <input
                 className="h-8 w-1/3 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"
-                placeholder="Key"
+                placeholder="키"
                 value={header.key}
                 onChange={(e) =>
                   handleUpdateHeader(index, 'key', e.target.value)
@@ -337,7 +336,7 @@ export function HttpRequestNodePanel({
               />
               <input
                 className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"
-                placeholder="Value"
+                placeholder="값"
                 value={header.value}
                 onChange={(e) =>
                   handleUpdateHeader(index, 'value', e.target.value)
@@ -346,7 +345,7 @@ export function HttpRequestNodePanel({
               <button
                 className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
                 onClick={() => handleRemoveHeader(index)}
-                title="Remove"
+                title="삭제"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -354,20 +353,20 @@ export function HttpRequestNodePanel({
           ))}
           {(!data.headers || data.headers.length === 0) && (
             <div className="text-center text-xs text-gray-400 py-2 border border-dashed border-gray-200 rounded">
-              No headers
+              추가된 헤더가 없습니다.
             </div>
           )}
 
           <div className="text-[10px] text-blue-600 bg-blue-50 p-2 rounded">
-            Header 미입력 시, Body가 있으면 자동 <code>application/json</code>{' '}
-            추가됨.
+            헤더를 비워두면 Body가 있는 경우{' '}
+            <code>application/json</code>이 자동 추가됩니다.
           </div>
         </div>
       </CollapsibleSection>
 
       {/* 4. 본문 (POST/PUT/PATCH 전용) */}
       {['POST', 'PUT', 'PATCH'].includes(data.method || '') && (
-        <CollapsibleSection title="Body" showDivider>
+        <CollapsibleSection title="본문" showDivider>
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">Content-Type: JSON</span>
@@ -388,11 +387,20 @@ export function HttpRequestNodePanel({
       )}
 
       {/* 5. 설정 (타임아웃) */}
-      <CollapsibleSection title="Settings" defaultOpen={false} showDivider>
+      <CollapsibleSection title="설정" defaultOpen={false} showDivider>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-700">
-            Timeout (ms)
-          </label>
+          <div className="flex items-center gap-1">
+            <label className="text-xs font-medium text-gray-700">
+              타임아웃 (ms)
+            </label>
+            <div className="group relative inline-block">
+              <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+              <div className="absolute z-50 hidden group-hover:block w-56 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+                요청이 이 시간 내에 끝나지 않으면 자동으로 실패 처리됩니다.
+                <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+              </div>
+            </div>
+          </div>
           <input
             type="number"
             className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
@@ -421,12 +429,12 @@ export function HttpRequestNodePanel({
                 className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
                 onClick={() => insertVariable(v.name)}
               >
-                {v.name || '(No Name)'}
+                {v.name || '(이름 없음)'}
               </button>
             ))
           ) : (
             <div className="px-4 py-2 text-sm text-gray-400">
-              등록된 변수가 없습니다
+              등록된 입력변수가 없습니다.
             </div>
           )}
         </div>

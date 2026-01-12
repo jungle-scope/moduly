@@ -143,7 +143,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
     <div className="flex flex-col gap-2">
       {/* 1. 액션 선택 */}
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-gray-700">Action</label>
+        <label className="text-xs font-medium text-gray-700">작업</label>
         <select
           className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
           value={data.action || 'get_pr'}
@@ -163,12 +163,13 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
           <option value="comment_pr">Comment on PR</option>
         </select>
       </div>
+      <div className="border-b border-gray-200" />
 
       {/* 2. 인증 */}
-      <CollapsibleSection title="Authentication" defaultOpen={true} showDivider>
+      <CollapsibleSection title="인증" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-gray-700">
-            GitHub Personal Access Token
+            GitHub 개인 액세스 토큰
           </label>
           <input
             type="password"
@@ -181,7 +182,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
       </CollapsibleSection>
 
       {/* 3. 참조 변수 (LLM과 유사) */}
-      <CollapsibleSection title="Referenced Variables" showDivider>
+      <CollapsibleSection title="입력변수" showDivider>
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -189,41 +190,41 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
           onAdd={handleAddVariable}
           onRemove={handleRemoveVariable}
           title="" // 내부 타이틀 숨김
-          description="필드에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
+          description="이 섹션에서 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
       </CollapsibleSection>
 
       {/* 3. 저장소 정보 */}
-      <CollapsibleSection title="Repository" defaultOpen={true} showDivider>
+      <CollapsibleSection title="저장소 정보" defaultOpen={true} showDivider>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">Owner</label>
+            <label className="text-xs font-medium text-gray-700">소유자</label>
             <input
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
-              placeholder="Ex) facebook"
+              placeholder="예) facebook"
               value={data.repo_owner || ''}
               onChange={(e) => handleUpdateData('repo_owner', e.target.value)}
             />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
-              Repository
+              저장소
             </label>
             <input
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
-              placeholder="Ex) react"
+              placeholder="예) react"
               value={data.repo_name || ''}
               onChange={(e) => handleUpdateData('repo_name', e.target.value)}
             />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
-              PR Number
+              PR 번호
             </label>
             <input
               type="number"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
-              placeholder="Ex) 123"
+              placeholder="예) 123"
               value={data.pr_number || ''}
               onChange={(e) =>
                 handleUpdateData('pr_number', parseInt(e.target.value) || 0)
@@ -238,12 +239,12 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
 
       {/* 4. 코멘트 내용 (PR 코멘트 액션 전용) */}
       {data.action === 'comment_pr' && (
-        <CollapsibleSection title="Comment Body" defaultOpen={true} showDivider>
+        <CollapsibleSection title="코멘트 내용" defaultOpen={true} showDivider>
           <div className="flex flex-col gap-2 relative">
             <textarea
               ref={commentBodyRef}
               className="w-full h-32 rounded border border-gray-300 p-2 text-xs font-mono focus:outline-none focus:border-blue-500 resize-y"
-              placeholder="Enter comment text..."
+              placeholder="코멘트 내용을 입력하세요..."
               value={data.comment_body || ''}
               onChange={(e) => handleUpdateData('comment_body', e.target.value)}
               onKeyUp={handleKeyUp}
@@ -268,12 +269,12 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
                       className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
                       onClick={() => insertVariable(v.name)}
                     >
-                      {v.name || '(No Name)'}
+                      {v.name || '(이름 없음)'}
                     </button>
                   ))
                 ) : (
                   <div className="px-4 py-2 text-sm text-gray-400">
-                    등록된 변수가 없습니다
+                    등록된 입력변수가 없습니다.
                   </div>
                 )}
               </div>

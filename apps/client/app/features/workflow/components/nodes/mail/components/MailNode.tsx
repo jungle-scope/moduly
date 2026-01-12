@@ -17,7 +17,7 @@ const providerNames: Record<string, string> = {
   naver: 'Naver',
   daum: 'Daum',
   outlook: 'Outlook',
-  custom: 'Custom',
+  custom: '직접 설정',
 };
 
 export const MailNode = memo(
@@ -50,17 +50,14 @@ export const MailNode = memo(
           {/* Search Info */}
           {data.keyword && (
             <div className="text-xs text-gray-600 truncate">
-              <span className="font-medium">Keyword:</span> {data.keyword}
+              <span className="font-medium">키워드:</span> {data.keyword}
             </div>
           )}
           {data.sender && (
             <div className="text-xs text-gray-600 truncate">
-              <span className="font-medium">From:</span> {data.sender}
+              <span className="font-medium">보낸 사람:</span> {data.sender}
             </div>
           )}
-          <div className="text-[10px] text-gray-500">
-            Max: {data.max_results} emails
-          </div>
         </div>
       </BaseNode>
     );
