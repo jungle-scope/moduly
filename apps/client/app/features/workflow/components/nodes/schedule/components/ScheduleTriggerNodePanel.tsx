@@ -2,8 +2,7 @@ import { ScheduleTriggerNodeData } from '../../../../types/Nodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { useState, useEffect } from 'react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // shadcn/ui Tabs (가정)
-import { Clock, Calendar, CheckSquare, HelpCircle } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 
 interface ScheduleTriggerNodePanelProps {
   nodeId: string;
@@ -78,10 +77,11 @@ export function ScheduleTriggerNodePanel({
       case 'daily':
         cron = `${minute} ${hour} * * *`;
         break;
-      case 'weekly':
+      case 'weekly': {
         const days = daysOfWeek.join(',');
         cron = `${minute} ${hour} * * ${days}`;
         break;
+      }
       case 'monthly':
         cron = `${minute} ${hour} ${dayOfMonth} * *`;
         break;

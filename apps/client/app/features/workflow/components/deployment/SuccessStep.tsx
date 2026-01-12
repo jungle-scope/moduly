@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Copy, Eye, EyeOff } from 'lucide-react';
+import { Copy, Eye, EyeOff, Clock, Globe } from 'lucide-react';
 import { DeploymentResult, DeploymentType } from './types';
 import { formatCronExpression } from './utils';
 
@@ -236,36 +236,54 @@ ${authHeader}  -d '{
 
         {/* Schedule Trigger Deployment */}
         {deploymentType === 'schedule' && result.cronExpression && (
-          <div className="border-2 border-violet-200 rounded-lg p-4 bg-violet-50">
-            <label className="block text-sm font-semibold text-violet-900 mb-2">
-              알람 트리거 활성화 완료
-            </label>
-            <p className="text-xs text-violet-700 mb-3">
-              워크플로우가 설정된 시간에 자동으로 실행됩니다.
-            </p>
-            <div className="bg-white p-4 rounded border border-violet-200 space-y-3">
+          <div className="border border-violet-200 rounded-xl bg-gradient-to-br from-violet-50 to-white overflow-hidden shadow-sm">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-violet-100 flex items-center gap-3">
+              <div className="p-2 bg-violet-100 rounded-lg text-violet-600">
+                <Clock className="w-5 h-5" />
+              </div>
               <div>
-                <span className="text-sm font-semibold text-gray-700 block mb-1">
-                  실행 스케줄:
+                <h3 className="text-sm font-bold text-violet-900">
+                  스케줄링 활성화됨
+                </h3>
+                <p className="text-xs text-violet-500">
+                  워크플로우가 자동으로 실행됩니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* Primary Info: Natural Language Description */}
+              <div>
+                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider block mb-1">
+                  실행 주기
                 </span>
-                <p className="text-base text-gray-900 font-medium">
+                <p className="text-lg font-bold text-violet-900 leading-tight">
                   {formatCronExpression(result.cronExpression)}
                 </p>
-                <code className="text-xs text-gray-500 mt-1 block font-mono bg-gray-50 px-2 py-1 rounded">
-                  {result.cronExpression}
-                </code>
               </div>
-              <div className="border-t border-violet-100 pt-3">
-                <span className="text-sm font-semibold text-gray-700 block mb-1">
-                  타임존:
+
+              {/* Meta Info: Timezone */}
+              <div>
+                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider block mb-1">
+                  타임존
                 </span>
-                <p className="text-sm text-gray-900">{result.timezone}</p>
+                <div className="flex items-center gap-1.5 text-violet-700">
+                  <Globe className="w-3.5 h-3.5" />
+                  <span className="text-sm font-medium">{result.timezone}</span>
+                </div>
               </div>
-              <div className="border-t border-violet-100 pt-3">
-                <span className="text-sm font-semibold text-gray-700 block mb-1">
-                  버전:
-                </span>
-                <p className="text-sm text-gray-900">v{result.version}</p>
+
+              {/* Secondary Info: Styled Cron Badge */}
+              <div className="pt-4 border-t border-violet-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-violet-400 font-medium">
+                    CRON EXPRESSION
+                  </span>
+                  <code className="text-[10px] font-mono font-medium text-violet-600 bg-violet-100/50 px-2 py-1 rounded border border-violet-200/50 tracking-wide">
+                    {result.cronExpression}
+                  </code>
+                </div>
               </div>
             </div>
           </div>
