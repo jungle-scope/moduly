@@ -21,7 +21,7 @@ class WorkflowService:
         Args:
             db: 데이터베이스 세션
             request: 워크플로우 생성 요청 (app_id, name, description)
-            user_id: 생성자 ID (UUID) # Updated docstring
+            user_id: 생성자 ID (UUID)
         Returns:
             생성된 Workflow 객체
         """
