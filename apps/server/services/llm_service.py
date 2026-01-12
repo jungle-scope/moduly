@@ -621,9 +621,6 @@ class LLMService:
         ).all()
         
         if not user_creds:
-            # 플레이스홀더 유저 폴백
-            if user_id != LLMService.PLACEHOLDER_USER_ID:
-                 return LLMService.get_my_available_models(db, LLMService.PLACEHOLDER_USER_ID)
             return []
 
         # 2. 프로바이더 ID 추출
@@ -652,9 +649,6 @@ class LLMService:
         ).all()
         
         if not user_creds:
-            # 플레이스홀더 사용자로 폴백
-            if user_id != LLMService.PLACEHOLDER_USER_ID:
-                 return LLMService.get_my_embedding_models(db, LLMService.PLACEHOLDER_USER_ID)
             return []
 
         # 2. 프로바이더 ID 추출
