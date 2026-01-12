@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
       - name: worker
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:dev-latest
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine:dev-latest
         # TODO: Worker 로직 구현 후 command/args 수정
         # 예시) Celery 사용 시:
         # command: ["celery"]

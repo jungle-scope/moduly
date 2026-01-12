@@ -13,7 +13,7 @@ on:
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REPOSITORY: moduly-server # worker도 server 이미지 사용
+  ECR_REPOSITORY: moduly-workflow-engine
   EKS_CLUSTER_NAME: moduly-cluster
   DEPLOYMENT_NAME: worker
   NAMESPACE: dev
