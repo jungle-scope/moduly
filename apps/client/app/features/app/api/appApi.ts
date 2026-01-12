@@ -41,9 +41,25 @@ export interface App {
     | 'widget'
     | 'mcp'
     | 'workflow_node';
+  active_deployment_is_active?: boolean;
   owner_name?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface Deployment {
+  id: string;
+  app_id: string;
+  version: number;
+  type: 'api' | 'webapp' | 'widget' | 'mcp' | 'workflow_node';
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  created_by: string;
+  graph_snapshot: unknown;
+  input_schema?: unknown;
+  output_schema?: unknown;
+  config?: unknown;
 }
 
 export const appApi = {
@@ -99,5 +115,19 @@ export const appApi = {
   // 앱 삭제
   deleteApp: async (appId: string): Promise<void> => {
     await api.delete(`/apps/${appId}`);
+  },
+
+  // 배포 목록 조회
+  getDeployments: async (appId: string): Promise<Deployment[]> => {
+    const response = await api.get('/deployments', {
+      params: { app_id: appId },
+    });
+    return response.data;
+  },
+
+  // 배포 토글 (활성화/비활성화)
+  toggleDeployment: async (deploymentId: string): Promise<Deployment> => {
+    const response = await api.patch(`/deployments/${deploymentId}/toggle`);
+    return response.data;
   },
 };

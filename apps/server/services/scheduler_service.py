@@ -60,7 +60,11 @@ class SchedulerService:
 
         Args:
             schedule: Schedule 모델 인스턴스
-            db: 데이터베이스 세션 (워크플로우 실행 시 사용)
+            db: 데이터베이스 세션 (next_run_at 업데이트용, job 실행에는 사용되지 않음)
+
+        Note:
+            APScheduler job은 별도 스레드에서 실행되므로, job 실행 시에는
+            _run_workflow 내부에서 새 DB 세션을 생성합니다.
         """
         job_id = str(schedule.id)
 
@@ -69,13 +73,13 @@ class SchedulerService:
             schedule.cron_expression, timezone=schedule.timezone
         )
 
-        # Job 등록
+        # Job 등록 (db 세션은 전달하지 않음 - 스레드 안전성 문제)
         self.scheduler.add_job(
             func=self._run_workflow,
             trigger=trigger,
             id=job_id,
             name=f"Schedule: {schedule.cron_expression}",
-            args=[schedule.deployment_id, schedule.id, db],
+            args=[schedule.deployment_id, schedule.id],  # db 제거
             replace_existing=True,  # 같은 ID면 교체
         )
 
@@ -124,7 +128,6 @@ class SchedulerService:
         self,
         deployment_id: uuid.UUID,
         schedule_id: uuid.UUID,
-        db: Session,
     ):
         """
         스케줄된 시간에 워크플로우를 실행하는 실제 함수
@@ -132,11 +135,16 @@ class SchedulerService:
         Args:
             deployment_id: 배포 ID
             schedule_id: 스케줄 ID
-            db: 데이터베이스 세션
 
         Note:
-            이 함수는 APScheduler가 별도 스레드에서 호출함
+            이 함수는 APScheduler가 별도 스레드에서 호출합니다.
+            SQLAlchemy 세션은 스레드 안전하지 않으므로, 각 job 실행 시
+            새로운 DB 세션을 생성하여 사용합니다.
         """
+        # 각 job 실행마다 새로운 DB 세션 생성 (스레드 안전성 보장)
+        from db.session import SessionLocal
+
+        db = SessionLocal()
         triggered_at = datetime.now(timezone.utc).isoformat()
 
         print(
@@ -152,11 +160,13 @@ class SchedulerService:
             )
 
             if not deployment:
-                print(f"[SchedulerService] ✗ Deployment 없음: {deployment_id}")
+                print(f"[SchedulerService] 에러: Deployment 없음: {deployment_id}")
                 return
 
             if not deployment.is_active:
-                print(f"[SchedulerService] ✗ Deployment 비활성화됨: {deployment_id}")
+                print(
+                    f"[SchedulerService] 에러: Deployment 비활성화됨: {deployment_id}"
+                )
                 return
 
             # WorkflowEngine 실행 (AsyncIO 이벤트 루프에서)
@@ -189,7 +199,7 @@ class SchedulerService:
                 # 비동기 실행
                 result = loop.run_until_complete(engine.execute())
 
-                print(f"[SchedulerService] ✓ 워크플로우 실행 완료: {deployment_id}")
+                print(f"[SchedulerService] 완료: 워크플로우 실행 성공: {deployment_id}")
 
                 # Schedule 업데이트: last_run_at, next_run_at
                 schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
@@ -207,10 +217,16 @@ class SchedulerService:
                 loop.close()
 
         except Exception as e:
-            print(f"[SchedulerService] ✗ 워크플로우 실행 실패: {e}")
+            print(f"[SchedulerService] 에러: 워크플로우 실행 실패: {e}")
             import traceback
 
             traceback.print_exc()
+            # 예외 발생 시 rollback
+            db.rollback()
+
+        finally:
+            # 세션 반드시 닫기 (커넥션 풀 반환)
+            db.close()
 
     def shutdown(self):
         """Scheduler 종료 (서버 종료 시 호출)"""

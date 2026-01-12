@@ -3,7 +3,7 @@ services:
     image: pgvector/pgvector:pg15
     container_name: moduly-dev-postgres
     environment:
-      POSTGRES_DB: moduly
+      POSTGRES_DB: moduly_local
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
     ports:

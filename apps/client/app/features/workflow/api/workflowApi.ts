@@ -109,6 +109,7 @@ export const workflowApi = {
             if (onEvent) await onEvent(event);
           } catch (e) {
             console.error('Failed to parse SSE event:', e);
+            throw e;
           }
         }
       }
@@ -122,6 +123,7 @@ export const workflowApi = {
         if (onEvent) await onEvent(event);
       } catch (e) {
         console.error('Failed to parse SSE event:', e);
+        throw e;
       }
     }
   },
