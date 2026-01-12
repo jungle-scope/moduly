@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir --prefix=/install ./apps/gateway
 # --- 2단계: 실행(Final) 스테이지 ---
 FROM python:3.11-slim
 
-WORKDIR /app
+WORKDIR /app/apps/gateway
 
 # 실행 시 필요한 라이브러리 설치
 RUN apt-get update && apt-get install -y \
@@ -54,7 +54,7 @@ COPY apps/shared /app/apps/shared
 RUN useradd -m appuser
 USER appuser
 
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app:/app/apps/gateway
 ENV PYTHONUNBUFFERED=1
 
 # 헬스 체크
@@ -63,4 +63,4 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=3s --retries=3 \
 
 EXPOSE 8000
 
-CMD ["uvicorn", "apps.gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
