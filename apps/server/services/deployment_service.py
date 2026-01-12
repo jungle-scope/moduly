@@ -212,11 +212,6 @@ class DeploymentService:
             .all()
         )
 
-        # [FIX] App의 url_slug와 auth_secret 주입 (권한 확인 완료됨)
-        for deploy in deployments:
-            deploy.url_slug = app.url_slug
-            deploy.auth_secret = app.auth_secret
-
         return deployments
 
     @staticmethod
