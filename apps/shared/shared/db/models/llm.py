@@ -136,7 +136,8 @@ class LLMCredential(Base):
 
     # Relations
     provider: Mapped["LLMProvider"] = relationship("LLMProvider", back_populates="credentials")
-    user: Mapped["User"] = relationship("db.models.user.User") # Avoid circular import if possible, or use string
+    # user relationship은 workflow-engine에서 User 모델이 임포트되지 않아 제거
+    # 필요 시 user_id로 직접 조회 가능
     usage_logs: Mapped[List["LLMUsageLog"]] = relationship("LLMUsageLog", back_populates="credential")
 
 
