@@ -50,7 +50,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # dev 브랜치용 이미지 태그
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-$IMAGE_TAG -f docker/workflow-engine/Dockerfile .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-$IMAGE_TAG -f docker/gateway/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_PREFIX-$IMAGE_TAG
 
           # dev-latest 태그도 푸시
