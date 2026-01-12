@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { DeploymentResult, DeploymentType } from './types';
+import { formatCronExpression } from './utils';
 
 interface SuccessStepProps {
   result: DeploymentResult;
@@ -226,181 +227,223 @@ ${authHeader}  -d '{
           </div>
         )}
 
-        {/* API Deployment (default) - Two Column Layout */}
-        {!result.webAppUrl && !result.embedUrl && !result.isWorkflowNode && (
-          <div className="grid grid-cols-2 gap-6">
-            {/* Left Column - API Information */}
-            <div className="space-y-4">
-              {/* API Endpoint */}
+        {/* Schedule Trigger Deployment */}
+        {deploymentType === 'schedule' && result.cronExpression && (
+          <div className="border-2 border-violet-200 rounded-lg p-4 bg-violet-50">
+            <label className="block text-sm font-semibold text-violet-900 mb-2">
+              알람 트리거 활성화 완료
+            </label>
+            <p className="text-xs text-violet-700 mb-3">
+              워크플로우가 설정된 시간에 자동으로 실행됩니다.
+            </p>
+            <div className="bg-white p-4 rounded border border-violet-200 space-y-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  API Endpoint URL
-                </label>
-                <div className="flex gap-2">
-                  <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
-                    {API_URL}
-                  </code>
-                  <button
-                    onClick={() => handleCopy(API_URL)}
-                    className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
-                  >
-                    복사
-                  </button>
-                </div>
+                <span className="text-sm font-semibold text-gray-700 block mb-1">
+                  실행 스케줄:
+                </span>
+                <p className="text-base text-gray-900 font-medium">
+                  {formatCronExpression(result.cronExpression)}
+                </p>
+                <code className="text-xs text-gray-500 mt-1 block font-mono bg-gray-50 px-2 py-1 rounded">
+                  {result.cronExpression}
+                </code>
               </div>
+              <div className="border-t border-violet-100 pt-3">
+                <span className="text-sm font-semibold text-gray-700 block mb-1">
+                  타임존:
+                </span>
+                <p className="text-sm text-gray-900">{result.timezone}</p>
+              </div>
+              <div className="border-t border-violet-100 pt-3">
+                <span className="text-sm font-semibold text-gray-700 block mb-1">
+                  버전:
+                </span>
+                <p className="text-sm text-gray-900">v{result.version}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
-              {/* API Secret Key */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  API Secret Key
-                </label>
-                <div className="flex gap-2">
-                  <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
-                    {result.auth_secret
-                      ? `${result.auth_secret.slice(0, 7)}${'•'.repeat(result.auth_secret.length - 7)}`
-                      : 'N/A (Public)'}
-                  </code>
-                  {result.auth_secret && (
+        {/* API Deployment (default) - Two Column Layout */}
+        {!result.webAppUrl &&
+          !result.embedUrl &&
+          !result.isWorkflowNode &&
+          deploymentType !== 'schedule' && (
+            <div className="grid grid-cols-2 gap-6">
+              {/* Left Column - API Information */}
+              <div className="space-y-4">
+                {/* API Endpoint */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    API Endpoint URL
+                  </label>
+                  <div className="flex gap-2">
+                    <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
+                      {API_URL}
+                    </code>
                     <button
-                      onClick={() => handleCopy(result.auth_secret!)}
+                      onClick={() => handleCopy(API_URL)}
                       className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
                     >
                       복사
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Input Variables Section */}
-              {result.input_schema &&
-                result.input_schema.variables &&
-                result.input_schema.variables.length > 0 && (
-                  <div>
-                    {/* Section Header */}
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-700">
-                          입력 변수
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          ({result.input_schema.variables.length}개)
-                        </span>
+                {/* API Secret Key */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    API Secret Key
+                  </label>
+                  <div className="flex gap-2">
+                    <code className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600 font-mono break-all leading-relaxed">
+                      {result.auth_secret
+                        ? `${result.auth_secret.slice(0, 7)}${'•'.repeat(result.auth_secret.length - 7)}`
+                        : 'N/A (Public)'}
+                    </code>
+                    {result.auth_secret && (
+                      <button
+                        onClick={() => handleCopy(result.auth_secret!)}
+                        className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors whitespace-nowrap h-fit"
+                      >
+                        복사
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Input Variables Section */}
+                {result.input_schema &&
+                  result.input_schema.variables &&
+                  result.input_schema.variables.length > 0 && (
+                    <div>
+                      {/* Section Header */}
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-700">
+                            입력 변수
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            ({result.input_schema.variables.length}개)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Scrollable Input Variables Form */}
+                      <div className="max-h-[400px] overflow-y-auto pr-2 space-y-4">
+                        {result.input_schema.variables.map(
+                          (variable, index) => (
+                            <div
+                              key={index}
+                              className="border border-gray-200 rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors"
+                            >
+                              {/* Variable Info Header */}
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <code className="text-sm font-mono text-blue-700 font-semibold">
+                                    {variable.name}
+                                  </code>
+                                  <span
+                                    className={`text-xs px-2 py-1 rounded font-medium ${
+                                      variable.required
+                                        ? 'bg-red-100 text-red-700'
+                                        : 'bg-green-100 text-green-700'
+                                    }`}
+                                  >
+                                    {variable.required ? '필수' : '선택'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded font-medium">
+                                    {variable.type}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Input Field */}
+                              <input
+                                type={
+                                  variable.type === 'number' ? 'number' : 'text'
+                                }
+                                placeholder={`${variable.label || variable.name} 입력`}
+                                value={inputValues[variable.name] || ''}
+                                onChange={(e) =>
+                                  setInputValues({
+                                    ...inputValues,
+                                    [variable.name]: e.target.value,
+                                  })
+                                }
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                          ),
+                        )}
                       </div>
                     </div>
-
-                    {/* Scrollable Input Variables Form */}
-                    <div className="max-h-[400px] overflow-y-auto pr-2 space-y-4">
-                      {result.input_schema.variables.map((variable, index) => (
-                        <div
-                          key={index}
-                          className="border border-gray-200 rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors"
-                        >
-                          {/* Variable Info Header */}
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <code className="text-sm font-mono text-blue-700 font-semibold">
-                                {variable.name}
-                              </code>
-                              <span
-                                className={`text-xs px-2 py-1 rounded font-medium ${
-                                  variable.required
-                                    ? 'bg-red-100 text-red-700'
-                                    : 'bg-green-100 text-green-700'
-                                }`}
-                              >
-                                {variable.required ? '필수' : '선택'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded font-medium">
-                                {variable.type}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Input Field */}
-                          <input
-                            type={
-                              variable.type === 'number' ? 'number' : 'text'
-                            }
-                            placeholder={`${variable.label || variable.name} 입력`}
-                            value={inputValues[variable.name] || ''}
-                            onChange={(e) =>
-                              setInputValues({
-                                ...inputValues,
-                                [variable.name]: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-            </div>
-
-            {/* Right Column - Test Tools */}
-            <div className="space-y-4 border-l border-gray-200 pl-6">
-              {/* cURL Example */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Test Command (cURL)
-                </label>
-                <div className="relative">
-                  <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
-                    {generateCurlExample()}
-                  </pre>
-                  <button
-                    onClick={() => handleCopy(generateCurlExample())}
-                    className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
-                  >
-                    복사
-                  </button>
-                </div>
+                  )}
               </div>
 
-              {/* Test Execution Button */}
-              <button
-                onClick={handleTestExecute}
-                disabled={isLoading}
-                className={`w-full py-3 rounded-lg font-semibold text-white transition-colors ${
-                  isLoading
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                {isLoading ? '실행 중...' : '테스트 실행'}
-              </button>
-
-              {/* Response Result */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  응답 결과
-                </label>
-                {testResponse ? (
+              {/* Right Column - Test Tools */}
+              <div className="space-y-4 border-l border-gray-200 pl-6">
+                {/* cURL Example */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Test Command (cURL)
+                  </label>
                   <div className="relative">
-                    <pre className="p-4 bg-gray-900 rounded-lg text-xs text-green-400 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700 max-h-[250px] overflow-y-auto">
-                      {testResponse}
+                    <pre className="p-4 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700">
+                      {generateCurlExample()}
                     </pre>
                     <button
-                      onClick={() => handleCopy(testResponse)}
+                      onClick={() => handleCopy(generateCurlExample())}
                       className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
                     >
                       복사
                     </button>
                   </div>
-                ) : (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg min-h-[100px] flex items-center justify-center">
-                    <p className="text-sm text-gray-500">
-                      테스트 실행 후 결과가 여기에 표시됩니다
-                    </p>
-                  </div>
-                )}
+                </div>
+
+                {/* Test Execution Button */}
+                <button
+                  onClick={handleTestExecute}
+                  disabled={isLoading}
+                  className={`w-full py-3 rounded-lg font-semibold text-white transition-colors ${
+                    isLoading
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {isLoading ? '실행 중...' : '테스트 실행'}
+                </button>
+
+                {/* Response Result */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    응답 결과
+                  </label>
+                  {testResponse ? (
+                    <div className="relative">
+                      <pre className="p-4 bg-gray-900 rounded-lg text-xs text-green-400 font-mono overflow-x-auto whitespace-pre leading-relaxed border border-gray-700 max-h-[250px] overflow-y-auto">
+                        {testResponse}
+                      </pre>
+                      <button
+                        onClick={() => handleCopy(testResponse)}
+                        className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                      >
+                        복사
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg min-h-[100px] flex items-center justify-center">
+                      <p className="text-sm text-gray-500">
+                        테스트 실행 후 결과가 여기에 표시됩니다
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       <div className="px-6 py-4 border-t border-gray-200 flex justify-end">

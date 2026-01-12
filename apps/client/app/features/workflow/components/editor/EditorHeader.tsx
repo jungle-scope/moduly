@@ -98,7 +98,7 @@ export default function EditorHeader() {
   const [showDeployFlowModal, setShowDeployFlowModal] = useState(false);
   const [showDeployDropdown, setShowDeployDropdown] = useState(false);
   const [deploymentType, setDeploymentType] = useState<
-    'api' | 'webapp' | 'widget' | 'workflow_node'
+    'api' | 'webapp' | 'widget' | 'workflow_node' | 'schedule'
   >('api'); // 배포 타입 추적
 
   const {
@@ -148,6 +148,11 @@ export default function EditorHeader() {
     setShowDeployFlowModal(true);
   }, []);
 
+  const handlePublishAsSchedule = useCallback(() => {
+    setDeploymentType('schedule');
+    setShowDeployFlowModal(true);
+  }, []);
+
   // 통합 배포 핸들러
   const handleDeploy = useCallback(
     async (description: string): Promise<DeploymentResult> => {
@@ -184,6 +189,14 @@ export default function EditorHeader() {
         } else if (deploymentType === 'workflow_node') {
           result.isWorkflowNode = true;
           result.auth_secret = null; // 서브 모듈은 API 키 표시 안 함
+        } else if (deploymentType === 'schedule') {
+          // Schedule Trigger 노드에서 cron 정보 추출
+          const scheduleNode = nodes.find((n) => n.type === 'scheduleTrigger');
+          if (scheduleNode) {
+            const data = scheduleNode.data as any;
+            result.cronExpression = data.cron_expression || '0 9 * * *';
+            result.timezone = data.timezone || 'Asia/Seoul';
+          }
         }
 
         return result;
@@ -628,7 +641,7 @@ export default function EditorHeader() {
                   <button
                     onClick={() => {
                       setShowDeployDropdown(false);
-                      handlePublishAsRestAPI(); // 스케줄도 REST API 배포 사용
+                      handlePublishAsSchedule();
                     }}
                     className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                   >
