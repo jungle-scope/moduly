@@ -35,12 +35,7 @@ spec:
       containers:
       - name: worker
         image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine:dev-latest
-        # TODO: Worker 로직 구현 후 command/args 수정
-        # 예시) Celery 사용 시:
-        # command: ["celery"]
-        # args: ["-A", "apps.server.worker", "worker", "--loglevel=info"]
-        command: ["python"]
-        args: ["-c", "import time; print('Dev Worker placeholder running...'); [time.sleep(60) for _ in iter(int, 1)]"]
+        
         env:
         - name: DB_HOST
           value: postgresql.default.svc.cluster.local
@@ -71,3 +66,17 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+  namespace: dev
+spec:
+  selector:
+    app: worker
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP

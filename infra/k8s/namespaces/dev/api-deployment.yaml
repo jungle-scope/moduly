@@ -49,6 +49,8 @@ spec:
           value: "https://dev.moduly-ai.cloud,http://localhost:3000,http://127.0.0.1:3000"
         - name: SECRET_KEY
           value: "dev_secret_key_moduly"
+        - name: WORKFLOW_ENGINE_URL
+          value: "http://worker-service.dev:8000"
         # Sandbox 설정
         - name: SANDBOX_URL
           value: "http://sandbox-service.default:8194"
