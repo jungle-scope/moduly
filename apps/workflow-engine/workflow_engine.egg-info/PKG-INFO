@@ -3,12 +3,19 @@ Name: workflow-engine
 Version: 0.1.0
 Summary: 워크플로우 실행 전용 마이크로서비스
 Requires-Python: >=3.11
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: pymupdf4llm>=0.0.1
+Requires-Dist: PyGithub>=2.1.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: tiktoken>=0.5.0
 Requires-Dist: fastapi>=0.109.0
 Requires-Dist: uvicorn>=0.27.0
 Requires-Dist: httpx>=0.26.0
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: sqlalchemy>=2.0.0
 Requires-Dist: psycopg2-binary>=2.9.0
+Requires-Dist: apscheduler>=3.10.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.4.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"

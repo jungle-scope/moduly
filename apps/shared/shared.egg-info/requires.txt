@@ -6,6 +6,7 @@ python-jose[cryptography]
 python-dotenv
 cryptography
 pydantic-settings
+tiktoken
 
 [dev]
 pytest>=7.0

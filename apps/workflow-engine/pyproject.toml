@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "sqlalchemy>=2.0.0",
     "psycopg2-binary>=2.9.0",
+    "apscheduler>=3.10.0",
 ]
 
 [project.optional-dependencies]

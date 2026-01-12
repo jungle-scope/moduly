@@ -5,3 +5,9 @@ Summary: Log System Service for Moduly
 Requires-Dist: fastapi
 Requires-Dist: uvicorn
 Requires-Dist: shared
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: psycopg2-binary>=2.9.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: httpx; extra == "dev"

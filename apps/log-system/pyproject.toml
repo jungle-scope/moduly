@@ -6,6 +6,8 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "shared", # Local shared package
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
 ]
 
 [tool.setuptools.packages.find]

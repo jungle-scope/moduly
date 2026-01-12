@@ -36,6 +36,7 @@ dependencies = [
     "langchain>=0.1.0",
     "langchain-text-splitters>=0.0.1",
     "boto3>=1.30.0",
+    "apscheduler>=3.10.0",
 ]
 
 [project.optional-dependencies]
