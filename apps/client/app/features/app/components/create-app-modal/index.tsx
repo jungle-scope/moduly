@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { appApi } from '../../api/appApi';
-import { AppIcon } from './app-icon';
-import { AppIconPicker } from './app-icon-picker';
+import { AppIcon } from './AppIcon';
+import { AppIconPicker } from './AppIconPicker';
 import { AppIconSelection, CreateAppProps } from './types';
 import { twMerge } from 'tailwind-merge';
 
@@ -135,7 +135,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
   return (
     // 배경 (Backdrop)
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={handleBackdropClick}
     >
       {/* 모달 본문 */}

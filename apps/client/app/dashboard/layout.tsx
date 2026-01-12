@@ -1,5 +1,4 @@
 import Sidebar from '../features/dashboard/components/Sidebar';
-import Header from '../features/dashboard/components/Header';
 
 export default function DashboardLayout({
   children,
@@ -13,7 +12,6 @@ export default function DashboardLayout({
 
       {/* Right: Header + Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        <Header />
         <main className="flex-1 overflow-y-auto bg-white">{children}</main>
       </div>
     </div>

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 
+
 # apps/server/.env 로드
 SERVER_ENV_PATH = BASE_DIR / ".env"
 if SERVER_ENV_PATH.exists():
@@ -21,7 +22,6 @@ from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from api.api import api_router
-from db.base import Base
 from db.models.schedule import Schedule  # noqa: F401
 from db.seed import (
     seed_default_llm_models,
@@ -48,8 +48,8 @@ async def lifespan(app: FastAPI):
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
-    Base.metadata.create_all(bind=engine)
-    print("데이터베이스 테이블 생성 완료")
+    # Base.metadata.create_all(bind=engine)
+    # print("데이터베이스 테이블 생성 완료")
 
     # 2. 기본 LLM 프로바이더 시드 (멱등성 보장)
 

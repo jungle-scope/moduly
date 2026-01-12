@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import type { AxiosError } from 'axios';
 import { authApi } from '@/app/features/auth/api/authApi';
 
 export default function LoginPage() {
@@ -20,17 +22,42 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // authApi.login 사용
-      const data = await authApi.login({
+      await authApi.login({
         email: formData.email,
         password: formData.password,
       });
 
-      // 성공: 대시보드로 리다이렉트
-      console.log('로그인 성공:', data);
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
+      const axiosError = err as AxiosError<{ detail: string | string[] }>;
+      const status = axiosError.response?.status;
+      const data = axiosError.response?.data;
+
+      let message: string;
+
+      if (status === 401) {
+        message = '이메일 또는 비밀번호가 올바르지 않습니다.';
+      } else if (status === 422) {
+        // FastAPI Validation Error
+        if (Array.isArray(data?.detail)) {
+          message = '입력한 값이 올바르지 않습니다.';
+        } else {
+          message = '입력 형식이 올바르지 않습니다.';
+        }
+      } else if (status && status >= 500) {
+        message = '서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (!axiosError.response) {
+        message = '네트워크 연결을 확인해주세요.';
+      } else {
+        // 기타 에러 시 사용자 친화적 메시지 또는 서버 응답 메시지 표시
+        message =
+          typeof data?.detail === 'string'
+            ? data.detail
+            : '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      }
+
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -44,7 +71,6 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = () => {
-    // authApi의 구글 로그인 함수 호출
     authApi.googleLogin();
   };
 

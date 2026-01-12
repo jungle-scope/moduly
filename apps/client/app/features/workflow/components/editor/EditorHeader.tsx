@@ -5,10 +5,10 @@ import { useReactFlow } from '@xyflow/react';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
-// [REFACTORED] 로그 & 모니터링 통합 모달 Import
-import { LogAndMonitoringModal } from '@/app/features/workflow/components/modals/LogAndMonitoringModal';
-import { BarChart3, Play } from 'lucide-react';
+
+import { Play, ChevronLeft, Settings, Pencil } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+
 import {
   validateVariableName,
   validateVariableSettings,
@@ -17,31 +17,13 @@ import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
 import { workflowApi } from '../../api/workflowApi';
 import { UserInputModal } from '../modals/userInputModal';
 import { ResultModal } from '../modals/ResultModal';
-import { DeploymentModal } from '../modals/DeploymentModal';
-import { DeploymentResultModal } from '../modals/DeploymentResultModal';
-import { InputSchema, OutputSchema } from '../../types/Deployment';
+import { DeploymentFlowModal } from '../deployment/DeploymentFlowModal';
+import type { DeploymentResult } from '../deployment/types';
+import { SettingsSidebar } from './SettingsSidebar';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
 import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
-
-/** SY.
- * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
- * auth_secret: 누구나 접근 가능한 Public 배포시 null
- * webAppUrl: 웹 앱 배포 시 공유 링크
- * */
-type DeploymentResult =
-  | {
-      success: true;
-      url_slug: string | null;
-      auth_secret: string | null;
-      version: number;
-      webAppUrl?: string; // 웹 앱 URL (선택적)
-      embedUrl?: string; // 임베딩 URL (선택적)
-      isWorkflowNode?: boolean; // 서브 모듈 배포 여부 (선택적)
-      input_schema?: InputSchema | null;
-      output_schema?: OutputSchema | null;
-    }
-  | { success: false; message: string }
-  | null;
+import { appApi } from '@/app/features/app/api/appApi';
+import EditAppModal from '@/app/features/app/components/edit-app-modal';
 
 export default function EditorHeader() {
   const router = useRouter();
@@ -49,23 +31,60 @@ export default function EditorHeader() {
   const workflowId = (params.id as string) || 'default'; // URL에서 ID 파싱
   const {
     projectName,
-    projectIcon,
+    projectApp,
+    setProjectApp,
     nodes,
     // 버전 기록 상태
     previewingVersion,
     exitPreview,
     restoreVersion,
     toggleVersionHistory,
+    toggleSettings,
     runTrigger,
-    isFullscreen,
   } = useWorkflowStore();
   const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  // [REFACTORED] 로그 & 모니터링 통합 모달 상태
-  const [isLogAndMonitoringOpen, setIsLogAndMonitoringOpen] = useState(false);
-  const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
-  const [initialTab, setInitialTab] = useState<'logs' | 'monitoring'>('logs');
+
+  // Store에서 workflows 가져오기 (appId 조회를 위해)
+  const workflows = useWorkflowStore((state) => state.workflows);
+  const activeWorkflow = workflows.find((w) => w.id === workflowId);
+
+  // [NEW] 앱 수정 모달 상태
+  const [showEditAppModal, setShowEditAppModal] = useState(false);
+
+  // [NEW] 앱 정보 동기화 (activeWorkflow 변경 시)
+  useEffect(() => {
+    const fetchAppInfo = async () => {
+      // 1. 이미 projectApp이 있고 ID가 일치하면 스킵
+      if (projectApp && activeWorkflow?.appId === projectApp.id) return;
+
+      // 2. activeWorkflow가 있고 appId가 있으면 로딩
+      if (activeWorkflow?.appId) {
+        try {
+          const app = await appApi.getApp(activeWorkflow.appId);
+          setProjectApp(app);
+        } catch (error) {
+          console.error('앱 정보 로딩 실패:', error);
+        }
+      }
+    };
+    fetchAppInfo();
+  }, [activeWorkflow?.appId, projectApp, setProjectApp]);
+
+  // [NEW] 앱 수정 성공 핸들러
+  const handleAppUpdateSuccess = useCallback(async () => {
+    if (activeWorkflow?.appId) {
+      try {
+        const updatedApp = await appApi.getApp(activeWorkflow.appId);
+        setProjectApp(updatedApp);
+      } catch (error) {
+        console.error('앱 정보 갱신 실패:', error);
+      }
+    }
+  }, [activeWorkflow?.appId, setProjectApp]);
+
+  // ... existing state ...
 
   // 기존 상태
   const [showModal, setShowModal] = useState(false);
@@ -74,10 +93,7 @@ export default function EditorHeader() {
   const [executionResult, setExecutionResult] = useState<any>(null);
 
   // 배포 상태
-  const [showDeployModal, setShowDeployModal] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [deploymentResult, setDeploymentResult] =
-    useState<DeploymentResult>(null);
+  const [showDeployFlowModal, setShowDeployFlowModal] = useState(false);
   const [showDeployDropdown, setShowDeployDropdown] = useState(false);
   const [deploymentType, setDeploymentType] = useState<
     'api' | 'webapp' | 'widget' | 'workflow_node'
@@ -93,7 +109,7 @@ export default function EditorHeader() {
   } = useMemoryMode(router, toast);
 
   const handleBack = useCallback(() => {
-    router.push('/dashboard');
+    router.push('/dashboard/mymodule');
   }, [router]);
 
   const handleVersionHistory = useCallback(() => {
@@ -111,230 +127,75 @@ export default function EditorHeader() {
   }, [previewingVersion, restoreVersion]);
 
   const handlePublishAsRestAPI = useCallback(() => {
-    setDeploymentType('api'); // REST API 배포
-    setShowDeployModal(true);
+    setDeploymentType('api');
+    setShowDeployFlowModal(true);
   }, []);
 
   const handlePublishAsWebApp = useCallback(() => {
-    setDeploymentType('webapp'); // 웹 앱 배포
-    setShowDeployModal(true);
+    setDeploymentType('webapp');
+    setShowDeployFlowModal(true);
   }, []);
 
   const handlePublishAsWidget = useCallback(() => {
-    setDeploymentType('widget'); // 위젯 배포
-    setShowDeployModal(true);
+    setDeploymentType('widget');
+    setShowDeployFlowModal(true);
   }, []);
 
-  // Store에서 workflows 가져오기 (appId 조회를 위해)
-  const workflows = useWorkflowStore((state) => state.workflows);
-  const activeWorkflow = workflows.find((w) => w.id === workflowId);
+  const handlePublishAsWorkflowNode = useCallback(() => {
+    setDeploymentType('workflow_node');
+    setShowDeployFlowModal(true);
+  }, []);
 
-  // rest API로 배포
-  const handleDeploySubmit = useCallback(
-    async (description: string) => {
+  // 통합 배포 핸들러
+  const handleDeploy = useCallback(
+    async (description: string): Promise<DeploymentResult> => {
       try {
         if (!activeWorkflow?.appId) {
           throw new Error('App ID를 찾을 수 없습니다.');
         }
 
-        setIsDeploying(true);
-
         const response = await workflowApi.createDeployment({
           app_id: activeWorkflow.appId,
           description,
-          type: 'api',
+          type: deploymentType,
           is_active: true,
         });
-        console.log('[배포 성공] 서버 응답:', response);
 
-        // 성공 결과 모달 표시
-        setDeploymentResult({
+        // 배포 성공 알림 (버전 기록 갱신용)
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
+        // 배포 타입별로 다른 결과 반환
+        const result: DeploymentResult = {
           success: true,
           url_slug: response.url_slug ?? null,
           auth_secret: response.auth_secret ?? null,
           version: response.version,
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
-        });
+        };
 
-        // 배포 성공 알림 (버전 기록 갱신용)
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        setShowDeployModal(false);
-      } catch (error: any) {
-        console.error('배포 실패:', error);
-
-        // 실패 결과 모달 표시
-        setDeploymentResult({
-          success: false,
-          message:
-            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        });
-        // 실패 시에도 입력 모달 닫기
-        setShowDeployModal(false);
-      } finally {
-        setIsDeploying(false);
-      }
-    },
-    [activeWorkflow?.appId],
-  );
-
-  // 웹 앱으로 배포
-  const handleDeployAsWebApp = useCallback(
-    async (description: string) => {
-      try {
-        if (!activeWorkflow?.appId) {
-          throw new Error('App ID를 찾을 수 없습니다.');
+        // 배포 타입별 추가 정보
+        if (deploymentType === 'webapp') {
+          result.webAppUrl = `${window.location.origin}/shared/${response.url_slug}`;
+        } else if (deploymentType === 'widget') {
+          result.embedUrl = `${window.location.origin}/embed/chat/${response.url_slug}`;
+        } else if (deploymentType === 'workflow_node') {
+          result.isWorkflowNode = true;
+          result.auth_secret = null; // 서브 모듈은 API 키 표시 안 함
         }
 
-        setIsDeploying(true);
-
-        const response = await workflowApi.createDeployment({
-          app_id: activeWorkflow.appId,
-          description,
-          type: 'webapp',
-          is_active: true,
-        });
-        console.log('[웹 앱 배포 성공] 서버 응답:', response);
-
-        // 웹 앱 링크 생성
-        const webAppUrl = `${window.location.origin}/shared/${response.url_slug}`;
-
-        // 성공 결과 모달 표시 (공유 링크 포함)
-        setDeploymentResult({
-          success: true,
-          url_slug: response.url_slug ?? null,
-          auth_secret: null, // 웹 앱은 API 키 표시 안 함
-          version: response.version,
-          webAppUrl, // 웹 앱 URL 추가
-          input_schema: response.input_schema ?? null,
-          output_schema: response.output_schema ?? null,
-        });
-
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        setShowDeployModal(false);
+        return result;
       } catch (error: any) {
-        console.error('웹 앱 배포 실패:', error);
+        console.error(`[${deploymentType} 배포 실패]:`, error);
 
-        // 실패 결과 모달 표시
-        setDeploymentResult({
+        return {
           success: false,
           message:
             error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        });
-        setShowDeployModal(false);
-      } finally {
-        setIsDeploying(false);
+        };
       }
     },
-    [activeWorkflow?.appId],
-  );
-
-  // 웹사이트 위젯으로 배포
-  const handleDeployAsWidget = useCallback(
-    async (description: string) => {
-      try {
-        if (!activeWorkflow?.appId) {
-          throw new Error('App ID를 찾을 수 없습니다.');
-        }
-
-        setIsDeploying(true);
-
-        // 위젯으로 배포
-        const response = await workflowApi.createDeployment({
-          app_id: activeWorkflow.appId,
-          description,
-          type: 'widget',
-          is_active: true,
-        });
-        console.log('[위젯 배포 성공] 서버 응답:', response);
-
-        // 임베딩 채팅 URL
-        const embedUrl = `${window.location.origin}/embed/chat/${response.url_slug}`;
-
-        // 성공 결과 모달 표시 (임베딩 스니펫 포함)
-        setDeploymentResult({
-          success: true,
-          url_slug: response.url_slug ?? null,
-          auth_secret: null,
-          version: response.version,
-          embedUrl, // 임베딩 URL 추가
-          input_schema: response.input_schema ?? null,
-          output_schema: response.output_schema ?? null,
-        });
-
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        setShowDeployModal(false);
-      } catch (error: any) {
-        console.error('위젯 배포 실패:', error);
-
-        setDeploymentResult({
-          success: false,
-          message:
-            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        });
-        setShowDeployModal(false);
-      } finally {
-        setIsDeploying(false);
-      }
-    },
-    [activeWorkflow?.appId],
-  );
-
-  const handlePublishAsWorkflowNode = useCallback(() => {
-    setDeploymentType('workflow_node');
-    setShowDeployModal(true);
-  }, []);
-
-  // 서브 모듈로 배포
-  // 이 기능은 현재 워크플로우를 다른 워크플로우에서 사용할 수 있는 '서브 모듈' 형태로 배포합니다.
-  // 배포된 노드는 '서브 모듈' 카테고리에서 찾을 수 있습니다.
-  const handleDeployAsWorkflowNode = useCallback(
-    async (description: string) => {
-      try {
-        if (!activeWorkflow?.appId) {
-          throw new Error('App ID를 찾을 수 없습니다.');
-        }
-
-        setIsDeploying(true);
-
-        const response = await workflowApi.createDeployment({
-          app_id: activeWorkflow.appId,
-          description,
-          type: 'workflow_node',
-          is_active: true,
-        });
-        console.log('[서브 모듈 배포 성공] 서버 응답:', response);
-
-        setDeploymentResult({
-          success: true,
-          url_slug: response.url_slug ?? null,
-          auth_secret: null,
-          version: response.version,
-          isWorkflowNode: true,
-          input_schema: response.input_schema ?? null,
-          output_schema: response.output_schema ?? null,
-        });
-
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        setShowDeployModal(false);
-      } catch (error: any) {
-        console.error('서브 모듈 배포 실패:', error);
-
-        setDeploymentResult({
-          success: false,
-          message:
-            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        });
-        setShowDeployModal(false);
-      } finally {
-        setIsDeploying(false);
-      }
-    },
-    [workflowId, activeWorkflow?.appId],
+    [deploymentType, activeWorkflow?.appId],
   );
 
   const handleTestRun = useCallback(async () => {
@@ -499,12 +360,12 @@ export default function EditorHeader() {
                   .getState()
                   .updateNodeData(data.node_id, { status: 'failure' });
               }
+              // Toast 알림 추가
+              toast.error(`워크플로우 실행 실패: ${data.message}`);
               throw new Error(data.message);
             }
           },
         );
-
-        console.log('[테스트 실행 성공] 결과:', finalResult);
 
         // 결과 모달 표시
         if (finalResult) {
@@ -522,7 +383,7 @@ export default function EditorHeader() {
         setIsExecuting(false);
       }
     },
-    [workflowId, nodes],
+    [appendMemoryFlag, nodes, setCenter, workflowId],
   );
 
   // [NEW] 원격 실행 트리거 효과
@@ -536,23 +397,69 @@ export default function EditorHeader() {
   }, [runTrigger, handleTestRun]);
 
   return (
-    <div>
-      <div
-        className={`absolute right-6 z-50 flex items-center gap-2 pointer-events-auto transition-all duration-300 ${
-          isFullscreen ? 'top-4' : 'top-16'
-        }`}
-      >
-        {/* 1. 로그 & 모니터링 통합 버튼 */}
+    <header className="h-14 w-full bg-gradient-to-r from-blue-50 via-white to-blue-50/30 flex items-center justify-between px-4 z-50">
+      {/* 1. Left Section */}
+      <div className="flex items-center gap-3">
+        {/* Back Button */}
         <button
-          onClick={() => setIsLogAndMonitoringOpen(true)}
-          className="px-3.5 py-1.5 flex items-center gap-1.5 text-gray-600 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 shadow-sm text-[13px] font-medium"
+          onClick={handleBack}
+          className="p-1 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
         >
-          <BarChart3 className="w-3.5 h-3.5" />
-          <span className="hidden lg:inline">모니터링 & 로그</span>
+          <ChevronLeft className="w-5 h-5" />
         </button>
 
-        {/* 3. 기억 모드 */}
-        <div className="flex items-center gap-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+        {/* Project Icon */}
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center border border-gray-200 overflow-hidden"
+          style={{
+            backgroundColor: projectApp?.icon?.background_color || '#FEF3C7',
+          }} // Default to amber-100 hex if missing
+        >
+          {projectApp?.icon?.content ? (
+            projectApp.icon.type === 'image' ||
+            projectApp.icon.content.startsWith('http') ? (
+              <img
+                src={projectApp.icon.content}
+                alt="App Icon"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-lg">{projectApp.icon.content}</span>
+            )
+          ) : (
+            <div className="w-4 h-4 bg-amber-400 rounded-sm opacity-80" />
+          )}
+        </div>
+
+        {/* Project Name & Edit */}
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-900 text-sm">
+            {projectName || '제목 없음'}
+          </span>
+          <button
+            onClick={() => setShowEditAppModal(true)}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            disabled={!projectApp} // 앱 정보가 로드되지 않았으면 비활성화
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* [NEW] 앱 수정 모달 */}
+      {showEditAppModal && projectApp && (
+        <EditAppModal
+          app={projectApp}
+          onClose={() => setShowEditAppModal(false)}
+          onSuccess={handleAppUpdateSuccess}
+        />
+      )}
+
+      {/* 2. Right Section */}
+      <div className="flex items-center gap-3 relative">
+        {/* Memory Mode */}
+        {/* Wrapping in a div to match previous style or just button style */}
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg">
           <MemoryModeToggle
             isEnabled={isMemoryModeEnabled}
             hasProviderKey={hasProviderKey}
@@ -561,27 +468,36 @@ export default function EditorHeader() {
           />
         </div>
 
-        {/* 4. 테스트(미리보기) 버튼 - 파란색 스타일 */}
+        {/* Version */}
+        <button
+          onClick={handleVersionHistory}
+          className="px-3 py-1.5 flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors text-gray-600 text-[13px] font-medium"
+        >
+          <ClockIcon className="w-3.5 h-3.5" />
+          <span>버전</span>
+        </button>
+
+        {/* Test (Preview) */}
         <button
           onClick={handleTestRun}
           disabled={isExecuting}
-          className={`px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border shadow-sm ${
+          className={`px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border ${
             isExecuting
               ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
               : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
           }`}
         >
           <Play className="w-3.5 h-3.5" />
-          <span className="text-[13px] font-medium hidden lg:inline">
+          <span className="text-[13px] font-medium">
             {isExecuting ? '실행 중...' : '테스트'}
           </span>
         </button>
 
-        {/* 5. 게시하기 버튼 */}
+        {/* Publish */}
         <div className="relative">
           <button
             onClick={() => setShowDeployDropdown(!showDeployDropdown)}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm flex items-center gap-1.5 text-[13px]"
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px]"
           >
             게시하기
             <svg
@@ -599,7 +515,7 @@ export default function EditorHeader() {
             </svg>
           </button>
 
-          {/* 드롭다운 메뉴 */}
+          {/* Deploy Dropdown */}
           {showDeployDropdown && (
             <>
               <div
@@ -607,6 +523,7 @@ export default function EditorHeader() {
                 onClick={() => setShowDeployDropdown(false)}
               />
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
+                {/* ... existing dropdown items ... */}
                 <button
                   onClick={() => {
                     setShowDeployDropdown(false);
@@ -671,72 +588,40 @@ export default function EditorHeader() {
           )}
         </div>
 
-        {/* 6. 버전 기록 (아이콘만) */}
+        {/* Settings (New) */}
         <button
-          onClick={handleVersionHistory}
-          className="w-9 h-9 flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200 rounded-full shadow-sm transition-colors text-gray-600"
-          title="버전 기록"
+          onClick={toggleSettings}
+          className="px-3 py-1.5 flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors text-gray-600 text-[13px] font-medium"
         >
-          <ClockIcon className="w-4 h-4" />
+          <Settings className="w-3.5 h-3.5" />
+          <span>설정</span>
         </button>
-
-        {/* [REFACTORED] 로그 & 모니터링 통합 모달 렌더링 */}
-        {workflowId && (
-          <LogAndMonitoringModal
-            isOpen={isLogAndMonitoringOpen}
-            onClose={() => {
-              setIsLogAndMonitoringOpen(false);
-              setInitialLogRunId(null);
-            }}
-            workflowId={workflowId as string}
-            initialTab={initialTab}
-            initialRunId={initialLogRunId}
-          />
-        )}
       </div>
 
-      <div>
-        {/* 에러 메시지 배너 */}
-        {errorMsg && (
-          <div className="fixed top-16 right-4 z-60 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md max-w-sm animate-bounce">
-            <strong className="font-bold mr-1">오류!</strong>
-            <span className="block sm:inline text-sm">{errorMsg}</span>
-            <button
-              className="absolute top-0 bottom-0 right-0 px-4 py-3"
-              onClick={() => setErrorMsg(null)}
-            >
-              <span className="text-red-500 font-bold">×</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* 배포 모달 */}
-      {showDeployModal && (
-        <DeploymentModal
-          onClose={() => setShowDeployModal(false)}
-          onSubmit={
-            deploymentType === 'api'
-              ? handleDeploySubmit
-              : deploymentType === 'webapp'
-                ? handleDeployAsWebApp
-                : deploymentType === 'widget'
-                  ? handleDeployAsWidget
-                  : handleDeployAsWorkflowNode
-          }
-          isDeploying={isDeploying}
-        />
+      {/* Global Modals & Overlays */}
+      {/* 에러 메시지 배너 */}
+      {errorMsg && (
+        <div className="fixed top-16 right-4 z-[60] bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md max-w-sm animate-bounce">
+          <strong className="font-bold mr-1">오류!</strong>
+          <span className="block sm:inline text-sm">{errorMsg}</span>
+          <button
+            className="absolute top-0 bottom-0 right-0 px-4 py-3"
+            onClick={() => setErrorMsg(null)}
+          >
+            <span className="text-red-500 font-bold">×</span>
+          </button>
+        </div>
       )}
 
-      {/* 배포 결과 모달 (성공/실패) */}
-      {deploymentResult && (
-        <DeploymentResultModal
-          result={deploymentResult}
-          onClose={() => setDeploymentResult(null)}
-        />
-      )}
+      {/* Deployment Flow Modal */}
+      <DeploymentFlowModal
+        isOpen={showDeployFlowModal}
+        onClose={() => setShowDeployFlowModal(false)}
+        deploymentType={deploymentType}
+        onDeploy={handleDeploy}
+      />
 
-      {/* 사용자 입력 모달 (개발 중 테스트 용입니다. 최종 X) */}
+      {/* 사용자 입력 모달 */}
       {showModal && (
         <UserInputModal
           variables={modalVariables}
@@ -745,7 +630,7 @@ export default function EditorHeader() {
         />
       )}
 
-      {/* 실행 결과 모달 (개발 중 테스트 용입니다. 최종 X) */}
+      {/* 실행 결과 모달 */}
       {showResultModal && executionResult && (
         <ResultModal
           result={executionResult}
@@ -755,10 +640,11 @@ export default function EditorHeader() {
 
       {/* 버전 기록 사이드바 */}
       <VersionHistorySidebar />
+      <SettingsSidebar />
 
       {/* 미리보기 모드 배너 */}
       {previewingVersion && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
           <div className="flex flex-col">
             <span className="text-xs text-blue-200 font-medium">
               현재 미리보기 중
@@ -785,7 +671,8 @@ export default function EditorHeader() {
           </div>
         </div>
       )}
+
       {memoryModeModals}
-    </div>
+    </header>
   );
 }

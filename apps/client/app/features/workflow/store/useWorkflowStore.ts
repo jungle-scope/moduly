@@ -47,6 +47,10 @@ type WorkflowState = {
   interactiveMode: 'mouse' | 'touchpad'; // 입력 모드 (마우스/터치패드)
   isFullscreen: boolean;
 
+  // === 설정 패널 상태 ===
+  isSettingsOpen: boolean;
+  toggleSettings: () => void;
+
   // === 버전 기록 상태 ===
   isVersionHistoryOpen: boolean;
   previewingVersion: DeploymentResponse | null;
@@ -141,6 +145,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   interactiveMode: 'mouse',
   isFullscreen: false,
 
+  // === 설정 패널 상태 (초기값) ===
+  isSettingsOpen: false,
+
   // === 버전 기록 상태 ===
   isVersionHistoryOpen: false,
   previewingVersion: null,
@@ -219,8 +226,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set((state) => ({ isFullscreen: !state.isFullscreen })),
 
   // === 버전 기록 액션 ===
+  toggleSettings: () =>
+    set((state) => ({
+      isSettingsOpen: !state.isSettingsOpen,
+      isVersionHistoryOpen: false,
+    })),
+
   toggleVersionHistory: () =>
-    set((state) => ({ isVersionHistoryOpen: !state.isVersionHistoryOpen })),
+    set((state) => ({
+      isVersionHistoryOpen: !state.isVersionHistoryOpen,
+      isSettingsOpen: false,
+    })),
 
   previewVersion: (version) => {
     // 현재 스냅샷을 노드/엣지에 적용 (미리보기)
