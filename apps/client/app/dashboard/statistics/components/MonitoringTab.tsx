@@ -320,7 +320,7 @@ export const MonitoringTab = () => {
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                       onClick={() =>
                         router.push(
-                          `/modules/${fail.workflow_id}?tab=monitoring`,
+                          `/modules/${fail.workflow_id}?tab=logs&runId=${fail.run_id}`,
                         )
                       }
                     >

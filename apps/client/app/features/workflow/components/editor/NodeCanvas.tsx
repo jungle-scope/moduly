@@ -681,6 +681,7 @@ export default function NodeCanvas() {
   const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const runIdParam = searchParams.get('runId');
 
   useEffect(() => {
     if (tabParam === 'monitoring' || tabParam === 'logs') {
@@ -691,6 +692,12 @@ export default function NodeCanvas() {
       setIsNodeLibraryOpen(true);
     }
   }, [tabParam]);
+
+  useEffect(() => {
+    if (runIdParam) {
+      setInitialLogRunId(runIdParam);
+    }
+  }, [runIdParam]);
 
   return (
     <div className="flex-1 bg-gradient-to-r from-blue-50 via-white to-blue-50/30 p-2 gap-2 relative flex flex-row overflow-hidden">
