@@ -86,6 +86,8 @@ export default function NodeCanvas() {
     setEdges,
     isSettingsOpen,
     toggleSettings,
+    isTestPanelOpen,
+    toggleTestPanel,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
@@ -129,6 +131,16 @@ export default function NodeCanvas() {
     return () =>
       window.removeEventListener('openLLMReferencePanel', handleOpenRefPanel);
   }, [selectedNodeId]);
+
+  // 설정 또는 버전 기록 패널이 열리면 노드 상세 패널 닫기
+  useEffect(() => {
+    if (isSettingsOpen || isVersionHistoryOpen || isTestPanelOpen) {
+      setSelectedNodeId(null);
+      setSelectedNodeType(null);
+      setIsParamPanelOpen(false);
+      setIsRefPanelOpen(false);
+    }
+  }, [isSettingsOpen, isVersionHistoryOpen, isTestPanelOpen]);
 
   const handleSelectApp = useCallback(
     async (app: App & { active_deployment_id?: string; version?: number }) => {
@@ -238,6 +250,9 @@ export default function NodeCanvas() {
         if (isSettingsOpen) {
           toggleSettings();
         }
+        if (isTestPanelOpen) {
+          toggleTestPanel();
+        }
 
         if (selectedNodeId !== node.id) {
           setIsParamPanelOpen(false);
@@ -247,7 +262,15 @@ export default function NodeCanvas() {
         setSelectedNodeType(node.type);
       }
     },
-    [selectedNodeId, isVersionHistoryOpen, toggleVersionHistory],
+    [
+      selectedNodeId,
+      isVersionHistoryOpen,
+      toggleVersionHistory,
+      isSettingsOpen,
+      toggleSettings,
+      isTestPanelOpen,
+      toggleTestPanel,
+    ],
   );
 
   const handleClosePanel = useCallback(() => {

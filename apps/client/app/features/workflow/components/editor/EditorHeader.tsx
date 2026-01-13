@@ -1,7 +1,6 @@
 'use client';
 
 import { toast } from 'sonner';
-import { useReactFlow } from '@xyflow/react';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
@@ -9,18 +8,12 @@ import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
 import { Play, ChevronLeft, Settings, Pencil } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 
-import {
-  validateVariableName,
-  validateVariableSettings,
-} from '../nodes/start/hooks/useVariableManager';
-import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
 import { workflowApi } from '../../api/workflowApi';
-import { UserInputModal } from '../modals/userInputModal';
-import { ResultModal } from '../modals/ResultModal';
-import { DeploymentFlowModal } from '../deployment/DeploymentFlowModal';
-import type { DeploymentResult } from '../deployment/types';
 import { SettingsSidebar } from './SettingsSidebar';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
+import { TestSidebar } from './TestSidebar';
+import { DeploymentFlowModal } from '../deployment/DeploymentFlowModal';
+import type { DeploymentResult } from '../deployment/types';
 import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
 import { appApi } from '@/app/features/app/api/appApi';
 import EditAppModal from '@/app/features/app/components/edit-app-modal';
@@ -40,13 +33,12 @@ export default function EditorHeader() {
     restoreVersion,
     toggleVersionHistory,
     toggleSettings,
+    toggleTestPanel,
     runTrigger,
   } = useWorkflowStore();
   const canPublish = useWorkflowStore((state) => state.canPublish());
   const startNodeType = useWorkflowStore((state) => state.getStartNodeType());
-  const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isExecuting, setIsExecuting] = useState(false);
 
   // Store에서 workflows 가져오기 (appId 조회를 위해)
   const workflows = useWorkflowStore((state) => state.workflows);
@@ -88,12 +80,6 @@ export default function EditorHeader() {
 
   // ... existing state ...
 
-  // 기존 상태
-  const [showModal, setShowModal] = useState(false);
-  const [modalVariables, setModalVariables] = useState<WorkflowVariable[]>([]);
-  const [showResultModal, setShowResultModal] = useState(false);
-  const [executionResult, setExecutionResult] = useState<any>(null);
-
   // 배포 상태
   const [showDeployFlowModal, setShowDeployFlowModal] = useState(false);
   const [showDeployDropdown, setShowDeployDropdown] = useState(false);
@@ -106,7 +92,6 @@ export default function EditorHeader() {
     hasProviderKey,
     memoryModeDescription,
     toggleMemoryMode,
-    appendMemoryFlag,
     modals: memoryModeModals,
   } = useMemoryMode(router, toast);
 
@@ -211,210 +196,12 @@ export default function EditorHeader() {
         };
       }
     },
-    [deploymentType, activeWorkflow?.appId],
+    [deploymentType, activeWorkflow?.appId, nodes],
   );
 
-  const handleModalClose = useCallback(() => {
-    setShowModal(false);
-  }, []);
-
-  const handleModalSubmit = useCallback(
-    async (inputs: Record<string, any> | FormData) => {
-      setShowModal(false);
-
-      // 워크플로우 실행
-      try {
-        setIsExecuting(true);
-
-        const startNode = nodes.find(
-          (node) =>
-            node.type === 'startNode' ||
-            node.type === 'webhookTrigger' ||
-            node.type === 'scheduleTrigger',
-        );
-
-        if (startNode?.type === 'webhookTrigger') {
-          // Webhook인 경우 __json_payload__를 파싱해서 inputs로 사용
-          try {
-            const rawJson =
-              inputs instanceof FormData
-                ? (inputs.get('__json_payload__') as string)
-                : inputs['__json_payload__'];
-            inputs = JSON.parse(rawJson);
-          } catch (e) {
-            console.error('JSON 파싱 실패:', e);
-            toast.error('유효하지 않은 JSON 형식입니다.');
-            return;
-          }
-        }
-
-        const payload = appendMemoryFlag(inputs);
-
-        // 1. 초기화: 모든 노드 상태 초기화
-        const initialNodes = nodes.map((node) => ({
-          ...node,
-          data: { ...node.data, status: 'idle' },
-        })) as unknown as any[];
-
-        useWorkflowStore.getState().setNodes(initialNodes);
-
-        let finalResult: any = null;
-
-        // 2. 스트리밍 실행
-        // 여기서 async 콜백을 사용하여 의도적인 지연(Delay)을 만듭니다.
-        await workflowApi.executeWorkflowStream(
-          workflowId,
-          payload,
-          async (event) => {
-            // 시각적 피드백을 위한 지연 (너무 빠르면 사용자가 인지하기 힘듦)
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            const { type, data } = event;
-
-            if (type === 'node_start') {
-              useWorkflowStore
-                .getState()
-                .updateNodeData(data.node_id, { status: 'running' });
-
-              // 🎯 실행 중인 노드로 화면 중심 이동 및 줌인
-              const latestNodes = useWorkflowStore.getState().nodes;
-              const currentNode = latestNodes.find(
-                (n) => n.id === data.node_id,
-              );
-              if (currentNode) {
-                setCenter(
-                  currentNode.position.x +
-                    (currentNode.measured?.width || 200) / 2,
-                  currentNode.position.y +
-                    (currentNode.measured?.height || 100) / 2,
-                  { zoom: 1.2, duration: 800 }, // 0.8초 동안 부드럽게 이동
-                );
-              }
-            } else if (type === 'node_finish') {
-              useWorkflowStore
-                .getState()
-                .updateNodeData(data.node_id, { status: 'success' }); // 실패 처리 등이 필요하면 여기에 추가
-
-              // 🍞 노드 실행 완료 토스트 메시지
-              toast.success(`[${data.node_type}] 실행 완료`, {
-                description: `결과: ${JSON.stringify(data.output).slice(0, 50)}${JSON.stringify(data.output).length > 50 ? '...' : ''}`,
-                duration: 2000,
-              });
-            } else if (type === 'workflow_finish') {
-              finalResult = data;
-            } else if (type === 'error') {
-              if (data.node_id) {
-                useWorkflowStore
-                  .getState()
-                  .updateNodeData(data.node_id, { status: 'failure' });
-              }
-              // Toast 알림 추가
-              toast.error(`워크플로우 실행 실패: ${data.message}`);
-              throw new Error(data.message);
-            }
-          },
-        );
-
-        // 결과 모달 표시
-        if (finalResult) {
-          setExecutionResult(finalResult);
-          setShowResultModal(true);
-        }
-      } catch (error) {
-        const errorContent =
-          error instanceof Error
-            ? `워크플로우 실행 실패: ${error.message}`
-            : '워크플로우 실행 중 알 수 없는 오류가 발생했습니다.';
-        console.error('[테스트 실행 실패]', error);
-        setErrorMsg(errorContent);
-      } finally {
-        setIsExecuting(false);
-      }
-    },
-    [appendMemoryFlag, nodes, setCenter, workflowId],
-  );
-
-  const handleTestRun = useCallback(async () => {
-    setErrorMsg(null);
-
-    // 1. StartNode 찾기
-    const startNode = nodes.find(
-      (node) =>
-        node.type === 'startNode' ||
-        node.type === 'webhookTrigger' ||
-        node.type === 'scheduleTrigger',
-    );
-    if (!startNode) {
-      const errorContent =
-        '시작 노드를 찾을 수 없습니다. 워크플로우에 입력 노드, 웹훅 트리거, 또는 스케줄 트리거를 추가해주세요.';
-      console.warn('start node가 없습니다.');
-      setErrorMsg(errorContent);
-      return;
-    }
-
-    // 2. 유효성 검사
-    let variables: WorkflowVariable[] = [];
-
-    if (startNode.type === 'startNode') {
-      const data = startNode.data as StartNodeData;
-      variables = data.variables || [];
-      for (const variable of variables) {
-        const otherNames = variables
-          .filter((v) => v.id !== variable.id)
-          .map((v) => v.name);
-        let error = validateVariableName(
-          variable.name,
-          variable.label,
-          otherNames,
-        );
-        if (!error) {
-          error = validateVariableSettings(
-            variable.type,
-            variable.options,
-            variable.maxLength,
-          );
-        }
-        if (error) {
-          const errorContent = `유효성 검사 실패: [${
-            variable.label || variable.name
-          }] ${error}`;
-          console.warn(errorContent);
-          setErrorMsg(errorContent);
-          return;
-        }
-      }
-    } else if (startNode.type === 'webhookTrigger') {
-      // Webhook Trigger인 경우 전체 JSON Body를 입력받음
-      variables = [
-        {
-          id: '__json_payload__',
-          name: '__json_payload__',
-          label: 'JSON Payload (Body)',
-          type: 'paragraph',
-          required: true,
-          placeholder: '{"issue": {"key": "TEST-123"}}',
-        },
-      ];
-    }
-
-    // 3. Webhook Trigger이고 캡처된 Payload가 있으면 바로 실행 (모달 스킵)
-    if (
-      startNode.type === 'webhookTrigger' &&
-      (startNode.data as any).captured_payload
-    ) {
-      const capturedPayload = (startNode.data as any).captured_payload;
-      toast.info('저장된 Payload로 워크플로우를 실행합니다.');
-      // handleModalSubmit에 __json_payload__ 형태로 전달
-      await handleModalSubmit({
-        __json_payload__: JSON.stringify(capturedPayload),
-      });
-      return;
-    }
-
-    // 4. 변수 저장 후 모달 표시
-    setModalVariables(variables);
-    setShowModal(true);
-  }, [nodes, handleModalSubmit]);
+  const handleTestRun = useCallback(() => {
+    toggleTestPanel();
+  }, [toggleTestPanel]);
 
   // [NEW] 원격 실행 트리거 효과
   const lastRunTriggerRef = useRef(runTrigger);
@@ -510,17 +297,10 @@ export default function EditorHeader() {
         {/* Test (Preview) */}
         <button
           onClick={handleTestRun}
-          disabled={isExecuting}
-          className={`px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border ${
-            isExecuting
-              ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-              : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
-          }`}
+          className="px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
         >
           <Play className="w-3.5 h-3.5" />
-          <span className="text-[13px] font-medium">
-            {isExecuting ? '실행 중...' : '테스트'}
-          </span>
+          <span className="text-[13px] font-medium">테스트</span>
         </button>
 
         {/* Publish */}
@@ -706,26 +486,10 @@ export default function EditorHeader() {
         onDeploy={handleDeploy}
       />
 
-      {/* 사용자 입력 모달 */}
-      {showModal && (
-        <UserInputModal
-          variables={modalVariables}
-          onClose={handleModalClose}
-          onSubmit={handleModalSubmit}
-        />
-      )}
-
-      {/* 실행 결과 모달 */}
-      {showResultModal && executionResult && (
-        <ResultModal
-          result={executionResult}
-          onClose={() => setShowResultModal(false)}
-        />
-      )}
-
       {/* 버전 기록 사이드바 */}
       <VersionHistorySidebar />
       <SettingsSidebar />
+      <TestSidebar />
 
       {/* 미리보기 모드 배너 */}
       {previewingVersion && (
