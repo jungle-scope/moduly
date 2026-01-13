@@ -9,6 +9,7 @@ from workflow.nodes.file_extraction import FileExtractionNode, FileExtractionNod
 from workflow.nodes.github import GithubNode, GithubNodeData
 from workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
 from workflow.nodes.llm import LLMNode, LLMNodeData
+from workflow.nodes.loop import LoopNode, LoopNodeData
 from workflow.nodes.mail import MailNode, MailNodeData
 from workflow.nodes.schedule import (
     ScheduleTriggerNode,
@@ -45,6 +46,7 @@ class NodeFactory:
         "templateNode": (TemplateNode, TemplateNodeData),
         "workflowNode": (WorkflowNode, WorkflowNodeData),
         "fileExtractionNode": (FileExtractionNode, FileExtractionNodeData),
+        "loopNode": (LoopNode, LoopNodeData),
     }
 
     @staticmethod

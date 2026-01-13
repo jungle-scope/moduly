@@ -1,5 +1,5 @@
 import { X, Pencil, Check, Pin } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getNodeDefinitionByType } from '../../config/nodeRegistry';
 
@@ -28,14 +28,42 @@ export default function NodeDetailsPanel({
 }: NodeDetailsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const { nodes, updateNodeData } = useWorkflowStore();
+  const {
+    nodes,
+    updateNodeData,
+    selectedInnerNode,
+    updateInnerNodeData,
+    clearInnerNodeSelection,
+  } = useWorkflowStore();
 
   // 제목 편집 상태
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
 
-  // 선택된 노드 찾기
-  const selectedNode = nodes.find((n) => n.id === nodeId);
+  // 선택된 노드 찾기 (메인 노드 또는 내부 노드) - useMemo로 변환
+  const { selectedNode, isInnerNode } = useMemo(() => {
+    if (selectedInnerNode && selectedInnerNode.parentNodeId) {
+      // 내부 노드인 경우
+      const parentNode = nodes.find(
+        (n) => n.id === selectedInnerNode.parentNodeId,
+      );
+      if (parentNode) {
+        const subGraph = (parentNode.data as any).subGraph;
+        if (subGraph && subGraph.nodes) {
+          const innerNode = subGraph.nodes.find(
+            (n: any) => n.id === selectedInnerNode.nodeId,
+          );
+          return { selectedNode: innerNode, isInnerNode: true };
+        }
+      }
+      return { selectedNode: undefined, isInnerNode: false };
+    } else {
+      // 메인 노드인 경우
+      const mainNode = nodes.find((n) => n.id === nodeId);
+      return { selectedNode: mainNode, isInnerNode: false };
+    }
+  }, [nodeId, selectedInnerNode, nodes]);
+
   // 노드 정의 찾기 (아이콘, 설명 등)
   const nodeDef = selectedNode
     ? getNodeDefinitionByType(selectedNode.type || '')
@@ -61,7 +89,7 @@ export default function NodeDetailsPanel({
           '설명 없음', // 기본 설명 텍스트
       );
     }
-  }, [selectedNode, nodeDef]);
+  }, [nodeId, selectedInnerNode, selectedNode, nodeDef]);
 
   // 편집 시작 시 입력창 포커스
 
@@ -81,8 +109,18 @@ export default function NodeDetailsPanel({
 
   // 제목 저장 핸들러
   const handleSaveTitle = () => {
-    if (nodeId && editTitle.trim()) {
-      updateNodeData(nodeId, { title: editTitle.trim() });
+    if (editTitle.trim()) {
+      if (isInnerNode && selectedInnerNode) {
+        updateInnerNodeData(
+          selectedInnerNode.parentNodeId,
+          selectedInnerNode.nodeId,
+          {
+            title: editTitle.trim(),
+          },
+        );
+      } else if (nodeId) {
+        updateNodeData(nodeId, { title: editTitle.trim() });
+      }
       setIsEditing(false);
     } else {
       // Revert if empty
@@ -96,10 +134,18 @@ export default function NodeDetailsPanel({
   // 설명 저장 핸들러
   // [NEW] 설명 수정 사항을 노드 데이터에 반영 (updateNodeData 호출)
   const handleSaveDesc = () => {
-    if (nodeId) {
+    if (isInnerNode && selectedInnerNode) {
+      updateInnerNodeData(
+        selectedInnerNode.parentNodeId,
+        selectedInnerNode.nodeId,
+        {
+          description: editDesc.trim(),
+        },
+      );
+    } else if (nodeId) {
       updateNodeData(nodeId, { description: editDesc.trim() });
-      setIsDescEditing(false);
     }
+    setIsDescEditing(false);
   };
 
   // 키 입력 핸들러 (Enter: 저장, Escape: 취소)
@@ -156,6 +202,9 @@ export default function NodeDetailsPanel({
 
       // 캔버스 클릭 시 패널 닫기
       if (target.closest('.react-flow__pane')) {
+        if (isInnerNode) {
+          clearInnerNodeSelection();
+        }
         onClose();
       }
     };

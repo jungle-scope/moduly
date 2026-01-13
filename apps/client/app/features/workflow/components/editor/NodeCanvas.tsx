@@ -54,6 +54,7 @@ import { TemplateNodePanel } from '../nodes/template/components/TemplateNodePane
 import { WorkflowNodePanel } from '../nodes/workflow/components/WorkflowNodePanel';
 import { GithubNodePanel } from '../nodes/github/components/GithubNodePanel';
 import { MailNodePanel } from '../nodes/mail/components/MailNodePanel';
+import { LoopNodePanel } from '../nodes/loop/components/LoopNodePanel';
 import { AppSearchModal } from '../modals/AppSearchModal';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
@@ -88,6 +89,8 @@ export default function NodeCanvas() {
     toggleSettings,
     isTestPanelOpen,
     toggleTestPanel,
+    clearInnerNodeSelection,
+    selectedInnerNode,
   } = useWorkflowStore();
 
   const { fitView, setViewport, getViewport, screenToFlowPosition } =
@@ -258,6 +261,8 @@ export default function NodeCanvas() {
           setIsParamPanelOpen(false);
           setIsRefPanelOpen(false);
         }
+        // 메인 노드 클릭 시 내부 노드 선택 해제
+        clearInnerNodeSelection();
         setSelectedNodeId(node.id);
         setSelectedNodeType(node.type);
       }
@@ -270,6 +275,7 @@ export default function NodeCanvas() {
       toggleSettings,
       isTestPanelOpen,
       toggleTestPanel,
+      clearInnerNodeSelection,
     ],
   );
 
@@ -952,115 +958,124 @@ export default function NodeCanvas() {
                 )}
 
               {/* 노드 상세 패널 */}
-              <NodeDetailsPanel
-                nodeId={selectedNodeId}
-                onClose={handleClosePanel}
-                header={panelHeader}
-                headerActions={
-                  selectedNodeType === 'llmNode' ? (
-                    <button
-                      onClick={() => {
-                        setIsRefPanelOpen(false);
-                        setIsParamPanelOpen((prev) => !prev);
-                      }}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        isParamPanelOpen
-                          ? 'bg-blue-100 text-blue-600'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                      }`}
-                      title="LLM 파라미터 설정"
-                    >
-                      <Sliders className="w-3.5 h-3.5" />
-                      <span>파라미터</span>
-                    </button>
-                  ) : undefined
-                }
-              >
-                {selectedNode && selectedNodeType === 'startNode' && (
-                  <StartNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'answerNode' && (
-                  <AnswerNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'httpRequestNode' && (
-                  <HttpRequestNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'slackPostNode' && (
-                  <SlackPostNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'codeNode' && (
-                  <CodeNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'conditionNode' && (
-                  <ConditionNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'llmNode' && (
-                  <LLMNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'templateNode' && (
-                  <TemplateNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'workflowNode' && (
-                  <WorkflowNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'fileExtractionNode' && (
-                  <FileExtractionNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'webhookTrigger' && (
-                  <WebhookTriggerNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'scheduleTrigger' && (
-                  <ScheduleTriggerNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'githubNode' && (
-                  <GithubNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-                {selectedNode && selectedNodeType === 'mailNode' && (
-                  <MailNodePanel
-                    nodeId={selectedNode.id}
-                    data={selectedNode.data as any}
-                  />
-                )}
-              </NodeDetailsPanel>
+              {(selectedNodeId || selectedInnerNode) && (
+                <NodeDetailsPanel
+                  nodeId={selectedNodeId}
+                  onClose={handleClosePanel}
+                  header={panelHeader}
+                  headerActions={
+                    selectedNodeType === 'llmNode' ? (
+                      <button
+                        onClick={() => {
+                          setIsRefPanelOpen(false);
+                          setIsParamPanelOpen((prev) => !prev);
+                        }}
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                          isParamPanelOpen
+                            ? 'bg-blue-100 text-blue-600'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                        }`}
+                        title="LLM 파라미터 설정"
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>파라미터</span>
+                      </button>
+                    ) : undefined
+                  }
+                >
+                  {selectedNode && selectedNodeType === 'startNode' && (
+                    <StartNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'answerNode' && (
+                    <AnswerNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'httpRequestNode' && (
+                    <HttpRequestNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'slackPostNode' && (
+                    <SlackPostNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'codeNode' && (
+                    <CodeNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'conditionNode' && (
+                    <ConditionNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'llmNode' && (
+                    <LLMNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'templateNode' && (
+                    <TemplateNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'workflowNode' && (
+                    <WorkflowNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode &&
+                    selectedNodeType === 'fileExtractionNode' && (
+                      <FileExtractionNodePanel
+                        nodeId={selectedNode.id}
+                        data={selectedNode.data as any}
+                      />
+                    )}
+                  {selectedNode && selectedNodeType === 'webhookTrigger' && (
+                    <WebhookTriggerNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'scheduleTrigger' && (
+                    <ScheduleTriggerNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'githubNode' && (
+                    <GithubNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'mailNode' && (
+                    <MailNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                  {selectedNode && selectedNodeType === 'loopNode' && (
+                    <LoopNodePanel
+                      nodeId={selectedNode.id}
+                      data={selectedNode.data as any}
+                    />
+                  )}
+                </NodeDetailsPanel>
+              )}
 
               {/* [LLM] Reference Side Panel */}
               {isRefPanelOpen &&
