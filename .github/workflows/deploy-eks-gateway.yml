@@ -1,24 +1,25 @@
-name: Deploy to EKS (Backend)
+name: Deploy to EKS (Gateway)
 
 on:
   push:
     branches:
-      - develop  # test 브랜치 푸시 시 자동 배포
+      - develop  # develop 브랜치 푸시 시 자동 배포
     paths:
-      - 'apps/server/**'
-      - 'docker/server/**'
+      - 'apps/gateway/**'
+      - 'apps/shared/**'
+      - 'docker/gateway/**'
   
   workflow_dispatch:  # 수동 실행 가능
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REPOSITORY: moduly-server
+  ECR_REPOSITORY: moduly-gateway
   EKS_CLUSTER_NAME: moduly-cluster
   DEPLOYMENT_NAME: api-server
 
 jobs:
-  deploy-backend:
-    name: Build & Deploy Backend to EKS
+  deploy-gateway:
+    name: Build & Deploy Gateway to EKS
     runs-on: ubuntu-latest
     
     steps:
@@ -46,7 +47,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/server/Dockerfile .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/gateway/Dockerfile .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         
         # latest 태그도 푸시
@@ -74,7 +75,7 @@ jobs:
                 "name": "alembic",
                 "image": "${{ steps.build-image.outputs.image }}",
                 "command": ["/bin/sh", "-c"],
-                "args": ["cd /app/apps/server && alembic upgrade head"],
+                "args": ["cd /app/apps/gateway && alembic upgrade head"],
                 "envFrom": [
                   {"configMapRef": {"name": "api-server-config"}},
                   {"secretRef": {"name": "app-secrets"}}
