@@ -412,13 +412,43 @@ class IngestionOrchestrator:
             else:
                 embedding = [0.1] * 1536  # Fallback
 
+            # [NEW] Keyword Extraction (for Hybrid Search)
+            keywords = []
+            try:
+                # 불용어 다운로드는 최초 1회만 수행되도록 처리 필요하나, 여기선 try-except로 안전장치
+                import nltk
+                from rake_nltk import Rake
+
+                try:
+                    nltk.data.find("tokenizers/punkt")
+                except LookupError:
+                    nltk.download("punkt", quiet=True)
+                try:
+                    nltk.data.find("corpora/stopwords")
+                except LookupError:
+                    nltk.download("stopwords", quiet=True)
+
+                r = Rake()
+                r.extract_keywords_from_text(chunk["content"])
+                # 상위 10개 키워드 추출
+                keywords = r.get_ranked_phrases()[:10]
+            except Exception as e:
+                print(f"[WARNING] Keyword extraction failed: {e}")
+
+            # 메타데이터에 키워드 추가
+            chunk_metadata = chunk["metadata"] or {}
+            chunk_metadata["keywords"] = keywords
+
+            if i == 0:
+                print(f"[DEBUG] Chunk 0 Keywords: {keywords}")
+
             new_chunk = DocumentChunk(
                 document_id=doc.id,
                 knowledge_base_id=doc.knowledge_base_id,
                 content=chunk["content"],
                 chunk_index=i,
                 token_count=chunk.get("token_count", 0),
-                metadata_=chunk["metadata"],
+                metadata_=chunk_metadata,
                 embedding=embedding,
             )
             new_chunks.append(new_chunk)
