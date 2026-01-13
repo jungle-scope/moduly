@@ -49,16 +49,16 @@ export const VariableRow = ({
 
       {/* 메인 입력 영역 */}
       <div className="flex flex-col gap-2">
-        {/* 첫 번째 줄: 변수명 | 타입 */}
+        {/* 첫 번째 줄: Label | 타입 */}
         <div className="flex flex-row items-center gap-2">
-          {/* 변수명 입력 */}
+          {/* Label 입력 */}
           <div className="flex-1">
             <input
               type="text"
               className="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
-              placeholder="변수명 (예: user_name)"
-              value={variable.name}
-              onChange={(e) => onUpdate(variable.id, { name: e.target.value })}
+              placeholder="변수명"
+              value={variable.label || ''}
+              onChange={(e) => onUpdate(variable.id, { label: e.target.value })}
             />
           </div>
 
