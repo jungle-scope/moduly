@@ -1,9 +1,8 @@
 [project]
 name = "moduly-shared"
 version = "0.1.0"
-description = "Moduly 마이크로서비스 공유 패키지"
+description = "Moduly Shared Package"
 requires-python = ">=3.10"
-
 dependencies = [
     "sqlalchemy>=2.0.0",
     "pydantic>=2.0.0",
@@ -19,6 +18,8 @@ dependencies = [
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["apps.shared*"]
+[tool.setuptools]
+packages = ["apps.shared"]
+
+[tool.setuptools.package-dir]
+"apps.shared" = "."
