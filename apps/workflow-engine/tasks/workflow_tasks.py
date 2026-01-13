@@ -67,8 +67,8 @@ def execute_workflow(
             trigger_mode="api" if execution_context.get("is_deployed") else "manual",
         )
         
-        # 워크플로우 엔진 임포트 및 실행
-        from apps.workflow_engine.core.engine import WorkflowEngine
+        # 기존 워크플로우 엔진 사용
+        from apps.workflow_engine.core.workflow_engine import WorkflowEngine
         
         engine = WorkflowEngine(
             graph=graph_data,
@@ -154,7 +154,7 @@ def execute_workflow_async(
             trigger_mode="api",
         )
         
-        from apps.workflow_engine.core.engine import WorkflowEngine
+        from apps.workflow_engine.core.workflow_engine import WorkflowEngine
         
         engine = WorkflowEngine(
             graph=graph_data,
