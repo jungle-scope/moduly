@@ -56,7 +56,7 @@ export const VariableRow = ({
             <input
               type="text"
               className="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
-              placeholder="예: 생년월일, 시각, 성별 등"
+              placeholder="변수명"
               value={variable.label || ''}
               onChange={(e) => onUpdate(variable.id, { label: e.target.value })}
             />
