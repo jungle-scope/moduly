@@ -1,7 +1,6 @@
 import { StartNodeData } from '../../../../types/Nodes';
 import { useVariableManager } from '../hooks/useVariableManager';
 import { VariableList } from './VariableList';
-import { TriggerSection } from './TriggerSection';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { Plus } from 'lucide-react';
 
@@ -25,11 +24,6 @@ export function StartNodePanel({ nodeId, data }: StartNodePanelProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Basic Settings Section */}
-      <CollapsibleSection title="Basic settings">
-        <TriggerSection type={data.triggerType} />
-      </CollapsibleSection>
-
       {/* Input Section */}
       <CollapsibleSection
         title="Input"
