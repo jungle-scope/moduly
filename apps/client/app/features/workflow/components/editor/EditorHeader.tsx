@@ -35,6 +35,8 @@ export default function EditorHeader() {
     toggleTestPanel,
     runTrigger,
   } = useWorkflowStore();
+  const canPublish = useWorkflowStore((state) => state.canPublish());
+  const startNodeType = useWorkflowStore((state) => state.getStartNodeType());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Store에서 workflows 가져오기 (appId 조회를 위해)
@@ -81,7 +83,7 @@ export default function EditorHeader() {
   const [showDeployFlowModal, setShowDeployFlowModal] = useState(false);
   const [showDeployDropdown, setShowDeployDropdown] = useState(false);
   const [deploymentType, setDeploymentType] = useState<
-    'api' | 'webapp' | 'widget' | 'workflow_node'
+    'api' | 'webapp' | 'widget' | 'workflow_node' | 'schedule'
   >('api'); // 배포 타입 추적
 
   const {
@@ -130,6 +132,11 @@ export default function EditorHeader() {
     setShowDeployFlowModal(true);
   }, []);
 
+  const handlePublishAsSchedule = useCallback(() => {
+    setDeploymentType('schedule');
+    setShowDeployFlowModal(true);
+  }, []);
+
   // 통합 배포 핸들러
   const handleDeploy = useCallback(
     async (description: string): Promise<DeploymentResult> => {
@@ -156,6 +163,7 @@ export default function EditorHeader() {
           version: response.version,
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
+          graph_snapshot: response.graph_snapshot ?? null,
         };
 
         // 배포 타입별 추가 정보
@@ -166,6 +174,14 @@ export default function EditorHeader() {
         } else if (deploymentType === 'workflow_node') {
           result.isWorkflowNode = true;
           result.auth_secret = null; // 서브 모듈은 API 키 표시 안 함
+        } else if (deploymentType === 'schedule') {
+          // Schedule Trigger 노드에서 cron 정보 추출
+          const scheduleNode = nodes.find((n) => n.type === 'scheduleTrigger');
+          if (scheduleNode) {
+            const data = scheduleNode.data as any;
+            result.cronExpression = data.cron_expression || '0 9 * * *';
+            result.timezone = data.timezone || 'Asia/Seoul';
+          }
         }
 
         return result;
@@ -287,10 +303,17 @@ export default function EditorHeader() {
         </button>
 
         {/* Publish */}
-        <div className="relative">
+        <div className="relative group">
           <button
-            onClick={() => setShowDeployDropdown(!showDeployDropdown)}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px]"
+            onClick={() =>
+              canPublish && setShowDeployDropdown(!showDeployDropdown)
+            }
+            disabled={!canPublish}
+            className={`px-3.5 py-1.5 font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px] ${
+              !canPublish
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             게시하기
             <svg
@@ -308,6 +331,14 @@ export default function EditorHeader() {
             </svg>
           </button>
 
+          {/* Custom Tooltip for Disabled State */}
+          {!canPublish && (
+            <div className="invisible group-hover:visible absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+              시작 노드가 정확히 1개 있어야 게시할 수 있습니다.
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 border-4 border-transparent border-b-gray-900"></div>
+            </div>
+          )}
+
           {/* Deploy Dropdown */}
           {showDeployDropdown && (
             <>
@@ -316,66 +347,106 @@ export default function EditorHeader() {
                 onClick={() => setShowDeployDropdown(false)}
               />
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
-                {/* ... existing dropdown items ... */}
-                <button
-                  onClick={() => {
-                    setShowDeployDropdown(false);
-                    handlePublishAsRestAPI();
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">
-                    REST API로 배포
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    API 키로 접근
-                  </div>
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => {
-                    setShowDeployDropdown(false);
-                    handlePublishAsWebApp();
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">
-                    웹 앱으로 배포
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    링크 공유로 누구나 사용
-                  </div>
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => {
-                    setShowDeployDropdown(false);
-                    handlePublishAsWidget();
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">
-                    웹사이트에 챗봇 추가하기
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    복사 한 번으로 위젯 연동 완료
-                  </div>
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => {
-                    setShowDeployDropdown(false);
-                    handlePublishAsWorkflowNode();
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">
-                    서브 모듈로 배포
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    다른 워크플로우에서 재사용
-                  </div>
-                </button>
+                {/* startNode: 모든 배포 옵션 표시 */}
+                {startNodeType === 'startNode' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowDeployDropdown(false);
+                        handlePublishAsRestAPI();
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        REST API로 배포
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        API 키로 접근
+                      </div>
+                    </button>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={() => {
+                        setShowDeployDropdown(false);
+                        handlePublishAsWebApp();
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        웹 앱으로 배포
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        링크 공유로 누구나 사용
+                      </div>
+                    </button>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={() => {
+                        setShowDeployDropdown(false);
+                        handlePublishAsWidget();
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        웹사이트에 챗봇 추가하기
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        복사 한 번으로 위젯 연동 완료
+                      </div>
+                    </button>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={() => {
+                        setShowDeployDropdown(false);
+                        handlePublishAsWorkflowNode();
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        서브 모듈로 배포
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        다른 모듈에서 재사용
+                      </div>
+                    </button>
+                  </>
+                )}
+
+                {/* webhookTrigger: 웹훅 활성화만 표시 */}
+                {startNodeType === 'webhookTrigger' && (
+                  <button
+                    onClick={() => {
+                      setShowDeployDropdown(false);
+                      handlePublishAsRestAPI(); // 웹훅도 REST API 배포 사용
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      웹훅 트리거 활성화
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      외부 서비스 트리거를 통해 모듈 실행
+                    </div>
+                  </button>
+                )}
+
+                {/* scheduleTrigger: 스케줄 활성화만 표시 */}
+                {startNodeType === 'scheduleTrigger' && (
+                  <button
+                    onClick={() => {
+                      setShowDeployDropdown(false);
+                      handlePublishAsSchedule();
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      알람 트리거 활성화
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      정해진 시간에 자동 실행
+                    </div>
+                  </button>
+                )}
               </div>
             </>
           )}

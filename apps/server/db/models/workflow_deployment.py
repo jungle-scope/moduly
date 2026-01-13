@@ -14,13 +14,14 @@ from db.base import Base
 class DeploymentType(str, Enum):
     """배포 타입"""
 
-    API = "api"  # REST API로 배포 (인증 필요)
+    API = "api"  # REST API / 웹훅 배포
     WEBAPP = "webapp"  # 웹 앱으로 배포 (공개)
     WIDGET = "widget"  # 웹 위젯 임베딩 배포 (공개)
     MCP = "mcp"  # Model Context Protocol
     WORKFLOW_NODE = (
         "workflow_node"  # 워크플로우 노드로 배포 (다른 워크플로우에서 재사용)
     )
+    SCHEDULE = "schedule"  # 스케줄 트리거 배포 (알람)
 
 
 class WorkflowDeployment(Base):

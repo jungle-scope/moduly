@@ -15,7 +15,7 @@ export const CodeNode = memo(
         iconColor="#3b82f6" // blue-500
       >
         <div className="text-xs text-gray-500">
-          {data.inputs?.length || 0}개 입력 변수
+          {data.inputs?.length || 0}개 입력변수
         </div>
       </BaseNode>
     );

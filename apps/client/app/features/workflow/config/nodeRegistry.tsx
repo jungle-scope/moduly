@@ -57,7 +57,7 @@ export const nodeRegistry: NodeDefinition[] = [
     icon: <Play className="w-3.5 h-3.5 text-white fill-current" />,
     implemented: true,
     unique: true, // 워크플로우당 하나만 허용
-    description: '워크플로우의 시작점. 입력 변수를 정의합니다.',
+    description: '모듈의 입력 변수를 정의합니다.',
     defaultData: (): StartNodeData => ({
       title: '입력',
       triggerType: 'manual' as TriggerType,
@@ -72,7 +72,7 @@ export const nodeRegistry: NodeDefinition[] = [
     color: '#a855f7', // purple-500 색상
     icon: <Webhook className="w-3.5 h-3.5 text-white" />,
     implemented: true,
-    description: '외부 Webhook으로 워크플로우를 시작합니다.',
+    description: '외부 Webhook으로 모듈을 시작합니다.',
     defaultData: () => ({
       title: '웹훅 트리거',
       provider: 'custom',
@@ -87,7 +87,7 @@ export const nodeRegistry: NodeDefinition[] = [
     color: '#8b5cf6', // violet-500 색상
     icon: <Clock className="w-3.5 h-3.5 text-white" />,
     implemented: true,
-    description: '지정된 시간에 워크플로우를 자동으로 시작합니다.',
+    description: '지정된 시간에 모듈을 자동으로 시작합니다.',
     defaultData: () => ({
       title: '알람 트리거',
       cron_expression: '0 9 * * *',
@@ -163,7 +163,7 @@ export const nodeRegistry: NodeDefinition[] = [
     color: '#3b82f6', // blue-500 색상
     icon: <Code className="w-3.5 h-3.5 text-white" />,
     implemented: true,
-    description: 'Python 코드를 Docker 샌드박스에서 안전하게 실행합니다',
+    description: 'Python 코드를 샌드박스에서 안전하게 실행합니다',
     defaultData: () => ({
       title: '코드 실행',
       code: `def main(inputs):
@@ -219,7 +219,7 @@ export const nodeRegistry: NodeDefinition[] = [
     color: '#10b981', // green-500 색상
     icon: <MessageSquare className="w-3.5 h-3.5 text-white" />,
     implemented: true,
-    description: '워크플로우의 최종 결과를 수집합니다.',
+    description: '모듈의 최종 결과를 수집합니다.',
     defaultData: () => ({
       title: '응답',
       outputs: [],

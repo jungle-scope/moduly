@@ -74,7 +74,7 @@ jobs:
                 "name": "alembic",
                 "image": "${{ steps.build-image.outputs.image }}",
                 "command": ["/bin/sh", "-c"],
-                "args": ["cd apps/server && alembic upgrade head"],
+                "args": ["cd /app/apps/server && alembic upgrade head"],
                 "envFrom": [
                   {"configMapRef": {"name": "api-server-config"}},
                   {"secretRef": {"name": "app-secrets"}}
