@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { NodeLibraryContent } from './NodeLibraryContent';
 import { NodeDefinition } from '../../config/nodeRegistry';
+import { useWorkflowStore } from '../../store/useWorkflowStore';
 
 interface NodeLibrarySidebarProps {
   isOpen: boolean;
@@ -32,6 +33,13 @@ export default function NodeLibrarySidebar({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [isHovering, setIsHovering] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+
+  // 시작 노드 개수 확인 및 비활성화 로직
+  const startNodeCount = useWorkflowStore((state) => state.getStartNodeCount());
+  const hasTriggerNode = startNodeCount > 0;
+  const disabledNodeTypes = hasTriggerNode
+    ? ['startNode', 'webhookTrigger', 'scheduleTrigger']
+    : [];
 
   // Hover Card State
   const [hoveredNode, setHoveredNode] = useState<NodeDefinition | null>(null);
@@ -110,10 +118,15 @@ export default function NodeLibrarySidebar({
         <NodeLibraryContent
           onDragStart={handleDragStart}
           onSelect={(type, def) => {
-            onAddNode?.(def.id, { x: 100, y: 200 });
+            if (def.id === 'workflow') {
+              onOpenAppSearch?.();
+            } else {
+              onAddNode?.(def.id, { x: 100, y: 200 });
+            }
           }}
           hoveredNode={hoveredNode?.id}
           onHoverNode={handleHoverNode}
+          disabledNodeTypes={disabledNodeTypes}
         />
       </div>
 

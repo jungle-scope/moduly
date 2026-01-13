@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { NodeLibraryContent } from './NodeLibraryContent';
 import { NodeDefinition } from '../../config/nodeRegistry';
+import { useWorkflowStore } from '../../store/useWorkflowStore';
 
 interface NodeSelectorProps {
   onSelect: (type: string, nodeDef: NodeDefinition) => void;
@@ -18,6 +19,13 @@ const categoryNames: Record<string, string> = {
 
 export const NodeSelector = ({ onSelect }: NodeSelectorProps) => {
   const [hoveredNode, setHoveredNode] = useState<NodeDefinition | null>(null);
+  const startNodeCount = useWorkflowStore((state) => state.getStartNodeCount());
+
+  // 시작 노드가 1개 이상 있으면 모든 Trigger 노드 비활성화
+  const hasTriggerNode = startNodeCount > 0;
+  const disabledNodeTypes = hasTriggerNode
+    ? ['startNode', 'webhookTrigger', 'scheduleTrigger']
+    : [];
 
   const handleHoverNode = (
     nodeId: string | null,
@@ -39,6 +47,7 @@ export const NodeSelector = ({ onSelect }: NodeSelectorProps) => {
           onSelect={(_type, def) => onSelect(def.id, def)}
           hoveredNode={hoveredNode?.id}
           onHoverNode={handleHoverNode}
+          disabledNodeTypes={disabledNodeTypes}
         />
       </div>
 

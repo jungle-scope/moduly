@@ -237,7 +237,6 @@ class LLMService:
         공급자에서 내려준 원본 모델 딕셔너리 리스트를 반환합니다.
         """
         remote_models = []
-        remote_models = []
 
         provider = provider_type.lower()
         if not base_url:
@@ -655,11 +654,6 @@ class LLMService:
         )
 
         if not user_creds:
-            # 플레이스홀더 유저 폴백
-            if user_id != LLMService.PLACEHOLDER_USER_ID:
-                return LLMService.get_my_available_models(
-                    db, LLMService.PLACEHOLDER_USER_ID
-                )
             return []
 
         # 2. 프로바이더 ID 추출
@@ -692,11 +686,6 @@ class LLMService:
         )
 
         if not user_creds:
-            # 플레이스홀더 사용자로 폴백
-            if user_id != LLMService.PLACEHOLDER_USER_ID:
-                return LLMService.get_my_embedding_models(
-                    db, LLMService.PLACEHOLDER_USER_ID
-                )
             return []
 
         # 2. 프로바이더 ID 추출

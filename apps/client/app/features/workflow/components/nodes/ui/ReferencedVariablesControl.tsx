@@ -36,10 +36,10 @@ export const ReferencedVariablesControl: React.FC<
   onUpdate,
   onAdd,
   onRemove,
-  placeholder = '변수명',
-  emptyMessage = '추가된 변수가 없습니다.',
+  placeholder = '변수 이름',
+  emptyMessage = '등록된 입력변수가 없습니다.',
   title = '입력변수',
-  description = '필드에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요.',
+  description = '이 섹션에서 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요.',
   showAddButton = true,
   showRemoveButton = true,
   showItemLabel = true,
@@ -86,7 +86,7 @@ export const ReferencedVariablesControl: React.FC<
               onAdd();
             }}
             className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="Add Variable"
+            title="입력변수 추가"
           >
             <Plus className="w-4 h-4 text-gray-600" />
           </button>
@@ -121,8 +121,8 @@ export const ReferencedVariablesControl: React.FC<
                 {showItemLabel && (
                   <div className="flex items-center gap-1.5">
                     <div className="h-1.5 w-1.5 rounded-full bg-blue-500/50" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      Variable #{index + 1}
+                    <span className="text-[10px] font-bold tracking-wider text-gray-400">
+                      입력변수 {index + 1}
                     </span>
                   </div>
                 )}
@@ -131,7 +131,7 @@ export const ReferencedVariablesControl: React.FC<
                   <button
                     onClick={() => onRemove(index)}
                     className="flex h-5 w-5 items-center justify-center rounded text-gray-400 opacity-0 bg-transparent transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
-                    title="Remove variable"
+                    title="입력변수 삭제"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
