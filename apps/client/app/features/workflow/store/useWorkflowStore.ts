@@ -56,6 +56,10 @@ type WorkflowState = {
   previewingVersion: DeploymentResponse | null;
   lastDeployedAt: Date | null; // 배포 완료 시점 (리스트 갱신 트리거)
 
+  // === 테스트 패널 상태 ===
+  isTestPanelOpen: boolean;
+  toggleTestPanel: () => void;
+
   // === 그래프 데이터 (ReactFlow) ===
   nodes: Node[];
   edges: Edge[];
@@ -153,6 +157,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   previewingVersion: null,
   lastDeployedAt: null,
 
+  // === 테스트 패널 상태 ===
+  isTestPanelOpen: false,
+
   runTrigger: 0,
   triggerWorkflowRun: () =>
     set((state) => ({ runTrigger: state.runTrigger + 1 })),
@@ -230,12 +237,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set((state) => ({
       isSettingsOpen: !state.isSettingsOpen,
       isVersionHistoryOpen: false,
+      isTestPanelOpen: false,
     })),
 
   toggleVersionHistory: () =>
     set((state) => ({
       isVersionHistoryOpen: !state.isVersionHistoryOpen,
       isSettingsOpen: false,
+      isTestPanelOpen: false,
+    })),
+
+  toggleTestPanel: () =>
+    set((state) => ({
+      isTestPanelOpen: !state.isTestPanelOpen,
+      isSettingsOpen: false,
+      isVersionHistoryOpen: false,
     })),
 
   previewVersion: (version) => {
