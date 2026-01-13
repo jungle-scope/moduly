@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-client:eks-latest
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-client:latest
         ports:
         - containerPort: 3000
         env:

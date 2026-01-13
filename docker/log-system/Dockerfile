@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 # 종속성 설치 (캐싱 최적화)
 # Docker build context는 프로젝트 루트입니다.
-COPY apps/server/requirements.txt .
+COPY apps/log-system/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 # 실제 서버가 돌아가는 가벼운 이미지입니다.
 FROM python:3.11-slim
 
-WORKDIR /app/apps/server
+WORKDIR /app/apps/log-system
 
 # 파이썬 패스에 루트 추가 (나중에 공통 패키지 쓸 때를 대비)
 ENV PYTHONPATH=/app
@@ -36,23 +36,25 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /install /usr/local
 
 # [중요] 앱 코드 복사 (모노레포 구조 유지)
-# Docker build context는 프로젝트 루트이므로 apps/server를 복사합니다.
-COPY apps/server /app/apps/server
+# Docker build context는 프로젝트 루트이므로 apps/log-system과 apps/shared를 복사합니다.
+COPY apps/log-system /app/apps/log-system
+COPY apps/shared /app/apps/shared
 
 # 보안: Root가 아닌 일반 유저로 실행
 RUN useradd -m appuser
 USER appuser
 
 # 환경 변수 설정
-# 파이썬이 apps.server 모듈을 찾을 수 있도록 루트(/app)를 경로에 추가
+# 파이썬이 apps.log-system 모듈을 찾을 수 있도록 루트(/app)를 경로에 추가
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
 # 헬스 체크 설정
 HEALTHCHECK --interval=60s --timeout=10s --start-period=3s --retries=3 \
-    CMD curl -f http://localhost:8000/api/v1/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
-EXPOSE 8000
+EXPOSE 8080
 
 # 실행 명령 (모듈 경로 형식으로 지정)
-CMD ["uvicorn", "apps.server.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]
+# Log system 구현에 맞게 수정 필요
+CMD ["uvicorn", "apps.log_system.main:app", "--host", "0.0.0.0", "--port", "8080", "--log-level", "debug"]
