@@ -557,12 +557,37 @@ class IngestionOrchestrator:
             content = chunk["content"]
             embedding = all_embeddings.get(i, [0.1] * 1536)
 
+            # Keyword Extraction (for Hybrid Search)
+            keywords = []
+            try:
+                import nltk
+                from rake_nltk import Rake
+
+                try:
+                    nltk.data.find("tokenizers/punkt")
+                except LookupError:
+                    nltk.download("punkt", quiet=True)
+                try:
+                    nltk.data.find("corpora/stopwords")
+                except LookupError:
+                    nltk.download("stopwords", quiet=True)
+
+                r = Rake()
+                r.extract_keywords_from_text(content)
+                keywords = r.get_ranked_phrases()[:10]
+            except Exception as e:
+                print(f"[WARNING] Keyword extraction failed: {e}")
+
+            # 메타데이터에 키워드 추가
+            chunk_metadata = chunk.get("metadata", {}) or {}
+            chunk_metadata["keywords"] = keywords
+
             # Content 전체 암호화
             try:
                 encrypted_content = encryption_manager.encrypt(content)
             except Exception as e:
                 print(f"[ERROR] Failed to encrypt content for chunk {i}: {e}")
-                encrypted_content = content  # 암호화 실패 시 원본 유지 (fallback)
+                encrypted_content = content
 
             new_chunk = DocumentChunk(
                 document_id=doc.id,
@@ -570,7 +595,7 @@ class IngestionOrchestrator:
                 content=encrypted_content,
                 chunk_index=i,
                 token_count=chunk.get("token_count", 0),
-                metadata_=chunk["metadata"],
+                metadata_=chunk_metadata,
                 embedding=embedding,
             )
             new_chunks.append(new_chunk)
@@ -604,3 +629,31 @@ class IngestionOrchestrator:
                 doc.meta_info = new_meta
 
             self.db.commit()
+
+    def reindex_knowledge_base(self, kb_id: UUID, new_model: str):
+        """
+        KB의 모든 문서를 새 임베딩 모델로 재인덱싱
+        """
+        print(
+            f"[IngestionOrchestrator] re-indexing 시작.. KB {kb_id} with model {new_model}"
+        )
+
+        self.ai_model = new_model
+
+        documents = (
+            self.db.query(Document).filter(Document.knowledge_base_id == kb_id).all()
+        )
+
+        if not documents:
+            print(f"[IngestionOrchestrator] No documents found for KB {kb_id}")
+            return
+
+        print(f"[IngestionOrchestrator] Found {len(documents)} documents to re-index")
+
+        for doc in documents:
+            try:
+                self._update_status(doc.id, "pending")
+                self.process_document(doc.id)
+            except Exception as e:
+                print(f"[ERROR] Failed to re-index document {doc.id}: {e}")
+                self._update_status(doc.id, "failed", str(e))

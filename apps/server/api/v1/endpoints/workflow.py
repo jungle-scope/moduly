@@ -3,7 +3,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, noload, selectinload
 from starlette.requests import Request
 
 from auth.dependencies import get_current_user
@@ -53,9 +53,15 @@ def get_workflow_runs(
     # if workflow.created_by != str(current_user.id):
     #     raise HTTPException(status_code=403, detail="Not authorized")
 
-    total = db.query(WorkflowRun).filter(WorkflowRun.workflow_id == workflow_id).count()
+    total = (
+        db.query(func.count(WorkflowRun.id))
+        .filter(WorkflowRun.workflow_id == workflow_id)
+        .scalar()
+        or 0
+    )
     runs = (
         db.query(WorkflowRun)
+        .options(noload(WorkflowRun.node_runs))
         .filter(WorkflowRun.workflow_id == workflow_id)
         .order_by(WorkflowRun.started_at.desc())
         .offset(skip)
@@ -83,6 +89,7 @@ def get_workflow_run_detail(
 
     run = (
         db.query(WorkflowRun)
+        .options(selectinload(WorkflowRun.node_runs))
         .filter(WorkflowRun.id == run_id, WorkflowRun.workflow_id == workflow_id)
         .first()
     )
@@ -296,7 +303,8 @@ def get_workflow_stats(
         failed_runs = (
             db.query(WorkflowRun)
             .filter(
-            WorkflowRun.workflow_id == workflow_id, WorkflowRun.status == RunStatus.FAILED
+                WorkflowRun.workflow_id == workflow_id,
+                WorkflowRun.status == RunStatus.FAILED,
             )
             .order_by(WorkflowRun.started_at.desc())
             .limit(5)
