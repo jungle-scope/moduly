@@ -28,13 +28,13 @@ from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from api.api import api_router
-from db.models.schedule import Schedule  # noqa: F401
-from db.seed import (
+from apps.shared.db.models.schedule import Schedule  # noqa: F401
+from apps.shared.db.seed import (
     seed_default_llm_models,
     seed_default_llm_providers,
     seed_placeholder_user,
 )
-from db.session import engine
+from apps.shared.db.session import engine
 
 
 @asynccontextmanager

@@ -9,19 +9,19 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from auth.dependencies import get_current_user
-from db.models.app import App
-from db.models.user import User
-from db.models.workflow import Workflow
+from apps.shared.db.models.app import App
+from apps.shared.db.models.user import User
+from apps.shared.db.models.workflow import Workflow
 
 # [NEW] 로깅 모델 및 스키마
-from db.models.workflow_run import NodeRunStatus, RunStatus, WorkflowRun
-from db.session import get_db
-from schemas.log import (
+from apps.shared.db.models.workflow_run import NodeRunStatus, RunStatus, WorkflowRun
+from apps.shared.db.session import get_db
+from apps.shared.schemas.log import (
     DashboardStatsResponse,
     WorkflowRunListResponse,
     WorkflowRunSchema,
 )
-from schemas.workflow import (
+from apps.shared.schemas.workflow import (
     WorkflowCreateRequest,
     WorkflowDraftRequest,
     WorkflowResponse,

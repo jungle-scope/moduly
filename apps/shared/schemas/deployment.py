@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from db.models.workflow_deployment import DeploymentType
+from apps.shared.db.models.workflow_deployment import DeploymentType
 
 
 class DeploymentBase(BaseModel):

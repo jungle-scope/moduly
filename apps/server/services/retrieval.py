@@ -3,9 +3,9 @@ import re
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.models.knowledge import Document, DocumentChunk, KnowledgeBase
-from db.models.llm import LLMCredential, LLMModel, LLMProvider
-from schemas.rag import ChunkPreview, RAGResponse
+from apps.shared.db.models.knowledge import Document, DocumentChunk, KnowledgeBase
+from apps.shared.db.models.llm import LLMCredential, LLMModel, LLMProvider
+from apps.shared.schemas.rag import ChunkPreview, RAGResponse
 from services.llm_service import LLMService
 from utils.encryption import encryption_manager
 

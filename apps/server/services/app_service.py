@@ -3,9 +3,9 @@ import secrets
 
 from sqlalchemy.orm import Session, joinedload
 
-from db.models.app import App
-from db.models.workflow import Workflow
-from schemas.app import AppCreateRequest, AppUpdateRequest
+from apps.shared.db.models.app import App
+from apps.shared.db.models.workflow import Workflow
+from apps.shared.schemas.app import AppCreateRequest, AppUpdateRequest
 
 
 class AppService:

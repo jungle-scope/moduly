@@ -9,8 +9,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
-from db.models.schedule import Schedule
-from db.models.workflow_deployment import WorkflowDeployment
+from apps.shared.db.models.schedule import Schedule
+from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 
 
 class SchedulerService:

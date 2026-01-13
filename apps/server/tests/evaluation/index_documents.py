@@ -29,9 +29,9 @@ sys.path.insert(
 
 from sqlalchemy.orm import Session
 
-from db.models.knowledge import Document, DocumentChunk, KnowledgeBase, SourceType
-from db.models.user import User
-from db.session import SessionLocal
+from apps.shared.db.models.knowledge import Document, DocumentChunk, KnowledgeBase, SourceType
+from apps.shared.db.models.user import User
+from apps.shared.db.session import SessionLocal
 from services.llm_service import LLMService
 
 

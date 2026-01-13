@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from db.models.user import User
-from db.session import get_db
-from schemas.deployment import DeploymentCreate, DeploymentResponse
+from apps.shared.db.models.user import User
+from apps.shared.db.session import get_db
+from apps.shared.schemas.deployment import DeploymentCreate, DeploymentResponse
 from services.deployment_service import DeploymentService
 
 router = APIRouter()

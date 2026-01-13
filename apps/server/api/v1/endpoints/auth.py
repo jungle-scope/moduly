@@ -5,8 +5,8 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from auth.oauth import oauth
-from db.session import get_db
-from schemas.auth import LoginRequest, LoginResponse, SignupRequest
+from apps.shared.db.session import get_db
+from apps.shared.schemas.auth import LoginRequest, LoginResponse, SignupRequest
 from services.auth_service import AuthService
 
 router = APIRouter()

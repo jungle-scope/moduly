@@ -5,9 +5,9 @@ from typing import Any, Dict
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from db.models.app import App
-from db.models.workflow_deployment import WorkflowDeployment
-from db.session import get_db
+from apps.shared.db.models.app import App
+from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+from apps.shared.db.session import get_db
 from workflow.core.workflow_engine import WorkflowEngine
 
 router = APIRouter()

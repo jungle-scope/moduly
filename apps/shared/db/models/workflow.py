@@ -6,7 +6,7 @@ from sqlalchemy import DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db.base import Base
+from apps.shared.db.base import Base
 
 
 class Workflow(Base):

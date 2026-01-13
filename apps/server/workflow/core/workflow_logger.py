@@ -18,8 +18,8 @@ from typing import Any, Dict, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from db.models.llm import LLMUsageLog
-from db.models.workflow_run import (
+from apps.shared.db.models.llm import LLMUsageLog
+from apps.shared.db.models.workflow_run import (
     NodeRunStatus,
     RunStatus,
     RunTriggerMode,

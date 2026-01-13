@@ -3,14 +3,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
 
-from db.base import Base
-from db.models.schedule import Schedule  # noqa: F401
-from db.seed import (
+from apps.shared.db.base import Base
+from apps.shared.db.models.schedule import Schedule  # noqa: F401
+from apps.shared.db.seed import (
     seed_default_llm_models,
     seed_default_llm_providers,
     seed_placeholder_user,
 )
-from db.session import engine
+from apps.shared.db.session import engine
 
 
 @asynccontextmanager

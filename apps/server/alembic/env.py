@@ -22,22 +22,22 @@ if config.config_file_name is not None:
 
 # ========== 중요: SQLAlchemy Base 및 모델 임포트 ==========
 # db.base 모듈을 찾기 위해 sys.path 설정이 선행되어야 함
-from db.base import Base
-from db.models.app import App
-from db.models.connection import Connection
-from db.models.knowledge import Document, DocumentChunk, KnowledgeBase
-from db.models.llm import (
+from apps.shared.db.base import Base
+from apps.shared.db.models.app import App
+from apps.shared.db.models.connection import Connection
+from apps.shared.db.models.knowledge import Document, DocumentChunk, KnowledgeBase
+from apps.shared.db.models.llm import (
     LLMCredential,
     LLMModel,
     LLMProvider,
     LLMRelCredentialModel,
     LLMUsageLog,
 )
-from db.models.schedule import Schedule
-from db.models.user import User
-from db.models.workflow import Workflow
-from db.models.workflow_deployment import WorkflowDeployment
-from db.models.workflow_run import WorkflowNodeRun, WorkflowRun
+from apps.shared.db.models.schedule import Schedule
+from apps.shared.db.models.user import User
+from apps.shared.db.models.workflow import Workflow
+from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+from apps.shared.db.models.workflow_run import WorkflowNodeRun, WorkflowRun
 
 # 모든 모델을 임포트해야 Alembic이 테이블을 인식합니다
 

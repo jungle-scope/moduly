@@ -30,9 +30,9 @@ sys.path.insert(
 
 from sqlalchemy.orm import Session
 
-from db.models.knowledge import KnowledgeBase
-from db.models.user import User
-from db.session import SessionLocal
+from apps.shared.db.models.knowledge import KnowledgeBase
+from apps.shared.db.models.user import User
+from apps.shared.db.session import SessionLocal
 from services.retrieval import RetrievalService
 from tests.evaluation.rag_evaluator import DatasetLoader, EvaluationConfig, RAGEvaluator
 from tests.evaluation.rag_metrics import EvaluationSample, RetrievalResult

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from api.v1.endpoints.webhook import CAPTURE_SESSIONS
-from db.session import get_db
+from apps.shared.db.session import get_db
 from main import app
 
 

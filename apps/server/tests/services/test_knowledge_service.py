@@ -5,7 +5,7 @@ DB 세션 없이 객체 생성 및 기본 로직만 검증합니다.
 
 from uuid import uuid4
 
-from db.models.knowledge import Document, DocumentChunk, KnowledgeBase
+from apps.shared.db.models.knowledge import Document, DocumentChunk, KnowledgeBase
 
 
 def test_knowledge_base_creation():

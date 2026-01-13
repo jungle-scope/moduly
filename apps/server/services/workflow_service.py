@@ -3,9 +3,9 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from db.models.app import App
-from db.models.workflow import Workflow
-from schemas.workflow import WorkflowCreateRequest, WorkflowDraftRequest
+from apps.shared.db.models.app import App
+from apps.shared.db.models.workflow import Workflow
+from apps.shared.schemas.workflow import WorkflowCreateRequest, WorkflowDraftRequest
 
 
 class WorkflowService:

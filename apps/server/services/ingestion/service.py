@@ -9,8 +9,8 @@ from fastapi import UploadFile
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
-from db.models.knowledge import Document, DocumentChunk, SourceType
-from db.session import SessionLocal
+from apps.shared.db.models.knowledge import Document, DocumentChunk, SourceType
+from apps.shared.db.session import SessionLocal
 from services.ingestion.factory import IngestionFactory
 from services.storage import get_storage_service  # [NEW]
 

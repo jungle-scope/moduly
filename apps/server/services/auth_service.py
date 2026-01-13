@@ -8,8 +8,8 @@ from datetime import datetime, timedelta, timezone
 from jose import jwt
 from sqlalchemy.orm import Session
 
-from db.models.user import User
-from schemas.auth import (
+from apps.shared.db.models.user import User
+from apps.shared.schemas.auth import (
     LoginRequest,
     LoginResponse,
     SessionInfo,

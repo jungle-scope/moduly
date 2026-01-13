@@ -1,4 +1,4 @@
 
-from db.session import get_db
+from apps.shared.db.session import get_db
 
 __all__ = ["get_db"]

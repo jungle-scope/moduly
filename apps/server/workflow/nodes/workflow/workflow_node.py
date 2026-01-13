@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any, Dict, List
 
-from db.models.app import App
+from apps.shared.db.models.app import App
 from workflow.nodes.base.node import Node
 
 from .entities import WorkflowNodeData

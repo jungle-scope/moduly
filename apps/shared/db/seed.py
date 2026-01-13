@@ -8,10 +8,9 @@ Database seed helpers for startup.
 import uuid
 from typing import Iterable
 
+from apps.shared.db.models.llm import LLMProvider
+from apps.shared.db.models.user import User
 from sqlalchemy.orm import Session
-
-from db.models.llm import LLMProvider
-from db.models.user import User
 
 PLACEHOLDER_USER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
 
@@ -98,7 +97,7 @@ def seed_default_llm_models(db: Session) -> None:
     gpt-4.1, o3-mini와 같은 모델이 DB에 존재하도록 보장합니다.
     또한, 해당 모델이 UI에 표시되도록 기존 Credential과 연결합니다.
     """
-    from db.models.llm import (
+    from apps.shared.db.models.llm import (
         LLMCredential,
         LLMModel,
         LLMProvider,

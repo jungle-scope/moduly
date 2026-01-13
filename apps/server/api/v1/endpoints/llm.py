@@ -7,10 +7,10 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from db.models.llm import LLMModel, LLMProvider, LLMUsageLog
-from db.models.user import User
-from db.session import get_db
-from schemas.llm import (
+from apps.shared.db.models.llm import LLMModel, LLMProvider, LLMUsageLog
+from apps.shared.db.models.user import User
+from apps.shared.db.session import get_db
+from apps.shared.schemas.llm import (
     LLMCredentialCreate,
     LLMCredentialResponse,
     LLMModelPricingUpdate,

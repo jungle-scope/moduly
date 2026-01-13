@@ -8,7 +8,7 @@ from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db.base import Base
+from apps.shared.db.base import Base
 
 
 class Schedule(Base):
