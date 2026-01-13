@@ -64,6 +64,10 @@ run_service() {
     # 절대 경로로 PYTHONPATH 설정
     export PYTHONPATH=$(pwd)/../..
     $CMD &
+
+    # Celery Worker 실행 추가 (Workflow Engine 필수)
+    echo -e "   [$SERVICE_NAME] Celery Worker 실행..."
+    celery -A worker worker -Q workflow --loglevel=info &
     
     cd - > /dev/null || exit
 }
