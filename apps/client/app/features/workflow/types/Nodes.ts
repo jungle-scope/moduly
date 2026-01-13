@@ -301,6 +301,17 @@ export interface MailNodeData extends BaseNodeData {
   referenced_variables: MailVariable[];
 }
 
+// ========================= [Loop Node] ======================================
+export interface LoopNodeData extends BaseNodeData {
+  input_array: string;
+  max_iterations: number;
+  subGraph?: {
+    nodes: any[];
+    edges: any[];
+  };
+}
+// ============================================================================
+
 // 3. 노드 타입 정의 (ReactFlow Node 제네릭 사용)
 export type StartNode = ReactFlowNode<StartNodeData, 'startNode'>;
 export type AnswerNode = ReactFlowNode<AnswerNodeData, 'answerNode'>;
@@ -331,6 +342,7 @@ export type ScheduleTriggerNode = ReactFlowNode<
 export type GithubNode = ReactFlowNode<GithubNodeData, 'githubNode'>;
 
 export type MailNode = ReactFlowNode<MailNodeData, 'mailNode'>;
+export type LoopNode = ReactFlowNode<LoopNodeData, 'loopNode'>;
 // ============================================================================
 
 // 4. 전체 노드 유니온 (AppNode)
@@ -349,6 +361,7 @@ export type AppNode =
   | ScheduleTriggerNode
   | GithubNode
   | MailNode
+  | LoopNode
   | NoteNode
   | WorkflowNode;
 

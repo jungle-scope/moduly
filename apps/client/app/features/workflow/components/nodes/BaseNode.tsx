@@ -1,12 +1,5 @@
-import {
-  Handle,
-  Position,
-  useNodeId,
-  useHandleConnections,
-  HandleProps,
-} from '@xyflow/react';
+import { Handle, Position, HandleProps } from '@xyflow/react';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Plus } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { BaseNodeData } from '../../types/Nodes';
