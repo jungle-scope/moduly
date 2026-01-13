@@ -237,8 +237,13 @@ export const nodeRegistry: NodeDefinition[] = [
     description: '배열의 각 항목에 대해 작업을 반복 실행합니다.',
     defaultData: () => ({
       title: '반복',
-      input_array: '',
+      loop_key: '',
+      inputs: [],
+      outputs: [],
       max_iterations: 100,
+      parallel_mode: false,
+      error_strategy: 'end',
+      flatten_output: true,
     }),
   },
   {

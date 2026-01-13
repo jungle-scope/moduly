@@ -76,6 +76,16 @@ type WorkflowState = {
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
 
+  // === Inner Node Selection (for Loop/Workflow nodes) ===
+  selectedInnerNode: { parentNodeId: string; nodeId: string } | null;
+  setSelectedInnerNode: (parentNodeId: string, nodeId: string) => void;
+  clearInnerNodeSelection: () => void;
+  updateInnerNodeData: (
+    parentNodeId: string,
+    nodeId: string,
+    newData: Record<string, unknown>,
+  ) => void;
+
   // === Editor UI 액션 ===
   toggleVersionHistory: () => void;
   previewVersion: (version: DeploymentResponse) => void;
@@ -179,6 +189,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   features: {},
   envVariables: [],
   runtimeVariables: [],
+
+  // === Inner Node Selection ===
+  selectedInnerNode: null,
 
   // === ReactFlow 액션 ===
   setNodes: (nodes) => {
@@ -461,6 +474,38 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             ...node,
             data: { ...node.data, ...newData },
           } as Node;
+        }
+        return node;
+      }),
+    });
+  },
+
+  // === Inner Node Selection Methods ===
+  setSelectedInnerNode: (parentNodeId, nodeId) =>
+    set({ selectedInnerNode: { parentNodeId, nodeId } }),
+
+  clearInnerNodeSelection: () => set({ selectedInnerNode: null }),
+
+  updateInnerNodeData: (parentNodeId, nodeId, newData) => {
+    set({
+      nodes: get().nodes.map((node) => {
+        if (node.id === parentNodeId) {
+          // Find and update the inner node within subGraph
+          const subGraph = (node.data as any).subGraph;
+          if (subGraph && subGraph.nodes) {
+            const updatedSubNodes = subGraph.nodes.map((subNode: any) =>
+              subNode.id === nodeId
+                ? { ...subNode, data: { ...subNode.data, ...newData } }
+                : subNode,
+            );
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                subGraph: { ...subGraph, nodes: updatedSubNodes },
+              },
+            } as Node;
+          }
         }
         return node;
       }),

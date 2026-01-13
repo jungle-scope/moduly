@@ -10,7 +10,7 @@ import { LoopNode as LoopNodeType } from '../../../../types/Nodes';
 
 export const LoopNode = memo(
   ({ id, data, selected }: NodeProps<LoopNodeType>) => {
-    const { updateNodeData } = useWorkflowStore();
+    const { updateNodeData, clearInnerNodeSelection } = useWorkflowStore();
     const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
     // 내부 그래프 데이터 (없으면 초기화)
@@ -90,6 +90,27 @@ export const LoopNode = memo(
       return { width: width, height: 400 }; // 높이는 일단 고정
     }, [subNodes, isEmpty]);
 
+    // Loop 노드 자체 클릭 핸들러 (내부 캔버스 외부 영역)
+    const handleContainerClick = useCallback(
+      (e: React.MouseEvent) => {
+        // 내부 캔버스 영역이 아닌 곳을 클릭했을 때만 처리
+        const target = e.target as HTMLElement;
+
+        // 내부 캔버스나 버튼 클릭은 무시
+        if (
+          target.closest('.loop-inner-canvas') ||
+          target.closest('button') ||
+          target.closest('.node-selector')
+        ) {
+          return;
+        }
+
+        // 내부 노드 선택 해제 (Loop 노드 자체를 선택)
+        clearInnerNodeSelection();
+      },
+      [clearInnerNodeSelection],
+    );
+
     return (
       <BaseNode
         id={id}
@@ -102,6 +123,7 @@ export const LoopNode = memo(
         <div
           className="relative bg-gray-50 rounded-lg border border-dashed border-gray-300 overflow-visible transition-all duration-300"
           style={{ width: containerStyle.width, height: containerStyle.height }}
+          onClick={handleContainerClick}
         >
           {isEmpty ? (
             <div className="absolute inset-0 flex items-center justify-center z-20">
@@ -119,7 +141,7 @@ export const LoopNode = memo(
                       className="fixed inset-0 z-30"
                       onClick={() => setIsPopoverOpen(false)}
                     />
-                    <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 z-40 shadow-xl rounded-xl">
+                    <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 z-40 shadow-xl rounded-xl node-selector">
                       <NodeSelector onSelect={handleAddNode} />
                     </div>
                   </>
@@ -128,7 +150,13 @@ export const LoopNode = memo(
             </div>
           ) : (
             <>
-              <LoopInnerCanvas nodes={subNodes} edges={subEdges} />
+              <div className="loop-inner-canvas w-full h-full">
+                <LoopInnerCanvas
+                  nodes={subNodes}
+                  edges={subEdges}
+                  parentNodeId={id}
+                />
+              </div>
               <div className="absolute top-4 right-4 z-10">
                 <div className="relative">
                   <button
@@ -143,7 +171,7 @@ export const LoopNode = memo(
                         className="fixed inset-0 z-30"
                         onClick={() => setIsPopoverOpen(false)}
                       />
-                      <div className="absolute right-0 top-full mt-2 z-40 shadow-xl rounded-xl">
+                      <div className="absolute right-0 top-full mt-2 z-40 shadow-xl rounded-xl node-selector">
                         <NodeSelector onSelect={handleAddNode} />
                       </div>
                     </>
