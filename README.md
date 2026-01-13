@@ -138,6 +138,20 @@ cd apps/client
 npm run lint
 ```
 
+## 🔧 환경 설정
+### 1. 환경변수 파일 생성
+\`\`\`bash
+cp apps/server/.env.example apps/server/.env
+cp apps/client/.env.example apps/client/.env.local
+\`\`\`
+### 2. Google OAuth 설정 (선택)
+Google 로그인을 사용하려면:
+1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials)에서 프로젝트 생성
+2. OAuth 2.0 클라이언트 ID 생성
+3. Authorized redirect URIs에 추가:
+   - `http://localhost:8000/api/v1/auth/google/callback`
+4. [.env](cci:7://file:///Users/soyoungan/dev/moduly/apps/.env:0:0-0:0)에 Client ID와 Secret 입력
+
 ## 📚 문서
 
 - [아키텍처 개요](docs/architecture.md)
