@@ -35,7 +35,7 @@ export const NodeLibraryContent = ({
   disabledNodeTypes = [],
 }: NodeLibraryContentProps) => {
   const [activeTab, setActiveTab] =
-    useState<(typeof TABS)[number]['id']>('nodes');
+    useState<(typeof TABS)[number]['id']>('start');
   const [searchQuery, setSearchQuery] = useState('');
 
   // 탭에 따른 카테고리 필터링
