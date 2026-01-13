@@ -404,7 +404,7 @@ export default function DocumentSettingsPage() {
         <textarea
           value={template}
           onChange={(e) => setTemplate(e.target.value)}
-          placeholder="예: {{상품명}}은(는) {{카테고리}} 카테고리의 제품으로, 현재 판매 가격은 {{가격}}원입니다. 제품에 대한 상세한 특징과 설명은 다음과 같습니다: {{상세설명}}"
+          placeholder="예: {{name}} 상품은 현재 {{quantity}}개의 재고가 남아 있으며, 정상가는 {{price}}원입니다."
           className="w-full flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono overflow-y-auto"
         />
       </div>
