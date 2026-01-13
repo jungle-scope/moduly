@@ -1,44 +1,40 @@
-# Worker Deployment
+# Logger Deployment
 # 
-# 역할: 백그라운드 작업 처리 (현재는 Placeholder)
+# 역할: 로깅 및 모니터링 처리
 # 
-# API Server와의 주요 차이점:
-# 1. 실행 명령어: API는 uvicorn, Worker는 python/celery
-# 2. 포트: API는 8000 포트 EXPOSE, Worker는 포트 없음
-# 3. Service: API는 Service 있음, Worker는 Service 없음 (외부 접근 불필요)
-# 4. Health Check: API는 HTTP health check, Worker는 없음
-# 5. 리소스: Worker가 더 적은 CPU/메모리 (100m/128Mi vs 200m/256Mi)
-# 6. Replicas: Worker는 1개, API는 2개
+# Worker와 동일한 기본 설정:
+# 1. 실행 명령어: 추후 정의
+# 2. 포트: 8080
+# 3. Service: ClusterIP (logger-service)
+# 4. Health Check: 추후 추가 가능
+# 5. 리소스: 100m/128Mi → 200m/256Mi
+# 6. Replicas: 1개
 # 
 # 나중에 수정할 부분:
-# - 21-23번 줄: Celery 구현 시 command와 args 수정
-#   예시)
-#   command: ["celery"]
-#   args: ["-A", "apps.server.worker", "worker", "--loglevel=info"]
-# 
-# - 필요시 Health Check 추가 (Celery inspect 사용)
+# - command와 args (로깅 애플리케이션에 맞게 수정)
+# - 필요시 Health Check 추가
 # - 작업량에 따라 replicas 증가
 # - 리소스 조정 (resources.requests/limits)
 # 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: worker
+  name: logger
   labels:
-    app: worker
+    app: logger
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: worker
+      app: logger
   template:
     metadata:
       labels:
-        app: worker
+        app: logger
     spec:
       containers:
-      - name: worker
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine:latest
+      - name: logger
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-logger:latest
         ports:
         - containerPort: 8080
           name: http
@@ -76,10 +72,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: worker-service
+  name: logger-service
 spec:
   selector:
-    app: worker
+    app: logger
   ports:
   - port: 8080
     targetPort: 8080
