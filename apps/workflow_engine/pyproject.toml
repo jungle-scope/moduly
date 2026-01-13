@@ -1,15 +1,17 @@
 [project]
-name = "moduly-log-system"
+name = "moduly-workflow-engine"
 version = "0.1.0"
-description = "Moduly Log System Service"
+description = "Moduly Workflow Engine Service"
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
 ]
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "celery[redis]",
-    "sqlalchemy",
+    "langchain",
+    "langchain-core",
+    "langchain-openai",
+    "email-validator",
     "moduly-shared",
 ]
 requires-python = ">=3.10"
