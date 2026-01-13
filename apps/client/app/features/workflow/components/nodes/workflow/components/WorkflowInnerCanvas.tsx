@@ -88,16 +88,11 @@ const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
 export const WorkflowInnerCanvas = ({
   nodes,
   edges,
-  allowNavigation,
 }: WorkflowInnerCanvasProps) => {
   // 별도의 Provider로 감싸서 메인 캔버스와 상태 격리
   return (
     <ReactFlowProvider>
-      <InnerCanvasContent
-        nodes={nodes}
-        edges={edges}
-        allowNavigation={allowNavigation}
-      />
+      <InnerCanvasContent nodes={nodes} edges={edges} />
     </ReactFlowProvider>
   );
 };
