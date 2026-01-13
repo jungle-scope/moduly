@@ -6,6 +6,12 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent
 
 
+# apps/.env도 로드 (OAuth 라이브러리 호환성)
+APPS_ENV_PATH = BASE_DIR.parent / ".env"  # apps/.env
+if APPS_ENV_PATH.exists():
+    print(f"Loading .env from {APPS_ENV_PATH}")
+    load_dotenv(dotenv_path=APPS_ENV_PATH, override=False)
+
 # apps/server/.env 로드
 SERVER_ENV_PATH = BASE_DIR / ".env"
 if SERVER_ENV_PATH.exists():

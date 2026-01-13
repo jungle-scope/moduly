@@ -109,6 +109,7 @@ export const useVariableManager = (id: string, data: StartNodeData) => {
       label: `새 변수`,
       type: 'text',
       required: true,
+      maxLength: 255,
     };
     updateNodeData(id, {
       variables: [...variables, newVar],
