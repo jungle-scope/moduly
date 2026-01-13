@@ -1,7 +1,9 @@
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 from uuid import UUID
+
 from pydantic import BaseModel
+
 
 class WorkflowNodeRunSchema(BaseModel):
     id: UUID
@@ -17,7 +19,9 @@ class WorkflowNodeRunSchema(BaseModel):
     class Config:
         from_attributes = True
 
-class WorkflowRunBaseSchema(BaseModel):
+
+# class WorkflowRunBaseSchema(BaseModel):
+class WorkflowRunSchema(BaseModel):
     id: UUID
     workflow_id: UUID
     user_id: UUID
@@ -29,24 +33,30 @@ class WorkflowRunBaseSchema(BaseModel):
     started_at: datetime
     finished_at: Optional[datetime]
     duration: Optional[float]
-    workflow_version: Optional[int] = None # [NEW]
-    deployment_id: Optional[UUID] = None   # [NEW]
-    total_tokens: Optional[int] = 0        # [NEW]
-    total_cost: Optional[float] = 0.0      # [NEW]
+    workflow_version: Optional[int] = None  # [NEW]
+    deployment_id: Optional[UUID] = None  # [NEW]
+    total_tokens: Optional[int] = 0  # [NEW]
+    total_cost: Optional[float] = 0.0  # [NEW]
+    node_runs: List[WorkflowNodeRunSchema] = []
 
     class Config:
         from_attributes = True
 
-class WorkflowRunSchema(WorkflowRunBaseSchema):
-    # 리스트 조회시에는 node_runs 제외할 수도 있지만, 상세 조회시 포함
-    node_runs: List[WorkflowNodeRunSchema] = []
 
-class WorkflowRunListItemSchema(WorkflowRunBaseSchema):
-    pass
+# class WorkflowRunSchema(WorkflowRunBaseSchema):
+#     # 리스트 조회시에는 node_runs 제외할 수도 있지만, 상세 조회시 포함
+#     node_runs: List[WorkflowNodeRunSchema] = []
+
+
+# class WorkflowRunListItemSchema(WorkflowRunBaseSchema):
+#     pass
+
 
 class WorkflowRunListResponse(BaseModel):
     total: int
-    items: List[WorkflowRunListItemSchema]
+    items: List[WorkflowRunSchema]
+    # items: List[WorkflowRunListItemSchema]
+
 
 # [NEW] Dashboard Schemas
 class StatsSummary(BaseModel):
@@ -55,7 +65,8 @@ class StatsSummary(BaseModel):
     avgDuration: float
     totalCost: float
     avgTokenPerRun: float  # [NEW] Requested by user
-    avgCostPerRun: float   # [NEW] Requested by user
+    avgCostPerRun: float  # [NEW] Requested by user
+
 
 class DailyRunStat(BaseModel):
     date: str
@@ -63,24 +74,28 @@ class DailyRunStat(BaseModel):
     total_cost: float = 0.0
     total_tokens: int = 0
 
+
 class RunCostStat(BaseModel):
     run_id: UUID
     started_at: datetime
     total_tokens: int
     total_cost: float
 
+
 class FailureStat(BaseModel):
     node_id: str
     node_name: str
     count: int
-    reason: str 
-    rate: str # e.g. "5.2%"
+    reason: str
+    rate: str  # e.g. "5.2%"
 
-class RecentFailure(BaseModel): # [NEW] Requested by user
+
+class RecentFailure(BaseModel):  # [NEW] Requested by user
     run_id: UUID
     failed_at: datetime
     node_id: str
     error_message: str
+
 
 class DashboardStatsResponse(BaseModel):
     summary: StatsSummary
@@ -89,4 +104,3 @@ class DashboardStatsResponse(BaseModel):
     maxCostRuns: List[RunCostStat]
     failureAnalysis: List[FailureStat]
     recentFailures: List[RecentFailure]
-
