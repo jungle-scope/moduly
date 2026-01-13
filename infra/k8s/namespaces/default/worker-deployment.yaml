@@ -38,10 +38,7 @@ spec:
     spec:
       containers:
       - name: worker
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:eks-latest
-        # Placeholder: 실제 Worker 로직이 구현되면 수정
-        command: ["python"]
-        args: ["-c", "import time; print('Worker placeholder running...'); [time.sleep(60) for _ in iter(int, 1)]"]
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine:latest
         env:
         - name: DB_HOST
           value: postgresql.default.svc.cluster.local

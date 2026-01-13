@@ -17,7 +17,7 @@ spec:
       serviceAccountName: api-server-sa  # IRSA 연결
       containers:
       - name: api-server
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:latest
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-gateway:latest
         ports:
         - containerPort: 8000
         env:
