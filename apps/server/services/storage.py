@@ -59,6 +59,11 @@ class S3StorageService(StorageService):
             region_name=self.region,
         )
 
+        if not self.bucket_name:
+            raise ValueError(
+                "S3_BUCKET_NAME is not set. "
+            )
+
     def upload(self, file: UploadFile) -> str:
         unique_filename = f"{uuid.uuid4()}_{file.filename}"
         s3_key = f"uploads/{unique_filename}"
