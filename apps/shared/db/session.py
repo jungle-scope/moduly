@@ -1,0 +1,48 @@
+"""
+데이터베이스 세션 설정
+
+모든 마이크로서비스가 공유하는 DB 연결 설정입니다.
+환경변수로 DB 연결 정보를 설정할 수 있습니다.
+"""
+import os
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# 환경변수에서 개별 DB 설정 가져오기
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_USER = os.getenv("DB_USER", "admin")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "admin123")
+DB_NAME = os.getenv("DB_NAME", "moduly_local")
+
+# DATABASE_URL 환경변수가 있으면 우선 사용 (Docker 환경용)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
+
+# SQLAlchemy 엔진 생성
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,  # echo=True: SQL 쿼리 로그 출력, 디버깅 필요시 활성화
+    pool_size=20,  # 기본 커넥션 수 (기본값: 5)
+    max_overflow=30,  # 추가 허용 커넥션 (기본값: 10)
+    pool_timeout=60,  # 커넥션 대기 시간(초)
+    pool_pre_ping=True,  # 커넥션 유효성 체크
+)
+
+# 세션 팩토리 생성
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_db():
+    """
+    데이터베이스 세션을 생성하고 요청이 끝나면 자동으로 닫습니다.
+    FastAPI의 Depends()와 함께 사용됩니다.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
