@@ -26,6 +26,7 @@ export default function EditorHeader() {
     projectName,
     projectApp,
     setProjectApp,
+    nodes,
     // 버전 기록 상태
     previewingVersion,
     exitPreview,
@@ -195,7 +196,7 @@ export default function EditorHeader() {
         };
       }
     },
-    [deploymentType, activeWorkflow?.appId],
+    [deploymentType, activeWorkflow?.appId, nodes],
   );
 
   const handleTestRun = useCallback(() => {
