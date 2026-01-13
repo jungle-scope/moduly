@@ -199,6 +199,10 @@ export interface WorkflowNodeData extends NodeData {
   deployment_id?: string;
   graph_snapshot?: Record<string, any>; // 확장된 내부 그래프
   expanded?: boolean;
+
+  // 상태별 위치 저장 (펼침/접힘 상태 독립 관리)
+  collapsedPosition?: { x: number; y: number };
+  expandedPosition?: { x: number; y: number };
 }
 // ============================================================================
 
