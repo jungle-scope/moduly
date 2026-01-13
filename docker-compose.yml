@@ -1,4 +1,19 @@
 services:
+  # Redis - Celery 브로커 및 Pub/Sub
+  redis:
+    image: redis:7-alpine
+    container_name: moduly-dev-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   postgres:
     image: pgvector/pgvector:pg15
     container_name: moduly-dev-postgres
@@ -30,5 +45,6 @@ services:
       - postgres
 
 volumes:
+  redis_data:
   postgres_data:
   pgadmin_data:
