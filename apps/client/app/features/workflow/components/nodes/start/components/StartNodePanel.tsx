@@ -1,7 +1,6 @@
 import { StartNodeData } from '../../../../types/Nodes';
 import { useVariableManager } from '../hooks/useVariableManager';
 import { VariableList } from './VariableList';
-import { TriggerSection } from './TriggerSection';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { Plus } from 'lucide-react';
 
@@ -25,14 +24,10 @@ export function StartNodePanel({ nodeId, data }: StartNodePanelProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Basic Settings Section */}
-      <CollapsibleSection title="Basic settings">
-        <TriggerSection type={data.triggerType} />
-      </CollapsibleSection>
-
       {/* Input Section */}
       <CollapsibleSection
-        title="Input"
+        title="입력변수"
+        showDivider
         icon={
           <button
             onClick={(e) => {
@@ -46,12 +41,17 @@ export function StartNodePanel({ nodeId, data }: StartNodePanelProps) {
           </button>
         }
       >
-        <VariableList
-          variables={variables}
-          onUpdate={updateVariable}
-          onDelete={deleteVariable}
-          onMove={moveVariable}
-        />
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-gray-500 leading-snug">
+            워크플로우 실행 시 사용자로부터 받을 입력 변수를 정의하세요.
+          </p>
+          <VariableList
+            variables={variables}
+            onUpdate={updateVariable}
+            onDelete={deleteVariable}
+            onMove={moveVariable}
+          />
+        </div>
       </CollapsibleSection>
     </div>
   );
