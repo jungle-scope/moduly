@@ -492,8 +492,6 @@ export default function EditorHeader() {
       <TestSidebar />
 
       {/* 미리보기 모드 배너 */}
-
-      {/* 미리보기 모드 배너 */}
       {previewingVersion && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4 animate-in slide-in-from-top fade-in duration-300">
           <div className="flex flex-col">
