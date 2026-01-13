@@ -206,6 +206,11 @@ export default function DBSchemaSelector({
     if (onAliasesChange) {
       onAliasesChange(newAliases);
     }
+
+    // 테이블 선택 시 자동으로 펼치기
+    if (!isAllSelected) {
+      setExpandedTables((prev) => new Set(prev).add(tableName));
+    }
   };
 
   // 개별 컬럼 선택/해제
@@ -260,6 +265,9 @@ export default function DBSchemaSelector({
       }
       newAliases[tableName][colName] = colName;
       onAliasesChange(newAliases);
+
+      // 컬럼 선택 시 테이블 자동으로 펼치기
+      setExpandedTables((prev) => new Set(prev).add(tableName));
     }
   };
 
