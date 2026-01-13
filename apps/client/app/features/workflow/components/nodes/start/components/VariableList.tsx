@@ -17,26 +17,25 @@ export const VariableList = ({
 }: VariableListProps) => {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2">
-        {variables.map((variable, index) => (
-          <VariableRow
-            key={variable.id}
-            variable={variable}
-            allVariables={variables}
-            index={index}
-            isFirst={index === 0}
-            isLast={index === variables.length - 1}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-            onMove={onMove}
-          />
-        ))}
-        {variables.length === 0 && (
-          <div className="rounded border border-dashed border-border bg-muted/30 py-2 text-center text-xs text-muted-foreground">
-            변수가 없습니다.
-          </div>
-        )}
-      </div>
+      {variables.length === 0 && (
+        <div className="text-xs text-gray-400 p-2 text-center border border-dashed border-gray-200 rounded">
+          등록된 입력변수가 없습니다.
+        </div>
+      )}
+
+      {variables.map((variable, index) => (
+        <VariableRow
+          key={variable.id}
+          variable={variable}
+          allVariables={variables}
+          index={index}
+          isFirst={index === 0}
+          isLast={index === variables.length - 1}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+          onMove={onMove}
+        />
+      ))}
     </div>
   );
 };

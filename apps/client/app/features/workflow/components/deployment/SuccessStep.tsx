@@ -550,7 +550,7 @@ ${authHeader}  -d '{
                                 type={
                                   variable.type === 'number' ? 'number' : 'text'
                                 }
-                                placeholder={`${variable.label || variable.name} 입력`}
+                                placeholder={`${variable.name} 입력`}
                                 value={inputValues[variable.name] || ''}
                                 onChange={(e) =>
                                   setInputValues({
