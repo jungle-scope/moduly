@@ -304,7 +304,7 @@ export function TestSidebar() {
                             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                           />
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {variable.label || variable.name}
+                            {variable.name}
                             {variable.required && (
                               <span className="text-red-500 ml-1">*</span>
                             )}
@@ -313,7 +313,7 @@ export function TestSidebar() {
                       ) : variable.type === 'select' ? (
                         <>
                           <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
-                            {variable.label || variable.name}
+                            {variable.name}
                             {variable.required && (
                               <span className="text-red-500 ml-1">*</span>
                             )}
@@ -335,7 +335,7 @@ export function TestSidebar() {
                       ) : variable.type === 'file' ? (
                         <>
                           <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
-                            {variable.label || variable.name}
+                            {variable.name}
                             {variable.required && (
                               <span className="text-red-500 ml-1">*</span>
                             )}
@@ -355,7 +355,7 @@ export function TestSidebar() {
                       ) : (
                         <>
                           <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
-                            {variable.label || variable.name}
+                            {variable.name}
                             {variable.required && (
                               <span className="text-red-500 ml-1">*</span>
                             )}
