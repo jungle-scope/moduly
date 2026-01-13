@@ -39,9 +39,6 @@ spec:
       containers:
       - name: worker
         image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine:latest
-        ports:
-        - containerPort: 8080
-          name: http
         env:
         - name: DB_HOST
           value: postgresql.default.svc.cluster.local
@@ -72,16 +69,3 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: worker-service
-spec:
-  selector:
-    app: worker
-  ports:
-  - port: 8080
-    targetPort: 8080
-    name: http
-  type: ClusterIP
