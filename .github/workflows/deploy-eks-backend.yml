@@ -82,6 +82,10 @@ jobs:
               }]
             }
           }'
+        
+        # [NEW] 마이그레이션 완료 후 파드 정리
+        echo "Cleaning up migration pod..."
+        kubectl delete pod alembic-migration-${{ github.run_id }} --ignore-not-found=true
 
 
     # 6. Deployment 이미지 업데이트
