@@ -19,7 +19,13 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from db.models.llm import LLMUsageLog
-from db.models.workflow_run import WorkflowNodeRun, WorkflowRun
+from db.models.workflow_run import (
+    NodeRunStatus,
+    RunStatus,
+    RunTriggerMode,
+    WorkflowNodeRun,
+    WorkflowRun,
+)
 
 
 class WorkflowLoggerDBOps:
@@ -33,13 +39,34 @@ class WorkflowLoggerDBOps:
     @staticmethod
     def create_run_log(session: Session, data: Dict[str, Any]):
         """워크플로우 실행 로그 생성"""
+        trigger_mode = data.get("trigger_mode")
+        if isinstance(trigger_mode, str):
+            trigger_mode = trigger_mode.strip().lower()
+
+        trigger_mode_map = {
+            "manual": RunTriggerMode.MANUAL,
+            "api": RunTriggerMode.API,
+            "app": RunTriggerMode.API,
+            "deployed": RunTriggerMode.API,
+        }
+        normalized_trigger = None
+        if isinstance(trigger_mode, RunTriggerMode):
+            normalized_trigger = trigger_mode
+        elif isinstance(trigger_mode, str):
+            normalized_trigger = trigger_mode_map.get(trigger_mode)
+
+        if normalized_trigger is None:
+            normalized_trigger = (
+                RunTriggerMode.API if data.get("is_deployed") else RunTriggerMode.MANUAL
+            )
+
         run_log = WorkflowRun(
             id=data["run_id"],
             workflow_id=uuid.UUID(str(data["workflow_id"])),
             user_id=uuid.UUID(str(data["user_id"])),
-            status="running",
-            trigger_mode="deployed" if data["is_deployed"] else "manual",
-            inputs=data["user_input"],
+            status=RunStatus.RUNNING,
+            trigger_mode=normalized_trigger,
+            inputs=data.get("user_input") or {},
             started_at=data["started_at"],
             deployment_id=uuid.UUID(str(data["deployment_id"]))
             if data["deployment_id"]
@@ -56,7 +83,7 @@ class WorkflowLoggerDBOps:
             session.query(WorkflowRun).filter(WorkflowRun.id == data["run_id"]).first()
         )
         if run_log:
-            run_log.status = "success"
+            run_log.status = RunStatus.SUCCESS
             run_log.outputs = data["outputs"]
             run_log.finished_at = data["finished_at"]
 
@@ -90,7 +117,7 @@ class WorkflowLoggerDBOps:
             session.query(WorkflowRun).filter(WorkflowRun.id == data["run_id"]).first()
         )
         if run_log:
-            run_log.status = "failed"
+            run_log.status = RunStatus.FAILED
             run_log.error_message = data["error_message"]
             run_log.finished_at = data["finished_at"]
 
@@ -108,8 +135,9 @@ class WorkflowLoggerDBOps:
             workflow_run_id=data["workflow_run_id"],
             node_id=data["node_id"],
             node_type=data["node_type"],
-            status="running",
-            inputs=data["inputs"],
+            status=NodeRunStatus.RUNNING,
+            inputs=data.get("inputs") or {},
+            process_data=data.get("process_data") or {},
             started_at=data["started_at"],
         )
         session.add(node_run)
@@ -127,7 +155,7 @@ class WorkflowLoggerDBOps:
         )
 
         if node_run:
-            node_run.status = "success"
+            node_run.status = NodeRunStatus.SUCCESS
             outputs = data["outputs"]
             if isinstance(outputs, dict):
                 node_run.outputs = outputs
@@ -149,7 +177,7 @@ class WorkflowLoggerDBOps:
         )
 
         if node_run:
-            node_run.status = "failed"
+            node_run.status = NodeRunStatus.FAILED
             node_run.error_message = data["error_message"]
             node_run.finished_at = data["finished_at"]
             session.commit()
@@ -237,6 +265,7 @@ class WorkflowLogger:
             "user_id": user_id,
             "user_input": user_input,
             "is_deployed": is_deployed,
+            "trigger_mode": execution_context.get("trigger_mode"),
             "deployment_id": execution_context.get("deployment_id"),
             "workflow_version": execution_context.get("workflow_version"),
             "started_at": datetime.now(timezone.utc),
@@ -268,7 +297,13 @@ class WorkflowLogger:
         }
         self._get_pool().submit({"type": "update_run_error", "data": data})
 
-    def create_node_log(self, node_id: str, node_type: str, inputs: Dict[str, Any]):
+    def create_node_log(
+        self,
+        node_id: str,
+        node_type: str,
+        inputs: Dict[str, Any],
+        process_data: Optional[Dict[str, Any]] = None,
+    ):
         """노드 실행 로그 생성"""
         if not self.workflow_run_id:
             return
@@ -278,6 +313,7 @@ class WorkflowLogger:
             "node_id": node_id,
             "node_type": node_type,
             "inputs": inputs,
+            "process_data": process_data or {},
             "started_at": datetime.now(timezone.utc),
         }
         self._get_pool().submit({"type": "create_node", "data": data})

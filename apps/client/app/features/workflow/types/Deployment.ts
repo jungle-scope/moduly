@@ -3,13 +3,15 @@ export type DeploymentType =
   | 'widget'
   | 'mcp'
   | 'webapp'
-  | 'workflow_node';
+  | 'workflow_node'
+  | 'schedule';
 
 // 입력 변수 스키마 타입
 export interface InputVariable {
   name: string;
   type: string;
   label: string;
+  required?: boolean;
 }
 
 export interface InputSchema {

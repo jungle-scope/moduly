@@ -1,7 +1,6 @@
 'use client';
 
 import { toast } from 'sonner';
-import { useReactFlow } from '@xyflow/react';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
@@ -9,42 +8,15 @@ import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
 import { Play, ChevronLeft, Settings, Pencil } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 
-import {
-  validateVariableName,
-  validateVariableSettings,
-} from '../nodes/start/hooks/useVariableManager';
-import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
 import { workflowApi } from '../../api/workflowApi';
-import { UserInputModal } from '../modals/userInputModal';
-import { ResultModal } from '../modals/ResultModal';
-import { DeploymentModal } from '../modals/DeploymentModal';
-import { DeploymentResultModal } from '../modals/DeploymentResultModal';
-import { InputSchema, OutputSchema } from '../../types/Deployment';
 import { SettingsSidebar } from './SettingsSidebar';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
+import { TestSidebar } from './TestSidebar';
+import { DeploymentFlowModal } from '../deployment/DeploymentFlowModal';
+import type { DeploymentResult } from '../deployment/types';
 import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
 import { appApi } from '@/app/features/app/api/appApi';
 import EditAppModal from '@/app/features/app/components/edit-app-modal';
-
-/** SY.
- * url_slug: 위젯 배포 등 URL이 없는 경우 대비 null
- * auth_secret: 누구나 접근 가능한 Public 배포시 null
- * webAppUrl: 웹 앱 배포 시 공유 링크
- * */
-type DeploymentResult =
-  | {
-      success: true;
-      url_slug: string | null;
-      auth_secret: string | null;
-      version: number;
-      webAppUrl?: string; // 웹 앱 URL (선택적)
-      embedUrl?: string; // 임베딩 URL (선택적)
-      isWorkflowNode?: boolean; // 서브 모듈 배포 여부 (선택적)
-      input_schema?: InputSchema | null;
-      output_schema?: OutputSchema | null;
-    }
-  | { success: false; message: string }
-  | null;
 
 export default function EditorHeader() {
   const router = useRouter();
@@ -61,11 +33,12 @@ export default function EditorHeader() {
     restoreVersion,
     toggleVersionHistory,
     toggleSettings,
+    toggleTestPanel,
     runTrigger,
   } = useWorkflowStore();
-  const { setCenter } = useReactFlow(); // ReactFlow 뷰포트 제어 훅
+  const canPublish = useWorkflowStore((state) => state.canPublish());
+  const startNodeType = useWorkflowStore((state) => state.getStartNodeType());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isExecuting, setIsExecuting] = useState(false);
 
   // Store에서 workflows 가져오기 (appId 조회를 위해)
   const workflows = useWorkflowStore((state) => state.workflows);
@@ -107,20 +80,11 @@ export default function EditorHeader() {
 
   // ... existing state ...
 
-  // 기존 상태
-  const [showModal, setShowModal] = useState(false);
-  const [modalVariables, setModalVariables] = useState<WorkflowVariable[]>([]);
-  const [showResultModal, setShowResultModal] = useState(false);
-  const [executionResult, setExecutionResult] = useState<any>(null);
-
   // 배포 상태
-  const [showDeployModal, setShowDeployModal] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [deploymentResult, setDeploymentResult] =
-    useState<DeploymentResult>(null);
+  const [showDeployFlowModal, setShowDeployFlowModal] = useState(false);
   const [showDeployDropdown, setShowDeployDropdown] = useState(false);
   const [deploymentType, setDeploymentType] = useState<
-    'api' | 'webapp' | 'widget' | 'workflow_node'
+    'api' | 'webapp' | 'widget' | 'workflow_node' | 'schedule'
   >('api'); // 배포 타입 추적
 
   const {
@@ -128,7 +92,6 @@ export default function EditorHeader() {
     hasProviderKey,
     memoryModeDescription,
     toggleMemoryMode,
-    appendMemoryFlag,
     modals: memoryModeModals,
   } = useMemoryMode(router, toast);
 
@@ -151,415 +114,94 @@ export default function EditorHeader() {
   }, [previewingVersion, restoreVersion]);
 
   const handlePublishAsRestAPI = useCallback(() => {
-    setDeploymentType('api'); // REST API 배포
-    setShowDeployModal(true);
+    setDeploymentType('api');
+    setShowDeployFlowModal(true);
   }, []);
 
   const handlePublishAsWebApp = useCallback(() => {
-    setDeploymentType('webapp'); // 웹 앱 배포
-    setShowDeployModal(true);
+    setDeploymentType('webapp');
+    setShowDeployFlowModal(true);
   }, []);
 
   const handlePublishAsWidget = useCallback(() => {
-    setDeploymentType('widget'); // 위젯 배포
-    setShowDeployModal(true);
+    setDeploymentType('widget');
+    setShowDeployFlowModal(true);
   }, []);
 
-  // rest API로 배포
-  const handleDeploySubmit = useCallback(
-    async (description: string) => {
+  const handlePublishAsWorkflowNode = useCallback(() => {
+    setDeploymentType('workflow_node');
+    setShowDeployFlowModal(true);
+  }, []);
+
+  const handlePublishAsSchedule = useCallback(() => {
+    setDeploymentType('schedule');
+    setShowDeployFlowModal(true);
+  }, []);
+
+  // 통합 배포 핸들러
+  const handleDeploy = useCallback(
+    async (description: string): Promise<DeploymentResult> => {
       try {
         if (!activeWorkflow?.appId) {
           throw new Error('App ID를 찾을 수 없습니다.');
         }
 
-        setIsDeploying(true);
-
         const response = await workflowApi.createDeployment({
           app_id: activeWorkflow.appId,
           description,
-          type: 'api',
+          type: deploymentType,
           is_active: true,
         });
-        console.log('[배포 성공] 서버 응답:', response);
 
-        // 성공 결과 모달 표시
-        setDeploymentResult({
+        // 배포 성공 알림 (버전 기록 갱신용)
+        useWorkflowStore.getState().notifyDeploymentComplete();
+
+        // 배포 타입별로 다른 결과 반환
+        const result: DeploymentResult = {
           success: true,
           url_slug: response.url_slug ?? null,
           auth_secret: response.auth_secret ?? null,
           version: response.version,
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
-        });
+          graph_snapshot: response.graph_snapshot ?? null,
+        };
 
-        // 배포 성공 알림 (버전 기록 갱신용)
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        setShowDeployModal(false);
-      } catch (error: any) {
-        console.error('배포 실패:', error);
-
-        // 실패 결과 모달 표시
-        setDeploymentResult({
-          success: false,
-          message:
-            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        });
-        // 실패 시에도 입력 모달 닫기
-        setShowDeployModal(false);
-      } finally {
-        setIsDeploying(false);
-      }
-    },
-    [activeWorkflow?.appId],
-  );
-
-  // 웹 앱으로 배포
-  const handleDeployAsWebApp = useCallback(
-    async (description: string) => {
-      try {
-        if (!activeWorkflow?.appId) {
-          throw new Error('App ID를 찾을 수 없습니다.');
-        }
-
-        setIsDeploying(true);
-
-        const response = await workflowApi.createDeployment({
-          app_id: activeWorkflow.appId,
-          description,
-          type: 'webapp',
-          is_active: true,
-        });
-        console.log('[웹 앱 배포 성공] 서버 응답:', response);
-
-        // 웹 앱 링크 생성
-        const webAppUrl = `${window.location.origin}/shared/${response.url_slug}`;
-
-        // 성공 결과 모달 표시 (공유 링크 포함)
-        setDeploymentResult({
-          success: true,
-          url_slug: response.url_slug ?? null,
-          auth_secret: null, // 웹 앱은 API 키 표시 안 함
-          version: response.version,
-          webAppUrl, // 웹 앱 URL 추가
-          input_schema: response.input_schema ?? null,
-          output_schema: response.output_schema ?? null,
-        });
-
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        setShowDeployModal(false);
-      } catch (error: any) {
-        console.error('웹 앱 배포 실패:', error);
-
-        // 실패 결과 모달 표시
-        setDeploymentResult({
-          success: false,
-          message:
-            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        });
-        setShowDeployModal(false);
-      } finally {
-        setIsDeploying(false);
-      }
-    },
-    [activeWorkflow?.appId],
-  );
-
-  // 웹사이트 위젯으로 배포
-  const handleDeployAsWidget = useCallback(
-    async (description: string) => {
-      try {
-        if (!activeWorkflow?.appId) {
-          throw new Error('App ID를 찾을 수 없습니다.');
-        }
-
-        setIsDeploying(true);
-
-        // 위젯으로 배포
-        const response = await workflowApi.createDeployment({
-          app_id: activeWorkflow.appId,
-          description,
-          type: 'widget',
-          is_active: true,
-        });
-        console.log('[위젯 배포 성공] 서버 응답:', response);
-
-        // 임베딩 채팅 URL
-        const embedUrl = `${window.location.origin}/embed/chat/${response.url_slug}`;
-
-        // 성공 결과 모달 표시 (임베딩 스니펫 포함)
-        setDeploymentResult({
-          success: true,
-          url_slug: response.url_slug ?? null,
-          auth_secret: null,
-          version: response.version,
-          embedUrl, // 임베딩 URL 추가
-          input_schema: response.input_schema ?? null,
-          output_schema: response.output_schema ?? null,
-        });
-
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        setShowDeployModal(false);
-      } catch (error: any) {
-        console.error('위젯 배포 실패:', error);
-
-        setDeploymentResult({
-          success: false,
-          message:
-            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        });
-        setShowDeployModal(false);
-      } finally {
-        setIsDeploying(false);
-      }
-    },
-    [activeWorkflow?.appId],
-  );
-
-  const handlePublishAsWorkflowNode = useCallback(() => {
-    setDeploymentType('workflow_node');
-    setShowDeployModal(true);
-  }, []);
-
-  // 서브 모듈로 배포
-  // 이 기능은 현재 워크플로우를 다른 워크플로우에서 사용할 수 있는 '서브 모듈' 형태로 배포합니다.
-  // 배포된 노드는 '서브 모듈' 카테고리에서 찾을 수 있습니다.
-  const handleDeployAsWorkflowNode = useCallback(
-    async (description: string) => {
-      try {
-        if (!activeWorkflow?.appId) {
-          throw new Error('App ID를 찾을 수 없습니다.');
-        }
-
-        setIsDeploying(true);
-
-        const response = await workflowApi.createDeployment({
-          app_id: activeWorkflow.appId,
-          description,
-          type: 'workflow_node',
-          is_active: true,
-        });
-        console.log('[서브 모듈 배포 성공] 서버 응답:', response);
-
-        setDeploymentResult({
-          success: true,
-          url_slug: response.url_slug ?? null,
-          auth_secret: null,
-          version: response.version,
-          isWorkflowNode: true,
-          input_schema: response.input_schema ?? null,
-          output_schema: response.output_schema ?? null,
-        });
-
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        setShowDeployModal(false);
-      } catch (error: any) {
-        console.error('서브 모듈 배포 실패:', error);
-
-        setDeploymentResult({
-          success: false,
-          message:
-            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        });
-        setShowDeployModal(false);
-      } finally {
-        setIsDeploying(false);
-      }
-    },
-    [workflowId, activeWorkflow?.appId],
-  );
-
-  const handleTestRun = useCallback(async () => {
-    setErrorMsg(null);
-
-    // 1. StartNode 찾기
-    const startNode = nodes.find(
-      (node) =>
-        node.type === 'startNode' ||
-        node.type === 'webhookTrigger' ||
-        node.type === 'scheduleTrigger',
-    );
-    if (!startNode) {
-      const errorContent =
-        '시작 노드를 찾을 수 없습니다. 워크플로우에 입력 노드, 웹훅 트리거, 또는 스케줄 트리거를 추가해주세요.';
-      console.warn('start node가 없습니다.');
-      setErrorMsg(errorContent);
-      return;
-    }
-
-    // 2. 유효성 검사
-    let variables: WorkflowVariable[] = [];
-
-    if (startNode.type === 'startNode') {
-      const data = startNode.data as StartNodeData;
-      variables = data.variables || [];
-      for (const variable of variables) {
-        const otherNames = variables
-          .filter((v) => v.id !== variable.id)
-          .map((v) => v.name);
-        let error = validateVariableName(
-          variable.name,
-          variable.label,
-          otherNames,
-        );
-        if (!error) {
-          error = validateVariableSettings(
-            variable.type,
-            variable.options,
-            variable.maxLength,
-          );
-        }
-        if (error) {
-          const errorContent = `유효성 검사 실패: [${
-            variable.label || variable.name
-          }] ${error}`;
-          console.warn(errorContent);
-          setErrorMsg(errorContent);
-          return;
-        }
-      }
-    } else if (startNode.type === 'webhookTrigger') {
-      // Webhook Trigger인 경우 전체 JSON Body를 입력받음
-      variables = [
-        {
-          id: '__json_payload__',
-          name: '__json_payload__',
-          label: 'JSON Payload (Body)',
-          type: 'paragraph',
-          required: true,
-          placeholder: '{"issue": {"key": "TEST-123"}}',
-        },
-      ];
-    }
-
-    // 3. 변수 저장 후 모달 표시
-    setModalVariables(variables);
-    setShowModal(true);
-  }, [nodes]);
-
-  const handleModalClose = useCallback(() => {
-    setShowModal(false);
-  }, []);
-
-  const handleModalSubmit = useCallback(
-    async (inputs: Record<string, any> | FormData) => {
-      setShowModal(false);
-
-      // 워크플로우 실행
-      try {
-        setIsExecuting(true);
-
-        const startNode = nodes.find(
-          (node) =>
-            node.type === 'startNode' ||
-            node.type === 'webhookTrigger' ||
-            node.type === 'scheduleTrigger',
-        );
-
-        if (startNode?.type === 'webhookTrigger') {
-          // Webhook인 경우 __json_payload__를 파싱해서 inputs로 사용
-          try {
-            const rawJson =
-              inputs instanceof FormData
-                ? (inputs.get('__json_payload__') as string)
-                : inputs['__json_payload__'];
-            inputs = JSON.parse(rawJson);
-          } catch (e) {
-            console.error('JSON 파싱 실패:', e);
-            toast.error('유효하지 않은 JSON 형식입니다.');
-            return;
+        // 배포 타입별 추가 정보
+        if (deploymentType === 'webapp') {
+          result.webAppUrl = `${window.location.origin}/shared/${response.url_slug}`;
+        } else if (deploymentType === 'widget') {
+          result.embedUrl = `${window.location.origin}/embed/chat/${response.url_slug}`;
+        } else if (deploymentType === 'workflow_node') {
+          result.isWorkflowNode = true;
+          result.auth_secret = null; // 서브 모듈은 API 키 표시 안 함
+        } else if (deploymentType === 'schedule') {
+          // Schedule Trigger 노드에서 cron 정보 추출
+          const scheduleNode = nodes.find((n) => n.type === 'scheduleTrigger');
+          if (scheduleNode) {
+            const data = scheduleNode.data as any;
+            result.cronExpression = data.cron_expression || '0 9 * * *';
+            result.timezone = data.timezone || 'Asia/Seoul';
           }
         }
 
-        const payload = appendMemoryFlag(inputs);
+        return result;
+      } catch (error: any) {
+        console.error(`[${deploymentType} 배포 실패]:`, error);
 
-        // 1. 초기화: 모든 노드 상태 초기화
-        const initialNodes = nodes.map((node) => ({
-          ...node,
-          data: { ...node.data, status: 'idle' },
-        })) as unknown as any[];
-
-        useWorkflowStore.getState().setNodes(initialNodes);
-
-        let finalResult: any = null;
-
-        // 2. 스트리밍 실행
-        // 여기서 async 콜백을 사용하여 의도적인 지연(Delay)을 만듭니다.
-        await workflowApi.executeWorkflowStream(
-          workflowId,
-          payload,
-          async (event) => {
-            // 시각적 피드백을 위한 지연 (너무 빠르면 사용자가 인지하기 힘듦)
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            const { type, data } = event;
-
-            if (type === 'node_start') {
-              useWorkflowStore
-                .getState()
-                .updateNodeData(data.node_id, { status: 'running' });
-
-              // 🎯 실행 중인 노드로 화면 중심 이동 및 줌인
-              const latestNodes = useWorkflowStore.getState().nodes;
-              const currentNode = latestNodes.find(
-                (n) => n.id === data.node_id,
-              );
-              if (currentNode) {
-                setCenter(
-                  currentNode.position.x +
-                    (currentNode.measured?.width || 200) / 2,
-                  currentNode.position.y +
-                    (currentNode.measured?.height || 100) / 2,
-                  { zoom: 1.2, duration: 800 }, // 0.8초 동안 부드럽게 이동
-                );
-              }
-            } else if (type === 'node_finish') {
-              useWorkflowStore
-                .getState()
-                .updateNodeData(data.node_id, { status: 'success' }); // 실패 처리 등이 필요하면 여기에 추가
-
-              // 🍞 노드 실행 완료 토스트 메시지
-              toast.success(`[${data.node_type}] 실행 완료`, {
-                description: `결과: ${JSON.stringify(data.output).slice(0, 50)}${JSON.stringify(data.output).length > 50 ? '...' : ''}`,
-                duration: 2000,
-              });
-            } else if (type === 'workflow_finish') {
-              finalResult = data;
-            } else if (type === 'error') {
-              if (data.node_id) {
-                useWorkflowStore
-                  .getState()
-                  .updateNodeData(data.node_id, { status: 'failure' });
-              }
-              // Toast 알림 추가
-              toast.error(`워크플로우 실행 실패: ${data.message}`);
-              throw new Error(data.message);
-            }
-          },
-        );
-
-        // 결과 모달 표시
-        if (finalResult) {
-          setExecutionResult(finalResult);
-          setShowResultModal(true);
-        }
-      } catch (error) {
-        const errorContent =
-          error instanceof Error
-            ? `워크플로우 실행 실패: ${error.message}`
-            : '워크플로우 실행 중 알 수 없는 오류가 발생했습니다.';
-        console.error('[테스트 실행 실패]', error);
-        setErrorMsg(errorContent);
-      } finally {
-        setIsExecuting(false);
+        return {
+          success: false,
+          message:
+            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
+        };
       }
     },
-    [appendMemoryFlag, nodes, setCenter, workflowId],
+    [deploymentType, activeWorkflow?.appId, nodes],
   );
+
+  const handleTestRun = useCallback(() => {
+    toggleTestPanel();
+  }, [toggleTestPanel]);
 
   // [NEW] 원격 실행 트리거 효과
   const lastRunTriggerRef = useRef(runTrigger);
@@ -655,24 +297,24 @@ export default function EditorHeader() {
         {/* Test (Preview) */}
         <button
           onClick={handleTestRun}
-          disabled={isExecuting}
-          className={`px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border ${
-            isExecuting
-              ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-              : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
-          }`}
+          className="px-3.5 py-1.5 flex items-center gap-1.5 rounded-lg transition-colors border bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
         >
           <Play className="w-3.5 h-3.5" />
-          <span className="text-[13px] font-medium">
-            {isExecuting ? '실행 중...' : '테스트'}
-          </span>
+          <span className="text-[13px] font-medium">테스트</span>
         </button>
 
         {/* Publish */}
-        <div className="relative">
+        <div className="relative group">
           <button
-            onClick={() => setShowDeployDropdown(!showDeployDropdown)}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px]"
+            onClick={() =>
+              canPublish && setShowDeployDropdown(!showDeployDropdown)
+            }
+            disabled={!canPublish}
+            className={`px-3.5 py-1.5 font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px] ${
+              !canPublish
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             게시하기
             <svg
@@ -690,6 +332,14 @@ export default function EditorHeader() {
             </svg>
           </button>
 
+          {/* Custom Tooltip for Disabled State */}
+          {!canPublish && (
+            <div className="invisible group-hover:visible absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+              시작 노드가 정확히 1개 있어야 게시할 수 있습니다.
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 border-4 border-transparent border-b-gray-900"></div>
+            </div>
+          )}
+
           {/* Deploy Dropdown */}
           {showDeployDropdown && (
             <>
@@ -698,66 +348,106 @@ export default function EditorHeader() {
                 onClick={() => setShowDeployDropdown(false)}
               />
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
-                {/* ... existing dropdown items ... */}
-                <button
-                  onClick={() => {
-                    setShowDeployDropdown(false);
-                    handlePublishAsRestAPI();
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">
-                    REST API로 배포
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    API 키로 접근
-                  </div>
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => {
-                    setShowDeployDropdown(false);
-                    handlePublishAsWebApp();
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">
-                    웹 앱으로 배포
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    링크 공유로 누구나 사용
-                  </div>
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => {
-                    setShowDeployDropdown(false);
-                    handlePublishAsWidget();
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">
-                    웹사이트에 챗봇 추가하기
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    복사 한 번으로 위젯 연동 완료
-                  </div>
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => {
-                    setShowDeployDropdown(false);
-                    handlePublishAsWorkflowNode();
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">
-                    서브 모듈로 배포
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    다른 워크플로우에서 재사용
-                  </div>
-                </button>
+                {/* startNode: 모든 배포 옵션 표시 */}
+                {startNodeType === 'startNode' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowDeployDropdown(false);
+                        handlePublishAsRestAPI();
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        REST API로 배포
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        API 키로 접근
+                      </div>
+                    </button>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={() => {
+                        setShowDeployDropdown(false);
+                        handlePublishAsWebApp();
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        웹 앱으로 배포
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        링크 공유로 누구나 사용
+                      </div>
+                    </button>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={() => {
+                        setShowDeployDropdown(false);
+                        handlePublishAsWidget();
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        웹사이트에 챗봇 추가하기
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        복사 한 번으로 위젯 연동 완료
+                      </div>
+                    </button>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={() => {
+                        setShowDeployDropdown(false);
+                        handlePublishAsWorkflowNode();
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        서브 모듈로 배포
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        다른 모듈에서 재사용
+                      </div>
+                    </button>
+                  </>
+                )}
+
+                {/* webhookTrigger: 웹훅 활성화만 표시 */}
+                {startNodeType === 'webhookTrigger' && (
+                  <button
+                    onClick={() => {
+                      setShowDeployDropdown(false);
+                      handlePublishAsRestAPI(); // 웹훅도 REST API 배포 사용
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      웹훅 트리거 활성화
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      외부 서비스 트리거를 통해 모듈 실행
+                    </div>
+                  </button>
+                )}
+
+                {/* scheduleTrigger: 스케줄 활성화만 표시 */}
+                {startNodeType === 'scheduleTrigger' && (
+                  <button
+                    onClick={() => {
+                      setShowDeployDropdown(false);
+                      handlePublishAsSchedule();
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      알람 트리거 활성화
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      정해진 시간에 자동 실행
+                    </div>
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -788,51 +478,18 @@ export default function EditorHeader() {
         </div>
       )}
 
-      {/* 배포 모달 */}
-      {showDeployModal && (
-        <DeploymentModal
-          onClose={() => setShowDeployModal(false)}
-          onSubmit={
-            deploymentType === 'api'
-              ? handleDeploySubmit
-              : deploymentType === 'webapp'
-                ? handleDeployAsWebApp
-                : deploymentType === 'widget'
-                  ? handleDeployAsWidget
-                  : handleDeployAsWorkflowNode
-          }
-          isDeploying={isDeploying}
-        />
-      )}
-
-      {/* 배포 결과 모달 */}
-      {deploymentResult && (
-        <DeploymentResultModal
-          result={deploymentResult}
-          onClose={() => setDeploymentResult(null)}
-        />
-      )}
-
-      {/* 사용자 입력 모달 */}
-      {showModal && (
-        <UserInputModal
-          variables={modalVariables}
-          onClose={handleModalClose}
-          onSubmit={handleModalSubmit}
-        />
-      )}
-
-      {/* 실행 결과 모달 */}
-      {showResultModal && executionResult && (
-        <ResultModal
-          result={executionResult}
-          onClose={() => setShowResultModal(false)}
-        />
-      )}
+      {/* Deployment Flow Modal */}
+      <DeploymentFlowModal
+        isOpen={showDeployFlowModal}
+        onClose={() => setShowDeployFlowModal(false)}
+        deploymentType={deploymentType}
+        onDeploy={handleDeploy}
+      />
 
       {/* 버전 기록 사이드바 */}
       <VersionHistorySidebar />
       <SettingsSidebar />
+      <TestSidebar />
 
       {/* 미리보기 모드 배너 */}
       {previewingVersion && (

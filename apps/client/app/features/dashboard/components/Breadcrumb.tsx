@@ -21,7 +21,7 @@ export default function Breadcrumb() {
         '/dashboard/mymodule': '내 모듈',
         '/dashboard/explore': '마켓플레이스',
         '/dashboard/statistics': '통계',
-        '/dashboard/knowledge': '참고자료',
+        '/dashboard/knowledge': '지식 관리',
         '/dashboard/settings': '설정',
         '/modules': '모듈',
       };

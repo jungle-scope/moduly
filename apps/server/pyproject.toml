@@ -13,3 +13,10 @@ ignore = ["E501", "W292"]
 # 포맷터 설정: 쌍따옴표 사용 및 표준 들여쓰기
 quote-style = "double"
 indent-style = "space"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/env.py" = ["F401"]

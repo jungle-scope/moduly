@@ -56,6 +56,10 @@ type WorkflowState = {
   previewingVersion: DeploymentResponse | null;
   lastDeployedAt: Date | null; // 배포 완료 시점 (리스트 갱신 트리거)
 
+  // === 테스트 패널 상태 ===
+  isTestPanelOpen: boolean;
+  toggleTestPanel: () => void;
+
   // === 그래프 데이터 (ReactFlow) ===
   nodes: Node[];
   edges: Edge[];
@@ -101,6 +105,15 @@ type WorkflowState = {
     id: string,
     viewport: { x: number; y: number; zoom: number },
   ) => void;
+
+  // === 시작노드 검증 핼퍼 ===
+  getStartNodeType: () =>
+    | 'startNode'
+    | 'webhookTrigger'
+    | 'scheduleTrigger'
+    | null;
+  getStartNodeCount: () => number;
+  canPublish: () => boolean;
 
   // === API 동기화 액션 ===
   setFeatures: (features: Features) => void;
@@ -152,6 +165,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   isVersionHistoryOpen: false,
   previewingVersion: null,
   lastDeployedAt: null,
+
+  // === 테스트 패널 상태 ===
+  isTestPanelOpen: false,
 
   runTrigger: 0,
   triggerWorkflowRun: () =>
@@ -230,12 +246,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set((state) => ({
       isSettingsOpen: !state.isSettingsOpen,
       isVersionHistoryOpen: false,
+      isTestPanelOpen: false,
     })),
 
   toggleVersionHistory: () =>
     set((state) => ({
       isVersionHistoryOpen: !state.isVersionHistoryOpen,
       isSettingsOpen: false,
+      isTestPanelOpen: false,
+    })),
+
+  toggleTestPanel: () =>
+    set((state) => ({
+      isTestPanelOpen: !state.isTestPanelOpen,
+      isSettingsOpen: false,
+      isVersionHistoryOpen: false,
     })),
 
   previewVersion: (version) => {
@@ -392,6 +417,35 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       w.id === id ? { ...w, viewport } : w,
     );
     set({ workflows: updatedWorkflows });
+  },
+
+  // === 시작노드 검증 핼퍼 ===
+  getStartNodeType: () => {
+    const nodes = get().nodes;
+    const startNode = nodes.find(
+      (n) =>
+        n.type === 'startNode' ||
+        n.type === 'webhookTrigger' ||
+        n.type === 'scheduleTrigger',
+    );
+    return startNode
+      ? (startNode.type as 'startNode' | 'webhookTrigger' | 'scheduleTrigger')
+      : null;
+  },
+
+  getStartNodeCount: () => {
+    const nodes = get().nodes;
+    return nodes.filter(
+      (n) =>
+        n.type === 'startNode' ||
+        n.type === 'webhookTrigger' ||
+        n.type === 'scheduleTrigger',
+    ).length;
+  },
+
+  canPublish: () => {
+    const count = get().getStartNodeCount();
+    return count === 1;
   },
 
   // === API 동기화 액션 ===

@@ -791,12 +791,12 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                     className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
                     onClick={() => insertVariable(v.name)}
                   >
-                    {v.name || '(No Name)'}
+                    {v.name || '(이름 없음)'}
                   </button>
                 ))
               ) : (
                 <div className="px-4 py-2 text-sm text-gray-400">
-                  등록된 변수가 없습니다
+                  등록된 입력변수가 없습니다.
                 </div>
               )}
             </div>
@@ -823,7 +823,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           {validationErrors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
               <p className="font-semibold mb-1">
-                ⚠️ 등록되지 않은 변수가 감지되었습니다:
+                ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
               </p>
               <ul className="list-disc list-inside">
                 {validationErrors.map((err, i) => (
@@ -831,7 +831,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                 ))}
               </ul>
               <p className="mt-1 text-[10px] text-red-500">
-                Referenced Variables 섹션에 변수를 등록해주세요.
+                입력변수 섹션에 변수를 등록해주세요.
               </p>
             </div>
           )}

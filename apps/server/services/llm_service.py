@@ -24,10 +24,10 @@ from services.llm_client.factory import get_llm_client
 
 class LLMService:
     """
-    LLM 공급자(Provider) 및 인증(Credential) 관리 서비스.
+    LLM 공급자(프로바이더) 및 인증(크리덴셜) 관리 서비스.
     새로운 아키텍처:
-    - Provider는 시스템 정의 (전역)
-    - Credential은 사용자 정의 (사용자별)
+    - 프로바이더는 시스템 정의 (전역)
+    - 크리덴셜은 사용자 정의 (사용자별)
     """
 
     # 마이그레이션/개발용 플레이스홀더 유저 (인증 없음)
@@ -50,7 +50,7 @@ class LLMService:
         "claude-3-haiku-20240307": "Claude 3 Haiku",
     }
 
-    # [NEW] 기본 가격 설정 (USD per 1M tokens -> 1K 단위 변환)
+    # [신규] 기본 가격 설정 (1M 토큰 기준 미화를 1K 기준으로 환산)
     # 가격 출처: https://openai.com/api/pricing/, https://anthropic.com/pricing
     # 아래 가격은 1K 토큰 기준입니다. (예: $5/1M -> 0.005/1K)
     KNOWN_MODEL_PRICES = {
@@ -70,7 +70,7 @@ class LLMService:
         "gpt-5-search-api": {"input": 0.0025, "output": 0.010},
         "gpt-5-search-api-2025-10-14": {"input": 0.0025, "output": 0.010},
         
-        # --- GPT-5.1 Series ---
+        # --- GPT-5.1 시리즈 ---
         "gpt-5.1": {"input": 0.004, "output": 0.012},
         "gpt-5.1-2025-11-13": {"input": 0.004, "output": 0.012},
         "gpt-5.1-chat-latest": {"input": 0.004, "output": 0.012},
@@ -78,14 +78,14 @@ class LLMService:
         "gpt-5.1-codex-mini": {"input": 0.001, "output": 0.004},
         "gpt-5.1-codex-max": {"input": 0.010, "output": 0.040},
         
-        # --- GPT-5.2 Series ---
+        # --- GPT-5.2 시리즈 ---
         "gpt-5.2": {"input": 0.003, "output": 0.010},
         "gpt-5.2-2025-12-11": {"input": 0.003, "output": 0.010},
         "gpt-5.2-pro": {"input": 0.010, "output": 0.040},
         "gpt-5.2-pro-2025-12-11": {"input": 0.010, "output": 0.040},
         "gpt-5.2-chat-latest": {"input": 0.003, "output": 0.010},
         
-        # --- GPT-4.1 Series (2025) ---
+        # --- GPT-4.1 시리즈 (2025) ---
         "gpt-4.1": {"input": 0.002, "output": 0.008},
         "gpt-4.1-2025-04-14": {"input": 0.002, "output": 0.008},
         "gpt-4.1-mini": {"input": 0.0004, "output": 0.0016},
@@ -93,24 +93,24 @@ class LLMService:
         "gpt-4.1-nano": {"input": 0.0001, "output": 0.0004},
         "gpt-4.1-nano-2025-04-14": {"input": 0.0001, "output": 0.0004},
         
-        # --- GPT-4o Series ---
+        # --- GPT-4o 시리즈 ---
         "gpt-4o": {"input": 0.0025, "output": 0.010},
         "gpt-4o-2024-05-13": {"input": 0.005, "output": 0.015},
         "gpt-4o-2024-08-06": {"input": 0.0025, "output": 0.010},
         "gpt-4o-2024-11-20": {"input": 0.0025, "output": 0.010},
         "chatgpt-4o-latest": {"input": 0.005, "output": 0.015},
         
-        # --- GPT-4o Mini Series ---
+        # --- GPT-4o Mini 시리즈 ---
         "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
         "gpt-4o-mini-2024-07-18": {"input": 0.00015, "output": 0.0006},
         
-        # --- GPT-4o Search ---
+        # --- GPT-4o 검색 ---
         "gpt-4o-search-preview": {"input": 0.0025, "output": 0.010},
         "gpt-4o-search-preview-2025-03-11": {"input": 0.0025, "output": 0.010},
         "gpt-4o-mini-search-preview": {"input": 0.00015, "output": 0.0006},
         "gpt-4o-mini-search-preview-2025-03-11": {"input": 0.00015, "output": 0.0006},
         
-        # --- GPT-4o Audio/Realtime ---
+        # --- GPT-4o 오디오/실시간 ---
         "gpt-4o-audio-preview": {"input": 0.0025, "output": 0.010},
         "gpt-4o-audio-preview-2024-12-17": {"input": 0.0025, "output": 0.010},
         "gpt-4o-audio-preview-2025-06-03": {"input": 0.0025, "output": 0.010},
@@ -122,7 +122,7 @@ class LLMService:
         "gpt-4o-mini-realtime-preview": {"input": 0.0006, "output": 0.0024},
         "gpt-4o-mini-realtime-preview-2024-12-17": {"input": 0.0006, "output": 0.0024},
         
-        # --- GPT-4o Transcribe/TTS ---
+        # --- GPT-4o 전사/음성합성 ---
         "gpt-4o-transcribe": {"input": 0.0025, "output": 0.0},
         "gpt-4o-transcribe-diarize": {"input": 0.004, "output": 0.0},
         "gpt-4o-mini-transcribe": {"input": 0.00015, "output": 0.0},
@@ -132,7 +132,7 @@ class LLMService:
         "gpt-4o-mini-tts-2025-03-20": {"input": 0.0, "output": 0.0006},
         "gpt-4o-mini-tts-2025-12-15": {"input": 0.0, "output": 0.0006},
         
-        # --- Reasoning Models (O-Series) ---
+        # --- 추론 모델 (O 시리즈) ---
         "o1": {"input": 0.015, "output": 0.060},
         "o1-2024-12-17": {"input": 0.015, "output": 0.060},
         "o1-pro": {"input": 0.150, "output": 0.600},
@@ -148,14 +148,14 @@ class LLMService:
         "o4-mini": {"input": 0.0011, "output": 0.0044},
         "o4-mini-2025-04-16": {"input": 0.0011, "output": 0.0044},
         
-        # --- GPT-4 Turbo ---
+        # --- GPT-4 터보 ---
         "gpt-4-turbo": {"input": 0.01, "output": 0.03},
         "gpt-4-turbo-2024-04-09": {"input": 0.01, "output": 0.03},
         "gpt-4-turbo-preview": {"input": 0.01, "output": 0.03},
         "gpt-4-0125-preview": {"input": 0.01, "output": 0.03},
         "gpt-4-1106-preview": {"input": 0.01, "output": 0.03},
         
-        # --- GPT-4 Legacy ---
+        # --- GPT-4 레거시 ---
         "gpt-4": {"input": 0.03, "output": 0.06},
         "gpt-4-0613": {"input": 0.03, "output": 0.06},
         "gpt-4-0314": {"input": 0.03, "output": 0.06},
@@ -168,7 +168,7 @@ class LLMService:
         "gpt-3.5-turbo-instruct": {"input": 0.0015, "output": 0.002},
         "gpt-3.5-turbo-instruct-0914": {"input": 0.0015, "output": 0.002},
         
-        # --- GPT Audio/Realtime ---
+        # --- GPT 오디오/실시간 ---
         "gpt-audio": {"input": 0.005, "output": 0.020},
         "gpt-audio-2025-08-28": {"input": 0.005, "output": 0.020},
         "gpt-audio-mini": {"input": 0.0006, "output": 0.0024},
@@ -180,7 +180,7 @@ class LLMService:
         "gpt-realtime-mini-2025-10-06": {"input": 0.0006, "output": 0.0024},
         "gpt-realtime-mini-2025-12-15": {"input": 0.0006, "output": 0.0024},
         
-        # --- Legacy/Base Models ---
+        # --- 레거시/베이스 모델 ---
         "davinci-002": {"input": 0.002, "output": 0.002},
         "babbage-002": {"input": 0.0004, "output": 0.0004},
         
@@ -191,7 +191,7 @@ class LLMService:
         
         # ==================== Anthropic 모델 ====================
         
-        # --- Claude 3.5 Series ---
+        # --- Claude 3.5 시리즈 ---
         "claude-3-5-opus": {"input": 0.015, "output": 0.075},     # $15 / $75
         "claude-3-5-opus-latest": {"input": 0.015, "output": 0.075},
         "claude-3-5-sonnet": {"input": 0.003, "output": 0.015},   # $3 / $15
@@ -202,35 +202,35 @@ class LLMService:
         "claude-3-5-haiku-latest": {"input": 0.00025, "output": 0.00125},
         "claude-3-5-haiku-20241022": {"input": 0.00025, "output": 0.00125},
         
-        # --- Claude 3 Series ---
+        # --- Claude 3 시리즈 ---
         "claude-3-opus-20240229": {"input": 0.015, "output": 0.075},
         "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015},
         "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
         
-        # --- Legacy ---
+        # --- 레거시 ---
         "claude-2.1": {"input": 0.008, "output": 0.024},
         "claude-2.0": {"input": 0.008, "output": 0.024},
         "claude-instant-1.2": {"input": 0.0008, "output": 0.0024},
         
         # ==================== Google 모델 (2026 가격) ====================
-        # 기본 가격 (128k context 이하). 128k 초과 시 가격 2배 (아직 미반영).
+        # 기본 가격 (128k 컨텍스트 이하). 128k 초과 시 가격 2배 (아직 미반영).
         
-        # --- Gemini 3 Series ---
+        # --- Gemini 3 시리즈 ---
         "gemini-3-pro": {"input": 0.002, "output": 0.012},  # $2.00 / $12.00
         "gemini-3-flash": {"input": 0.0003, "output": 0.0025},  # $0.30 / $2.50
         
-        # --- Gemini 1.5 Series ---
-        "gemini-1.5-pro": {"input": 0.00125, "output": 0.010},  # $1.25 / $10.00 (Updated)
+        # --- Gemini 1.5 시리즈 ---
+        "gemini-1.5-pro": {"input": 0.00125, "output": 0.010},  # $1.25 / $10.00 (업데이트)
         "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003},  # $0.075 / $0.30
         "gemini-1.5-flash-8b": {"input": 0.0000375, "output": 0.00015},  # $0.0375 / $0.15
         
-        # --- Gemini 2.0 / Experimental ---
+        # --- Gemini 2.0 / 실험 ---
         "gemini-2.0-flash-exp": {"input": 0.0001, "output": 0.0004},
         
-        # --- Legacy ---
+        # --- 레거시 ---
         "gemini-1.0-pro": {"input": 0.0005, "output": 0.0015}, 
         
-        # --- Embeddings ---
+        # --- 임베딩 ---
         "text-embedding-004": {"input": 0.000025, "output": 0.0},
     }
 
@@ -243,15 +243,17 @@ class LLMService:
     @staticmethod
     def _fetch_remote_models(base_url: str, api_key: str, provider_type: str) -> List[Dict[str, Any]]:
         """
-        Fetch available models from the provider API.
-        Returns a list of raw model dicts from the provider.
+        공급자 API에서 사용 가능한 모델 목록을 조회합니다.
+        공급자에서 내려준 원본 모델 딕셔너리 리스트를 반환합니다.
         """
         remote_models = []
         remote_models = []
         
         provider = provider_type.lower()
+        if not base_url:
+            raise ValueError(f"Provider {provider_type} has no base_url configured.")
         
-        # Google supports OpenAI-compatible /models endpoint validation
+        # Google은 OpenAI 호환 /models 엔드포인트 검증을 지원
         if provider in ["openai", "google"]:
             url = base_url.rstrip("/") + "/models"
             try:
@@ -262,21 +264,21 @@ class LLMService:
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    # OpenAI returns { "data": [ { "id": "model-id", ... }, ... ] }
+                    # OpenAI는 { "data": [ { "id": "model-id", ... }, ... ] } 형식으로 반환
                     remote_models = data.get("data", [])
                 elif resp.status_code in [401, 403]:
-                    # Explicitly raise error for auth failure
+                    # 인증 실패는 명시적으로 에러 처리
                     raise ValueError(f"유효하지 않은 API Key입니다. 정확한 키를 입력했는지 확인해주세요. (Provider: {provider})")
                 else:
-                    # Treat other errors as failure during registration
+                    # 그 외 상태 코드는 등록 단계 실패로 처리
                     raise ValueError(f"Failed to fetch models from {provider}: {resp.status_code} {resp.text}")
             except ValueError:
-                raise # Re-raise known ValueErrors
+                raise  # 알려진 ValueError는 그대로 전달
             except Exception as e:
-                # Catch network/timeout errors
+                # 네트워크/타임아웃 오류 처리
                 raise ValueError(f"Network error verifying {provider} key: {str(e)}")
 
-        # Anthropic
+        # Anthropic (앤트로픽)
         elif provider == "anthropic":
             url = base_url.rstrip("/") + "/models"
             try:
@@ -290,7 +292,7 @@ class LLMService:
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    # Anthropic returns { "data": [ { "id": "claude-...", ... }, ... ] }
+                    # Anthropic은 { "data": [ { "id": "claude-...", ... }, ... ] } 형식으로 반환
                     remote_models = data.get("data", [])
                 elif resp.status_code in [401, 403]:
                     raise ValueError(f"유효하지 않은 API Key입니다. 정확한 키를 입력했는지 확인해주세요. (Provider: Anthropic)")
@@ -301,10 +303,10 @@ class LLMService:
             except Exception as e:
                 raise ValueError(f"Network error verifying Anthropic key: {str(e)}")
 
-        # LlamaParse
+        # LlamaParse (라마파스)
         elif provider == "llamaparse":
-            # LlamaCloud API Validation (Check projects access)
-            # base_url is typically https://api.cloud.llamaindex.ai
+            # LlamaCloud API 검증 (프로젝트 접근 확인)
+            # base_url은 보통 https://api.cloud.llamaindex.ai
             url = base_url.rstrip("/") + "/api/v1/projects"
             try:
                 resp = requests.get(
@@ -313,8 +315,8 @@ class LLMService:
                     timeout=10,
                 )
                 if resp.status_code == 200:
-                    # Authentication successful
-                    # LlamaParse doesn't provide "models" for LLM nodes, so return empty
+                    # 인증 성공
+                    # LlamaParse는 LLM 노드용 "models"를 제공하지 않으므로 빈 리스트 반환
                     remote_models = []
                 elif resp.status_code in [401, 403]:
                     raise ValueError(f"유효하지 않은 API Key입니다. 정확한 키를 입력했는지 확인해주세요. (Provider: LlamaParse)")
@@ -324,11 +326,11 @@ class LLMService:
                 raise
             except Exception as e:
                 raise ValueError(f"Network error verifying LlamaParse key: {str(e)}")
-        # For now, just return empty, but ideally we should validate if we support them.
+        # 현재는 빈 리스트를 반환하지만, 추후 지원 여부 검증 로직이 필요함.
         
         if not remote_models and provider in ["openai", "google", "anthropic"]:
-             # If we got 200 OK but no models, that's suspicious but technically success.
-             # However, usually there should be models.
+             # 200 OK인데 모델이 없다면 이상하지만, 기술적으로는 성공 처리
+             # 일반적으로는 모델이 있어야 함
              pass
 
         return remote_models
@@ -355,7 +357,7 @@ class LLMService:
             # 친화적인 이름 매핑이 있으면 적용, 없으면 ID 대문자화 등 사용
             display_name = LLMService.MODEL_DISPLAY_NAMES.get(clean_id, clean_id)
             
-            # [NEW] 기본 가격 결정
+            # [신규] 기본 가격 결정
             pricing = LLMService.KNOWN_MODEL_PRICES.get(clean_id)
             input_price = pricing["input"] if pricing else None
             output_price = pricing["output"] if pricing else None
@@ -383,28 +385,28 @@ class LLMService:
                     db.add(model)
                 synced_models.append(model)
             else:
-                # Create new model
-                # 모델 ID 기반 모델 타입 감지
+                # 신규 모델 생성
+                # 모델 ID 기반으로 타입 감지
                 mid_lower = mid.lower()
                 m_type = "chat"  # 기본값
                 
-                # Embedding 모델
+                # 임베딩 모델
                 if "embedding" in mid_lower:
                     m_type = "embedding"
-                # Audio 모델 (TTS, Whisper, Audio)
+                # 오디오 모델 (TTS, Whisper, Audio)
                 elif "tts" in mid_lower or "whisper" in mid_lower or "audio" in mid_lower:
                     m_type = "audio"
-                # Image 생성 모델
+                # 이미지 생성 모델
                 elif "dall-e" in mid_lower or "image" in mid_lower:
                     m_type = "image"
-                # Realtime 모델
+                # 실시간 모델
                 elif "realtime" in mid_lower:
                     m_type = "realtime"
-                # Moderation 모델
+                # 모더레이션 모델
                 elif "moderation" in mid_lower:
                     m_type = "moderation"
-                # Chat 모델 (gpt, o1, o3, claude, gemini 등)
-                # else: 기본값 "chat" 유지
+                # 채팅 모델 (gpt, o1, o3, claude, gemini 등)
+                # 그 외: 기본값 "chat" 유지
                 
                 # 동적 발견 시 기본 컨텍스트 윈도우는 알 수 없으므로, 안전한 기본값 또는 특정 규칙 사용
                 ctx = 4096
@@ -414,50 +416,51 @@ class LLMService:
                 new_model = LLMModel(
                     provider_id=provider.id,
                     model_id_for_api_call=mid,
-                    name=display_name, # Use cleaned name
+                    name=display_name,  # 정리된 이름 사용
                     type=m_type,
                     context_window=ctx,
                     is_active=True,
                     model_metadata=rm,
-                    input_price_1k=input_price, # [NEW]
-                    output_price_1k=output_price # [NEW]
+                    input_price_1k=input_price,  # 신규
+                    output_price_1k=output_price,  # 신규
                 )
                 db.add(new_model)
                 synced_models.append(new_model)
         
-        db.flush() # Flush to get IDs for new models
+        db.flush()  # 신규 모델 ID 확보용 flush
         return synced_models
 
 
     @staticmethod
     def get_system_providers(db: Session) -> List[LLMProviderResponse]:
-        """List all system providers."""
+        """시스템 정의 프로바이더 목록 조회."""
         providers = db.query(LLMProvider).options(joinedload(LLMProvider.models)).all()
         return [LLMProviderResponse.model_validate(p) for p in providers]
 
     @staticmethod
     def get_user_credentials(db: Session, user_id: uuid.UUID) -> List[LLMCredentialResponse]:
-        """List credentials for a user."""
+        """사용자의 유효한 크리덴셜 목록 조회."""
         creds = db.query(LLMCredential).filter(
-            LLMCredential.user_id == user_id
+            LLMCredential.user_id == user_id,
+            LLMCredential.is_valid == True,
         ).all()
         return [LLMCredentialResponse.model_validate(c) for c in creds]
 
     @staticmethod
     def register_credential(db: Session, user_id: uuid.UUID, request: LLMCredentialCreate) -> LLMCredentialResponse:
         """
-        Register a new credential for a user.
-        Validates API Key with provider and syncs models.
+        사용자의 새 크리덴셜을 등록합니다.
+        프로바이더 API 키 검증과 모델 동기화를 함께 수행합니다.
         """
-        # 1. Get Provider
+        # 1. 프로바이더 조회
         provider = db.query(LLMProvider).filter(LLMProvider.id == request.provider_id).first()
         if not provider:
             raise ValueError(f"Provider {request.provider_id} not found")
         
-        # 2. Validate API Key (and fetch models)
+        # 2. API 키 검증 및 모델 조회
         remote_models = LLMService._fetch_remote_models(provider.base_url, request.api_key, provider.name)
         
-        # 3. Create Credential
+        # 3. 크리덴셜 생성
         config_json = json.dumps({
             "apiKey": request.api_key,
             "baseUrl": provider.base_url 
@@ -476,16 +479,16 @@ class LLMService:
         db.add(new_cred)
         db.flush() 
         
-        # 4. Sync Models to DB
+        # 4. 모델을 DB와 동기화
         db_models = LLMService._sync_models_to_db(db, provider, remote_models)
         
-        # 5. Map Credential to Models
+        # 5. 크리덴셜-모델 매핑
         for m in db_models:
-            # Check if mapping exists? (Unlikely for new cred)
+            # 기존 매핑이 있는지 확인 (신규 크리덴셜이면 거의 없음)
             mapping = LLMRelCredentialModel(
                 credential_id=new_cred.id,
                 model_id=m.id,
-                is_verified=True # Validated via _fetch_remote_models
+                is_verified=True  # _fetch_remote_models 검증 결과
             )
             db.add(mapping)
             
@@ -495,7 +498,7 @@ class LLMService:
 
     @staticmethod
     def delete_credential(db: Session, credential_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-        """Delete a credential if it belongs to the user."""
+        """크리덴셜을 실제 삭제하지 않고 비활성화 처리."""
         cred = db.query(LLMCredential).filter(
             LLMCredential.id == credential_id,
             LLMCredential.user_id == user_id
@@ -503,8 +506,8 @@ class LLMService:
         
         if not cred:
             return False
-            
-        db.delete(cred)
+
+        cred.is_valid = False
         db.commit()
         return True
 
@@ -512,45 +515,37 @@ class LLMService:
     @staticmethod
     def get_client_for_user(db: Session, user_id: uuid.UUID, model_id: str):
         """
-        Find a valid credential for the user that supports the given model_id.
-        Priority:
-        1. Check llm_rel_credential_models for explicit permission (TODO)
-        2. Fallback: Use any valid credential for the provider that owns this model_id.
+        주어진 model_id를 지원하는 유효한 크리덴셜을 찾습니다.
+        우선순위:
+        1. llm_rel_credential_models에서 명시적 권한 확인 (TODO)
+        2. 대체: 해당 model_id를 가진 프로바이더의 유효 크리덴셜 사용
         """
-        # TODO: Add tenant_id support later when Tenant schema is introduced.
-        # This method currently only filters by user_id.
+        # TODO: Tenant 스키마 도입 시 tenant_id 지원 추가.
+        # 현재는 user_id만 필터링합니다.
 
-        # 1. Find the model to know the provider
-        # Note: model_id string might be 'gpt-4o' which is common.
-        # But if we have multiple providers offering same model name (rare but possible), we might need more info.
-        # Assuming model names are unique enough or we pick system provider preference.
+        # 1. 프로바이더를 알기 위해 모델 조회
+        # 참고: model_id 문자열은 'gpt-4o'처럼 흔한 값일 수 있음.
+        # 동일한 모델명을 제공하는 프로바이더가 여러 개일 수 있으므로(드물지만), 추가 정보가 필요할 수 있음.
+        # 현재는 모델명이 충분히 유니크하거나 시스템 기본 프로바이더를 우선한다고 가정.
         
         target_model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
         if not target_model:
-             # Model unknown to system? Fallback to findingANY user credential (openai default)
-             # This is risky but compatible with "custom model name" inputs
+             # 시스템에 없는 모델명이라면? 사용자 크리덴셜 아무거나로 폴백
+             # 위험할 수 있지만 "custom model name" 입력과의 호환을 위한 처리
              pass
 
         provider_id = target_model.provider_id if target_model else None
 
-        query = db.query(LLMCredential).filter(
-            LLMCredential.user_id == user_id,
-            LLMCredential.is_valid == True
-        )
-        
-        if provider_id:
-            query = query.filter(LLMCredential.provider_id == provider_id)
-        
-        cred = query.first()
+        cred = LLMService._get_valid_credential_for_user(db, user_id, provider_id)
         
         if not cred:
-             # Try placeholder user fallback if in dev mode validation
+             # 개발 모드 검증 시 플레이스홀더 유저 폴백 시도
              if user_id != LLMService.PLACEHOLDER_USER_ID:
                  return LLMService.get_client_for_user(db, LLMService.PLACEHOLDER_USER_ID, model_id)
                  
              raise ValueError(f"No valid credential found for user {user_id} (Model: {model_id})")
 
-        # Load config
+        # 설정 로드
         try:
             cfg = json.loads(cred.encrypted_config)
             api_key = cfg.get("apiKey")
@@ -570,16 +565,16 @@ class LLMService:
     @staticmethod
     def get_client_with_any_credential(db: Session, model_id: Optional[str] = None):
         """
-        [DEPRECATED] Compatibility/Dev Mode: Get a client using the first available credential.
-        Used by LLMNode if user_id is not available.
-        TODO: Remove this method once all workflows are running with valid user context.
+        [DEPRECATED] 호환/개발 모드: 첫 번째 유효 크리덴셜로 클라이언트를 생성합니다.
+        user_id가 없는 LLMNode 경로에서 사용됩니다.
+        TODO: 모든 워크플로우가 유효한 유저 컨텍스트로 실행되면 제거.
         """
-        # 1. Find any valid credential
+        # 1. 유효한 크리덴셜 1개 조회
         cred = db.query(LLMCredential).filter(LLMCredential.is_valid == True).first()
         if not cred:
             raise ValueError("No valid LLM credential found in system. Please register one via API.")
         
-        # 2. Get config
+        # 2. 설정 로드
         try:
             cfg = json.loads(cred.encrypted_config)
             api_key = cfg.get("apiKey")
@@ -587,10 +582,10 @@ class LLMService:
         except:
              raise ValueError("Invalid credential config")
         
-        # 3. Determine Provider & Model
-        # Load provider to get type
+        # 3. 프로바이더/모델 결정
+        # 프로바이더 타입 조회
         db.refresh(cred)
-        provider_type = cred.provider.name # e.g. openai
+        provider_type = cred.provider.name # 예: openai
 
         target_model = model_id if model_id else "gpt-4o"
 
@@ -599,28 +594,39 @@ class LLMService:
             model_id=target_model,
             credentials={"apiKey": api_key, "baseUrl": base_url}
         )
+
+    @staticmethod
+    def _get_valid_credential_for_user(
+        db: Session,
+        user_id: uuid.UUID,
+        provider_id: Optional[uuid.UUID] = None,
+    ) -> Optional[LLMCredential]:
+        query = db.query(LLMCredential).filter(
+            LLMCredential.user_id == user_id,
+            LLMCredential.is_valid == True,
+        )
+        if provider_id:
+            query = query.filter(LLMCredential.provider_id == provider_id)
+        return query.first()
     @staticmethod
     def get_my_available_models(db: Session, user_id: uuid.UUID) -> List[LLMModelResponse]:
         """
-        사용자의 등록된 Credential을 기반으로 사용 가능한 모든 모델을 반환합니다.
-        Provider ID를 기준으로 조회하므로 별도의 연결 테이블 조인이 필요하지 않습니다.
+        사용자의 등록된 크리덴셜을 기반으로 사용 가능한 모든 모델을 반환합니다.
+        프로바이더 ID를 기준으로 조회하므로 별도의 연결 테이블 조인이 필요하지 않습니다.
         """
-        # 1. 해당 사용자의 모든 유효한 Credential 조회
+        # 1. 해당 사용자의 모든 유효한 크리덴셜 조회
         user_creds = db.query(LLMCredential).filter(
             LLMCredential.user_id == user_id,
             LLMCredential.is_valid == True
         ).all()
         
         if not user_creds:
-            # 플레이스홀더 유저 Fallback
-            if user_id != LLMService.PLACEHOLDER_USER_ID:
-                 return LLMService.get_my_available_models(db, LLMService.PLACEHOLDER_USER_ID)
             return []
 
-        # 2. Provider ID 추출
+        # 2. 프로바이더 ID 추출
         provider_ids = list({c.provider_id for c in user_creds})
         
-        # 3. 해당 Provider에 속한 모델 조회
+        # 3. 해당 프로바이더에 속한 모델 조회
         models = db.query(LLMModel).options(
             joinedload(LLMModel.provider)
         ).filter(
@@ -633,25 +639,22 @@ class LLMService:
     @staticmethod
     def get_my_embedding_models(db: Session, user_id: uuid.UUID) -> List[LLMModelResponse]:
         """
-        사용자의 credential에 기반하여 사용 가능한 임베딩 모델 목록을 반환합니다.
+        사용자의 크리덴셜에 기반하여 사용 가능한 임베딩 모델 목록을 반환합니다.
         get_my_available_models와 동일하지만 type='embedding'으로 필터링됩니다.
         """
-        # 1. 해당 사용자의 모든 유효한 credential 조회
+        # 1. 해당 사용자의 모든 유효한 크리덴셜 조회
         user_creds = db.query(LLMCredential).filter(
             LLMCredential.user_id == user_id,
             LLMCredential.is_valid == True
         ).all()
         
         if not user_creds:
-            # Placeholder 사용자로 fallback
-            if user_id != LLMService.PLACEHOLDER_USER_ID:
-                 return LLMService.get_my_embedding_models(db, LLMService.PLACEHOLDER_USER_ID)
             return []
 
-        # 2. Provider ID 추출
+        # 2. 프로바이더 ID 추출
         provider_ids = list({c.provider_id for c in user_creds})
 
-        # 3. 해당 Provider의 임베딩 모델 조회
+        # 3. 해당 프로바이더의 임베딩 모델 조회
         models = db.query(LLMModel).options(
             joinedload(LLMModel.provider)
         ).filter(
@@ -670,10 +673,10 @@ class LLMService:
         """
         import re
         
-        # 1. Google prefix 제거
+        # 1. Google 접두사 제거
         clean = model_id.replace("models/", "")
         
-        # 2. 날짜 suffix 패턴 제거
+        # 2. 날짜 접미사 패턴 제거
         # 패턴: -YYYY-MM-DD (예: gpt-4o-2024-11-20)
         clean = re.sub(r'-\d{4}-\d{2}-\d{2}$', '', clean)
         # 패턴: -YYYYMMDD (예: claude-3-5-sonnet-20241022)
@@ -684,14 +687,14 @@ class LLMService:
     @staticmethod
     def calculate_cost(db: Session, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
         """
-        Calculate cost based on model pricing.
-        Falls back to KNOWN_MODEL_PRICES if DB doesn't have pricing info.
-        정규화된 모델 ID로 fallback 시도하여 버전 차이로 인한 매칭 실패 방지.
+        모델 가격 정보를 기반으로 비용을 계산합니다.
+        DB에 가격 정보가 없으면 KNOWN_MODEL_PRICES로 폴백합니다.
+        정규화된 모델 ID로 폴백 시도하여 버전 차이로 인한 매칭 실패를 방지합니다.
         """
         input_price = None
         output_price = None
         
-        # 1. Try to get pricing from DB
+        # 1. DB에서 가격 정보 조회
         model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
         
         if model and model.input_price_1k is not None and model.output_price_1k is not None:
@@ -699,8 +702,8 @@ class LLMService:
             output_price = float(model.output_price_1k)
             print(f"[calculate_cost] DB pricing found for '{model_id}': in={input_price}, out={output_price}")
         else:
-            # 2. Fallback to KNOWN_MODEL_PRICES (정규화된 ID로 시도)
-            clean_id = model_id.replace("models/", "")  # Google prefix 제거
+            # 2. KNOWN_MODEL_PRICES로 폴백 (정규화된 ID로 시도)
+            clean_id = model_id.replace("models/", "")  # Google 접두사 제거
             pricing = LLMService.KNOWN_MODEL_PRICES.get(clean_id)
             
             # 정확한 매칭 실패 시, 정규화된 ID로 재시도
@@ -718,11 +721,11 @@ class LLMService:
             else:
                 print(f"[calculate_cost] NO PRICING FOUND for '{model_id}'. Tried: '{clean_id}', '{LLMService._normalize_model_id(model_id)}'")
         
-        # 3. If still no pricing, return 0
+        # 3. 가격이 없으면 0 반환
         if input_price is None or output_price is None:
             return 0.0
 
-        # 4. Calculate
+        # 4. 비용 계산
         input_cost = (prompt_tokens / 1000.0) * input_price
         output_cost = (completion_tokens / 1000.0) * output_price
         total = input_cost + output_cost
@@ -738,21 +741,53 @@ class LLMService:
         cost: float,
         workflow_run_id: Optional[uuid.UUID] = None,
         node_id: Optional[str] = None
-    ) -> LLMUsageLog:
+    ) -> Optional[LLMUsageLog]:
         """
-        Save LLM usage to database.
+        LLM 사용 로그를 DB에 저장합니다.
         """
-        # Find model DB ID
-        model = db.query(LLMModel).filter(LLMModel.model_id_for_api_call == model_id).first()
+        # 모델 DB ID 조회
+        model = (
+            db.query(LLMModel)
+            .filter(LLMModel.model_id_for_api_call == model_id)
+            .first()
+        )
+        if not model:
+            if model_id.startswith("models/"):
+                alt_id = model_id.replace("models/", "", 1)
+            else:
+                alt_id = f"models/{model_id}"
+            model = (
+                db.query(LLMModel)
+                .filter(LLMModel.model_id_for_api_call == alt_id)
+                .first()
+            )
+        if not model:
+            print(f"[LLMService] Usage log skipped: model '{model_id}' not found.")
+            return None
+
+        credential = LLMService._get_valid_credential_for_user(
+            db, user_id, model.provider_id
+        )
+        if not credential and user_id != LLMService.PLACEHOLDER_USER_ID:
+            credential = LLMService._get_valid_credential_for_user(
+                db, LLMService.PLACEHOLDER_USER_ID, model.provider_id
+            )
+        if not credential:
+            print(
+                f"[LLMService] Usage log skipped: no credential for user {user_id}."
+            )
+            return None
         
         log = LLMUsageLog(
             user_id=user_id,
-            model_id=model.id if model else None,
+            credential_id=credential.id,
+            model_id=model.id,
             workflow_run_id=workflow_run_id,
             node_id=node_id,
             prompt_tokens=usage.get("prompt_tokens", 0),
             completion_tokens=usage.get("completion_tokens", 0),
             total_cost=cost,
+            latency_ms=usage.get("latency_ms", 0),
             status="success"
         )
         db.add(log)
@@ -763,7 +798,7 @@ class LLMService:
     @staticmethod
     def update_model_pricing(db: Session, model_id: uuid.UUID, input_price: float, output_price: float) -> LLMModel:
         """
-        Update pricing for a specific model.
+        특정 모델의 가격 정보를 업데이트합니다.
         """
         model = db.query(LLMModel).filter(LLMModel.id == model_id).first()
         if not model:
@@ -778,22 +813,22 @@ class LLMService:
     @staticmethod
     def sync_system_prices(db: Session) -> Dict[str, Any]:
         """
-        Sync ALL existing models in DB with KNOWN_MODEL_PRICES.
-        Overrides existing prices if a match is found in the known list.
+        DB에 있는 모든 모델의 가격을 KNOWN_MODEL_PRICES와 동기화합니다.
+        알려진 목록에 매칭되면 기존 가격을 덮어씁니다.
         """
         updated_count = 0
         known_prices = LLMService.KNOWN_MODEL_PRICES
         
         models = db.query(LLMModel).all()
         for m in models:
-            # Match by model_id_for_api_call (e.g. gpt-4o)
-            # Also handle if ID has "models/" prefix (Google)
+            # model_id_for_api_call로 매칭 (예: gpt-4o)
+            # "models/" 접두사가 있으면 제거 (Google)
             clean_id = m.model_id_for_api_call.replace("models/", "")
             
             pricing = known_prices.get(clean_id)
             if pricing:
-                # Update if different (or if previously None)
-                # Comparing floats roughly
+                # 다른 값이거나 (또는 기존 값이 None인 경우) 업데이트
+                # float 비교는 대략적으로 처리
                 current_in = float(m.input_price_1k) if m.input_price_1k is not None else -1.0
                 current_out = float(m.output_price_1k) if m.output_price_1k is not None else -1.0
                 

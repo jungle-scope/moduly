@@ -199,6 +199,10 @@ export interface WorkflowNodeData extends NodeData {
   deployment_id?: string;
   graph_snapshot?: Record<string, any>; // 확장된 내부 그래프
   expanded?: boolean;
+
+  // 상태별 위치 저장 (펼침/접힘 상태 독립 관리)
+  collapsedPosition?: { x: number; y: number };
+  expandedPosition?: { x: number; y: number };
 }
 // ============================================================================
 
@@ -211,6 +215,7 @@ export interface VariableMapping {
 export interface WebhookTriggerNodeData extends BaseNodeData {
   provider: 'jira' | 'custom';
   variable_mappings: VariableMapping[];
+  captured_payload?: any; // 테스트용 Payload (캡처된 데이터)
 }
 // ============================================================================
 
@@ -218,6 +223,15 @@ export interface WebhookTriggerNodeData extends BaseNodeData {
 export interface ScheduleTriggerNodeData extends BaseNodeData {
   cron_expression: string; // Cron 표현식 (예: "0 9 * * *")
   timezone: string; // 타임존 (예: "Asia/Seoul", "UTC")
+  ui_config?: {
+    mode: 'basic' | 'advanced';
+    type: 'interval' | 'daily' | 'weekly' | 'monthly';
+    intervalValue?: number;
+    intervalUnit?: 'minutes' | 'hours';
+    time?: string;
+    daysOfWeek?: number[];
+    dayOfMonth?: number;
+  };
 }
 // ============================================================================
 

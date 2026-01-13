@@ -25,7 +25,7 @@ class LLMProviderResponse(BaseModel):
     name: str # e.g. openai
     description: Optional[str] = None
     type: str # system, custom
-    base_url: str
+    base_url: Optional[str] = None
     auth_type: str
     doc_url: Optional[str] = None
     

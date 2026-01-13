@@ -7,6 +7,12 @@ export interface IngestionResponse {
   message: string;
 }
 
+export interface KnowledgeBaseCreate {
+  name: string;
+  description?: string;
+  embedding_model: string;
+}
+
 export interface KnowledgeCreateRequest {
   sourceType?: SourceType;
   file?: File;

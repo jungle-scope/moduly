@@ -17,7 +17,7 @@ spec:
       serviceAccountName: api-server-sa  # IRSA 연결
       containers:
       - name: api-server
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:eks-latest
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:latest
         ports:
         - containerPort: 8000
         env:
@@ -73,17 +73,6 @@ spec:
           value: "moduly-dev-file-upload"
         - name: AWS_REGION
           value: "ap-northeast-2"
-        # 외부 DB 설정
-        - name: MASTER_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: MASTER_KEY
-        - name: ENCRYPTION_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: ENCRYPTION_KEY
         # 소셜 로그인 관련 설정
         - name: GOOGLE_CLIENT_ID
           valueFrom:

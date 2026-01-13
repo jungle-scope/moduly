@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -11,7 +13,7 @@ class WorkflowService:
     def create_workflow(
         db: Session,
         request: WorkflowCreateRequest,
-        user_id: str,
+        user_id: UUID,
     ) -> Workflow:
         """
         새 워크플로우 생성
@@ -19,8 +21,7 @@ class WorkflowService:
         Args:
             db: 데이터베이스 세션
             request: 워크플로우 생성 요청 (app_id, name, description)
-            user_id: 생성자 ID
-
+            user_id: 생성자 ID (UUID)
         Returns:
             생성된 Workflow 객체
         """

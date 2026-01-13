@@ -16,6 +16,42 @@ router = APIRouter()
 CAPTURE_SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 
+def verify_webhook_auth(request: Request, app: App) -> bool:
+    """
+    다양한 Webhook 인증 방식을 순차적으로 검증
+
+    지원 방식:
+    1. Query Parameter: ?token=xxx
+    2. Authorization Header: Bearer xxx
+    3. Custom Header: X-Webhook-Secret: xxx
+
+    Args:
+        request: FastAPI Request 객체
+        app: App 모델 객체 (auth_secret 포함)
+
+    Returns:
+        True if authenticated, False otherwise
+    """
+    # 1. Query Parameter
+    token = request.query_params.get("token")
+    if token and token == app.auth_secret:
+        return True
+
+    # 2. Authorization Header (Bearer)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]  # "Bearer " 제거
+        if token == app.auth_secret:
+            return True
+
+    # 3. Custom Header (X-Webhook-Secret)
+    webhook_secret = request.headers.get("X-Webhook-Secret")
+    if webhook_secret and webhook_secret == app.auth_secret:
+        return True
+
+    return False
+
+
 async def run_webhook_workflow(
     deployment_id: str, payload: Dict[str, Any], db: Session
 ):
@@ -63,7 +99,6 @@ async def receive_webhook(
     url_slug: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    token: str = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -71,15 +106,23 @@ async def receive_webhook(
 
     - 캡처 모드: Payload를 메모리에 저장
     - 실행 모드: WorkflowEngine을 BackgroundTasks로 실행
+
+    인증 방식:
+    - Query Parameter: ?token=xxx
+    - Authorization Header: Bearer xxx
+    - Custom Header: X-Webhook-Secret: xxx
     """
     # 1. App 조회 (url_slug로)
     app = db.query(App).filter(App.url_slug == url_slug).first()
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
 
-    # 2. Token 검증 (보안) - app.auth_secret 사용
-    if not token or token != app.auth_secret:
-        raise HTTPException(status_code=403, detail="Invalid token")
+    # 2. 인증 검증
+    if not verify_webhook_auth(request, app):
+        raise HTTPException(
+            status_code=403,
+            detail="Authentication failed. Provide token via query param (?token=xxx), Bearer header, or X-Webhook-Secret header.",
+        )
 
     # 3. Payload 파싱
     payload = await request.json()
