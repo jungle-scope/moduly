@@ -455,7 +455,7 @@ class IngestionOrchestrator:
         # ========================================
         # 토큰 기반 배치 구성
         # ========================================
-        MAX_TOKENS_PER_TEXT = 8000  # 개별 텍스트 최대 (안전 마진 191)
+        MAX_TOKENS_PER_TEXT = 8000  # 개별 텍스트 최대
         MAX_TEXTS_PER_BATCH = 50  # 배치당 최대 텍스트 개수
 
         batches = []
@@ -507,11 +507,14 @@ class IngestionOrchestrator:
                 f"[DEBUG] Processing batch {batch_idx + 1}/{len(batches)} ({len(batch_texts)} texts)..."
             )
 
-            # [NEW] 진행률 업데이트 (임베딩 80% 비중)
-            # 전체 청크 중 현재 배치까지의 비율 * 80%
+            # 진행률 업데이트 (임베딩 80% 비중)
             current_processed = sum(len(b) for b in batches[: batch_idx + 1])
             progress = int((current_processed / len(chunks)) * 80)
-            self._update_status(doc.id, "indexing", progress=progress)
+            # processing_progress 필드로 통일
+            new_meta = dict(doc.meta_info or {})
+            new_meta["processing_progress"] = progress
+            doc.meta_info = new_meta
+            self.db.commit()
 
             if llm_client:
                 try:
@@ -543,18 +546,18 @@ class IngestionOrchestrator:
         # content 암호화 & DB 저장
         # ========================================
         for i, chunk in enumerate(chunks):
-            if (i + 1) % 50 == 0:
-                print(f"[DEBUG] {i + 1}/{len(chunks)} 개의 청크 암호화 중...")
-                # [NEW] 진행률 업데이트 (나머지 20% 비중)
-                # 80% + (현재 저장 비율 * 20%)
+            # 10개마다 진행률 업데이트 (나머지 20% 비중)
+            if (i + 1) % 10 == 0 or (i + 1) == len(chunks):
                 progress = 80 + int(((i + 1) / len(chunks)) * 20)
-                self._update_status(doc.id, "indexing", progress=progress)
+                new_meta = dict(doc.meta_info or {})
+                new_meta["processing_progress"] = progress
+                doc.meta_info = new_meta
+                self.db.commit()
 
             content = chunk["content"]
             embedding = all_embeddings.get(i, [0.1] * 1536)
 
-            # ✨ Content 전체 암호화 (무조건)
-            # 벡터 임베딩 후 content는 항상 암호화하여 저장
+            # Content 전체 암호화
             try:
                 encrypted_content = encryption_manager.encrypt(content)
             except Exception as e:
@@ -564,25 +567,13 @@ class IngestionOrchestrator:
             new_chunk = DocumentChunk(
                 document_id=doc.id,
                 knowledge_base_id=doc.knowledge_base_id,
-                content=encrypted_content,  # ✨ 암호화된 content 사용
+                content=encrypted_content,
                 chunk_index=i,
                 token_count=chunk.get("token_count", 0),
                 metadata_=chunk["metadata"],
                 embedding=embedding,
             )
             new_chunks.append(new_chunk)
-
-            # Progress polling을 위해 청크를 10%씩 처리
-            update_interval = max(1, int(len(chunks) * 0.1))
-            if (i + 1) % update_interval == 0 or (i + 1) == len(chunks):
-                progress = ((i + 1) / len(chunks)) * 100
-                # 메타데이터 업데이트 (DB commit 포함)
-                new_meta = dict(doc.meta_info or {})
-                new_meta["processing_progress"] = progress
-                doc.meta_info = new_meta
-                self.db.add(doc)  # Ensure doc is attached
-                self.db.commit()
-                print(f"[DEBUG] Progress updated: {progress:.1f}%")
 
         self.db.bulk_save_objects(new_chunks)
 
