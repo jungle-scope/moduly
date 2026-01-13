@@ -526,7 +526,7 @@ ${authHeader}  -d '{
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
                                   <code className="text-sm font-mono text-blue-700 font-semibold">
-                                    {variable.label || variable.name}
+                                    {variable.name}
                                   </code>
                                   <span
                                     className={`text-xs px-2 py-1 rounded font-medium ${
@@ -550,7 +550,7 @@ ${authHeader}  -d '{
                                 type={
                                   variable.type === 'number' ? 'number' : 'text'
                                 }
-                                placeholder={`${variable.label || variable.name} 입력`}
+                                placeholder={`${variable.name} 입력`}
                                 value={inputValues[variable.name] || ''}
                                 onChange={(e) =>
                                   setInputValues({

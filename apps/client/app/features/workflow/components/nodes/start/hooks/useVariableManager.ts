@@ -106,7 +106,7 @@ export const useVariableManager = (id: string, data: StartNodeData) => {
     const newVar: WorkflowVariable = {
       id: crypto.randomUUID(),
       name: `var_${variables.length + 1}`,
-      label: '', // 사용자가 직접 입력하도록 빈 값으로 시작
+      label: `새 변수`,
       type: 'text',
       required: true,
       maxLength: 255,
