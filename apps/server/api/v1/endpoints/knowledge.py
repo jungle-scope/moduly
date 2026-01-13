@@ -26,9 +26,9 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from auth.dependencies import get_current_user
-from db.models.knowledge import Document, KnowledgeBase
-from db.models.user import User
-from schemas.rag import (
+from apps.shared.db.models.knowledge import Document, KnowledgeBase
+from apps.shared.db.models.user import User
+from apps.shared.schemas.rag import (
     DocumentPreviewRequest,
     DocumentPreviewResponse,
     DocumentResponse,

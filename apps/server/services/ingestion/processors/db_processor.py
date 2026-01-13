@@ -63,7 +63,7 @@ class DbProcessor(BaseProcessor):
 
         # DB 연결 정보 조회 (BaseProcessor의 self.db 사용)
 
-        from db.models.connection import Connection
+        from apps.shared.db.models.connection import Connection
 
         conn_record = (
             self.db.query(Connection).filter(Connection.id == connection_id).first()

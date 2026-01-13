@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from db.session import SessionLocal
+from apps.shared.db.session import SessionLocal
 
 
 class LogWorkerPool:
@@ -264,7 +264,7 @@ class LogWorkerPool:
         except (ValueError, TypeError):
             return False
 
-        from db.models.workflow_run import WorkflowRun
+        from apps.shared.db.models.workflow_run import WorkflowRun
 
         return (
             session.query(WorkflowRun.id)
@@ -286,7 +286,7 @@ class LogWorkerPool:
         except (ValueError, TypeError):
             return False
 
-        from db.models.workflow_run import WorkflowNodeRun
+        from apps.shared.db.models.workflow_run import WorkflowNodeRun
 
         return (
             session.query(WorkflowNodeRun.id)

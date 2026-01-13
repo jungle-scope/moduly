@@ -9,8 +9,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
-from db.models.schedule import Schedule
-from db.models.workflow_deployment import WorkflowDeployment
+from apps.shared.db.models.schedule import Schedule
+from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 
 
 class SchedulerService:
@@ -142,7 +142,7 @@ class SchedulerService:
             새로운 DB 세션을 생성하여 사용합니다.
         """
         # 각 job 실행마다 새로운 DB 세션 생성 (스레드 안전성 보장)
-        from db.session import SessionLocal
+        from apps.shared.db.session import SessionLocal
 
         db = SessionLocal()
         triggered_at = datetime.now(timezone.utc).isoformat()

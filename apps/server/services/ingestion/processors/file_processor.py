@@ -186,7 +186,7 @@ class FileProcessor(BaseProcessor):
         if not self.db:
             return None
 
-        from db.models.llm import LLMCredential, LLMProvider
+        from apps.shared.db.models.llm import LLMCredential, LLMProvider
 
         provider = (
             self.db.query(LLMProvider).filter(LLMProvider.name == "llamaparse").first()

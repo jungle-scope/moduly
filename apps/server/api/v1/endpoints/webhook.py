@@ -5,9 +5,9 @@ from typing import Any, Dict
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from db.models.app import App
-from db.models.workflow_deployment import WorkflowDeployment
-from db.session import get_db
+from apps.shared.db.models.app import App
+from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+from apps.shared.db.session import get_db
 from workflow.core.workflow_engine import WorkflowEngine
 
 router = APIRouter()
@@ -153,7 +153,7 @@ async def receive_webhook(
         raise HTTPException(status_code=404, detail="Active deployment not found")
 
     # 6. 실행 모드: 엔진 실행 (BackgroundTasks)
-    from db.session import SessionLocal
+    from apps.shared.db.session import SessionLocal
 
     bg_db = SessionLocal()
     background_tasks.add_task(run_webhook_workflow, str(deployment.id), payload, bg_db)

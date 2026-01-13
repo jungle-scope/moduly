@@ -3,14 +3,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
 
-from db.base import Base
-from db.models.schedule import Schedule  # noqa: F401
+from apps.shared.db.base import Base
+from apps.shared.db.models.schedule import Schedule  # noqa: F401
 from db.seed import (
     seed_default_llm_models,
     seed_default_llm_providers,
     seed_placeholder_user,
 )
-from db.session import engine
+from apps.shared.db.session import engine
 
 
 @asynccontextmanager
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
 
     # 2. 기본 LLM 프로바이더 시드 (멱등성 보장)
 
-    from db.session import SessionLocal
+    from apps.shared.db.session import SessionLocal
 
     db = SessionLocal()
     try:

@@ -3,14 +3,14 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    from db.models.user import User
+    from apps.shared.db.models.user import User
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from db.base import Base
+from apps.shared.db.base import Base
 
 # === Legacy Models (Mapped to renamed tables for reference/migration) ===
 # class LegacyLLMProvider(Base):

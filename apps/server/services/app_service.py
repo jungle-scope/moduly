@@ -3,9 +3,9 @@ import secrets
 
 from sqlalchemy.orm import Session, joinedload
 
-from db.models.app import App
-from db.models.workflow import Workflow
-from schemas.app import AppCreateRequest, AppUpdateRequest
+from apps.shared.db.models.app import App
+from apps.shared.db.models.workflow import Workflow
+from apps.shared.schemas.app import AppCreateRequest, AppUpdateRequest
 
 
 class AppService:
@@ -80,7 +80,7 @@ class AppService:
     @staticmethod
     def _populate_owner_name(db: Session, app: App):
         """App 객체에 owner_name 속성을 채웁니다."""
-        from db.models.user import User
+        from apps.shared.db.models.user import User
 
         if app.created_by:
             user = db.query(User).filter(User.id == app.created_by).first()
@@ -91,7 +91,7 @@ class AppService:
     @staticmethod
     def _populate_deployment_status(db: Session, app: App):
         """App 객체에 active_deployment_is_active 속성을 채웁니다."""
-        from db.models.workflow_deployment import WorkflowDeployment
+        from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 
         if app.active_deployment_id:
             deployment = (
@@ -153,7 +153,7 @@ class AppService:
         )
 
         # owner_name 채우기 (모두 동일한 소유자)
-        from db.models.user import User
+        from apps.shared.db.models.user import User
 
         user = db.query(User).filter(User.id == user_id).first()
         if user:
@@ -250,7 +250,7 @@ class AppService:
         """
         기존 앱을 복제합니다.
         """
-        from db.models.workflow_deployment import WorkflowDeployment
+        from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 
         # 1. 원본 앱 조회
         source_app = db.query(App).filter(App.id == source_app_id).first()

@@ -5,7 +5,7 @@ from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db.base import Base
+from apps.shared.db.base import Base
 
 
 class Connection(Base):

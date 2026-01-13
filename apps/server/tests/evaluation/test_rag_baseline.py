@@ -307,7 +307,7 @@ class TestRAGBaseline:
     @pytest.fixture
     def db_session(self):
         """실제 DB 세션 (구현 필요)"""
-        from db.session import SessionLocal
+        from apps.shared.db.session import SessionLocal
 
         session = SessionLocal()
         yield session

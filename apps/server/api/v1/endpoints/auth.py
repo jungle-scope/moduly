@@ -5,8 +5,8 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from auth.oauth import oauth
-from db.session import get_db
-from schemas.auth import LoginRequest, LoginResponse, SignupRequest
+from apps.shared.db.session import get_db
+from apps.shared.schemas.auth import LoginRequest, LoginResponse, SignupRequest
 from services.auth_service import AuthService
 
 router = APIRouter()
@@ -155,7 +155,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("auth_token")
     user = AuthService.get_user_from_token(db, token)
 
-    from schemas.auth import SessionInfo, UserResponse
+    from apps.shared.schemas.auth import SessionInfo, UserResponse
 
     return LoginResponse(
         user=UserResponse(

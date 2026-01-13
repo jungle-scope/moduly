@@ -4,12 +4,12 @@ import uuid
 
 from jinja2 import Environment
 
-from db.session import SessionLocal  # 임시 세션 생성용
+from apps.shared.db.session import SessionLocal  # 임시 세션 생성용
 from services.llm_service import LLMService
 from services.retrieval import RetrievalService
-from schemas.rag import ChunkPreview
-from db.models.workflow_run import RunStatus, WorkflowRun, WorkflowNodeRun
-from db.models.llm import LLMModel
+from apps.shared.schemas.rag import ChunkPreview
+from apps.shared.db.models.workflow_run import RunStatus, WorkflowRun, WorkflowNodeRun
+from apps.shared.db.models.llm import LLMModel
 
 from ..base.node import Node
 from .entities import LLMNodeData

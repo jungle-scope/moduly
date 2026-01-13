@@ -10,8 +10,8 @@ from typing import Optional
 from fastapi import Cookie, Depends
 from sqlalchemy.orm import Session
 
-from db.models.user import User
-from db.session import get_db
+from apps.shared.db.models.user import User
+from apps.shared.db.session import get_db
 from services.auth_service import AuthService
 
 
