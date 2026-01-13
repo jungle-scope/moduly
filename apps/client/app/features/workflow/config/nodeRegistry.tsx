@@ -16,6 +16,7 @@ import {
   Mail,
   Clock,
   Slack,
+  Repeat,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -223,6 +224,21 @@ export const nodeRegistry: NodeDefinition[] = [
     defaultData: () => ({
       title: '응답',
       outputs: [],
+    }),
+  },
+  {
+    id: 'loop',
+    type: 'loopNode',
+    name: '반복',
+    category: 'logic',
+    color: '#8b5cf6', // violet-500 색상
+    icon: <Repeat className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description: '배열의 각 항목에 대해 작업을 반복 실행합니다.',
+    defaultData: () => ({
+      title: '반복',
+      input_array: '',
+      max_iterations: 100,
     }),
   },
   {
