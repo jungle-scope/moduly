@@ -290,9 +290,9 @@ export default function KnowledgeSearchModal({
                         <span className="font-medium text-blue-600 dark:text-blue-400 text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-full border border-blue-100 dark:border-blue-800">
                           {ref.filename}
                         </span>
-                        <span className="text-xs text-gray-400">
+                        {/* <span className="text-xs text-gray-400">
                           유사도: {(ref.similarity_score * 100).toFixed(1)}%
-                        </span>
+                        </span> */}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed text-xs">
                         {ref.content}
