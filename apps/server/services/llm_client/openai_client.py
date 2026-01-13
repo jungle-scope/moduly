@@ -67,6 +67,48 @@ class OpenAIClient(BaseLLMClient):
         except (ValueError, KeyError, IndexError) as exc:
             raise ValueError(f"{self.provider_name} 임베딩 응답 파싱 실패") from exc
 
+    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        """
+        OpenAI Embeddings API 배치 호출 (최대 2,048개)
+
+        Args:
+            texts: 임베딩할 텍스트 리스트
+
+        Returns:
+            임베딩 벡터 리스트
+        """
+        if not texts:
+            return []
+
+        if len(texts) > 2048:
+            raise ValueError(f"OpenAI batch limit is 2,048, got {len(texts)}")
+
+        payload = {"model": self.model_id, "input": texts}
+
+        try:
+            resp = requests.post(
+                self.embedding_url,
+                headers=self._build_headers(),
+                json=payload,
+                timeout=60,
+            )
+        except requests.RequestException as exc:
+            raise ValueError(f"OpenAI 배치 임베딩 호출 실패: {exc}") from exc
+
+        if resp.status_code >= 400:
+            raise ValueError(
+                f"OpenAI 배치 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
+            )
+
+        try:
+            data = resp.json()
+            # OpenAI batch response: { "data": [ {"index": 0, "embedding": [...]}, ... ] }
+            # index 순서대로 정렬
+            sorted_data = sorted(data["data"], key=lambda x: x["index"])
+            return [item["embedding"] for item in sorted_data]
+        except (ValueError, KeyError, IndexError) as exc:
+            raise ValueError("OpenAI 배치 임베딩 응답 파싱 실패") from exc
+
     def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
         Chat Completions 엔드포인트 호출.

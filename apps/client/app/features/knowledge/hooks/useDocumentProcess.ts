@@ -5,6 +5,7 @@ import {
   DocumentPreviewRequest,
   DocumentSegment,
   AnalyzeResponse,
+  JoinConfig,
 } from '@/app/features/knowledge/api/knowledgeApi';
 import { DocumentResponse } from '@/app/features/knowledge/types/Knowledge';
 
@@ -22,6 +23,11 @@ interface UseDocumentProcessProps {
     removeWhitespace: boolean;
     parsingStrategy: 'general' | 'llamaparse';
     selectedDbItems: Record<string, string[]>;
+    sensitiveColumns?: Record<string, string[]>;
+    aliases?: Record<string, Record<string, string>>;
+    template?: string;
+    enableAutoChunking?: boolean;
+    joinConfig?: JoinConfig | null;
   };
   connectionId?: string; // 외부에서 주입받을 수 있는 connectionId
   // 범위 선택 관련
@@ -61,10 +67,18 @@ export function useDocumentProcess({
     strategy: 'general' | 'llamaparse',
   ): DocumentPreviewRequest => {
     const selections = Object.entries(settings.selectedDbItems).map(
-      ([table, cols]) => ({
-        table_name: table,
-        columns: cols,
-      }),
+      ([table, cols]) => {
+        const sensitiveColumnsForTable =
+          settings.sensitiveColumns?.[table] || [];
+        const aliasesForTable = settings.aliases?.[table] || {};
+        return {
+          table_name: table,
+          columns: cols,
+          sensitive_columns: sensitiveColumnsForTable,
+          aliases: aliasesForTable,
+          template: settings.template || '',
+        };
+      },
     );
 
     return {
@@ -77,10 +91,13 @@ export function useDocumentProcess({
       source_type: document?.source_type || 'FILE',
       db_config: {
         selections,
+        join_config: settings.joinConfig || undefined, // Use passed joinConfig directly
         ...(connectionIdOverride
           ? { connection_id: connectionIdOverride }
           : {}),
       },
+      // 자동 청킹 설정
+      enable_auto_chunking: settings.enableAutoChunking ?? true,
       // 필터링 파라미터 전송
       selection_mode: selectionMode,
       chunk_range: chunkRange,
@@ -93,11 +110,7 @@ export function useDocumentProcess({
     if (!document) return;
     try {
       const requestData = createRequestData(strategy);
-      const response = await knowledgeApi.processDocument(
-        kbId,
-        document.id,
-        requestData,
-      );
+      await knowledgeApi.processDocument(kbId, document.id, requestData);
 
       setStatus('indexing');
       setProgress(0);

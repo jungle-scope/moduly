@@ -1,17 +1,19 @@
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.models.knowledge import Document, DocumentChunk, KnowledgeBase
-from db.models.llm import LLMCredential, LLMProvider
+from db.models.llm import LLMCredential, LLMModel, LLMProvider
 from schemas.rag import ChunkPreview, RAGResponse
 from services.llm_service import LLMService
+from utils.encryption import encryption_manager
 
 
 class RetrievalService:
     def __init__(self, db: Session, user_id):
         self.db = db
         self.user_id = user_id
-        # llm_client는 generate_answer에서 필요 시 로드합니다.
         self.llm_client = None
 
     def _get_efficient_rewrite_model(self) -> str:
@@ -20,7 +22,6 @@ class RetrievalService:
         Fallback: gpt-4o-mini
         """
         try:
-            # 1. 사용자의 유효한 Credential 조회
             credentials = (
                 self.db.query(LLMCredential)
                 .filter(
@@ -33,7 +34,6 @@ class RetrievalService:
             if not credentials:
                 return "gpt-4o-mini"
 
-            # 2. Provider 정보 조회
             cred_map = {c.provider_id: c for c in credentials}
             providers = (
                 self.db.query(LLMProvider)
@@ -44,7 +44,6 @@ class RetrievalService:
             provider_map = {p.id: p.name.lower() for p in providers}
             available_providers = set(provider_map.values())
 
-            # 3. 우선순위에 따라 효율적인 모델 찾기 (OpenAI -> Anthropic -> Google)
             preferred_order = ["openai", "anthropic", "google"]
 
             for pref in preferred_order:
@@ -53,7 +52,6 @@ class RetrievalService:
                     if model:
                         return model
 
-            # 선호 순서에 없어도 사용 가능한 Provider 있으면 반환
             for prov_name in available_providers:
                 model = LLMService.EFFICIENT_MODELS.get(prov_name)
                 if model:
@@ -68,10 +66,8 @@ class RetrievalService:
     def _rewrite_query(self, query: str) -> str:
         """
         LLM을 사용하여 검색 쿼리를 최적화합니다. (Query Rewriting)
-        동의어 확장, 모호성 제거, 핵심 키워드 추출 등을 수행합니다.
         """
         try:
-            # Query Rewriting에는 빠르고 저렴한 모델 자동 선택
             rewrite_model_id = self._get_efficient_rewrite_model()
             client = LLMService.get_client_for_user(
                 self.db, self.user_id, rewrite_model_id
@@ -88,7 +84,6 @@ class RetrievalService:
                 "6. Output ONLY the rewritten query."
             )
 
-            # Security Fix: System prompt separation to prevent injection
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Original Query: {query}"},
@@ -96,7 +91,6 @@ class RetrievalService:
             response = client.invoke(messages, max_tokens=200)
             rewritten_query = response["choices"][0]["message"]["content"].strip()
 
-            # 따옴표 제거 등 전처리
             if rewritten_query.startswith('"') and rewritten_query.endswith('"'):
                 rewritten_query = rewritten_query[1:-1]
 
@@ -107,12 +101,11 @@ class RetrievalService:
 
         except Exception as e:
             print(f"[Query Rewrite Error] Failed to rewrite query: {e}")
-            return query  # 실패 시 원본 쿼리 사용
+            return query
 
     def _generate_multi_queries(self, query: str, num_variations: int = 3) -> list[str]:
         """
         Multi-Query Expansion: LLM을 사용하여 원본 질문의 다양한 변형을 생성합니다.
-        다양한 관점에서 문서를 검색하여 recall을 높입니다.
         """
         try:
             rewrite_model_id = self._get_efficient_rewrite_model()
@@ -127,10 +120,9 @@ class RetrievalService:
                 "1. Each query should be in the same language as the original question.\n"
                 "2. Focus on different entities, concepts, or relationships.\n"
                 "3. Keep queries short and search-friendly (3-8 words each).\n"
-                "4. Output ONLY the queries, one per line, numbered 1-{num_variations}."
+                f"4. Output ONLY the queries, one per line, numbered 1-{num_variations}."
             )
 
-            # Security Fix: System prompt separation
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Original Question: {query}"},
@@ -138,7 +130,6 @@ class RetrievalService:
             response = client.invoke(messages, max_tokens=500)
             content = response["choices"][0]["message"]["content"].strip()
 
-            # Parse numbered queries
             queries = []
             for line in content.split("\n"):
                 line = line.strip()
@@ -146,12 +137,10 @@ class RetrievalService:
                     line.startswith(f"{i}.") or line.startswith(f"{i})")
                     for i in range(1, num_variations + 1)
                 ):
-                    # Remove number prefix
                     query_text = line.lstrip("0123456789.)").strip()
                     if query_text:
                         queries.append(query_text)
 
-            # Always include original rewritten query
             if len(queries) < num_variations:
                 queries.append(self._rewrite_query(query))
 
@@ -178,9 +167,6 @@ class RetrievalService:
     def _keyword_search(self, query: str, knowledge_base_id: str, top_k: int):
         from sqlalchemy import text
 
-        # PostgreSQL websearch_to_tsquery for simple boolean logic (e.g. "apple -iphone")
-        # Ranking by ts_rank
-        # [IMPROVEMENT] Also search in metadata keywords (converted to text)
         stmt = text("""
             SELECT dc.id, dc.content, dc.metadata, dc.document_id, d.filename,
                    ts_rank(
@@ -205,7 +191,6 @@ class RetrievalService:
         """
         fused_scores = {}
 
-        # 1. Process Vector Results
         for rank, (chunk, doc, distance) in enumerate(vector_results):
             doc_id = str(chunk.id)
             if doc_id not in fused_scores:
@@ -217,14 +202,10 @@ class RetrievalService:
                 }
             fused_scores[doc_id]["score"] += 1.0 / (k + rank + 1)
 
-        # 2. Process Keyword Results
-        # keyword_results: [(id, content, metadata, doc_id, filename, rank), ...]
         for rank, row in enumerate(keyword_results):
             doc_id = str(row[0])
             if doc_id not in fused_scores:
-                # We need to construct dummy objects if not present in vector results
-                # But for simplicity, we only fuse. If keyword-only found, we need to fetch object?
-                # row structure match is tricky. Let's create a temporary object structure.
+
                 class DummyChunk:
                     def __init__(self, c_id, content, metadata):
                         self.id = c_id
@@ -247,7 +228,6 @@ class RetrievalService:
 
             fused_scores[doc_id]["score"] += 1.0 / (k + rank + 1)
 
-        # 3. Sort by fused score
         sorted_results = sorted(
             fused_scores.values(), key=lambda x: x["score"], reverse=True
         )
@@ -256,7 +236,6 @@ class RetrievalService:
     def _rerank(self, query: str, candidates: list, top_k: int):
         """
         Cross-Encoder Reranking using MS-MARCO based model.
-        Takes Hybrid Search candidates and re-scores them based on semantic relevance.
         """
         if not candidates:
             return candidates
@@ -264,19 +243,13 @@ class RetrievalService:
         try:
             from sentence_transformers import CrossEncoder
 
-            # Load model (will cache after first load)
-            # ms-marco-MiniLM-L-12-v2 is more accurate (12 layers vs 6)
             model = CrossEncoder(
                 "cross-encoder/ms-marco-MiniLM-L-12-v2", max_length=512
             )
 
-            # Prepare (query, passage) pairs
             pairs = [(query, item["chunk"].content) for item in candidates]
-
-            # Score all pairs
             scores = model.predict(pairs)
 
-            # Attach scores and sort
             for i, item in enumerate(candidates):
                 item["rerank_score"] = float(scores[i])
 
@@ -310,7 +283,6 @@ class RetrievalService:
             print("[Search] Missing knowledge_base_id")
             return []
 
-        # Multi-Query Expansion: Generate multiple query variations
         if use_multi_query:
             queries = self._generate_multi_queries(query, num_variations=3)
         elif use_rewrite:
@@ -318,10 +290,8 @@ class RetrievalService:
         else:
             queries = [query]
 
-        search_query = queries[0]  # Primary query for single-query mode
-
-        # Prepare for multi-query merging
-        all_candidates = {}  # chunk_id -> candidate item
+        search_query = queries[0]
+        all_candidates = {}
 
         try:
             kb = (
@@ -331,9 +301,6 @@ class RetrievalService:
             )
             if not kb or not kb.embedding_model:
                 return []
-
-            # Model Type Validation
-            from db.models.llm import LLMModel
 
             model_info = (
                 self.db.query(LLMModel)
@@ -347,24 +314,18 @@ class RetrievalService:
                 self.db, self.user_id, kb.embedding_model
             )
 
-            # Multi-Query: Loop through all query variations
             for i, q in enumerate(queries):
-                # 1. Vector Search for this query
                 query_vector = embed_client.embed(q)
                 vector_results = self._vector_search(
                     query_vector, knowledge_base_id, top_k * 10
                 )
 
                 if hybrid_search:
-                    # 2. Keyword Search for this query
                     keyword_results = self._keyword_search(
                         q, knowledge_base_id, top_k * 10
                     )
-
-                    # 3. Fuse results for this query
                     fused = self._rrf_fusion(vector_results, keyword_results)
                 else:
-                    # Vector-only: convert to same format
                     fused = []
                     for rank, (chunk, doc, distance) in enumerate(vector_results):
                         fused.append(
@@ -375,14 +336,11 @@ class RetrievalService:
                             }
                         )
 
-                # 4. Merge into all_candidates (deduplicate by chunk ID, keep best score)
-                # Ensure we process ALL candidates retrieved (top_k * 10)
                 for item in fused[: top_k * 10]:
                     chunk_id = str(item["chunk"].id)
                     if chunk_id not in all_candidates:
                         all_candidates[chunk_id] = item
                     else:
-                        # Keep the higher score (Max-Pooling) to avoid diluting strong signals
                         if item["score"] > all_candidates[chunk_id]["score"]:
                             all_candidates[chunk_id] = item
 
@@ -390,16 +348,13 @@ class RetrievalService:
             print(f"[Retrieval Error] Search Failed: {e}")
             raise e
 
-        # 2. Finalize: Sort merged candidates and proceed
         final_list = []
         merged_candidates = sorted(
             all_candidates.values(), key=lambda x: x["score"], reverse=True
         )
 
         if hybrid_search or use_multi_query:
-            # [NEW] Optional Reranking
             if use_rerank:
-                # Rerank Top-100 candidates using Cross-Encoder
                 candidates_to_rerank = merged_candidates[:100]
                 reranked = self._rerank(query, candidates_to_rerank, top_k)
 
@@ -416,9 +371,12 @@ class RetrievalService:
                     if use_multi_query:
                         meta["num_queries"] = len(queries)
 
+                    # 암호화된 content 복호화
+                    content = self._decrypt_content(chunk.content)
+
                     final_list.append(
                         ChunkPreview(
-                            content=chunk.content,
+                            content=content,
                             document_id=doc.id,
                             filename=doc.filename,
                             page_number=meta.get("page"),
@@ -427,38 +385,42 @@ class RetrievalService:
                         )
                     )
             else:
-                # Standard Hybrid (No Reranking)
                 for item in merged_candidates[:top_k]:
                     chunk = item["chunk"]
                     doc = item["doc"]
-                    score = item["score"]  # RRF score (not probability)
+                    score = item["score"]
 
-                    # Metadata annotation
                     meta = chunk.metadata_.copy() if chunk.metadata_ else {}
                     meta["search_method"] = "hybrid" if hybrid_search else "multi_query"
                     meta["rrf_score"] = float(score)
                     if use_multi_query:
                         meta["num_queries"] = len(queries)
 
+                    # 암호화된 content 복호화
+                    content = self._decrypt_content(chunk.content)
+
                     final_list.append(
                         ChunkPreview(
-                            content=chunk.content,
+                            content=content,
                             document_id=doc.id,
                             filename=doc.filename,
                             page_number=meta.get("page"),
-                            similarity_score=float(score),  # Using RRF score as proxy
+                            similarity_score=float(score),
                             metadata=meta,
                         )
                     )
         else:
-            # Legacy Vector Only
             for chunk, doc, distance in vector_results[:top_k]:
                 similarity = 1 - distance
                 if similarity < threshold:
                     continue
+
+                # 암호화된 content 복호화
+                content = self._decrypt_content(chunk.content)
+
                 final_list.append(
                     ChunkPreview(
-                        content=chunk.content,
+                        content=content,
                         document_id=doc.id,
                         filename=doc.filename,
                         page_number=chunk.metadata_.get("page"),
@@ -469,12 +431,42 @@ class RetrievalService:
 
         return final_list
 
+    def _decrypt_content(self, content: str) -> str:
+        """
+        암호화된 content를 복호화합니다.
+        전체 암호화 또는 부분 암호화 모두 처리합니다.
+        """
+        if not content:
+            return content
+
+        # 전체 암호화 패턴
+        if content.startswith("gAAAAAB"):
+            try:
+                return encryption_manager.decrypt(content)
+            except Exception as e:
+                print(f"[WARNING] Failed to decrypt full content: {e}")
+                return "[ENCRYPTED CONTENT]"
+
+        # 부분 암호화 패턴 (key: value 형식)
+        encrypted_pattern = r"([\w_]+):\s*(gAAAAAB[A-Za-z0-9_-]+={0,2})"
+
+        def decrypt_match(match):
+            key = match.group(1)
+            encrypted_value = match.group(2)
+            try:
+                decrypted = encryption_manager.decrypt(encrypted_value)
+                return f"{key}: {decrypted}"
+            except Exception as e:
+                print(f"[WARNING] Failed to decrypt {key}: {e}")
+                return f"{key}: [ENCRYPTED]"
+
+        return re.sub(encrypted_pattern, decrypt_match, content)
+
     def retrieve_context(
         self, query: str, knowledge_base_id: str, top_k: int = 5
     ) -> str:
         """
         [Public API] 검색된 문서들의 내용을 하나의 문자열로 합쳐서 반환합니다.
-        LLM에게 프롬프트로 넘겨줄 Context 덩어리가 필요할 때 유용합니다.
         """
         chunks = self.search_documents(query, knowledge_base_id, top_k)
         if not chunks:
@@ -487,14 +479,9 @@ class RetrievalService:
     ) -> RAGResponse:
         """
         [Public API] 검색 + 답변 생성 (Chat Interface용)
-        Arguments:
-            model_id: 답변 생성에 사용할 Chat 모델 ID (default: gpt-4o)
         """
-
-        # Step 1: Search (Reuse public method)
         relevant_chunks = self.search_documents(query, knowledge_base_id)
 
-        # Step 2: Context Construction
         if not relevant_chunks:
             return RAGResponse(
                 answer="해당 질문에 답변할 수 있는 문서를 찾지 못했습니다.",
@@ -503,12 +490,9 @@ class RetrievalService:
 
         context_text = "\n\n".join([c.content for c in relevant_chunks])
 
-        # Step 3: LLM Generation (On-Demand Client)
-        # 1. 이미 클라이언트가 있고, 그 클라이언트의 모델이 요청된 모델과 같으면 재사용
         if self.llm_client and self.llm_client.model_id == model_id:
             pass
         else:
-            # 2. 클라이언트가 없거나 다른 모델을 원하면 새로 로드
             try:
                 self.llm_client = LLMService.get_client_for_user(
                     self.db, self.user_id, model_id

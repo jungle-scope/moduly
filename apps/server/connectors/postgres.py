@@ -93,7 +93,34 @@ class PostgresConnector(BaseConnector):
                             "type": str(col["type"]),
                         }
                     )
-                result.append({"table_name": table_name, "columns": columns})
+
+                # Foreign Key 정보 추출
+                foreign_keys = []
+                for fk in inspector.get_foreign_keys(table_name):
+                    # fk 구조: {
+                    #   'name': 'fk_orders_users',
+                    #   'constrained_columns': ['user_id'],
+                    #   'referred_table': 'users',
+                    #   'referred_columns': ['id']
+                    # }
+                    if fk.get("constrained_columns") and fk.get("referred_columns"):
+                        foreign_keys.append(
+                            {
+                                "column": fk["constrained_columns"][
+                                    0
+                                ],  # 첫 번째 컬럼만 (단순화)
+                                "referenced_table": fk["referred_table"],
+                                "referenced_column": fk["referred_columns"][0],
+                            }
+                        )
+
+                result.append(
+                    {
+                        "table_name": table_name,
+                        "columns": columns,
+                        "foreign_keys": foreign_keys,  # FK 정보 추가
+                    }
+                )
 
             return result
         finally:

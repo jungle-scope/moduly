@@ -501,7 +501,6 @@ async def process_document(
     문서 설정(청킹 등)을 저장하고 백그라운드 처리를 시작합니다.
     """
     print(f"[DEBUG] process_document called - kb_id: {kb_id}, doc_id: {document_id}")
-    print(f"[DEBUG] Request data: {request.model_dump()}")
 
     # 1. 문서 조회 (권한 확인)
     doc = (
@@ -518,8 +517,6 @@ async def process_document(
     if not doc:
         print("[DEBUG] Document not found!")
         raise HTTPException(status_code=404, detail="Document not found")
-
-    print(f"[DEBUG] Found document: {doc.id}, source_type: {doc.source_type}")
 
     # 2. 설정 업데이트
     doc.chunk_size = request.chunk_size
@@ -540,14 +537,12 @@ async def process_document(
         }
     )
     doc.meta_info = new_meta
-    print(f"[DEBUG] Updated meta_info: {new_meta}")
 
     # 상태 업데이트 (처리 시작 전)
     doc.status = (
         "indexing"  # IngestionService가 실행되기 전부터 UI에서 처리중으로 표시하기 위함
     )
     db.commit()
-    print("[DEBUG] DB commit successful")
 
     # 3. 백그라운드 작업 시작
     ingestion_service = IngestionService(

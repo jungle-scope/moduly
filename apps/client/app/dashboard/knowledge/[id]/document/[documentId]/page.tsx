@@ -11,9 +11,15 @@ import {
   Database,
   Calendar,
   RefreshCw,
+  Pencil,
+  ListTodo,
+  CircleHelp,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { knowledgeApi } from '@/app/features/knowledge/api/knowledgeApi';
+import {
+  knowledgeApi,
+  JoinConfig,
+} from '@/app/features/knowledge/api/knowledgeApi';
 import { DocumentResponse } from '@/app/features/knowledge/types/Knowledge';
 import { useDocumentProcess } from '@/app/features/knowledge/hooks/useDocumentProcess';
 import Link from 'next/link'; // Added for Breadcrumb
@@ -42,6 +48,13 @@ export default function DocumentSettingsPage() {
   const [selectedDbItems, setSelectedDbItems] = useState<
     Record<string, string[]>
   >({});
+  const [sensitiveColumns, setSensitiveColumns] = useState<
+    Record<string, string[]>
+  >({});
+  const [aliases, setAliases] = useState<
+    Record<string, Record<string, string>>
+  >({});
+  const [template, setTemplate] = useState<string>('');
 
   // 설정 상태
   const [chunkSize, setChunkSize] = useState<number>(1000);
@@ -53,6 +66,8 @@ export default function DocumentSettingsPage() {
     'general' | 'llamaparse'
   >('general');
   const [apiOriginalData, setApiOriginalData] = useState<any>(null); // API 원본 데이터 (SessionStorage)
+  const [enableAutoChunking, setEnableAutoChunking] = useState<boolean>(true); // 자동 청킹 활성화
+  const [joinConfig, setJoinConfig] = useState<JoinConfig | null>(null); // JOIN 설정 상태
 
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
@@ -137,6 +152,11 @@ export default function DocumentSettingsPage() {
                   targetDoc.meta_info.db_config.selected_items,
                 );
               }
+              if (targetDoc.meta_info.db_config.sensitive_columns) {
+                setSensitiveColumns(
+                  targetDoc.meta_info.db_config.sensitive_columns,
+                );
+              }
               if (targetDoc.meta_info.db_config.connection_id) {
                 setConnectionId(targetDoc.meta_info.db_config.connection_id);
               }
@@ -209,6 +229,11 @@ export default function DocumentSettingsPage() {
       removeWhitespace,
       parsingStrategy,
       selectedDbItems,
+      sensitiveColumns,
+      aliases,
+      template,
+      enableAutoChunking,
+      joinConfig,
     },
     connectionId: connectionId,
     // 범위 선택
@@ -334,6 +359,58 @@ export default function DocumentSettingsPage() {
     );
   }
 
+  // 벡터화 템플릿 입력 UI 렌더러 (우측 패널용)
+  const renderTemplateSection = () => (
+    <div className="flex-none h-[30%] border-b border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+      {/* 템플릿 헤더 (프리뷰 헤더와 통일) */}
+      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center flex-none">
+        <h4 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+          <Pencil className="w-4 h-4" />
+          벡터화 템플릿 작성 (선택사항)
+          <div className="relative group ml-1 flex items-center">
+            <CircleHelp className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 cursor-help transition-colors" />
+            <div className="absolute left-0 top-6 w-80 p-3 bg-gray-900/95 text-white text-xs rounded-lg shadow-xl backdrop-blur-sm z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-relaxed border border-white/10">
+              DB의 row 데이터를 하나의 완성된 문장으로 정의해 주세요.
+              <br />잘 가공된 템플릿은 검색 효율을 높이고, AI가 더 똑똑하고
+              자연스럽게 답변하는 밑거름이 됩니다.
+            </div>
+          </div>
+        </h4>
+      </div>
+
+      <div className="p-4 bg-white dark:bg-gray-800 h-full flex flex-col overflow-y-auto">
+        {/* 사용 가능한 Alias 목록 */}
+        <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 flex-none">
+          <div className="text-xs leading-relaxed">
+            <span className="font-medium text-blue-900 dark:text-blue-300 mr-2 inline-block">
+              사용 가능한 Alias:
+            </span>
+            <span className="text-blue-700 dark:text-blue-400 break-all">
+              {Object.keys(aliases).length > 0 ? (
+                Object.values(aliases)
+                  .flatMap((tableAliases) => Object.values(tableAliases))
+                  .filter((alias) => alias)
+                  .map((alias) => `{{ ${alias} }}`)
+                  .join(', ')
+              ) : (
+                <span className="text-gray-400 dark:text-gray-500 italic">
+                  선택된 컬럼의 Alias가 여기에 표시됩니다.
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+
+        <textarea
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+          placeholder="예: {{상품명}}은(는) {{카테고리}} 카테고리의 제품으로, 현재 판매 가격은 {{가격}}원입니다. 제품에 대한 상세한 특징과 설명은 다음과 같습니다: {{상세설명}}"
+          className="w-full flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono overflow-y-auto"
+        />
+      </div>
+    </div>
+  );
+
   // 중앙 패널 렌더러
   const renderCenterPanel = () => {
     if (!document) return null;
@@ -341,24 +418,8 @@ export default function DocumentSettingsPage() {
       case 'DB':
         return (
           <div className="flex flex-col h-full">
-            {/* DB 연결 수정 섹션 */}
-            <div className="mb-4">
-              {!isEditingConnection ? (
-                <button
-                  onClick={handleEditConnection} // [변경] 직접 토글 대신 핸들러 호출
-                  disabled={isLoadingDetails}
-                  className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 shadow-sm disabled:opacity-50"
-                >
-                  {isLoadingDetails ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
-                      로딩 중...
-                    </>
-                  ) : (
-                    '⚙️ DB 연결 설정 수정'
-                  )}
-                </button>
-              ) : (
+            {isEditingConnection ? (
+              <div className="flex-1 overflow-y-auto px-1 py-2 pb-20">
                 <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="text-sm font-semibold text-gray-900">
@@ -381,15 +442,29 @@ export default function DocumentSettingsPage() {
                     initialConfig={connectionDetails}
                   />
                 </div>
-              )}
-            </div>
-            <div className="flex-1 min-h-0">
-              <DbSourceViewer
-                connectionId={connectionId} // 업데이트된 ID 사용
-                selectedDbItems={selectedDbItems}
-                onChange={setSelectedDbItems}
-              />
-            </div>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0 relative">
+                <div className="absolute inset-0 overflow-y-auto px-1">
+                  <DbSourceViewer
+                    connectionId={connectionId} // 업데이트된 ID 사용
+                    selectedDbItems={selectedDbItems}
+                    onChange={setSelectedDbItems}
+                    sensitiveColumns={sensitiveColumns}
+                    onSensitiveColumnsChange={setSensitiveColumns}
+                    aliases={aliases}
+                    onAliasesChange={setAliases}
+                    onEditConnection={handleEditConnection}
+                    isEditingLoading={isLoadingDetails}
+                    enableAutoChunking={enableAutoChunking}
+                    onEnableAutoChunkingChange={setEnableAutoChunking}
+                    onJoinConfigChange={setJoinConfig}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 템플릿 UI 제거됨 (우측 패널로 이동) */}
           </div>
         );
       case 'API':
@@ -441,8 +516,18 @@ export default function DocumentSettingsPage() {
         {/* Main Title Area */}
         <div className="px-6 py-5 flex items-start justify-between">
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400 mt-1">
-              <FileText className="w-8 h-8" />
+            <div
+              className={`p-3 rounded-xl mt-1 ${
+                document?.source_type === 'DB'
+                  ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
+                  : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+              }`}
+            >
+              {document?.source_type === 'DB' ? (
+                <Database className="w-8 h-8" />
+              ) : (
+                <FileText className="w-8 h-8" />
+              )}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">
@@ -528,7 +613,7 @@ export default function DocumentSettingsPage() {
               {status === 'indexing'
                 ? '처리 중...'
                 : status === 'pending'
-                  ? '처리'
+                  ? '설정 저장 및 처리 시작'
                   : status === 'completed'
                     ? '처리 완료됨'
                     : '저장 및 처리 시작'}
@@ -538,135 +623,136 @@ export default function DocumentSettingsPage() {
       </header>
       {/* Main Layout (3 Columns) */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 1. Left Panel: Settings */}
-        <div className="w-80 flex-none h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto p-4 space-y-3">
-          {/* FILE일 때만 파싱 전략 노출 */}
-          {(document?.source_type === 'FILE' || !document?.source_type) && (
-            <ParsingStrategySettings
-              strategy={parsingStrategy}
-              setStrategy={setParsingStrategy}
-            />
-          )}
-          <CommonChunkSettings
-            chunkSize={chunkSize}
-            setChunkSize={setChunkSize}
-            chunkOverlap={chunkOverlap}
-            setChunkOverlap={setChunkOverlap}
-            segmentIdentifier={segmentIdentifier}
-            setSegmentIdentifier={setSegmentIdentifier}
-            removeWhitespace={removeWhitespace}
-            setRemoveWhitespace={setRemoveWhitespace}
-            removeUrlsEmails={removeUrlsEmails}
-            setRemoveUrlsEmails={setRemoveUrlsEmails}
-          />
+        {/* 1. Left Panel: Settings - DB가 아닐 때만 표시 */}
+        {document?.source_type !== 'DB' && (
+          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+            <div className="p-6">
+              {/* FILE일 때만 파싱 전략 노출 */}
+              {(document?.source_type === 'FILE' || !document?.source_type) && (
+                <ParsingStrategySettings
+                  strategy={parsingStrategy}
+                  setStrategy={setParsingStrategy}
+                />
+              )}
+              <CommonChunkSettings
+                chunkSize={chunkSize}
+                setChunkSize={setChunkSize}
+                chunkOverlap={chunkOverlap}
+                setChunkOverlap={setChunkOverlap}
+                segmentIdentifier={segmentIdentifier}
+                setSegmentIdentifier={setSegmentIdentifier}
+                removeWhitespace={removeWhitespace}
+                setRemoveWhitespace={setRemoveWhitespace}
+                removeUrlsEmails={removeUrlsEmails}
+                setRemoveUrlsEmails={setRemoveUrlsEmails}
+              />
 
-          {/* 범위 선택 UI - Refined Design */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
-              <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                <span className="w-5 h-5 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400 text-xs">
-                  🎯
-                </span>
-                청크 선택 범위
-              </h4>
-            </div>
+              {/* 범위 선택 UI */}
+              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  🎯 청크 선택 범위
+                </h4>
 
-            <div className="p-3">
-              {/* 모드 선택 - Segmented Control Style */}
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectionMode('all')}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    selectionMode === 'all'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  전체
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectionMode('range')}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    selectionMode === 'range'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  범위
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectionMode('keyword')}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    selectionMode === 'keyword'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  키워드
-                </button>
+                {/* 모드 선택 라디오 버튼 */}
+                <div className="space-y-2 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="all"
+                      checked={selectionMode === 'all'}
+                      onChange={(e) => setSelectionMode(e.target.value as any)}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      전체 선택 (기본)
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="range"
+                      checked={selectionMode === 'range'}
+                      onChange={(e) => setSelectionMode(e.target.value as any)}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      청크 범위 지정
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="keyword"
+                      checked={selectionMode === 'keyword'}
+                      onChange={(e) => setSelectionMode(e.target.value as any)}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      키워드 검색
+                    </span>
+                  </label>
+                </div>
+
+                {/* 조건부 입력 폼 */}
+                {selectionMode === 'range' && (
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      청크 범위 (예: 1-100, 500-600)
+                    </label>
+                    <input
+                      type="text"
+                      value={chunkRange}
+                      onChange={(e) => setChunkRange(e.target.value)}
+                      placeholder="1-100, 500-600"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      쉼표로 구분하여 여러 범위 입력 가능
+                    </p>
+                  </div>
+                )}
+
+                {selectionMode === 'keyword' && (
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      키워드
+                    </label>
+                    <input
+                      type="text"
+                      value={keywordFilter}
+                      onChange={(e) => setKeywordFilter(e.target.value)}
+                      placeholder="검색할 키워드 입력"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      입력한 키워드를 포함하는 청크만 표시
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* 조건부 입력 폼 */}
-              {selectionMode === 'range' && (
-                <div className="animate-in slide-in-from-top-2 duration-200">
-                  <input
-                    type="text"
-                    value={chunkRange}
-                    onChange={(e) => setChunkRange(e.target.value)}
-                    placeholder="예: 1-100, 500-600"
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    쉼표로 구분하여 여러 범위 입력
-                  </p>
-                </div>
-              )}
-
-              {selectionMode === 'keyword' && (
-                <div className="animate-in slide-in-from-top-2 duration-200">
-                  <input
-                    type="text"
-                    value={keywordFilter}
-                    onChange={(e) => setKeywordFilter(e.target.value)}
-                    placeholder="검색할 키워드 입력"
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    키워드 포함 청크만 표시
-                  </p>
-                </div>
-              )}
-
-              {selectionMode === 'all' && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-1">
-                  모든 청크가 선택됩니다
-                </p>
-              )}
+              <button
+                onClick={handlePreviewClick}
+                disabled={isPreviewLoading || isAnalyzing}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {isPreviewLoading || analyzingAction === 'preview' ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                설정 적용 및 결과 미리보기
+              </button>
             </div>
           </div>
-
-          {/* Preview Button - Below Selection Box */}
-          <button
-            onClick={handlePreviewClick}
-            disabled={isPreviewLoading || isAnalyzing}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
-          >
-            {isPreviewLoading || analyzingAction === 'preview' ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
-            )}
-            결과 미리보기
-          </button>
-        </div>
+        )}
         {/* 2. Center Panel: Original Document View */}
         <div className="flex-1 bg-gray-100 dark:bg-gray-900/50 overflow-hidden flex flex-col border-r border-gray-200 dark:border-gray-700">
           <div className="px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h3 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
+              <ListTodo className="w-4 h-4" />
               {document?.source_type === 'API'
                 ? 'API 데이터 원본 확인'
                 : document?.source_type === 'DB'
@@ -680,23 +766,52 @@ export default function DocumentSettingsPage() {
           <div className="flex-1 w-full h-full p-4">{renderCenterPanel()}</div>
         </div>
         {/* 3. Right Panel: Preview Results */}
-        <ChunkPreviewList
-          previewSegments={previewSegments}
-          isLoading={isPreviewLoading}
-        />
+        <div className="flex-1 min-w-0 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-hidden">
+          {document?.source_type === 'DB' ? (
+            <div className="flex flex-col h-full">
+              {renderTemplateSection()}
+              <div className="flex-1 min-h-0 overflow-hidden relative">
+                <div className="absolute inset-0">
+                  <ChunkPreviewList
+                    previewSegments={previewSegments}
+                    isLoading={isPreviewLoading}
+                    headerButton={
+                      <button
+                        onClick={handlePreviewClick}
+                        disabled={isPreviewLoading || isAnalyzing}
+                        className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                      >
+                        {isPreviewLoading || analyzingAction === 'preview' ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        )}
+                        {isPreviewLoading ? '분석 중...' : '미리보기'}
+                      </button>
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <ChunkPreviewList
+              previewSegments={previewSegments}
+              isLoading={isPreviewLoading}
+            />
+          )}
+        </div>
       </div>
+
       {/* 비용 승인 모달 */}
       {showCostConfirm && analyzeResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 mb-4 text-amber-600 dark:text-amber-500">
-              <AlertTriangle className="w-8 h-8" />
-              <h3 className="text-lg font-bold">비용 승인 필요</h3>
-            </div>
-            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-              선택하신{' '}
-              <span className="font-bold text-gray-900 dark:text-white">
-                정밀 파싱(LlamaParse)
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              💰 비용 승인 필요
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              <span className="font-medium text-amber-600">
+                {analyzeResult.cost_estimate.credits} 포인트
               </span>
               은 유료 기능입니다.
               <br />
