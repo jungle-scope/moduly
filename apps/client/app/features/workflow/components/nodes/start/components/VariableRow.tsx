@@ -58,7 +58,13 @@ export const VariableRow = ({
               className="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
               placeholder="변수명"
               value={variable.label || ''}
-              onChange={(e) => onUpdate(variable.id, { label: e.target.value })}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                onUpdate(variable.id, {
+                  label: newValue,
+                  name: newValue, // label과 동일하게 설정
+                });
+              }}
             />
           </div>
 

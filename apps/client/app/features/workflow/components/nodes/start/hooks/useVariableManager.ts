@@ -105,8 +105,8 @@ export const useVariableManager = (id: string, data: StartNodeData) => {
   const addVariable = useCallback(() => {
     const newVar: WorkflowVariable = {
       id: crypto.randomUUID(),
-      name: `var_${variables.length + 1}`,
-      label: '', // 사용자가 직접 입력하도록 빈 값으로 시작
+      name: '', // 사용자가 입력할 때 label과 동일하게 설정됨
+      label: '', // 사용자가 직접 입력
       type: 'text',
       required: true,
       maxLength: 255,
