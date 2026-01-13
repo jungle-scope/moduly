@@ -185,12 +185,27 @@ export default function DBSchemaSelector({
     const isAllSelected = currentCols.length == allColumns.length;
 
     const newValue = { ...value };
+    const newAliases = { ...aliases };
+
     if (isAllSelected) {
       delete newValue[tableName]; // 전체 해제
+      delete newAliases[tableName]; // Alias도 삭제
     } else {
       newValue[tableName] = allColumns; // 전체 선택
+
+      // 전체 선택 시 모든 컬럼에 대해 Alias 자동 생성
+      if (onAliasesChange) {
+        newAliases[tableName] = {};
+        allColumns.forEach((col) => {
+          newAliases[tableName][col] = col;
+        });
+      }
     }
+
     onChange(newValue);
+    if (onAliasesChange) {
+      onAliasesChange(newAliases);
+    }
   };
 
   // 개별 컬럼 선택/해제
@@ -235,7 +250,17 @@ export default function DBSchemaSelector({
     } else {
       newValue[tableName] = newCols;
     }
+
+    // onChange 호출 후 Alias 생성 (상태 업데이트 순서 수정)
     onChange(newValue);
+    if (!isSelected && onAliasesChange) {
+      const newAliases = { ...aliases };
+      if (!newAliases[tableName]) {
+        newAliases[tableName] = {};
+      }
+      newAliases[tableName][colName] = colName;
+      onAliasesChange(newAliases);
+    }
   };
 
   // 민감 컬럼 토글
@@ -544,23 +569,7 @@ export default function DBSchemaSelector({
                             {col.type}
                           </span>
                         </label>
-                        {/* Alias 입력 */}
-                        {isChecked && onAliasesChange && (
-                          <input
-                            type="text"
-                            placeholder="alias 입력"
-                            value={aliases[table.table_name]?.[col.name] || ''}
-                            onChange={(e) =>
-                              handleAliasChange(
-                                table.table_name,
-                                col.name,
-                                e.target.value,
-                              )
-                            }
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-32 text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        )}
+
                         {isChecked && onSensitiveColumnsChange && (
                           <label
                             className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
