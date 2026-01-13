@@ -58,7 +58,8 @@ export default function BottomPanel({
   useEffect(() => {
     const updateZoom = () => {
       const viewport = getViewport();
-      setCurrentZoom(Math.round(viewport.zoom * 100));
+      // 0.8 줌을 100%로 표시 (실제 줌 / 0.8 * 100)
+      setCurrentZoom(Math.round((viewport.zoom / 0.8) * 100));
     };
 
     updateZoom();
