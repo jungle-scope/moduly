@@ -20,14 +20,9 @@ import { PuzzleEdge } from '../../edges/PuzzleEdge';
 interface WorkflowInnerCanvasProps {
   nodes: Node[];
   edges: Edge[];
-  allowNavigation?: boolean;
 }
 
-const InnerCanvasContent = ({
-  nodes,
-  edges,
-  allowNavigation = false,
-}: WorkflowInnerCanvasProps) => {
+const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
   // 노드 타입 메모이제이션
   const nodeTypes = useMemo(
     () => ({ ...coreNodeTypes }),
@@ -64,18 +59,18 @@ const InnerCanvasContent = ({
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={{ padding: 0.2, maxZoom: 1.25 }}
         proOptions={{ hideAttribution: true }}
-        // 상호작용 비활성화 (네비게이션 허용 시 줌/팬만 활성화)
+        // 상호작용 비활성화 (캔버스 고정)
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
-        zoomOnScroll={allowNavigation}
-        panOnScroll={allowNavigation}
-        zoomOnPinch={allowNavigation}
-        panOnDrag={allowNavigation}
-        zoomOnDoubleClick={allowNavigation}
-        preventScrolling={!allowNavigation}
+        zoomOnScroll={false}
+        panOnScroll={false}
+        zoomOnPinch={false}
+        panOnDrag={false}
+        zoomOnDoubleClick={false}
+        preventScrolling={true}
         // 기본 뷰포트 설정
         defaultViewport={defaultViewport}
       >
