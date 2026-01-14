@@ -21,9 +21,7 @@ export const HttpRequestNode = memo(
     const method = data.method || 'GET';
     const methodClass = methodColors[method] || defaultMethodColor;
 
-    // 노드 실행 필수 요건 체크
-    // 1. URL이 입력되어 있어야 함
-    // 2. GET 제외 메서드는 Body가 있어야 함
+
     const urlMissing = !data.url?.trim();
     const bodyRequiredButMissing = method !== 'GET' && !data.body?.trim();
     const hasValidationIssue = urlMissing || bodyRequiredButMissing;
