@@ -761,7 +761,7 @@ class WorkflowEngine:
                 return results[node_id]
 
         # 실행된 AnswerNode가 없는 경우
-        raise ValueError(
-            "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
-            "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
-        )
+        # raise ValueError(
+        #     "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
+        #     "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
+        # )
