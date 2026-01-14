@@ -43,15 +43,64 @@ export default function ColumnAutocomplete({
     })),
   );
 
-  // 드롭다운 위치 계산
-  const calculateDropdownPosition = () => {
+  // 드롭다운 위치 계산 (커서 위치 기반)
+  const calculateDropdownPosition = (text: string, cursorPos: number) => {
     if (!textareaRef.current) return;
 
-    const rect = textareaRef.current.getBoundingClientRect();
-    setDropdownPosition({
-      top: rect.bottom + window.scrollY,
-      left: rect.left + window.scrollX,
+    const textarea = textareaRef.current;
+
+    // 1. Mirror Div 생성 (스타일 복제용)
+    const div = document.createElement('div');
+    const style = window.getComputedStyle(textarea);
+
+    // 필수 스타일 복사
+    Array.from(style).forEach((prop) => {
+      div.style.setProperty(
+        prop,
+        style.getPropertyValue(prop),
+        style.getPropertyPriority(prop),
+      );
     });
+
+    // Mirror Div 설정
+    div.style.position = 'absolute';
+    div.style.top = '0px';
+    div.style.left = '-9999px'; // 화면 밖으로 숨김
+    div.style.visibility = 'hidden';
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.wordWrap = 'break-word';
+    div.style.width = style.width;
+    div.style.height = 'auto';
+
+    // 2. 커서 앞까지의 텍스트 복사 및 좌표 계산용 span 추가
+    const textBeforeCursor = text.substring(0, cursorPos);
+    div.textContent = textBeforeCursor;
+
+    const span = document.createElement('span');
+    span.textContent = '|';
+    div.appendChild(span);
+
+    document.body.appendChild(div);
+
+    // 3. 좌표 계산
+    const rect = textarea.getBoundingClientRect();
+    const spanOffsetTop = span.offsetTop;
+    const spanOffsetLeft = span.offsetLeft;
+
+    // 줄 높이 보정 (커서 바로 아래)
+    const lineHeight = parseFloat(style.lineHeight) || 20;
+
+    setDropdownPosition({
+      top:
+        rect.top +
+        window.scrollY +
+        spanOffsetTop +
+        lineHeight -
+        textarea.scrollTop,
+      left: rect.left + window.scrollX + spanOffsetLeft - textarea.scrollLeft,
+    });
+
+    document.body.removeChild(div);
   };
 
   // {{ 감지 및 자동완성
@@ -80,7 +129,7 @@ export default function ColumnAutocomplete({
 
       // 드롭다운 위치 계산
       if (filtered.length > 0) {
-        calculateDropdownPosition();
+        calculateDropdownPosition(newValue, cursorPos);
       }
     } else {
       setShowDropdown(false);
