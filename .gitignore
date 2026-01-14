@@ -25,6 +25,7 @@ apps/client/.next/
 
 # 프롬프트 규칙 (anti-gravity)
 .agent
+TODO.md
 
 # 맥 관련
 .DS_Store
@@ -77,3 +78,4 @@ infra/k8s/secrets.yaml
 alembic/__pycache__/
 alembic/versions/__pycache__/
 *.pyc
+
