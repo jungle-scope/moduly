@@ -25,9 +25,9 @@ export function ValidationAlert({
         className
       )}
     >
-      <p className="font-semibold flex items-center gap-1">
+      <div className="font-semibold flex flex-col gap-1">
         {message}
-      </p>
+      </div>
     </div>
   );
 }

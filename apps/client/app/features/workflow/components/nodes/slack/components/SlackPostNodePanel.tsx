@@ -413,6 +413,13 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             >
               🔗 Slack Webhook 발급 가이드
             </a>
+            {/* URL 관련 경고 */}
+            {mode === 'webhook' && !trimmedUrl && (
+              <ValidationAlert message="⚠️ Web Hook URL이 필요합니다." />
+            )}
+            {mode === 'webhook' && trimmedUrl && !isWebhookUrlValid && (
+              <ValidationAlert message="⚠️ Web Hook URL 형식이 올바르지 않습니다." type="warning" />
+            )}
             <div className="mt-2 border-b border-gray-200" />
           </div>
         ) : (
@@ -421,13 +428,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
           </p>
         )}
 
-        {/* URL 관련 경고 */}
-        {mode === 'webhook' && !trimmedUrl && (
-          <ValidationAlert message="⚠️ Web Hook URL이 필요합니다." />
-        )}
-        {mode === 'webhook' && trimmedUrl && !isWebhookUrlValid && (
-          <ValidationAlert message="⚠️ Web Hook URL 형식이 올바르지 않습니다." type="warning" />
-        )}
+
         {mode === 'api' && !trimmedUrl && (
           <ValidationAlert message="⚠️ Slack API 엔드포인트가 필요합니다." />
         )}
@@ -461,6 +462,10 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
               >
                 🔗 Slack 봇 토큰 발급 가이드
               </a>
+              {/* API 인증 관련 경고 (봇 토큰) */}
+              {!data.authConfig?.token?.trim() && (
+                <ValidationAlert message="⚠️ 봇 토큰이 필요합니다." />
+              )}
 
               <label className="text-xs font-medium text-gray-700">
                 채널 ID
@@ -475,16 +480,14 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
                 공개/비공개 채널 ID를 입력하세요. # 없이 ID 형태로 넣는 것이
                 안전합니다.
               </p>
+              {/* API 인증 관련 경고 (채널 ID) */}
+              {!data.channel?.trim() && (
+                <ValidationAlert message="⚠️ 채널 ID가 필요합니다." />
+              )}
             </div>
           </CollapsibleSection>
 
-          {/* API 인증 관련 경고 */}
-          {!data.authConfig?.token?.trim() && (
-            <ValidationAlert message="⚠️ 봇 토큰이 필요합니다." />
-          )}
-          {!data.channel?.trim() && (
-            <ValidationAlert message="⚠️ 채널 ID가 필요합니다." type="warning" />
-          )}
+
         </>
       )}
 
