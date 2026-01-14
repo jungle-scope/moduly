@@ -147,17 +147,42 @@ export default function KnowledgeDetailPage() {
     return '';
   };
 
-  // 확장자 제거한 파일명 (중간 생략 처리)
+  // UUID prefix가 있으면 제거, API URL이면 "API: 도메인" 형식으로 변환
+  const getDisplayFilename = (filename: string): string => {
+    // API source: URL이면 도메인만 추출
+    if (filename.startsWith('http://') || filename.startsWith('https://')) {
+      try {
+        const url = new URL(filename);
+        return url.hostname;
+      } catch {
+        return filename;
+      }
+    }
+    // FILE source: UUID prefix 제거
+    if (filename.length > 37 && filename[36] === '_') {
+      return filename.substring(37);
+    }
+    // DB source 등: 그대로 반환
+    return filename;
+  };
+
+  // 확장자 제거한 파일명 (중간 생략 처리, 한글 안전)
   const getTruncatedFilename = (filename: string, maxLength = 30) => {
-    const ext = getFileExtension(filename);
+    // UUID prefix 제거
+    const cleanFilename = getDisplayFilename(filename);
+    const ext = getFileExtension(cleanFilename);
     const nameWithoutExt = ext
-      ? filename.slice(0, -(ext.length + 1))
-      : filename;
+      ? cleanFilename.slice(0, -(ext.length + 1))
+      : cleanFilename;
 
-    if (nameWithoutExt.length <= maxLength) return nameWithoutExt;
+    // NFC 정규화 (한글 분해형 -> 조합형)
+    const normalized = nameWithoutExt.normalize('NFC');
 
-    const start = nameWithoutExt.slice(0, Math.floor(maxLength / 2) - 1);
-    const end = nameWithoutExt.slice(-(Math.floor(maxLength / 2) - 2));
+    if (normalized.length <= maxLength) return normalized;
+
+    const halfLen = Math.floor(maxLength / 2) - 2;
+    const start = normalized.slice(0, halfLen);
+    const end = normalized.slice(-halfLen);
     return `${start}...${end}`;
   };
 
@@ -526,11 +551,17 @@ export default function KnowledgeDetailPage() {
                         >
                           {getTruncatedFilename(doc.filename)}
                         </Link>
-                        {getFileExtension(doc.filename) && (
-                          <span className="shrink-0 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-semibold rounded uppercase">
-                            {getFileExtension(doc.filename)}
-                          </span>
-                        )}
+                        {doc.source_type !== 'API' &&
+                          doc.source_type !== 'DB' &&
+                          getFileExtension(
+                            getDisplayFilename(doc.filename),
+                          ) && (
+                            <span className="shrink-0 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-semibold rounded uppercase">
+                              {getFileExtension(
+                                getDisplayFilename(doc.filename),
+                              )}
+                            </span>
+                          )}
                       </div>
                       {doc.error_message && (
                         <p
