@@ -64,7 +64,7 @@ jobs:
     
     # 5. Gateway 이미지 빌드 & 푸시
     - name: Build and push Gateway image
-      if: github.event.inputs.services == 'gateway' || github.event.inputs.services == 'all'
+      if: github.event.inputs.services == 'gateway' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
       id: build-gateway
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -81,7 +81,7 @@ jobs:
     
     # 6. Workflow Engine 이미지 빌드 & 푸시
     - name: Build and push Workflow Engine image
-      if: github.event.inputs.services == 'worker' || github.event.inputs.services == 'all'
+      if: github.event.inputs.services == 'worker' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
       id: build-worker
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -98,7 +98,7 @@ jobs:
     
     # 7. Log System 이미지 빌드 & 푸시
     - name: Build and push Log System image
-      if: github.event.inputs.services == 'logger' || github.event.inputs.services == 'all'
+      if: github.event.inputs.services == 'logger' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
       id: build-logger
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -115,7 +115,7 @@ jobs:
     
     # 8. Frontend 이미지 빌드 & 푸시
     - name: Build and push Frontend image
-      if: github.event.inputs.services == 'frontend' || github.event.inputs.services == 'all'
+      if: github.event.inputs.services == 'frontend' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
       id: build-frontend
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -141,7 +141,7 @@ jobs:
         echo "Deploying selected services to dev namespace..."
         
         # Gateway
-        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           echo "Deploying Gateway..."
           kubectl apply -f infra/k8s/namespaces/dev/gateway-deployment.yaml
           if [ -n "${{ steps.build-gateway.outputs.image }}" ]; then
@@ -150,7 +150,7 @@ jobs:
         fi
         
         # Workflow Engine
-        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           echo "Deploying Workflow Engine..."
           kubectl apply -f infra/k8s/namespaces/dev/worker-deployment.yaml
           if [ -n "${{ steps.build-worker.outputs.image }}" ]; then
@@ -159,7 +159,7 @@ jobs:
         fi
         
         # Log System
-        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           echo "Deploying Log System..."
           kubectl apply -f infra/k8s/namespaces/dev/logger-deployment.yaml
           if [ -n "${{ steps.build-logger.outputs.image }}" ]; then
@@ -168,7 +168,7 @@ jobs:
         fi
         
         # Frontend
-        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           echo "Deploying Frontend..."
           kubectl apply -f infra/k8s/namespaces/dev/frontend-deployment.yaml
           if [ -n "${{ steps.build-frontend.outputs.image }}" ]; then
@@ -181,19 +181,19 @@ jobs:
       run: |
         echo "Waiting for deployments to be ready..."
         
-        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           kubectl rollout status deployment/api-server -n dev --timeout=5m || true
         fi
         
-        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           kubectl rollout status deployment/worker -n dev --timeout=5m || true
         fi
         
-        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           kubectl rollout status deployment/logger -n dev --timeout=5m || true
         fi
         
-        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           kubectl rollout status deployment/frontend -n dev --timeout=5m || true
         fi
     
@@ -214,25 +214,25 @@ jobs:
         echo ""
         
         echo "📝 Recent Logs:"
-        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           echo "--- Gateway Logs ---"
           kubectl logs -n dev -l app=api-server --tail=30 || echo "No gateway logs available"
           echo ""
         fi
         
-        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           echo "--- Worker Logs ---"
           kubectl logs -n dev -l app=worker --tail=30 || echo "No worker logs available"
           echo ""
         fi
         
-        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           echo "--- Logger Logs ---"
           kubectl logs -n dev -l app=logger --tail=30 || echo "No logger logs available"
           echo ""
         fi
         
-        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" ]]; then
+        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
           echo "--- Frontend Logs ---"
           kubectl logs -n dev -l app=frontend --tail=30 || echo "No frontend logs available"
         fi
