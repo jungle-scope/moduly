@@ -28,7 +28,7 @@ export const HttpRequestNode = memo(
         icon={<Globe className="text-white" />}
         iconColor="#0ea5e9" // sky-500
       >
-        <div className="flex flex-col gap-2 p-1">
+        <div className="flex flex-col gap-2 p-1 max-w-[240px]">
           {/* Method and URL Preview */}
           <div className="flex items-center gap-2">
             <div
@@ -37,11 +37,8 @@ export const HttpRequestNode = memo(
               {method}
             </div>
             <div
-              className="text-xs text-gray-600 flex-1 font-mono overflow-x-auto whitespace-nowrap scrollbar-hide"
-              onWheel={(e) => {
-                e.stopPropagation();
-                e.currentTarget.scrollLeft += e.deltaY;
-              }}
+              className="text-xs text-gray-600 flex-1 truncate font-mono"
+              title={data.url || 'URL을 입력하세요'}
             >
               {data.url || 'URL을 입력하세요'}
             </div>
