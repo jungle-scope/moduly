@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 
 import { LLMNodeData } from '../../../../types/Nodes';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getIncompleteVariables } from '../../../../utils/validationUtils';
@@ -570,19 +571,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
         
         {/* [VALIDATION] 불완전한 변수 경고 */}
         {incompleteVariables.length > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs mt-2">
-            <p className="font-semibold mb-1">
-              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
-            </p>
-            <ul className="list-disc list-inside">
-              {incompleteVariables.map((v, i) => (
-                <li key={i}>{v.name}</li>
-              ))}
-            </ul>
-            <p className="mt-1 text-[10px] text-orange-500">
-              실행 시 빈 값으로 대체됩니다.
-            </p>
-          </div>
+          <IncompleteVariablesAlert variables={incompleteVariables} />
         )}
       </CollapsibleSection>
 
@@ -655,9 +644,10 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
           {/* 모든 프롬프트가 비어있으면 경고 */}
           {allPromptsEmpty && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-yellow-700 text-xs">
-              ⚠️ 최소 1개의 프롬프트를 입력해야 실행할 수 있습니다.
-            </div>
+            <ValidationAlert
+              type="warning"
+              message="⚠️ 최소 1개의 프롬프트를 입력해야 실행할 수 있습니다."
+            />
           )}
 
           <div>
@@ -816,19 +806,23 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
           {/* [VALIDATION] 미등록 변수 경고 */}
           {validationErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-              <p className="font-semibold mb-1">
-                ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
-              </p>
-              <ul className="list-disc list-inside">
-                {validationErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-              <p className="mt-1 text-[10px] text-red-500">
-                입력변수 섹션에 변수를 등록해주세요.
-              </p>
-            </div>
+            <ValidationAlert
+              message={
+                <>
+                  <p className="font-semibold mb-1">
+                    ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
+                  </p>
+                  <ul className="list-disc list-inside">
+                    {validationErrors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-[10px] text-red-500 font-normal">
+                    입력변수 섹션에 변수를 등록해주세요.
+                  </p>
+                </>
+              }
+            />
           )}
         </div>
       </CollapsibleSection>
