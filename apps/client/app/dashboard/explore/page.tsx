@@ -151,6 +151,27 @@ export default function ExplorePage() {
               <p className="mt-2 text-sm text-gray-600 line-clamp-2 dark:text-gray-400">
                 {app.description || '설명이 없습니다.'}
               </p>
+
+              {/* 게시자 정보 */}
+              <div className="mt-3 flex items-center gap-2">
+                {app.owner_name ? (
+                  <>
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-medium text-blue-600">
+                      {app.owner_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {app.owner_name}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-medium text-blue-600">
+                      U
+                    </div>
+                    <span className="text-xs text-gray-500">Unknown</span>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* 작업 푸터 */}
