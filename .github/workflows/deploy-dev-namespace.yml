@@ -1,0 +1,224 @@
+name: Deploy to Dev Namespace (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to deploy (gateway, worker, logger, frontend, or all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - gateway
+          - worker
+          - logger
+          - frontend
+
+env:
+  AWS_REGION: ap-northeast-2
+  EKS_CLUSTER_NAME: moduly-cluster
+  NAMESPACE: dev
+
+jobs:
+  deploy-to-dev:
+    name: Deploy to Dev Namespace
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 1. 코드 체크아웃
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # 2. AWS 자격 증명 설정
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    # 3. ECR 로그인
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    # 4. kubectl 설정
+    - name: Configure kubectl
+      run: |
+        aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+    
+    # 5. Gateway 이미지 빌드 & 푸시
+    - name: Build and push Gateway image
+      if: github.event.inputs.services == 'gateway' || github.event.inputs.services == 'all'
+      id: build-gateway
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: dev-${{ github.sha }}
+      run: |
+        echo "Building Gateway image..."
+        docker build -t $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG -f docker/gateway/Dockerfile .
+        docker push $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG
+        
+        docker tag $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG $ECR_REGISTRY/moduly-gateway:dev-latest
+        docker push $ECR_REGISTRY/moduly-gateway:dev-latest
+        
+        echo "image=$ECR_REGISTRY/moduly-gateway:$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    # 6. Workflow Engine 이미지 빌드 & 푸시
+    - name: Build and push Workflow Engine image
+      if: github.event.inputs.services == 'worker' || github.event.inputs.services == 'all'
+      id: build-worker
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: dev-${{ github.sha }}
+      run: |
+        echo "Building Workflow Engine image..."
+        docker build -t $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG -f docker/workflow_engine/Dockerfile .
+        docker push $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG
+        
+        docker tag $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG $ECR_REGISTRY/moduly-workflow-engine:dev-latest
+        docker push $ECR_REGISTRY/moduly-workflow-engine:dev-latest
+        
+        echo "image=$ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    # 7. Log System 이미지 빌드 & 푸시
+    - name: Build and push Log System image
+      if: github.event.inputs.services == 'logger' || github.event.inputs.services == 'all'
+      id: build-logger
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: dev-${{ github.sha }}
+      run: |
+        echo "Building Log System image..."
+        docker build -t $ECR_REGISTRY/moduly-logger:$IMAGE_TAG -f docker/log_system/Dockerfile .
+        docker push $ECR_REGISTRY/moduly-logger:$IMAGE_TAG
+        
+        docker tag $ECR_REGISTRY/moduly-logger:$IMAGE_TAG $ECR_REGISTRY/moduly-logger:dev-latest
+        docker push $ECR_REGISTRY/moduly-logger:dev-latest
+        
+        echo "image=$ECR_REGISTRY/moduly-logger:$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    # 8. Frontend 이미지 빌드 & 푸시
+    - name: Build and push Frontend image
+      if: github.event.inputs.services == 'frontend' || github.event.inputs.services == 'all'
+      id: build-frontend
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: dev-${{ github.sha }}
+      run: |
+        echo "Building Frontend image..."
+        docker build -t $ECR_REGISTRY/moduly-client:$IMAGE_TAG -f docker/client/Dockerfile .
+        docker push $ECR_REGISTRY/moduly-client:$IMAGE_TAG
+        
+        docker tag $ECR_REGISTRY/moduly-client:$IMAGE_TAG $ECR_REGISTRY/moduly-client:dev-latest
+        docker push $ECR_REGISTRY/moduly-client:dev-latest
+        
+        echo "image=$ECR_REGISTRY/moduly-client:$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    # 9. dev namespace 생성 (없으면)
+    - name: Ensure dev namespace exists
+      run: |
+        kubectl create namespace dev --dry-run=client -o yaml | kubectl apply -f -
+    
+    # 10. K8s 매니페스트 적용 및 이미지 업데이트
+    - name: Deploy to dev namespace
+      run: |
+        echo "Deploying selected services to dev namespace..."
+        
+        # Gateway
+        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          echo "Deploying Gateway..."
+          kubectl apply -f infra/k8s/namespaces/dev/gateway-deployment.yaml
+          if [ -n "${{ steps.build-gateway.outputs.image }}" ]; then
+            kubectl set image deployment/api-server api-server=${{ steps.build-gateway.outputs.image }} -n dev
+          fi
+        fi
+        
+        # Workflow Engine
+        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          echo "Deploying Workflow Engine..."
+          kubectl apply -f infra/k8s/namespaces/dev/worker-deployment.yaml
+          if [ -n "${{ steps.build-worker.outputs.image }}" ]; then
+            kubectl set image deployment/worker worker=${{ steps.build-worker.outputs.image }} -n dev
+          fi
+        fi
+        
+        # Log System
+        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          echo "Deploying Log System..."
+          kubectl apply -f infra/k8s/namespaces/dev/logger-deployment.yaml
+          if [ -n "${{ steps.build-logger.outputs.image }}" ]; then
+            kubectl set image deployment/logger logger=${{ steps.build-logger.outputs.image }} -n dev
+          fi
+        fi
+        
+        # Frontend
+        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          echo "Deploying Frontend..."
+          kubectl apply -f infra/k8s/namespaces/dev/frontend-deployment.yaml
+          if [ -n "${{ steps.build-frontend.outputs.image }}" ]; then
+            kubectl set image deployment/frontend frontend=${{ steps.build-frontend.outputs.image }} -n dev
+          fi
+        fi
+    
+    # 11. Rollout 확인
+    - name: Wait for rollout to complete
+      run: |
+        echo "Waiting for deployments to be ready..."
+        
+        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          kubectl rollout status deployment/api-server -n dev --timeout=5m || true
+        fi
+        
+        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          kubectl rollout status deployment/worker -n dev --timeout=5m || true
+        fi
+        
+        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          kubectl rollout status deployment/logger -n dev --timeout=5m || true
+        fi
+        
+        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          kubectl rollout status deployment/frontend -n dev --timeout=5m || true
+        fi
+    
+    # 12. 배포 검증
+    - name: Verify deployment
+      run: |
+        echo "========================================="
+        echo "Dev Namespace Deployment Status"
+        echo "========================================="
+        echo ""
+        
+        echo "📦 Pods:"
+        kubectl get pods -n dev
+        echo ""
+        
+        echo "🌐 Services:"
+        kubectl get svc -n dev
+        echo ""
+        
+        echo "📝 Recent Logs:"
+        if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          echo "--- Gateway Logs ---"
+          kubectl logs -n dev -l app=api-server --tail=30 || echo "No gateway logs available"
+          echo ""
+        fi
+        
+        if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          echo "--- Worker Logs ---"
+          kubectl logs -n dev -l app=worker --tail=30 || echo "No worker logs available"
+          echo ""
+        fi
+        
+        if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          echo "--- Logger Logs ---"
+          kubectl logs -n dev -l app=logger --tail=30 || echo "No logger logs available"
+          echo ""
+        fi
+        
+        if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" ]]; then
+          echo "--- Frontend Logs ---"
+          kubectl logs -n dev -l app=frontend --tail=30 || echo "No frontend logs available"
+        fi
