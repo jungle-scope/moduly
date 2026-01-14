@@ -2,6 +2,7 @@ pyproject.toml
 db/base.py
 db/seed.py
 db/session.py
+db/models/__init__.py
 db/models/app.py
 db/models/connection.py
 db/models/knowledge.py

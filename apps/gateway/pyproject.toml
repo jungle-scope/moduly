@@ -18,6 +18,14 @@ dependencies = [
     # Celery 호출용
     "celery[redis]>=5.3.0",
     "redis>=5.0.0",
+    # Knowledge Base / Ingestion
+    "langchain>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "pymupdf4llm",
+    "python-docx",
+    "openpyxl",
+    "pandas",
     # Shared 패키지 의존성
     "moduly-shared",
 ]

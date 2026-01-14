@@ -54,7 +54,7 @@ docker compose up -d postgres redis
 # PostgreSQL이 준비될 때까지 대기 (최대 30초)
 echo "⏳ PostgreSQL 준비 대기 중..."
 for i in {1..30}; do
-    if docker compose exec -T postgres pg_isready -U moduly -d moduly > /dev/null 2>&1; then
+    if docker compose exec -T postgres pg_isready -U admin -d moduly_local > /dev/null 2>&1; then
         echo -e "${GREEN}✓ PostgreSQL 준비 완료${NC}"
         break
     fi
@@ -87,7 +87,7 @@ DOCKER_PID=$!
 # macOS에서 fork() 호환성 문제 해결을 위해 solo pool 사용 및 환경변수 설정
 echo -e "${GREEN}📝 Log-System Celery Worker 시작...${NC}"
 (
-    source apps/server/.venv/bin/activate
+    source apps/log_system/.venv/bin/activate
     export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     PYTHONPATH="$PROJECT_ROOT" celery -A apps.log_system.main worker -Q log -l info -P solo
 ) &
@@ -98,7 +98,7 @@ sleep 1
 # 3. Celery Worker (Workflow-Engine)
 echo -e "${GREEN}⚙️ Workflow-Engine Celery Worker 시작...${NC}"
 (
-    source apps/server/.venv/bin/activate
+    source apps/workflow_engine/.venv/bin/activate
     export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     PYTHONPATH="$PROJECT_ROOT" celery -A apps.workflow_engine.main worker -Q workflow -l info -P solo
 ) &
@@ -109,7 +109,7 @@ sleep 1
 # 4. Gateway API 서버
 echo -e "${GREEN}🖥️ Gateway API 서버 시작...${NC}"
 (
-    source apps/server/.venv/bin/activate
+    source apps/gateway/.venv/bin/activate
     PYTHONPATH="$PROJECT_ROOT" uvicorn apps.gateway.main:app --reload --port 8000
 ) &
 FASTAPI_PID=$!
