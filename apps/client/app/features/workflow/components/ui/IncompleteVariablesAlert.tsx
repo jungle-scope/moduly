@@ -26,8 +26,5 @@ export function IncompleteVariablesAlert({
         실행 시 빈 값으로 대체됩니다.
       </p>
     </div>
-    // Note: We could use ValidationAlert here but the structure (ul/li + extra p) is specific enough
-    // that keeping it separate is cleaner, or we could make ValidationAlert accept children.
-    // For now, standalone component as requested.
   );
 }

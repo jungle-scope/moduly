@@ -7,6 +7,7 @@ import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { CodeWizardModal } from '../../../modals/CodeWizardModal';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 
 interface CodeNodePanelProps {
   nodeId: string;
@@ -106,12 +107,12 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
 
   // [VALIDATION] 불완전한 입력변수 (이름은 있지만 source가 비어있는 경우)
   const incompleteVariables = useMemo(() => {
-    const incomplete: string[] = [];
+    const incomplete: { name: string; value_selector: string[] }[] = [];
     for (const input of data.inputs || []) {
       const name = (input.name || '').trim();
       const source = (input.source || '').trim();
       if (name && !source) {
-        incomplete.push(name);
+        incomplete.push({ name, value_selector: [] });
       }
     }
     return incomplete;
@@ -141,21 +142,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
           </div>
           
           {/* [불완전한 변수 경고] */}
-          {incompleteVariables.length > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs">
-              <p className="font-semibold mb-1">
-                ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
-              </p>
-              <ul className="list-disc list-inside">
-                {incompleteVariables.map((name, i) => (
-                  <li key={i}>{name}</li>
-                ))}
-              </ul>
-              <p className="mt-1 text-[10px] text-orange-500">
-                실행 시 빈 값으로 대체됩니다.
-              </p>
-            </div>
-          )}
+          <IncompleteVariablesAlert variables={incompleteVariables} />
         </div>
       </CollapsibleSection>
 

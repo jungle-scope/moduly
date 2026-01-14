@@ -26,10 +26,6 @@ export function ValidationAlert({
       )}
     >
       <p className="font-semibold flex items-center gap-1">
-        {/* 아이콘은 필요시 props로 받거나 여기서 분기 처리 가능하지만, 
-            기존에 일관되게 이모지(⚠️)를 쓰고 있어서 일단 텍스트에 포함된 것으로 가정하거나 
-            여기서 강제할 수도 있습니다. 
-            일단 기존 코드들이 텍스트 안에 ⚠️를 포함하고 있으므로 그대로 둡니다. */}
         {message}
       </p>
     </div>

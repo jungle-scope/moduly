@@ -238,21 +238,8 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
         />
         
         {/* [불완전한 변수 경고] */}
-        {incompleteVariables.length > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs mt-2">
-            <p className="font-semibold mb-1">
-              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
-            </p>
-            <ul className="list-disc list-inside">
-              {incompleteVariables.map((v, i) => (
-                <li key={i}>{v.name}</li>
-              ))}
-            </ul>
-            <p className="mt-1 text-[10px] text-orange-500">
-              실행 시 빈 값으로 대체됩니다.
-            </p>
-          </div>
-        )}
+        {/* [불완전한 변수 경고] */}
+        <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 
       {/* 2. 템플릿 에디터 */}
@@ -332,20 +319,24 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
 
           {/* [유효성 검사] 미등록 변수 경고 블록 */}
           {validationErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-              <p className="font-semibold mb-1 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                등록되지 않은 변수가 감지되었습니다:
-              </p>
-              <ul className="list-disc list-inside">
-                {validationErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-              <p className="mt-1 text-[10px] text-red-500">
-                입력변수 섹션에 변수를 등록해주세요.
-              </p>
-            </div>
+            <ValidationAlert
+              message={(
+                <>
+                  <span className="flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    등록되지 않은 변수가 감지되었습니다:
+                  </span>
+                  <ul className="list-disc list-inside mt-1 font-normal">
+                    {validationErrors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-[10px] text-red-500 font-normal">
+                    입력변수 섹션에 변수를 등록해주세요.
+                  </p>
+                </>
+              )}
+            />
           )}
 
 
