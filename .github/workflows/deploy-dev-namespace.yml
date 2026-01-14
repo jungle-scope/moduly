@@ -176,6 +176,38 @@ jobs:
           fi
         fi
     
+    # 10-1. Database Migration (Gateway 배포 후)
+    - name: Run Alembic Migration
+      if: github.event.inputs.services == 'gateway' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
+      run: |
+        echo "Running database migration..."
+        
+        kubectl run alembic-migration-${{ github.run_id }} \
+          --image=${{ steps.build-gateway.outputs.image }} \
+          --namespace=dev \
+          --restart=Never \
+          --attach=true \
+          --overrides='{
+            "spec": {
+              "containers": [{
+                "name": "alembic",
+                "image": "${{ steps.build-gateway.outputs.image }}",
+                "command": ["/bin/sh", "-c"],
+                "args": ["cd /app/apps/shared && alembic upgrade head"],
+                "env": [
+                  {"name": "DB_HOST", "value": "postgresql.default.svc.cluster.local"},
+                  {"name": "DB_PORT", "value": "5432"},
+                  {"name": "DB_NAME", "value": "moduly_dev"},
+                  {"name": "DB_USER", "value": "postgres"},
+                  {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "app-secrets", "key": "DB_PASSWORD"}}}
+                ]
+              }]
+            }
+          }'
+        
+        echo "Cleaning up migration pod..."
+        kubectl delete pod alembic-migration-${{ github.run_id }} --ignore-not-found=true -n dev
+    
     # 11. Rollout 확인
     - name: Wait for rollout to complete
       run: |
