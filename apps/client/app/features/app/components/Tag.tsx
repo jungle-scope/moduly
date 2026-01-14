@@ -1,20 +1,27 @@
+import { getDeploymentBadgeInfo } from '../utils/tagUtils';
+
 interface TagProps {
   label: string;
-  type: 'api' | 'webapp' | 'widget' | 'workflow_node' | 'undeployed';
+  type:
+    | 'api'
+    | 'webhook'
+    | 'webapp'
+    | 'widget'
+    | 'workflow_node'
+    | 'schedule'
+    | 'undeployed';
 }
 
 export function Tag({ label, type }: TagProps) {
-  const colors = {
-    api: 'bg-blue-100 text-blue-700',
-    webapp: 'bg-purple-100 text-purple-700',
-    widget: 'bg-green-100 text-green-700',
-    workflow_node: 'bg-teal-100 text-teal-700',
-    undeployed: 'bg-gray-100 text-gray-600',
-  };
+  // 'undeployed'는 배포 타입이 아니므로 별도 처리
+  const colorClasses =
+    type === 'undeployed'
+      ? 'bg-gray-100 text-gray-600'
+      : `${getDeploymentBadgeInfo(type).bgColor} ${getDeploymentBadgeInfo(type).textColor}`;
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${colors[type]}`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${colorClasses}`}
     >
       {label}
     </span>
