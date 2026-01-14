@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useMemo } from 'react';
+import { memo, useState, useCallback, useMemo, useEffect } from 'react';
 import { WorkflowInnerCanvas } from './WorkflowInnerCanvas';
 import { NodeProps, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import { WorkflowNode as WorkflowNodeType } from '../../../../types/Nodes';
@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, Loader2, Puzzle } from 'lucide-react';
 import { workflowApi } from '../../../../api/workflowApi';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { toast } from 'sonner';
+import { ValidationBadge } from '../../../ui/ValidationBadge';
 
 // **워크플로우 모듈 노드 컴포넌트**
 // 다른 워크플로우(App)를 하나의 노드처럼 가져와서 실행할 수 있게 해줍니다.
@@ -18,6 +19,42 @@ export const WorkflowNode = memo(
     const nodes = useNodes();
     const edges = useEdges();
     const [isLoading, setIsLoading] = useState(false);
+    const [inputSchema, setInputSchema] = useState<any>(null);
+
+    // 배포 정보 로드 (유효성 검사용)
+    useEffect(() => {
+      if (!data.deployment_id) {
+        setInputSchema(null);
+        return;
+      }
+      workflowApi
+        .getDeployment(data.deployment_id)
+        .then((deployment: any) => {
+          if (deployment?.input_schema) {
+            setInputSchema(deployment.input_schema);
+          }
+        })
+        .catch(() => {
+          // 에러 무시 (패널에서 처리)
+        });
+    }, [data.deployment_id]);
+
+    const validationMessage = useMemo(() => {
+      if (!data.deployment_id) return '워크플로우 미선택';
+      if (!inputSchema) return null;
+
+      const requiredVars = inputSchema.variables || [];
+      const hasUnmapped = requiredVars.some((v: any) => {
+        // 모든 변수 required 가정 (또는 v.required 체크)
+        if (!v.required && v.required !== undefined) return false;
+        
+        const mapping = data.inputs?.find((i) => i.name === v.name);
+        return !(mapping?.value_selector?.[0] && mapping?.value_selector?.[1]);
+      });
+
+      if (hasUnmapped) return '필수 입력 미매핑';
+      return null;
+    }, [data.deployment_id, inputSchema, data.inputs]);
 
     // 내부 노드 및 엣지 필터링 (실행 흐름에 연결된 것만)
     const { filteredNodes, filteredEdges, containerSize } = useMemo(() => {
@@ -391,6 +428,11 @@ export const WorkflowNode = memo(
             <ChevronRight className="w-4 h-4" />
           )}
         </button>
+
+        {/* 유효성 검사 배지 */}
+        {validationMessage && (
+          <ValidationBadge />
+        )}
 
         {/* 확장된 콘텐츠: 시각적 그래프 */}
         {isExpanded && (

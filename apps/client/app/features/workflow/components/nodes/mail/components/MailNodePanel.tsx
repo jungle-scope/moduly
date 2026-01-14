@@ -2,8 +2,10 @@ import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { MailNodeData, EmailProvider } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { AlertTriangle } from 'lucide-react';
 
 interface MailNodePanelProps {
   nodeId: string;
@@ -141,6 +143,22 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
       handleUpdateData('referenced_variables', newVars);
     },
     [data.referenced_variables, handleUpdateData],
+  );
+
+  // [VALIDATION] 이메일 필수 체크
+  const emailMissing = useMemo(() => {
+    return !data.email?.trim();
+  }, [data.email]);
+
+  // [VALIDATION] 비밀번호 필수 체크
+  const passwordMissing = useMemo(() => {
+    return !data.password?.trim();
+  }, [data.password]);
+
+  // [VALIDATION] 불완전한 변수 (이름은 있지만 selector가 불완전한 경우)
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
   );
 
   // 자동완성 핸들러
@@ -287,6 +305,13 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               value={data.email || ''}
               onChange={(e) => handleUpdateData('email', e.target.value)}
             />
+            {emailMissing && (
+              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs mt-1">
+                <p className="font-semibold flex items-center gap-1">
+                  ⚠️ 이메일을 입력해주세요.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -303,6 +328,13 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             <p className="text-[10px] text-gray-500">
               💡 Gmail: 앱 비밀번호 사용 권장
             </p>
+            {passwordMissing && (
+              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs mt-1">
+                <p className="font-semibold flex items-center gap-1">
+                  ⚠️ 비밀번호를 입력해주세요.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </CollapsibleSection>
@@ -318,6 +350,23 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           title=""
           description="검색 조건에서 사용할 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
+
+        {/* [VALIDATION] 불완전한 변수 경고 */}
+        {incompleteVariables.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-2 text-orange-700 text-xs mt-2">
+            <p className="font-semibold flex items-center gap-1">
+              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
+            </p>
+            <ul className="list-disc list-inside">
+              {incompleteVariables.map((v, i) => (
+                <li key={i}>{v.name}</li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[10px] text-orange-500">
+              실행 시 빈 값으로 대체됩니다.
+            </p>
+          </div>
+        )}
       </CollapsibleSection>
 
       {/* 4. 검색 옵션 */}

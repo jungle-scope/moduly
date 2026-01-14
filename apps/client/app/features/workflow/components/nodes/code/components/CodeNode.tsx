@@ -3,9 +3,16 @@ import { Node, NodeProps } from '@xyflow/react';
 import { Code } from 'lucide-react';
 import { CodeNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
+import { ValidationBadge } from '../../../ui/ValidationBadge';
 
 export const CodeNode = memo(
   ({ data, selected, id }: NodeProps<Node<CodeNodeData>>) => {
+    // 노드 실행 필수 요건 체크
+    // 입력변수 중 이름은 있지만 source가 비어있는 경우
+    const hasIncompleteInputs = (data.inputs || []).some(
+      (input) => input.name?.trim() && !input.source?.trim()
+    );
+
     return (
       <BaseNode
         id={id}
@@ -14,8 +21,15 @@ export const CodeNode = memo(
         icon={<Code className="text-white" />}
         iconColor="#3b82f6" // blue-500
       >
-        <div className="text-xs text-gray-500">
-          {data.inputs?.length || 0}개 입력변수
+        <div className="flex flex-col gap-1">
+          <div className="text-xs text-gray-500">
+            {data.inputs?.length || 0}개 입력변수
+          </div>
+          
+          {/* 검증 실패 시 경고 배지 */}
+          {hasIncompleteInputs && (
+            <ValidationBadge />
+          )}
         </div>
       </BaseNode>
     );
@@ -23,3 +37,4 @@ export const CodeNode = memo(
 );
 
 CodeNode.displayName = 'CodeNode';
+

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { HelpCircle, Plus, Trash2 } from 'lucide-react';
+import { HelpCircle, Plus, Trash2, AlertTriangle } from 'lucide-react';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { HttpVariable, SlackPostNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 
@@ -129,6 +130,12 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
     }
     return Array.from(missing);
   }, [data.message, data.blocks, availableVariables]);
+
+  // [불완전한 변수] 이름은 있지만 value_selector가 없는 경우
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
+  );
 
   const trimmedUrl = (data.url || '').trim();
   const blocksText = (data.blocks || '').trim();
@@ -339,16 +346,6 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {validationIssues.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-          <p className="font-semibold mb-1">⚠️ 실행을 위해 확인이 필요합니다:</p>
-          <ul className="list-disc list-inside">
-            {validationIssues.map((issue, index) => (
-              <li key={index}>{issue}</li>
-            ))}
-          </ul>
-        </div>
-      )}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-medium text-gray-700">전송 방식</label>
         <div className="bg-gray-100 p-1 rounded-lg inline-flex w-full gap-1">
@@ -420,6 +417,23 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             chat.postMessage 기본값입니다. 필요하면 다른 Slack API로 변경하세요.
           </p>
         )}
+
+        {/* URL 관련 경고 */}
+        {mode === 'webhook' && !trimmedUrl && (
+          <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
+            <p className="font-semibold mb-1">⚠️ Web Hook URL이 필요합니다.</p>
+          </div>
+        )}
+        {mode === 'webhook' && trimmedUrl && !isWebhookUrlValid && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs">
+            <p className="font-semibold mb-1">⚠️ Web Hook URL 형식이 올바르지 않습니다.</p>
+          </div>
+        )}
+        {mode === 'api' && !trimmedUrl && (
+          <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
+            <p className="font-semibold mb-1">⚠️ Slack API 엔드포인트가 필요합니다.</p>
+          </div>
+        )}
       </div>
 
       {mode === 'api' && (
@@ -466,6 +480,18 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
               </p>
             </div>
           </CollapsibleSection>
+
+          {/* API 인증 관련 경고 */}
+          {!data.authConfig?.token?.trim() && (
+            <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
+              <p className="font-semibold mb-1">⚠️ 봇 토큰이 필요합니다.</p>
+            </div>
+          )}
+          {!data.channel?.trim() && (
+            <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs">
+              <p className="font-semibold mb-1">⚠️ 채널 ID가 필요합니다.</p>
+            </div>
+          )}
         </>
       )}
 
@@ -561,6 +587,19 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
           title=""
           description="메시지/블록에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
+        
+        {/* 불완전한 변수 경고 */}
+        {incompleteVariables.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs mt-2">
+            <p className="font-semibold mb-1">⚠️ 변수의 노드/출력이 선택되지 않았습니다:</p>
+            <ul className="list-disc list-inside">
+              {incompleteVariables.map((v, i) => (
+                <li key={i}>{v.name}</li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[10px] text-orange-500">실행 시 빈 값으로 대체됩니다.</p>
+          </div>
+        )}
       </CollapsibleSection>
 
       <CollapsibleSection title="메시지" defaultOpen={true} showDivider>

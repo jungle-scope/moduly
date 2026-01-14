@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { LLMNodeData } from '../../../../types/Nodes';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { HelpCircle, BookOpen, MousePointerClick, Wand2 } from 'lucide-react';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
@@ -302,18 +303,10 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
   ]);
 
   // [VALIDATION] 불완전한 변수 경고 (이름은 있지만 selector가 불완전한 경우)
-  const incompleteVariables = useMemo(() => {
-    const incomplete: string[] = [];
-    for (const v of data.referenced_variables || []) {
-      const name = (v.name || '').trim();
-      const selector = v.value_selector || [];
-      // 이름은 있지만 selector가 불완전하면 경고
-      if (name && (!selector || selector.length < 2 || !selector[1])) {
-        incomplete.push(name);
-      }
-    }
-    return incomplete;
-  }, [data.referenced_variables]);
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
+  );
 
   // [VALIDATION] 모든 프롬프트가 비어있는지 확인
   const allPromptsEmpty = useMemo(() => {
@@ -573,6 +566,23 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           title="" // CollapsibleSection 내부에 타이틀이 있으므로 숨김
           description="프롬프트에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
+        
+        {/* [VALIDATION] 불완전한 변수 경고 */}
+        {incompleteVariables.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs mt-2">
+            <p className="font-semibold mb-1">
+              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
+            </p>
+            <ul className="list-disc list-inside">
+              {incompleteVariables.map((v, i) => (
+                <li key={i}>{v.name}</li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[10px] text-orange-500">
+              실행 시 빈 값으로 대체됩니다.
+            </p>
+          </div>
+        )}
       </CollapsibleSection>
 
       {/* 2.5 참고 자료 버튼 (참고 자료 그룹 통합) */}
@@ -802,22 +812,6 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
             </div>
           )}
 
-          {/* [VALIDATION] 불완전한 변수 경고 */}
-          {incompleteVariables.length > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs">
-              <p className="font-semibold mb-1">
-                ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
-              </p>
-              <ul className="list-disc list-inside">
-                {incompleteVariables.map((name, i) => (
-                  <li key={i}>{name}</li>
-                ))}
-              </ul>
-              <p className="mt-1 text-[10px] text-orange-500">
-                실행 시 빈 값으로 대체됩니다.
-              </p>
-            </div>
-          )}
 
           {/* [VALIDATION] 미등록 변수 경고 */}
           {validationErrors.length > 0 && (

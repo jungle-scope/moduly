@@ -2,8 +2,10 @@ import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { GithubNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { AlertTriangle } from 'lucide-react';
 
 interface GithubNodePanelProps {
   nodeId: string;
@@ -94,6 +96,32 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
     [data.referenced_variables, handleUpdateData],
   );
 
+  // [VALIDATION] API 토큰 필수
+  const tokenMissing = useMemo(() => {
+    return !data.api_token?.trim();
+  }, [data.api_token]);
+
+  // [VALIDATION] 소유자 필수
+  const ownerMissing = useMemo(() => {
+    return !data.repo_owner?.trim();
+  }, [data.repo_owner]);
+
+  // [VALIDATION] 저장소 필수
+  const repoMissing = useMemo(() => {
+    return !data.repo_name?.trim();
+  }, [data.repo_name]);
+
+  // [VALIDATION] PR 번호 필수 (양수)
+  const prMissing = useMemo(() => {
+    return !data.pr_number || data.pr_number <= 0;
+  }, [data.pr_number]);
+
+  // [VALIDATION] 불완전한 변수
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
+  );
+
   // 자동완성 핸들러
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const target = e.target as HTMLTextAreaElement;
@@ -178,6 +206,13 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             value={data.api_token || ''}
             onChange={(e) => handleUpdateData('api_token', e.target.value)}
           />
+          {tokenMissing && (
+            <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs mt-1">
+              <p className="font-semibold flex items-center gap-1">
+                ⚠️ API 토큰을 입력해주세요.
+              </p>
+            </div>
+          )}
         </div>
       </CollapsibleSection>
 
@@ -192,6 +227,23 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
           title="" // 내부 타이틀 숨김
           description="이 섹션에서 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
+        
+        {/* [VALIDATION] 불완전한 변수 경고 */}
+        {incompleteVariables.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-2 text-orange-700 text-xs mt-2">
+            <p className="font-semibold flex items-center gap-1">
+              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
+            </p>
+            <ul className="list-disc list-inside">
+              {incompleteVariables.map((v, i) => (
+                <li key={i}>{v.name}</li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[10px] text-orange-500">
+              실행 시 빈 값으로 대체됩니다.
+            </p>
+          </div>
+        )}
       </CollapsibleSection>
 
       {/* 3. 저장소 정보 */}
@@ -205,6 +257,13 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
               value={data.repo_owner || ''}
               onChange={(e) => handleUpdateData('repo_owner', e.target.value)}
             />
+            {ownerMissing && (
+              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs mt-1">
+                <p className="font-semibold flex items-center gap-1">
+                  ⚠️ 소유자를 입력해주세요.
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
@@ -216,6 +275,13 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
               value={data.repo_name || ''}
               onChange={(e) => handleUpdateData('repo_name', e.target.value)}
             />
+            {repoMissing && (
+              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs mt-1">
+                <p className="font-semibold flex items-center gap-1">
+                  ⚠️ 저장소 이름을 입력해주세요.
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
@@ -233,6 +299,13 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             <p className="text-[10px] text-gray-400">
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능
             </p>
+            {prMissing && (
+              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs mt-1">
+                <p className="font-semibold flex items-center gap-1">
+                  ⚠️ PR 번호를 입력해주세요.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </CollapsibleSection>

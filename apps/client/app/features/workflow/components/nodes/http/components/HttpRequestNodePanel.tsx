@@ -8,8 +8,10 @@ import {
   HttpVariable,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { AlertTriangle } from 'lucide-react';
 
 // [참고] 캐럿 좌표 가져오기 (LLMNodePanel에서 복사됨)
 const getCaretCoordinates = (
@@ -81,6 +83,45 @@ export function HttpRequestNodePanel({
   const upstreamNodes = useMemo(
     () => getUpstreamNodes(nodeId, nodes, edges),
     [nodeId, nodes, edges],
+  );
+
+  // [VALIDATION] URL 필수 체크
+  const urlMissing = useMemo(() => {
+    return !data.url?.trim();
+  }, [data.url]);
+
+  // [VALIDATION] GET, DELETE 제외 메서드는 Body 필수
+  const bodyRequiredButMissing = useMemo(() => {
+    const method = data.method || 'GET';
+    if (method === 'GET' || method === 'DELETE') return false;
+    return !data.body?.trim();
+  }, [data.method, data.body]);
+
+  // [VALIDATION] 미등록 변수 검사 (URL + Body에서 {{ }} 사용 시)
+  const validationErrors = useMemo(() => {
+    const allContent = (data.url || '') + (data.body || '');
+    const registeredNames = new Set(
+      (data.referenced_variables || [])
+        .map((v) => v.name?.trim())
+        .filter(Boolean),
+    );
+    const errors: string[] = [];
+
+    const regex = /\{\{\s*([^}]+?)\s*\}\}/g;
+    let match;
+    while ((match = regex.exec(allContent)) !== null) {
+      const varName = match[1].trim();
+      if (varName && !registeredNames.has(varName)) {
+        errors.push(varName);
+      }
+    }
+    return Array.from(new Set(errors));
+  }, [data.url, data.body, data.referenced_variables]);
+
+  // [VALIDATION] 불완전한 변수 (이름은 있지만 selector가 불완전한 경우)
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
   );
 
   const handleUpdateData = useCallback(
@@ -220,6 +261,16 @@ export function HttpRequestNodePanel({
           autoComplete="off"
         />
       </div>
+      
+      {/* URL 미입력 경고 - URL 입력창 바로 아래 */}
+      {urlMissing && (
+        <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs">
+          <p className="font-semibold">
+            ⚠️ URL을 입력해주세요.
+          </p>
+        </div>
+      )}
+      
       <div className="border-b border-gray-200" />
 
       {/* 2. 입력변수 */}
@@ -232,6 +283,23 @@ export function HttpRequestNodePanel({
           onRemove={handleRemoveVariable}
           title=""
         />
+        
+        {/* [불완전한 변수 경고] */}
+        {incompleteVariables.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs mt-2">
+            <p className="font-semibold mb-1">
+              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
+            </p>
+            <ul className="list-disc list-inside">
+              {incompleteVariables.map((v, i) => (
+                <li key={i}>{v.name}</li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[10px] text-orange-500">
+              실행 시 빈 값으로 대체됩니다.
+            </p>
+          </div>
+        )}
       </CollapsibleSection>
       <CollapsibleSection title="인증" showDivider>
         <div className="flex flex-col gap-3">
@@ -382,6 +450,15 @@ export function HttpRequestNodePanel({
             <div className="text-[10px] text-gray-500">
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능
             </div>
+            
+            {/* [VALIDATION] 본문 미입력 경고 */}
+            {bodyRequiredButMissing && (
+              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs">
+                <p className="font-semibold flex items-center gap-1">
+                  ⚠️ {data.method || 'POST'} 요청에는 본문(Body)이 필요합니다.
+                </p>
+              </div>
+            )}
           </div>
         </CollapsibleSection>
       )}
@@ -414,6 +491,26 @@ export function HttpRequestNodePanel({
       </CollapsibleSection>
 
       {/* 자동완성 제안 드롭다운 */}
+      {/* [VALIDATION] 경고 영역 */}
+
+
+
+      {validationErrors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs mt-2">
+          <p className="font-semibold mb-1">
+            ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
+          </p>
+          <ul className="list-disc list-inside">
+            {validationErrors.map((err, i) => (
+              <li key={i}>{err}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-[10px] text-red-500">
+            입력변수 섹션에 변수를 등록해주세요.
+          </p>
+        </div>
+      )}
+
       {showSuggestions && (
         <div
           className="absolute z-50 w-48 rounded border border-gray-200 bg-white shadow-lg"

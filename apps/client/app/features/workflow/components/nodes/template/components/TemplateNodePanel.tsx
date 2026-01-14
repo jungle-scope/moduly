@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, AlertTriangle } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { TemplateNodeData, TemplateVariable } from '../../../../types/Nodes';
 
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { TemplateWizardModal } from '../../../modals/TemplateWizardModal';
@@ -215,6 +216,12 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     return Array.from(new Set(errors)); // 중복 제거
   }, [data.template, data.variables]);
 
+  // [유효성 검사] 불완전한 변수 (이름은 있지만 value_selector가 비어있는 경우)
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.variables),
+    [data.variables]
+  );
+
   return (
     <div className="flex flex-col gap-2">
       {/* 1. 변수 매핑 */}
@@ -228,6 +235,23 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
           title=""
           description="템플릿에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
+        
+        {/* [불완전한 변수 경고] */}
+        {incompleteVariables.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs mt-2">
+            <p className="font-semibold mb-1">
+              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
+            </p>
+            <ul className="list-disc list-inside">
+              {incompleteVariables.map((v, i) => (
+                <li key={i}>{v.name}</li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[10px] text-orange-500">
+              실행 시 빈 값으로 대체됩니다.
+            </p>
+          </div>
+        )}
       </CollapsibleSection>
 
       {/* 2. 템플릿 에디터 */}
@@ -305,19 +329,25 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
             )}
           </div>
 
-          {/* [유효성 검사] 경고 블록 */}
+          {/* [유효성 검사] 미등록 변수 경고 블록 */}
           {validationErrors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-              <p className="font-semibold mb-1">
-                ⚠️ 등록되지 않은 변수가 감지되었습니다:
+              <p className="font-semibold mb-1 flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                등록되지 않은 변수가 감지되었습니다:
               </p>
               <ul className="list-disc list-inside">
                 {validationErrors.map((err, i) => (
                   <li key={i}>{err}</li>
                 ))}
               </ul>
+              <p className="mt-1 text-[10px] text-red-500">
+                입력변수 섹션에 변수를 등록해주세요.
+              </p>
             </div>
           )}
+
+
         </div>
       </CollapsibleSection>
       

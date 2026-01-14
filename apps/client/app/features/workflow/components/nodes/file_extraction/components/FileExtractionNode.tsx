@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { FileText } from 'lucide-react';
+import { ValidationBadge } from '../../../ui/ValidationBadge';
+import { hasIncompleteVariables } from '../../../../utils/validationUtils';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { FileExtractionNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
@@ -63,6 +65,11 @@ export const FileExtractionNode: React.FC<FileExtractionNodeProps> = ({
     });
   }, [data.referenced_variables, upstreamNodes]);
 
+  const hasValidationIssue = useMemo(
+    () => hasIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
+  );
+
   return (
     <BaseNode
       id={id}
@@ -77,6 +84,8 @@ export const FileExtractionNode: React.FC<FileExtractionNodeProps> = ({
             문서를 추출할 파일을 선택해주세요
           </div>
         )}
+        
+        {hasValidationIssue && <ValidationBadge />}
       </div>
     </BaseNode>
   );
