@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import Editor from 'react-simple-code-editor';
 
 interface ColumnAutocompleteProps {
   selectedColumns: Record<string, string[]>; // {table: [columns]}
@@ -29,6 +30,7 @@ export default function ColumnAutocomplete({
   const [filteredItems, setFilteredItems] = useState<AutocompleteItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [cursorPosition, setCursorPosition] = useState(0); // 커서 위치 저장
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -45,9 +47,9 @@ export default function ColumnAutocomplete({
 
   // 드롭다운 위치 계산 (커서 위치 기반)
   const calculateDropdownPosition = (text: string, cursorPos: number) => {
-    if (!textareaRef.current) return;
-
-    const textarea = textareaRef.current;
+    // react-simple-code-editor의 내부 textarea 찾기
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
 
     // 1. Mirror Div 생성 (스타일 복제용)
     const div = document.createElement('div');
@@ -115,11 +117,16 @@ export default function ColumnAutocomplete({
   };
 
   // {{ 감지 및 자동완성
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
+  const handleInputChange = (newValue: string) => {
     onChange(newValue);
 
-    const cursorPos = e.target.selectionStart;
+    // react-simple-code-editor의 내부 textarea 찾기
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const cursorPos = textarea.selectionStart || 0;
+    setCursorPosition(cursorPos); // 커서 위치 저장
+
     const textBeforeCursor = newValue.substring(0, cursorPos);
 
     const lastOpenBrace = textBeforeCursor.lastIndexOf('{{');
@@ -149,11 +156,9 @@ export default function ColumnAutocomplete({
 
   // 아이템 선택
   const selectItem = (item: AutocompleteItem) => {
-    if (!textareaRef.current) return;
-
-    const cursorPos = textareaRef.current.selectionStart;
-    const textBeforeCursor = value.substring(0, cursorPos);
-    const textAfterCursor = value.substring(cursorPos);
+    // 저장된 커서 위치 사용
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const textAfterCursor = value.substring(cursorPosition);
 
     const lastOpenBrace = textBeforeCursor.lastIndexOf('{{');
     const beforeBrace = value.substring(0, lastOpenBrace);
@@ -197,15 +202,33 @@ export default function ColumnAutocomplete({
     }
   };
 
+  // 커스텀 하이라이팅 함수
+  const highlightCode = (code: string) => {
+    // {{...}} 패턴을 찾아서 span으로 감싸기
+    return code.replace(
+      /(\{\{[^}]+\}\})/g,
+      '<span style="display: inline; background-color: #dbeafe; color: #1e40af; padding: 0; margin: 0; border-radius: 4px; border: none; font-weight: 500;">$1</span>',
+    );
+  };
+
   return (
     <div className="relative h-full flex flex-col">
-      <textarea
+      <Editor
         ref={textareaRef}
         value={value}
-        onChange={handleInputChange}
+        onValueChange={handleInputChange}
+        highlight={highlightCode}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
+        padding={12}
         className={className}
+        style={{
+          fontFamily:
+            'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+          fontSize: 14,
+          lineHeight: 1.5,
+          outline: 'none',
+        }}
       />
 
       {showDropdown && (
