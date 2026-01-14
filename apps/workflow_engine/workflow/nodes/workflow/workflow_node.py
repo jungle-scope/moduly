@@ -30,7 +30,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
     node_type = "workflowNode"
 
     def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        from workflow.core.workflow_engine import WorkflowEngine
+        from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
         workflow_id = self.data.workflowId
         db = self.execution_context.get("db")
