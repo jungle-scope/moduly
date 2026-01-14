@@ -2,10 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api-server
+  namespace: dev
   labels:
     app: api-server
+    env: dev
 spec:
-  replicas: 2
+  replicas: 1  # dev는 1개만
   selector:
     matchLabels:
       app: api-server
@@ -13,20 +15,22 @@ spec:
     metadata:
       labels:
         app: api-server
+        env: dev
     spec:
       serviceAccountName: api-server-sa  # IRSA 연결
       containers:
       - name: api-server
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-server:latest
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-gateway:dev-latest
         ports:
         - containerPort: 8000
         env:
+        # DB 설정 (default namespace의 PostgreSQL 공유)
         - name: DB_HOST
           value: postgresql.default.svc.cluster.local
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME
-          value: moduly
+          value: moduly_dev  # dev 전용 database
         - name: DB_USER
           value: postgres
         - name: DB_PASSWORD
@@ -34,6 +38,9 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DB_PASSWORD
+        # Redis 설정 (default namespace의 Redis 공유, DB 1번 사용)
+        - name: REDIS_URL
+          value: redis://:$(REDIS_PASSWORD)@redis-master.default.svc.cluster.local:6379/1
         - name: REDIS_HOST
           value: redis-master.default.svc.cluster.local
         - name: REDIS_PORT
@@ -43,13 +50,14 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: REDIS_PASSWORD
+        # CORS 설정 (로컬 테스트용)
         - name: CORS_ORIGINS
-          value: "https://moduly-ai.cloud,https://www.moduly-ai.cloud,http://localhost:3000,http://127.0.0.1:3000"
+          value: "http://localhost:3000,http://127.0.0.1:3000"
         - name: SECRET_KEY
-          value: "your_random_secret_key_for_jwt_or_sessions_moduly"
+          value: "dev_secret_key_for_testing_only"
         # Sandbox 설정
         - name: SANDBOX_URL
-          value: "http://sandbox-service:8194"
+          value: "http://sandbox-service.default.svc.cluster.local:8194"
         - name: SANDBOX_API_KEY
           valueFrom:
             secretKeyRef:
@@ -68,7 +76,7 @@ spec:
               key: ENCRYPTION_KEY
         # S3 설정 (IRSA)
         - name: RAG_INGESTION_MODE
-          value: "PROD"
+          value: "DEV"
         - name: S3_BUCKET_NAME
           value: "moduly-dev-file-upload"
         - name: AWS_REGION
@@ -86,10 +94,10 @@ spec:
               key: GOOGLE_CLIENT_SECRET
         resources:
           requests:
-            cpu: 200m
+            cpu: 100m      # dev는 리소스 적게
             memory: 256Mi
           limits:
-            cpu: 500m
+            cpu: 300m
             memory: 512Mi
         livenessProbe:
           httpGet:
@@ -108,6 +116,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: api-service
+  namespace: dev
 spec:
   selector:
     app: api-server

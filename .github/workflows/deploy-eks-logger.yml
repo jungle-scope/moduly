@@ -1,24 +1,25 @@
-name: Deploy to EKS (Backend)
+name: Deploy to EKS (Log System)
 
 on:
   push:
     branches:
-      - develop  # test 브랜치 푸시 시 자동 배포
+      - develop
     paths:
-      - 'apps/server/**'
-      - 'docker/server/**'
+      - 'apps/log-system/**'
+      - 'apps/shared/**'
+      - 'docker/log-system/**'
   
-  workflow_dispatch:  # 수동 실행 가능
+  workflow_dispatch:
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REPOSITORY: moduly-server
+  ECR_REPOSITORY: moduly-logger
   EKS_CLUSTER_NAME: moduly-cluster
-  DEPLOYMENT_NAME: api-server
+  DEPLOYMENT_NAME: logger
 
 jobs:
-  deploy-backend:
-    name: Build & Deploy Backend to EKS
+  deploy-logger:
+    name: Build & Deploy Log System to EKS
     runs-on: ubuntu-latest
     
     steps:
@@ -46,7 +47,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/server/Dockerfile .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/log-system/Dockerfile .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         
         # latest 태그도 푸시
@@ -60,39 +61,11 @@ jobs:
       run: |
         aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
     
-    # [추가] 5.5 Alembic 데이터베이스 마이그레이션 실행
-    - name: Run Alembic Migration
-      run: |
-        echo "Starting Alembic migration using ConfigMap..."
-        kubectl run alembic-migration-${{ github.run_id }} \
-          --image=${{ steps.build-image.outputs.image }} \
-          --restart=Never \
-          --attach=true \
-          --overrides='{
-            "spec": {
-              "containers": [{
-                "name": "alembic",
-                "image": "${{ steps.build-image.outputs.image }}",
-                "command": ["/bin/sh", "-c"],
-                "args": ["cd /app/apps/server && alembic upgrade head"],
-                "envFrom": [
-                  {"configMapRef": {"name": "api-server-config"}},
-                  {"secretRef": {"name": "app-secrets"}}
-                ]
-              }]
-            }
-          }'
-        
-        # [NEW] 마이그레이션 완료 후 파드 정리
-        echo "Cleaning up migration pod..."
-        kubectl delete pod alembic-migration-${{ github.run_id }} --ignore-not-found=true
-
-
     # 6. Deployment 이미지 업데이트
     - name: Update Kubernetes deployment
       run: |
         kubectl set image deployment/$DEPLOYMENT_NAME \
-          api-server=${{ steps.build-image.outputs.image }} \
+          logger=${{ steps.build-image.outputs.image }} \
           --record
     
     # 7. Rollout 성공 확인
@@ -103,5 +76,5 @@ jobs:
     # 8. 배포 검증
     - name: Verify deployment
       run: |
-        kubectl get pods -l app=api-server
+        kubectl get pods -l app=logger
         kubectl logs deployment/$DEPLOYMENT_NAME --tail=50
