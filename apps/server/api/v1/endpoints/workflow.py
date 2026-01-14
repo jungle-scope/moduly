@@ -121,8 +121,8 @@ def get_workflow_stats(
     import traceback
 
     try:
-        from db.models.workflow_run import WorkflowNodeRun, WorkflowRun
-        from schemas.log import (
+        from apps.shared.db.models.workflow_run import WorkflowNodeRun, WorkflowRun
+        from apps.shared.schemas.log import (
             DailyRunStat,
             DashboardStatsResponse,
             FailureStat,

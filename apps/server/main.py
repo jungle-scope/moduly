@@ -21,13 +21,6 @@ if SERVER_ENV_PATH.exists():
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
-from starlette.middleware.sessions import SessionMiddleware
-
-from api.api import api_router
 from apps.shared.db.models.schedule import Schedule  # noqa: F401
 from apps.shared.db.seed import (
     seed_default_llm_models,
@@ -35,31 +28,26 @@ from apps.shared.db.seed import (
     seed_placeholder_user,
 )
 from apps.shared.db.session import engine
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from starlette.middleware.sessions import SessionMiddleware
+
+from api.api import api_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. 시작 로직
 
-    # LogWorkerPool 초기화 (가장 먼저 시작)
-    from workflow.core.log_worker_pool import (
-        init_log_worker_pool,
-        shutdown_log_worker_pool,
-    )
-
-    init_log_worker_pool()  # 환경변수 LOG_WORKER_COUNT, LOG_QUEUE_SIZE로 설정 가능
-    print("[시작] LogWorkerPool 초기화 완료")
-
     # pgvector 확장 활성화
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
-    # Base.metadata.create_all(bind=engine)
-    # print("데이터베이스 테이블 생성 완료")
-
     # 2. 기본 LLM 프로바이더 시드 (멱등성 보장)
 
-    from db.session import SessionLocal
+    from apps.shared.db.session import SessionLocal
 
     db = SessionLocal()
     try:
@@ -97,10 +85,6 @@ async def lifespan(app: FastAPI):
     yield
 
     # 종료 로직
-
-    # LogWorkerPool 종료 (SchedulerService보다 나중에 종료)
-    shutdown_log_worker_pool()
-    print("[종료] LogWorkerPool 종료 완료")
 
     # SchedulerService 종료
     from services.scheduler_service import get_scheduler_service

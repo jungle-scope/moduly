@@ -142,7 +142,7 @@ class SchedulerService:
             새로운 DB 세션을 생성하여 사용합니다.
         """
         # 각 job 실행마다 새로운 DB 세션 생성 (스레드 안전성 보장)
-        from db.session import SessionLocal
+        from apps.shared.db.session import SessionLocal
 
         db = SessionLocal()
         triggered_at = datetime.now(timezone.utc).isoformat()

@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
 
     # 2. 기본 LLM 프로바이더 시드 (멱등성 보장)
 
-    from db.session import SessionLocal
+    from apps.shared.db.session import SessionLocal
 
     db = SessionLocal()
     try:

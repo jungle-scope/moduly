@@ -52,7 +52,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
         if not app.active_deployment_id:
             raise ValueError(f"[WorkflowNode] App {app.name} has no active deployment")
 
-        from db.models.workflow_deployment import WorkflowDeployment
+        from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 
         deployment = (
             db.query(WorkflowDeployment)

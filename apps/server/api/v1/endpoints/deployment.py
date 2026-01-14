@@ -86,9 +86,9 @@ def get_deployment_info_public(
     """
     from fastapi import HTTPException
 
-    from db.models.app import App
-    from db.models.workflow_deployment import WorkflowDeployment
-    from schemas.deployment import DeploymentInfoResponse
+    from apps.shared.db.models.app import App
+    from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+    from apps.shared.schemas.deployment import DeploymentInfoResponse
 
     # CORS 헤더 추가 (임베딩 위젯 지원)
     response.headers["Access-Control-Allow-Origin"] = "*"
