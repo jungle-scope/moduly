@@ -38,6 +38,8 @@ spec:
           value: redis-master.default.svc.cluster.local
         - name: REDIS_PORT
           value: "6379"
+        - name: REDIS_DB
+          value: "0"
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
