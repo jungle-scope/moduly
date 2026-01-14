@@ -3,6 +3,7 @@ import { HelpCircle, Plus, Trash2, AlertTriangle } from 'lucide-react';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
 import { ValidationAlert } from '../../../ui/ValidationAlert';
 import { HttpVariable, SlackPostNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
@@ -626,28 +627,8 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
                   </div>
                 )}
             </div>
-            {/* Note: This specific warning list is quite custom and complex (red list), 
-                so we can either refactor it into ValidationAlert with complex children 
-                or leave it. The user specifically asked about "fat" messages which usually refers to the p-3 ones.
-                This one is p-3 too. I will make it compact manually for now to match. 
-                Or even better, if I can pass children to ValidationAlert? 
-                ValidationAlert takes `message: ReactNode`. So I can pass the whole structure. */}
             {missingVariables.length > 0 && (
-              <ValidationAlert
-                message={(
-                  <>
-                    ⚠️ 등록되지 않은 입력변수:
-                    <ul className="list-disc list-inside mt-1 font-normal">
-                      {missingVariables.map((err, i) => (
-                        <li key={i}>{err}</li>
-                      ))}
-                    </ul>
-                    <p className="mt-1 text-[10px] text-red-500 font-normal">
-                      입력변수에 추가하거나 템플릿에서 제거하세요.
-                    </p>
-                  </>
-                )}
-              />
+              <UnregisteredVariablesAlert variables={missingVariables} />
             )}
           </div>
         </div>

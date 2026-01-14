@@ -4,6 +4,7 @@ import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore
 import { TemplateNodeData, TemplateVariable } from '../../../../types/Nodes';
 import { ValidationAlert } from '../../../ui/ValidationAlert';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
@@ -319,24 +320,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
 
           {/* [유효성 검사] 미등록 변수 경고 블록 */}
           {validationErrors.length > 0 && (
-            <ValidationAlert
-              message={(
-                <>
-                  <span className="flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    등록되지 않은 변수가 감지되었습니다:
-                  </span>
-                  <ul className="list-disc list-inside mt-1 font-normal">
-                    {validationErrors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                  <p className="mt-1 text-[10px] text-red-500 font-normal">
-                    입력변수 섹션에 변수를 등록해주세요.
-                  </p>
-                </>
-              )}
-            />
+            <UnregisteredVariablesAlert variables={validationErrors} />
           )}
 
 

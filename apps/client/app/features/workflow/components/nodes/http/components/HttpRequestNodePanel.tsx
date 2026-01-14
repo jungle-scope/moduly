@@ -14,6 +14,7 @@ import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl'
 import { AlertTriangle } from 'lucide-react';
 import { ValidationAlert } from '../../../ui/ValidationAlert';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
 
 // [참고] 캐럿 좌표 가져오기 (LLMNodePanel에서 복사됨)
 const getCaretCoordinates = (
@@ -480,21 +481,7 @@ export function HttpRequestNodePanel({
 
 
       {validationErrors.length > 0 && (
-        <ValidationAlert
-          message={(
-            <>
-              ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
-              <ul className="list-disc list-inside mt-1 font-normal">
-                {validationErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-              <p className="mt-1 text-[10px] text-red-500 font-normal">
-                입력변수 섹션에 변수를 등록해주세요.
-              </p>
-            </>
-          )}
-        />
+        <UnregisteredVariablesAlert variables={validationErrors} />
       )}
 
       {showSuggestions && (

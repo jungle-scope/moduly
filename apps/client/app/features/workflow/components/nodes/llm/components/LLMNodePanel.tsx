@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 
 import { LLMNodeData } from '../../../../types/Nodes';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
 import { ValidationAlert } from '../../../ui/ValidationAlert';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
@@ -806,23 +807,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
 
           {/* [VALIDATION] 미등록 변수 경고 */}
           {validationErrors.length > 0 && (
-            <ValidationAlert
-              message={
-                <>
-                  <p className="font-semibold mb-1">
-                    ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
-                  </p>
-                  <ul className="list-disc list-inside">
-                    {validationErrors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                  <p className="mt-1 text-[10px] text-red-500 font-normal">
-                    입력변수 섹션에 변수를 등록해주세요.
-                  </p>
-                </>
-              }
-            />
+            <UnregisteredVariablesAlert variables={validationErrors} />
           )}
         </div>
       </CollapsibleSection>
