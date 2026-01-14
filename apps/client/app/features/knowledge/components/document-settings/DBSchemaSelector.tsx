@@ -463,7 +463,7 @@ export default function DBSchemaSelector({
             >
               {/* Table Header Row */}
               <div
-                className={`flex items-center px-3 py-2.5 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer transition-colors ${selectedCols.length > 0 ? 'bg-gray-100 dark:bg-gray-700' : 'bg-gray-50 dark:bg-gray-750'}`}
+                className={`flex items-center px-3 py-2.5 hover:bg-zinc-200 dark:hover:bg-zinc-600 cursor-pointer transition-colors ${selectedCols.length > 0 ? 'bg-zinc-100 dark:bg-zinc-700' : 'bg-zinc-50 dark:bg-zinc-750'}`}
                 onClick={() => toggleExpand(table.table_name)}
               >
                 {/* Expand Icon */}

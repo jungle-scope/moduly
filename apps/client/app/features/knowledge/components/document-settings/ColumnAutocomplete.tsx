@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import Editor from 'react-simple-code-editor';
+import { Columns } from 'lucide-react';
 
 interface ColumnAutocompleteProps {
   selectedColumns: Record<string, string[]>; // {table: [columns]}
@@ -28,7 +29,7 @@ export default function ColumnAutocomplete({
 }: ColumnAutocompleteProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [filteredItems, setFilteredItems] = useState<AutocompleteItem[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [cursorPosition, setCursorPosition] = useState(0); // 커서 위치 저장
 
@@ -102,7 +103,7 @@ export default function ColumnAutocomplete({
       textarea.scrollTop;
 
     // 화면 경계 보정 (Horizontal Adjustment)
-    const dropdownMaxWidth = 460; // max-w-md (approx 448px) + padding margin
+    const dropdownMaxWidth = 500; // w-[480px] + padding margin
     const viewportWidth = window.innerWidth;
     const margin = 20; // 스크롤바 등 여유 공간
 
@@ -142,7 +143,7 @@ export default function ColumnAutocomplete({
       );
 
       setFilteredItems(filtered);
-      setSelectedIndex(0);
+      setSelectedIndex(-1);
       setShowDropdown(filtered.length > 0);
 
       // 드롭다운 위치 계산
@@ -174,8 +175,13 @@ export default function ColumnAutocomplete({
     // 커서 위치 조정
     const newCursorPos = beforeBrace.length + item.fullName.length + 4;
     setTimeout(() => {
-      textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos);
-      textareaRef.current?.focus();
+      const textarea = document.querySelector(
+        'textarea',
+      ) as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        textarea.focus();
+      }
     }, 0);
 
     setShowDropdown(false);
@@ -191,7 +197,7 @@ export default function ColumnAutocomplete({
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedIndex((prev) =>
-        prev === 0 ? filteredItems.length - 1 : prev - 1,
+        prev < 1 ? filteredItems.length - 1 : prev - 1,
       );
     } else if (e.key === 'Enter' && filteredItems.length > 0) {
       e.preventDefault();
@@ -207,7 +213,7 @@ export default function ColumnAutocomplete({
     // {{...}} 패턴을 찾아서 span으로 감싸기
     return code.replace(
       /(\{\{[^}]+\}\})/g,
-      '<span style="display: inline; background-color: #dbeafe; color: #1e40af; padding: 0; margin: 0; border-radius: 4px; border: none; font-weight: 500;">$1</span>',
+      '<span style="display: inline-block; background-color: #eeeff1; border: 0 solid #d1d5db; border-radius: 3px; padding: 0; margin: 0;"><span style="display: inline-block; transform: scale(0.95); transform-origin: center; color: #2254F5; font-weight: 600;">$1</span></span>',
     );
   };
 
@@ -226,14 +232,14 @@ export default function ColumnAutocomplete({
           fontFamily:
             'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
           fontSize: 14,
-          lineHeight: 1.5,
+          lineHeight: 1.7,
           outline: 'none',
         }}
       />
 
       {showDropdown && (
         <div
-          className="fixed z-[9999] mt-1 max-w-md max-h-48 overflow-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl"
+          className="fixed z-[9999] mt-1 w-[450px] max-h-60 overflow-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
@@ -243,23 +249,26 @@ export default function ColumnAutocomplete({
             <div
               key={item.fullName}
               onClick={() => selectItem(item)}
-              className={`px-3 py-2.5 cursor-pointer transition-colors ${
+              className={`px-3 py-2.5 cursor-pointer transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0 ${
                 index === selectedIndex
-                  ? 'bg-blue-100 dark:bg-blue-900'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                  ? 'bg-gray-200 dark:bg-gray-700'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-xs px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded font-medium">
-                  {item.table}
-                </span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {item.column}
-                </span>
+              <div className="flex items-center gap-3">
+                <Columns className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {item.table}
+                  </span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {item.column}
+                  </span>
+                </div>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+              {/* <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
                 {`{{${item.fullName}}}`}
-              </div>
+              </div> */}
             </div>
           ))}
         </div>
