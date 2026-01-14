@@ -4,8 +4,11 @@ from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy.orm import Session
 
+from apps.shared.pubsub import publish_workflow_event  # [NEW] Redis Pub/Sub
 from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
-from apps.workflow_engine.workflow.core.workflow_logger import WorkflowLogger  # [NEW] 로깅 유틸리티
+from apps.workflow_engine.workflow.core.workflow_logger import (
+    WorkflowLogger,  # [NEW] 로깅 유틸리티
+)
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
 
 
@@ -183,11 +186,28 @@ class WorkflowEngine:
         # ============================================================
         # [NEW] 실행 로그 시작
         # ============================================================
-        # 서브 워크플로우인 경우 부모의 run_id를 재사용
-        if self.parent_run_id:
+        # 외부에서 전달된 run_id가 있으면 사용 (Gateway에서 미리 생성한 경우)
+        external_run_id = self.execution_context.get("workflow_run_id")
+
+        if external_run_id:
+            # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
+            self.logger.workflow_run_id = uuid.UUID(external_run_id)
+            # create_run_log 호출하여 DB에 기록 (run_id 전달)
+            self.logger.create_run_log(
+                workflow_id=self.execution_context.get("workflow_id"),
+                user_id=self.execution_context.get("user_id"),
+                user_input=self.user_input,
+                is_deployed=self.is_deployed,
+                execution_context=self.execution_context,
+                external_run_id=external_run_id,  # [NEW] 외부 run_id 전달
+            )
+            print(f"[WorkflowEngine] 외부 run_id 사용: {external_run_id}")
+        elif self.parent_run_id:
+            # 서브 워크플로우인 경우 부모의 run_id를 재사용
             self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
             self.execution_context["workflow_run_id"] = self.parent_run_id
         else:
+            # 새로운 run_id 생성
             workflow_run_id = self.logger.create_run_log(
                 workflow_id=self.execution_context.get("workflow_id"),
                 user_id=self.execution_context.get("user_id"),
@@ -319,23 +339,37 @@ class WorkflowEngine:
                     yield event
 
             # 4. 워크플로우 종료
+            run_id = self.execution_context.get("workflow_run_id")
             if stream_mode:
                 final_context = dict(results)
                 self.logger.update_run_log_finish(final_context)
+                # [NEW] Redis Pub/Sub으로 workflow_finish 이벤트 발행
+                if run_id:
+                    publish_workflow_event(run_id, "workflow_finish", final_context)
                 yield {"type": "workflow_finish", "data": final_context}
             else:
                 final_result = self._get_answer_node_result(results)
                 self.logger.update_run_log_finish(final_result)
+                # [NEW] Redis Pub/Sub으로 workflow_finish 이벤트 발행
+                if run_id:
+                    publish_workflow_event(run_id, "workflow_finish", final_result)
                 # 배포 모드에서도 결과 전달을 위해 이벤트 사용
                 yield {"type": "workflow_finish", "data": final_result}
 
         except Exception as e:
+            run_id = self.execution_context.get("workflow_run_id")
             if not stream_mode:
                 self.logger.update_run_log_error(str(e))
+                # [NEW] Redis Pub/Sub으로 error 이벤트 발행
+                if run_id:
+                    publish_workflow_event(run_id, "error", {"message": str(e)})
                 raise e
             else:
                 error_msg = str(e)
                 self.logger.update_run_log_error(error_msg)
+                # [NEW] Redis Pub/Sub으로 error 이벤트 발행
+                if run_id:
+                    publish_workflow_event(run_id, "error", {"message": error_msg})
                 yield {"type": "error", "data": {"message": error_msg}}
         # 참고: self.logger.shutdown() 호출 제거됨
         # 이제 공유 LogWorkerPool을 사용하므로 인스턴스별 종료 불필요
@@ -360,6 +394,19 @@ class WorkflowEngine:
 
         # [실시간 스트리밍] node_start 이벤트를 Task 생성 시점(실행 시작 전)에 즉시 전송
         self.logger.create_node_log(node_id, node_schema.type, inputs)
+
+        # [NEW] Redis Pub/Sub으로 이벤트 발행 (run_id가 있을 경우)
+        run_id = self.execution_context.get("workflow_run_id")
+        if run_id:
+            publish_workflow_event(
+                run_id,
+                "node_start",
+                {
+                    "node_id": node_id,
+                    "node_type": node_schema.type,
+                },
+            )
+
         if stream_mode and event_queue:
             await event_queue.put(
                 {
@@ -393,6 +440,19 @@ class WorkflowEngine:
             except asyncio.TimeoutError:
                 raise TimeoutError(
                     f"Node '{node_id}' ({node_schema.type}) timed out after {node_timeout} seconds."
+                )
+
+            # [NEW] Redis Pub/Sub으로 node_finish 이벤트 발행 (run_id가 있을 경우)
+            run_id = self.execution_context.get("workflow_run_id")
+            if run_id:
+                publish_workflow_event(
+                    run_id,
+                    "node_finish",
+                    {
+                        "node_id": node_id,
+                        "node_type": node_schema.type,
+                        "output": result,
+                    },
                 )
 
             # node_finish 이벤트를 즉시 큐에 전송

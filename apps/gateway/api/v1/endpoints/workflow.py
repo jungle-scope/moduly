@@ -1,6 +1,15 @@
 import json
 from typing import List
 
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+
+# from sqlalchemy.orm import Session, noload, selectinload
+from starlette.requests import Request
+
+from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.services.workflow_service import WorkflowService
 from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App
 from apps.shared.db.models.user import User
@@ -19,15 +28,6 @@ from apps.shared.schemas.workflow import (
     WorkflowDraftRequest,
     WorkflowResponse,
 )
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
-
-# from sqlalchemy.orm import Session, noload, selectinload
-from starlette.requests import Request
-
-from apps.gateway.auth.dependencies import get_current_user
-from apps.gateway.services.workflow_service import WorkflowService
 
 router = APIRouter()
 
@@ -547,10 +547,16 @@ async def stream_workflow(
     """
     워크플로우를 실행하고 실행 과정을 SSE(Server-Sent Events)로 스트리밍합니다.
 
+    [완전 분리 버전] Gateway에서 run_id를 생성하고, Celery 태스크를 호출한 후
+    Redis Pub/Sub 채널을 구독하여 이벤트를 SSE로 전달합니다.
+
     multipart/form-data 지원:
     - inputs: JSON 문자열 (일반 입력값)
     - file_변수명: 업로드된 파일들
     """
+    import uuid
+
+    from apps.shared.pubsub import subscribe_workflow_events
 
     memory_mode_enabled = False
     # 1. 권한 확인
@@ -589,43 +595,46 @@ async def stream_workflow(
         except:
             user_input = {}
 
-    # 3. 데이터 조회 및 엔진 초기화
-    try:
-        # 스트리밍 모드는 직접 WorkflowEngine 사용 (Celery 비동기 호출 불가)
-        from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
-
-        graph = WorkflowService.get_draft(db, workflow_id)
-        if not graph:
-            raise HTTPException(
-                status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
-            )
-
-        engine = WorkflowEngine(
-            graph,
-            user_input,
-            execution_context={
-                "user_id": str(current_user.id),
-                "workflow_id": workflow_id,
-                "memory_mode": memory_mode_enabled,
-            },
-            db=db,
+    # 3. 데이터 조회
+    graph = WorkflowService.get_draft(db, workflow_id)
+    if not graph:
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-    # 4. 제너레이터 함수 정의 (SSE 포맷팅)
-    async def event_generator():
+    # 4. [NEW] Gateway에서 run_id 생성 (Celery 태스크에 전달)
+    external_run_id = str(uuid.uuid4())
+    print(f"[Gateway] 스트리밍 시작 - run_id: {external_run_id}")
+
+    # 5. [NEW] Celery 태스크 호출 (비동기, 결과 대기하지 않음)
+    execution_context = {
+        "user_id": str(current_user.id),
+        "workflow_id": workflow_id,
+        "memory_mode": memory_mode_enabled,
+    }
+
+    celery_app.send_task(
+        "workflow.stream",
+        args=[graph, user_input, execution_context, external_run_id],
+    )
+
+    # 6. [NEW] Redis Pub/Sub 구독 및 SSE 스트리밍
+    def event_generator():
+        """Redis Pub/Sub을 구독하여 SSE 이벤트로 변환"""
         try:
-            async for event in engine.execute_stream():
+            print(f"[Gateway] Redis 채널 구독 시작: workflow:{external_run_id}")
+            for event in subscribe_workflow_events(external_run_id):
                 # SSE 포맷: "data: {json_content}\n\n"
                 yield f"data: {json.dumps(event)}\n\n"
+
+                # workflow_finish 또는 error 시 종료
+                if event.get("type") in ("workflow_finish", "error"):
+                    print(f"[Gateway] 스트리밍 종료 - type: {event.get('type')}")
+                    break
         except Exception as e:
-            # 스트리밍 도중 에러 발생 시 에러 이벤트 전송
+            # 구독 중 에러 발생 시 에러 이벤트 전송
             error_event = {"type": "error", "data": {"message": str(e)}}
             yield f"data: {json.dumps(error_event)}\n\n"
-        finally:
-            # [FIX] 클라이언트 연결 끊김 등으로 제너레이터가 중단되어도 리소스 정리 보장
-            engine.logger.shutdown()
 
-    # 5. StreamingResponse 반환
+    # 7. StreamingResponse 반환
     return StreamingResponse(event_generator(), media_type="text/event-stream")

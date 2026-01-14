@@ -167,3 +167,68 @@ def execute_by_deployment(
         raise self.retry(exc=e, countdown=2**self.request.retries)
     finally:
         session.close()
+
+
+@celery_app.task(name="workflow.stream", bind=True, max_retries=3)
+def stream_workflow(
+    self,
+    graph: Dict[str, Any],
+    user_input: Dict[str, Any],
+    execution_context: Dict[str, Any],
+    external_run_id: str,
+):
+    """
+    워크플로우 스트리밍 실행 (외부에서 run_id 전달)
+
+    Gateway에서 미리 생성한 run_id를 사용하여 Redis Pub/Sub으로 이벤트 발행.
+    Gateway는 해당 채널을 구독하여 SSE로 클라이언트에 전달.
+
+    Args:
+        graph: 워크플로우 그래프 데이터
+        user_input: 사용자 입력
+        execution_context: 실행 컨텍스트
+        external_run_id: 외부에서 전달받은 run_id (Gateway에서 생성)
+
+    Returns:
+        워크플로우 실행 결과
+    """
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
+
+    session = SessionLocal()
+    try:
+        # 외부 run_id를 execution_context에 주입
+        execution_context["workflow_run_id"] = external_run_id
+
+        engine = WorkflowEngine(
+            graph=graph,
+            user_input=user_input,
+            execution_context=execution_context,
+            is_deployed=False,
+            db=session,
+        )
+
+        # 스트리밍 모드로 실행 (execute_stream 사용)
+        # 이벤트는 workflow_engine 내부에서 Redis Pub/Sub으로 발행됨
+        async def run_stream():
+            final_result = {}
+            async for event in engine.execute_stream():
+                if event.get("type") == "workflow_finish":
+                    final_result = event.get("data", {})
+                elif event.get("type") == "error":
+                    raise ValueError(
+                        event.get("data", {}).get("message", "Unknown error")
+                    )
+            return final_result
+
+        result = asyncio.run(run_stream())
+        return {"status": "success", "result": result}
+
+    except Exception as e:
+        print(f"[Workflow-Engine] stream_workflow 실패: {e}")
+        # 에러 이벤트도 Pub/Sub으로 발행
+        from apps.shared.pubsub import publish_workflow_event
+
+        publish_workflow_event(external_run_id, "error", {"message": str(e)})
+        raise self.retry(exc=e, countdown=2**self.request.retries)
+    finally:
+        session.close()

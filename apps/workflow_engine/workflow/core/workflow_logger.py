@@ -85,12 +85,17 @@ class WorkflowLogger:
         user_input: Dict[str, Any],
         is_deployed: bool,
         execution_context: Dict[str, Any],
+        external_run_id: Optional[str] = None,  # [NEW] 외부에서 전달받은 run_id
     ) -> Optional[uuid.UUID]:
         """워크플로우 실행 로그 생성"""
         if not workflow_id or not user_id:
             return None
 
-        run_id = uuid.uuid4()
+        # 외부 run_id가 있으면 사용, 없으면 새로 생성
+        if external_run_id:
+            run_id = uuid.UUID(external_run_id)
+        else:
+            run_id = uuid.uuid4()
         self.workflow_run_id = run_id
 
         data = {
