@@ -44,14 +44,41 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-# 1. Docker Compose (PostgreSQL + Redis)
+# 1. Docker Compose (PostgreSQL + Redis) - detached 모드로 시작
 echo -e "${GREEN}📦 인프라 시작 (PostgreSQL + Redis)...${NC}"
-docker compose up postgres redis &
-DOCKER_PID=$!
+docker compose up -d postgres redis
 
-# Docker 서비스가 준비될 때까지 대기
-echo "⏳ 데이터베이스 준비 대기 중..."
-sleep 5
+# PostgreSQL이 준비될 때까지 대기 (최대 30초)
+echo "⏳ PostgreSQL 준비 대기 중..."
+for i in {1..30}; do
+    if docker compose exec -T postgres pg_isready -U moduly -d moduly > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ PostgreSQL 준비 완료${NC}"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo -e "${RED}❌ PostgreSQL 시작 실패${NC}"
+        exit 1
+    fi
+    sleep 1
+done
+
+# Redis가 준비될 때까지 대기 (최대 10초)
+echo "⏳ Redis 준비 대기 중..."
+for i in {1..10}; do
+    if docker compose exec -T redis redis-cli ping > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Redis 준비 완료${NC}"
+        break
+    fi
+    if [ $i -eq 10 ]; then
+        echo -e "${RED}❌ Redis 시작 실패${NC}"
+        exit 1
+    fi
+    sleep 1
+done
+
+# Docker Compose 로그를 백그라운드에서 표시
+docker compose logs -f postgres redis &
+DOCKER_PID=$!
 
 # 2. Celery Worker (Log-System)
 # macOS에서 fork() 호환성 문제 해결을 위해 solo pool 사용 및 환경변수 설정
