@@ -16,11 +16,20 @@ Locust 워크플로우 부하 테스트
 
 import os
 import random
+from pathlib import Path
 
 from dotenv import load_dotenv
 from locust import HttpUser, between, events, task
 
-load_dotenv()
+# 프로젝트 루트의 .env 로드
+# tests/load/locustfile.py -> tests/load -> tests -> moduly (ROOT)
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+ENV_PATH = ROOT_DIR / ".env"
+
+if ENV_PATH.exists():
+    load_dotenv(dotenv_path=ENV_PATH)
+else:
+    load_dotenv()  # Fallback
 
 
 class WorkflowUser(HttpUser):

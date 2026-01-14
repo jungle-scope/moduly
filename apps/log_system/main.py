@@ -20,8 +20,13 @@ if PROJECT_ROOT not in sys.path:
 
 from dotenv import load_dotenv
 
-# 환경변수 로드
-load_dotenv()
+# 환경변수 로드 (프로젝트 루트의 .env)
+env_path = os.path.join(PROJECT_ROOT, ".env")
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+else:
+    # fallback to default
+    load_dotenv()
 
 # Celery 앱 import (tasks 모듈이 자동으로 등록됨)
 from apps.log_system import tasks  # noqa: F401 - Celery 태스크 등록

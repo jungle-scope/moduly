@@ -4,18 +4,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
+ROOT_DIR = BASE_DIR.parent.parent  # moduly/
 
-# apps/.env도 로드 (OAuth 라이브러리 호환성)
-APPS_ENV_PATH = BASE_DIR.parent / ".env"  # apps/.env
-if APPS_ENV_PATH.exists():
-    print(f"Loading .env from {APPS_ENV_PATH}")
-    load_dotenv(dotenv_path=APPS_ENV_PATH, override=False)
-
-# apps/gateway/.env 로드 (혹은 apps/server/.env 공유)
-GATEWAY_ENV_PATH = BASE_DIR / ".env"
-if GATEWAY_ENV_PATH.exists():
-    print(f"Loading .env from {GATEWAY_ENV_PATH}")
-    load_dotenv(dotenv_path=GATEWAY_ENV_PATH)
+# moduly/.env 로드
+ENV_PATH = ROOT_DIR / ".env"
+if ENV_PATH.exists():
+    print(f"Loading .env from {ENV_PATH}")
+    load_dotenv(dotenv_path=ENV_PATH, override=False)
+else:
+    print(f"Warning: .env file not found at {ENV_PATH}")
 
 import os
 from contextlib import asynccontextmanager
