@@ -47,57 +47,6 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-# 테스트 실행 함수
-run_tests() {
-    echo -e "${GREEN}🧪 테스트 실행 시작...${NC}"
-    
-    # 에러 발생 시 중단하지 않고 계속 진행 후 마지막에 결과 보고
-    set +e
-    
-    echo -e "\n${YELLOW}📍 Gateway Service 테스트 실행${NC}"
-    (
-        source apps/gateway/.venv/bin/activate
-        export PYTHONPATH="$PROJECT_ROOT"
-        pytest apps/gateway/tests
-    )
-    GATEWAY_EXIT_CODE=$?
-    
-    echo -e "\n${YELLOW}📍 Workflow Engine Service 테스트 실행${NC}"
-    (
-        source apps/workflow_engine/.venv/bin/activate
-        export PYTHONPATH="$PROJECT_ROOT"
-        pytest apps/workflow_engine/tests
-    )
-    WORKFLOW_EXIT_CODE=$?
-    
-    echo -e "\n${GREEN}============================================${NC}"
-    echo -e "${GREEN}📊 테스트 결과 요약${NC}"
-    echo -e "${GREEN}============================================${NC}"
-    
-    if [ $GATEWAY_EXIT_CODE -eq 0 ]; then
-        echo -e "${GREEN}✅ Gateway Service: PASS${NC}"
-    else
-        echo -e "${RED}❌ Gateway Service: FAIL${NC}"
-    fi
-    
-    if [ $WORKFLOW_EXIT_CODE -eq 0 ]; then
-        echo -e "${GREEN}✅ Workflow Engine Service: PASS${NC}"
-    else
-        echo -e "${RED}❌ Workflow Engine Service: FAIL${NC}"
-    fi
-    
-    if [ $GATEWAY_EXIT_CODE -eq 0 ] && [ $WORKFLOW_EXIT_CODE -eq 0 ]; then
-        exit 0
-    else
-        exit 1
-    fi
-}
-
-# 인자가 'test'인 경우 테스트 실행
-if [ "$1" == "test" ]; then
-    run_tests
-fi
-
 
 # 1. Docker Compose (PostgreSQL + Redis) - detached 모드로 시작
 echo -e "${GREEN}📦 인프라 시작 (PostgreSQL + Redis)...${NC}"
