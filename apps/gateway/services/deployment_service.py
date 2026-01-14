@@ -4,17 +4,17 @@ import secrets
 import uuid
 from typing import Any, Dict, List, Optional
 
+from fastapi import HTTPException
+from sqlalchemy import desc, func
+from sqlalchemy.orm import Session
+
+from apps.gateway.services.workflow_service import WorkflowService
 from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App
 from apps.shared.db.models.schedule import Schedule
 from apps.shared.db.models.workflow import Workflow
 from apps.shared.db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from apps.shared.schemas.deployment import DeploymentCreate
-from fastapi import HTTPException
-from sqlalchemy import desc, func
-from sqlalchemy.orm import Session
-
-from apps.gateway.services.workflow_service import WorkflowService
 
 
 class DeploymentService:
@@ -110,7 +110,9 @@ class DeploymentService:
 
             # 8.1. 같은 앱의 기존 배포를 모두 비활성화 (단일 활성화 정책)
             if db_obj.is_active:
-                from services.scheduler_service import get_scheduler_service
+                from apps.gateway.services.scheduler_service import (
+                    get_scheduler_service,
+                )
 
                 scheduler_service = get_scheduler_service()
                 DeploymentService._deactivate_other_deployments(
@@ -125,7 +127,9 @@ class DeploymentService:
                 graph_snapshot
             )
             if schedule_trigger_node:
-                from services.scheduler_service import get_scheduler_service
+                from apps.gateway.services.scheduler_service import (
+                    get_scheduler_service,
+                )
 
                 # Schedule 레코드 생성
                 schedule = Schedule(

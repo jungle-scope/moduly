@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.services.deployment_service import DeploymentService
 from apps.shared.db.models.user import User
 from apps.shared.db.session import get_db
 from apps.shared.schemas.deployment import DeploymentCreate, DeploymentResponse
-from apps.gateway.services.deployment_service import DeploymentService
 
 router = APIRouter()
 
@@ -137,7 +137,7 @@ def toggle_deployment(
     """
     배포의 is_active 상태를 토글합니다.
     """
-    from services.scheduler_service import get_scheduler_service
+    from apps.gateway.services.scheduler_service import get_scheduler_service
 
     scheduler = get_scheduler_service()
     return DeploymentService.toggle_deployment(db, deployment_id, scheduler)
@@ -152,7 +152,7 @@ def delete_deployment(
     """
     배포를 삭제합니다.
     """
-    from services.scheduler_service import get_scheduler_service
+    from apps.gateway.services.scheduler_service import get_scheduler_service
 
     scheduler = get_scheduler_service()
     return DeploymentService.delete_deployment(db, deployment_id, scheduler)

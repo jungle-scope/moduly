@@ -19,7 +19,7 @@ NC='\033[0m' # No Color
 
 # 정리 함수 (Ctrl+C 시 모든 프로세스 종료)
 cleanup() {
-    echo -e "\n${YELLOW}🛑 모든 서비스 종료 중...${NC}"
+    echo -e "\n${YELLOW}🔥 모든 서비스 종료 중...${NC}"
     
     # 모든 백그라운드 프로세스 종료
     if [ ! -z "$DOCKER_PID" ]; then
@@ -47,61 +47,10 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-# 테스트 실행 함수
-run_tests() {
-    echo -e "${GREEN}🧪 테스트 실행 시작...${NC}"
-    
-    # 에러 발생 시 중단하지 않고 계속 진행 후 마지막에 결과 보고
-    set +e
-    
-    echo -e "\n${YELLOW}📍 Gateway Service 테스트 실행${NC}"
-    (
-        source apps/gateway/.venv/bin/activate
-        export PYTHONPATH="$PROJECT_ROOT"
-        pytest apps/gateway/tests
-    )
-    GATEWAY_EXIT_CODE=$?
-    
-    echo -e "\n${YELLOW}📍 Workflow Engine Service 테스트 실행${NC}"
-    (
-        source apps/workflow_engine/.venv/bin/activate
-        export PYTHONPATH="$PROJECT_ROOT"
-        pytest apps/workflow_engine/tests
-    )
-    WORKFLOW_EXIT_CODE=$?
-    
-    echo -e "\n${GREEN}============================================${NC}"
-    echo -e "${GREEN}📊 테스트 결과 요약${NC}"
-    echo -e "${GREEN}============================================${NC}"
-    
-    if [ $GATEWAY_EXIT_CODE -eq 0 ]; then
-        echo -e "${GREEN}✅ Gateway Service: PASS${NC}"
-    else
-        echo -e "${RED}❌ Gateway Service: FAIL${NC}"
-    fi
-    
-    if [ $WORKFLOW_EXIT_CODE -eq 0 ]; then
-        echo -e "${GREEN}✅ Workflow Engine Service: PASS${NC}"
-    else
-        echo -e "${RED}❌ Workflow Engine Service: FAIL${NC}"
-    fi
-    
-    if [ $GATEWAY_EXIT_CODE -eq 0 ] && [ $WORKFLOW_EXIT_CODE -eq 0 ]; then
-        exit 0
-    else
-        exit 1
-    fi
-}
-
-# 인자가 'test'인 경우 테스트 실행
-if [ "$1" == "test" ]; then
-    run_tests
-fi
-
 
 # 1. Docker Compose (PostgreSQL + Redis) - detached 모드로 시작
 echo -e "${GREEN}📦 인프라 시작 (PostgreSQL + Redis)...${NC}"
-docker compose up -d postgres redis
+docker compose up -d postgres redis pgadmin
 
 # PostgreSQL이 준비될 때까지 대기 (최대 30초)
 echo "⏳ PostgreSQL 준비 대기 중..."
@@ -180,17 +129,14 @@ fi
 
 echo ""
 echo -e "${GREEN}============================================${NC}"
-echo -e "${GREEN}🎉 Moduly 개발 환경이 시작되었습니다!${NC}"
+echo -e "${GREEN}✅ 모듈리 개발 환경이 시작되었습니다!${NC}"
 echo -e "${GREEN}============================================${NC}"
 echo ""
 echo "📌 접속 URL:"
 echo "   - API:        http://localhost:8000"
 echo "   - API 문서:   http://localhost:8000/docs"
 echo "   - 프론트엔드: http://localhost:3000"
-echo ""
-echo "👤 기본 로그인 계정:"
-echo "   - 이메일:     dev@moduly.app"
-echo "   - 비밀번호:   dev-password"
+echo "   - pgAdmin:    http://localhost:5050"
 echo ""
 echo -e "${YELLOW}Ctrl+C를 누르면 모든 서비스가 종료됩니다.${NC}"
 echo ""

@@ -24,6 +24,7 @@ class WorkflowEngine:
         db: Optional[Session] = None,  # [NEW] DB 세션 주입 (로깅용)
         parent_run_id: Optional[str] = None,  # [NEW] 서브 워크플로우용 부모 run_id
         workflow_timeout: int = 600,  # [NEW] 전체 워크플로우 타임아웃 (기본 10분)
+        is_subworkflow: bool = False,  # [NEW] 서브 워크플로우 여부 (Redis 이벤트 발행 스킵)
     ):
         """
         WorkflowEngine 초기화
@@ -78,6 +79,7 @@ class WorkflowEngine:
         self.logger = WorkflowLogger(db)  # 로깅 유틸리티 인스턴스
         self.parent_run_id = parent_run_id  # 서브 워크플로우용 부모 run_id
         self.start_node_id = None  # [NEW] 시작 노드 ID 캐싱
+        self.is_subworkflow = is_subworkflow  # [NEW] 서브 워크플로우 여부
 
         # [VALIDATION] 그래프 구조 검증 (순환, 시작 노드 등)
         self.validate_graph()
@@ -189,7 +191,16 @@ class WorkflowEngine:
         # 외부에서 전달된 run_id가 있으면 사용 (Gateway에서 미리 생성한 경우)
         external_run_id = self.execution_context.get("workflow_run_id")
 
-        if external_run_id:
+        # [FIX] 서브 워크플로우인 경우 run_id 생성/로깅 스킵
+        if self.is_subworkflow:
+            # 서브 워크플로우는 부모의 run_id만 참조, DB에 별도 run 레코드 생성하지 않음
+            if self.parent_run_id:
+                self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
+                self.execution_context["workflow_run_id"] = self.parent_run_id
+            print(
+                f"[WorkflowEngine] 서브 워크플로우 실행 - parent_run_id: {self.parent_run_id}"
+            )
+        elif external_run_id:
             # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
             # create_run_log 호출하여 DB에 기록 (run_id 전달)
@@ -203,7 +214,7 @@ class WorkflowEngine:
             )
             print(f"[WorkflowEngine] 외부 run_id 사용: {external_run_id}")
         elif self.parent_run_id:
-            # 서브 워크플로우인 경우 부모의 run_id를 재사용
+            # 서브 워크플로우인 경우 부모의 run_id를 재사용 (레거시 지원)
             self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
             self.execution_context["workflow_run_id"] = self.parent_run_id
         else:
@@ -342,16 +353,18 @@ class WorkflowEngine:
             run_id = self.execution_context.get("workflow_run_id")
             if stream_mode:
                 final_context = dict(results)
-                self.logger.update_run_log_finish(final_context)
-                # [NEW] Redis Pub/Sub으로 workflow_finish 이벤트 발행
-                if run_id:
+                if not self.is_subworkflow:
+                    self.logger.update_run_log_finish(final_context)
+                # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵 (조기 종료 방지)
+                if run_id and not self.is_subworkflow:
                     publish_workflow_event(run_id, "workflow_finish", final_context)
                 yield {"type": "workflow_finish", "data": final_context}
             else:
                 final_result = self._get_answer_node_result(results)
-                self.logger.update_run_log_finish(final_result)
-                # [NEW] Redis Pub/Sub으로 workflow_finish 이벤트 발행
-                if run_id:
+                if not self.is_subworkflow:
+                    self.logger.update_run_log_finish(final_result)
+                # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
+                if run_id and not self.is_subworkflow:
                     publish_workflow_event(run_id, "workflow_finish", final_result)
                 # 배포 모드에서도 결과 전달을 위해 이벤트 사용
                 yield {"type": "workflow_finish", "data": final_result}
@@ -359,16 +372,18 @@ class WorkflowEngine:
         except Exception as e:
             run_id = self.execution_context.get("workflow_run_id")
             if not stream_mode:
-                self.logger.update_run_log_error(str(e))
-                # [NEW] Redis Pub/Sub으로 error 이벤트 발행
-                if run_id:
+                if not self.is_subworkflow:
+                    self.logger.update_run_log_error(str(e))
+                # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
+                if run_id and not self.is_subworkflow:
                     publish_workflow_event(run_id, "error", {"message": str(e)})
                 raise e
             else:
                 error_msg = str(e)
-                self.logger.update_run_log_error(error_msg)
-                # [NEW] Redis Pub/Sub으로 error 이벤트 발행
-                if run_id:
+                if not self.is_subworkflow:
+                    self.logger.update_run_log_error(error_msg)
+                # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
+                if run_id and not self.is_subworkflow:
                     publish_workflow_event(run_id, "error", {"message": error_msg})
                 yield {"type": "error", "data": {"message": error_msg}}
         # 참고: self.logger.shutdown() 호출 제거됨
@@ -393,11 +408,13 @@ class WorkflowEngine:
         inputs = self._get_context(node_id, results)
 
         # [실시간 스트리밍] node_start 이벤트를 Task 생성 시점(실행 시작 전)에 즉시 전송
-        self.logger.create_node_log(node_id, node_schema.type, inputs)
+        # [FIX] 서브 워크플로우에서는 노드 로깅도 스킵 (UI 간섭 방지)
+        if not self.is_subworkflow:
+            self.logger.create_node_log(node_id, node_schema.type, inputs)
 
-        # [NEW] Redis Pub/Sub으로 이벤트 발행 (run_id가 있을 경우)
+        # [FIX] Redis Pub/Sub으로 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
         run_id = self.execution_context.get("workflow_run_id")
-        if run_id:
+        if run_id and not self.is_subworkflow:
             publish_workflow_event(
                 run_id,
                 "node_start",
@@ -442,9 +459,9 @@ class WorkflowEngine:
                     f"Node '{node_id}' ({node_schema.type}) timed out after {node_timeout} seconds."
                 )
 
-            # [NEW] Redis Pub/Sub으로 node_finish 이벤트 발행 (run_id가 있을 경우)
+            # [FIX] Redis Pub/Sub으로 node_finish 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
             run_id = self.execution_context.get("workflow_run_id")
-            if run_id:
+            if run_id and not self.is_subworkflow:
                 publish_workflow_event(
                     run_id,
                     "node_finish",
@@ -484,14 +501,16 @@ class WorkflowEngine:
             # 노드 실행 (핵심) - 동기 실행
             result = node_instance.execute(inputs)
 
-            # 노드 완료 로깅
-            self.logger.update_node_log_finish(node_id, result)
+            # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
+            if not self.is_subworkflow:
+                self.logger.update_node_log_finish(node_id, result)
 
             return result
 
         except Exception as e:
             error_msg = str(e)
-            self.logger.update_node_log_error(node_id, error_msg)
+            if not self.is_subworkflow:
+                self.logger.update_node_log_error(node_id, error_msg)
             raise e
 
     # ================================================================
@@ -742,7 +761,7 @@ class WorkflowEngine:
                 return results[node_id]
 
         # 실행된 AnswerNode가 없는 경우
-        raise ValueError(
-            "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
-            "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
-        )
+        # raise ValueError(
+        #     "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
+        #     "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
+        # )

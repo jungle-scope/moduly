@@ -106,6 +106,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
             execution_context=self.execution_context,
             is_deployed=True,
             parent_run_id=parent_run_id,
+            is_subworkflow=True,  # [FIX] 서브 워크플로우 표시 - Redis 이벤트 발행 스킵
         )
 
         result = asyncio.run(engine.execute())
