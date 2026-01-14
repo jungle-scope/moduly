@@ -98,27 +98,27 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
     [data.referenced_variables, handleUpdateData],
   );
 
-  // [VALIDATION] API 토큰 필수
+
   const tokenMissing = useMemo(() => {
     return !data.api_token?.trim();
   }, [data.api_token]);
 
-  // [VALIDATION] 소유자 필수
+
   const ownerMissing = useMemo(() => {
     return !data.repo_owner?.trim();
   }, [data.repo_owner]);
 
-  // [VALIDATION] 저장소 필수
+
   const repoMissing = useMemo(() => {
     return !data.repo_name?.trim();
   }, [data.repo_name]);
 
-  // [VALIDATION] PR 번호 필수 (양수)
+
   const prMissing = useMemo(() => {
     return !data.pr_number || data.pr_number <= 0;
   }, [data.pr_number]);
 
-  // [VALIDATION] 불완전한 변수
+
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
     [data.referenced_variables]

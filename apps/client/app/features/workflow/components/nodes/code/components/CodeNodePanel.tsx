@@ -105,7 +105,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
     return (data.inputs || []).map(input => input.name).filter(Boolean);
   }, [data.inputs]);
 
-  // [VALIDATION] 불완전한 입력변수 (이름은 있지만 source가 비어있는 경우)
+
   const incompleteVariables = useMemo(() => {
     const incomplete: { name: string; value_selector: string[] }[] = [];
     for (const input of data.inputs || []) {

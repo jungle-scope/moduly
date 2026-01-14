@@ -147,7 +147,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
 
   // 선택자 업데이트 핸들러
 
-  // [자동완성] '{{' 트리거 확인
+
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const target = e.target as HTMLTextAreaElement;
     const value = target.value;
@@ -175,7 +175,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     }
   };
 
-  // [자동완성] 변수 삽입
+
   const insertVariable = (varName: string) => {
     const currentValue = data.template || '';
     const textarea = textareaRef.current;
@@ -199,7 +199,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     }
   };
 
-  // [유효성 검사] 등록되지 않은 변수 확인
+
   const validationErrors = useMemo(() => {
     const template = data.template || '';
     const registeredNames = new Set(
@@ -218,7 +218,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     return Array.from(new Set(errors)); // 중복 제거
   }, [data.template, data.variables]);
 
-  // [유효성 검사] 불완전한 변수 (이름은 있지만 value_selector가 비어있는 경우)
+
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.variables),
     [data.variables]
@@ -238,7 +238,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
           description="템플릿에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
         
-        {/* [불완전한 변수 경고] */}
+
         {/* [불완전한 변수 경고] */}
         <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
@@ -318,7 +318,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
             )}
           </div>
 
-          {/* [유효성 검사] 미등록 변수 경고 블록 */}
+
           {validationErrors.length > 0 && (
             <UnregisteredVariablesAlert variables={validationErrors} />
           )}

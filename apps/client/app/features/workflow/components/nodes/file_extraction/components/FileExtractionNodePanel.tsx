@@ -50,7 +50,7 @@ export const FileExtractionNodePanel: React.FC<
     updateNodeData(nodeId, { referenced_variables: newVars });
   };
 
-  // [VALIDATION] 불완전한 변수 (이름은 있지만 selector가 불완전한 경우)
+
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
     [data.referenced_variables]
@@ -74,7 +74,7 @@ export const FileExtractionNodePanel: React.FC<
           hideAlias={false}
         />
 
-        {/* [VALIDATION] 불완전한 변수 경고 */}
+
         <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
     </div>

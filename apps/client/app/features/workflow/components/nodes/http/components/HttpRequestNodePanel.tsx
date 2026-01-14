@@ -16,7 +16,7 @@ import { ValidationAlert } from '../../../ui/ValidationAlert';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
 
-// [참고] 캐럿 좌표 가져오기 (LLMNodePanel에서 복사됨)
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement | HTMLInputElement,
   position: number,
@@ -88,19 +88,19 @@ export function HttpRequestNodePanel({
     [nodeId, nodes, edges],
   );
 
-  // [VALIDATION] URL 필수 체크
+
   const urlMissing = useMemo(() => {
     return !data.url?.trim();
   }, [data.url]);
 
-  // [VALIDATION] GET, DELETE 제외 메서드는 Body 필수
+
   const bodyRequiredButMissing = useMemo(() => {
     const method = data.method || 'GET';
     if (method === 'GET' || method === 'DELETE') return false;
     return !data.body?.trim();
   }, [data.method, data.body]);
 
-  // [VALIDATION] 미등록 변수 검사 (URL + Body에서 {{ }} 사용 시)
+
   const validationErrors = useMemo(() => {
     const allContent = (data.url || '') + (data.body || '');
     const registeredNames = new Set(
@@ -121,7 +121,7 @@ export function HttpRequestNodePanel({
     return Array.from(new Set(errors));
   }, [data.url, data.body, data.referenced_variables]);
 
-  // [VALIDATION] 불완전한 변수 (이름은 있지만 selector가 불완전한 경우)
+
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
     [data.referenced_variables]

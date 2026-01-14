@@ -147,17 +147,17 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
     [data.referenced_variables, handleUpdateData],
   );
 
-  // [VALIDATION] 이메일 필수 체크
+
   const emailMissing = useMemo(() => {
     return !data.email?.trim();
   }, [data.email]);
 
-  // [VALIDATION] 비밀번호 필수 체크
+
   const passwordMissing = useMemo(() => {
     return !data.password?.trim();
   }, [data.password]);
 
-  // [VALIDATION] 불완전한 변수 (이름은 있지만 selector가 불완전한 경우)
+
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
     [data.referenced_variables]

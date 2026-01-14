@@ -33,7 +33,7 @@ interface LLMNodePanelProps {
   data: LLMNodeData;
 }
 
-// [참고] 캐럿 좌표 가져오기
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement,
   position: number,
@@ -273,7 +273,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [nodeId, nodes, edges],
   );
 
-  // [VALIDATION] 등록되지 않은 변수 경고
+
   const validationErrors = useMemo(() => {
     const allPrompts =
       (data.system_prompt || '') +
@@ -305,13 +305,13 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     data.referenced_variables,
   ]);
 
-  // [VALIDATION] 불완전한 변수 경고 (이름은 있지만 selector가 불완전한 경우)
+
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
     [data.referenced_variables]
   );
 
-  // [VALIDATION] 모든 프롬프트가 비어있는지 확인
+
   const allPromptsEmpty = useMemo(() => {
     return (
       !data.system_prompt?.trim() &&
@@ -570,7 +570,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           description="프롬프트에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
         
-        {/* [VALIDATION] 불완전한 변수 경고 */}
+
         {incompleteVariables.length > 0 && (
           <IncompleteVariablesAlert variables={incompleteVariables} />
         )}
@@ -805,7 +805,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           )}
 
 
-          {/* [VALIDATION] 미등록 변수 경고 */}
+
           {validationErrors.length > 0 && (
             <UnregisteredVariablesAlert variables={validationErrors} />
           )}
