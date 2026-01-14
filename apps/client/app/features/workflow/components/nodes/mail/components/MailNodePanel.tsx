@@ -6,6 +6,8 @@ import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { AlertTriangle } from 'lucide-react';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 
 interface MailNodePanelProps {
   nodeId: string;
@@ -329,11 +331,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               💡 Gmail: 앱 비밀번호 사용 권장
             </p>
             {passwordMissing && (
-              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs mt-1">
-                <p className="font-semibold flex items-center gap-1">
-                  ⚠️ 비밀번호를 입력해주세요.
-                </p>
-              </div>
+              <ValidationAlert message="⚠️ 비밀번호를 입력해주세요." />
             )}
           </div>
         </div>
@@ -352,21 +350,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
         />
 
         {/* [VALIDATION] 불완전한 변수 경고 */}
-        {incompleteVariables.length > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded p-2 text-orange-700 text-xs mt-2">
-            <p className="font-semibold flex items-center gap-1">
-              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
-            </p>
-            <ul className="list-disc list-inside">
-              {incompleteVariables.map((v, i) => (
-                <li key={i}>{v.name}</li>
-              ))}
-            </ul>
-            <p className="mt-1 text-[10px] text-orange-500">
-              실행 시 빈 값으로 대체됩니다.
-            </p>
-          </div>
-        )}
+        <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 
       {/* 4. 검색 옵션 */}

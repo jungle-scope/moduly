@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HelpCircle, Plus, Trash2, AlertTriangle } from 'lucide-react';
 
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
 import { HttpVariable, SlackPostNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getIncompleteVariables } from '../../../../utils/validationUtils';

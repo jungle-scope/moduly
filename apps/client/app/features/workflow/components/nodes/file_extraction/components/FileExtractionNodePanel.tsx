@@ -5,6 +5,7 @@ import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 
 interface FileExtractionNodePanelProps {
   nodeId: string;
@@ -74,21 +75,7 @@ export const FileExtractionNodePanel: React.FC<
         />
 
         {/* [VALIDATION] 불완전한 변수 경고 */}
-        {incompleteVariables.length > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs mt-2">
-            <p className="font-semibold mb-1 flex items-center gap-1">
-              ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
-            </p>
-            <ul className="list-disc list-inside">
-              {incompleteVariables.map((v, i) => (
-                <li key={i}>{v.name}</li>
-              ))}
-            </ul>
-            <p className="mt-1 text-[10px] text-orange-500">
-              실행 시 빈 값으로 대체됩니다.
-            </p>
-          </div>
-        )}
+        <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
     </div>
   );

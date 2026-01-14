@@ -12,6 +12,8 @@ import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { AlertTriangle } from 'lucide-react';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 
 // [참고] 캐럿 좌표 가져오기 (LLMNodePanel에서 복사됨)
 const getCaretCoordinates = (
