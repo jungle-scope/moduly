@@ -16,7 +16,6 @@ export const TemplateNode: React.FC<TemplateNodeProps> = ({
   data,
   selected,
 }) => {
-  // 미등록 변수 검사
   const missingVariables = useMemo(() => {
     const template = data.template || '';
     const registeredNames = new Set(
@@ -36,7 +35,6 @@ export const TemplateNode: React.FC<TemplateNodeProps> = ({
     return Array.from(new Set(errors));
   }, [data.template, data.variables]);
 
-  // 불완전한 변수 검사 (이름은 있지만 value_selector가 비어있는 경우)
   const incompleteVars = useMemo(
     () => hasIncompleteVariables(data.variables),
     [data.variables]

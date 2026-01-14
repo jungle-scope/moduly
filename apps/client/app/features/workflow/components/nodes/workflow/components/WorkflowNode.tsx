@@ -429,7 +429,6 @@ export const WorkflowNode = memo(
           )}
         </button>
 
-        {/* 유효성 검사 배지 */}
         {validationMessage && (
           <ValidationBadge />
         )}

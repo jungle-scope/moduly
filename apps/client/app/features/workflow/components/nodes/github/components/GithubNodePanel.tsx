@@ -14,6 +14,12 @@ interface GithubNodePanelProps {
   data: GithubNodeData;
 }
 
+// 노드 실행 필수 요건 체크
+// 1. API 토큰이 입력되어야 함
+// 2. 소유자(Owner)가 입력되어야 함
+// 3. 저장소(Repo) 이름이 입력되어야 함
+// 4. PR 번호가 유효해야 함 (양수)
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement,
   position: number,
@@ -226,7 +232,6 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
           description="이 섹션에서 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
         
-        {/* [VALIDATION] 불완전한 변수 경고 */}
         <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 

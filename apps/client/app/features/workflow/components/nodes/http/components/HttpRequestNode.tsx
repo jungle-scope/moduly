@@ -52,7 +52,6 @@ export const HttpRequestNode = memo(
             </div>
           </div>
           
-          {/* 검증 실패 시 경고 배지 */}
           {hasValidationIssue && (
             <ValidationBadge />
           )}

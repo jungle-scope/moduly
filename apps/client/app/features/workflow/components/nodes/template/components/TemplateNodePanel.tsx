@@ -20,6 +20,10 @@ interface TemplateNodePanelProps {
  * [참고] 캐럿 좌표 가져오기
  * Textarea의 커서 위치(top, left)를 계산하기 위해 Mirror Div를 사용합니다.
  */
+// 노드 실행 필수 요건 체크
+// 1. 템플릿 내용이 비어있지 않아야 함
+// 2. 입력 변수 매핑이 완료되어야 함
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement,
   position: number,
@@ -239,7 +243,6 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
         />
         
 
-        {/* [불완전한 변수 경고] */}
         <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 

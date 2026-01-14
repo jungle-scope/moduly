@@ -14,6 +14,10 @@ interface CodeNodePanelProps {
   data: CodeNodeData;
 }
 
+// 노드 실행 필수 요건 체크
+// 1. 코드가 비어있지 않아야 함
+// 2. 입력 변수 매핑이 완료되어야 함
+
 const DEFAULT_CODE = `def main(inputs):
     # 입력변수를 inputs['변수명']의 형태로 할당
     
@@ -141,7 +145,6 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
             으로 사용
           </div>
           
-          {/* [불완전한 변수 경고] */}
           <IncompleteVariablesAlert variables={incompleteVariables} />
         </div>
       </CollapsibleSection>
@@ -285,7 +288,6 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
           </div>
         </div>
       )}
-
 
       {/* 코드 마법사 모달 */}
       <CodeWizardModal

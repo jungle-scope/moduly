@@ -34,6 +34,10 @@ interface LLMNodePanelProps {
 }
 
 
+// 노드 실행 필수 요건 체크
+// 1. 시스템 프롬프트 또는 사용자 프롬프트 중 하나 이상 입력되어야 함
+// 2. 모델이 선택되어야 함
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement,
   position: number,
@@ -643,10 +647,8 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
             LLM에 전달할 메시지를 작성하세요. 최소 1개 이상 입력이 필요합니다.
           </p>
 
-          {/* 모든 프롬프트가 비어있으면 경고 */}
           {allPromptsEmpty && (
             <ValidationAlert
-              type="warning"
               message="⚠️ 최소 1개의 프롬프트를 입력해야 실행할 수 있습니다."
             />
           )}

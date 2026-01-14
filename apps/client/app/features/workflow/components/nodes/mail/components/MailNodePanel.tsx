@@ -14,6 +14,11 @@ interface MailNodePanelProps {
   data: MailNodeData;
 }
 
+// 노드 실행 필수 요건 체크
+// 1. SMTP 서버 설정(호스트, 포트, 사용자)이 완료되어야 함
+// 2. 수신자 이메일이 입력되어야 함
+// 3. 제목과 본문이 입력되어야 함
+
 // Provider별 IMAP 서버 프리셋
 const PROVIDER_PRESETS: Record<
   Exclude<EmailProvider, 'custom'>,

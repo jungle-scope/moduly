@@ -17,6 +17,10 @@ import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
 
 
+// 노드 실행 필수 요건 체크
+// 1. URL이 입력되어 있어야 함
+// 2. GET, DELETE 제외 메서드는 Body가 있어야 함
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement | HTMLInputElement,
   position: number,
@@ -265,7 +269,6 @@ export function HttpRequestNodePanel({
         />
       </div>
       
-      {/* URL 미입력 경고 - URL 입력창 바로 아래 */}
       {urlMissing && (
         <ValidationAlert message="⚠️ URL을 입력해주세요." />
       )}
@@ -283,7 +286,6 @@ export function HttpRequestNodePanel({
           title=""
         />
         
-        {/* [불완전한 변수 경고] */}
         {incompleteVariables.length > 0 && (
           <IncompleteVariablesAlert
             variables={incompleteVariables}
@@ -440,7 +442,6 @@ export function HttpRequestNodePanel({
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능
             </div>
             
-            {/* [VALIDATION] 본문 미입력 경고 */}
             {bodyRequiredButMissing && (
               <ValidationAlert message={`⚠️ ${data.method || 'POST'} 요청에는 본문(Body)이 필요합니다.`} />
             )}

@@ -12,6 +12,10 @@ interface FileExtractionNodePanelProps {
   data: FileExtractionNodeData;
 }
 
+// 노드 실행 필수 요건 체크
+// 1. 파일 형식이 지정되어야 함
+// 2. 입력 변수 매핑이 완료되어야 함
+
 export const FileExtractionNodePanel: React.FC<
   FileExtractionNodePanelProps
 > = ({ nodeId, data }) => {
