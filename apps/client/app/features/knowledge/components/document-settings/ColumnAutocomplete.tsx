@@ -213,7 +213,7 @@ export default function ColumnAutocomplete({
     // {{...}} 패턴을 찾아서 span으로 감싸기
     return code.replace(
       /(\{\{[^}]+\}\})/g,
-      '<span style="display: inline-block; background-color: #eeeff1; border: 0 solid #d1d5db; border-radius: 3px; padding: 0; margin: 0;"><span style="display: inline-block; transform: scale(0.95); transform-origin: center; color: #2254F5; font-weight: 600;">$1</span></span>',
+      '<span style="display: inline-block; background-color: #ffffff; border: 0 solid #d1d5db; border-radius: 3px; padding: 0; margin: 0;"><span style="display: inline-block; transform: scale(0.95); transform-origin: center; color: #2254F5; font-weight: 600;">$1</span></span>',
     );
   };
 
