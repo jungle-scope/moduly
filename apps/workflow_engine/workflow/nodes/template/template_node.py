@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from jinja2 import Template
 
-from workflow.nodes.base.node import Node
+from apps.workflow_engine.workflow.nodes.base.node import Node
 
 from .entities import TemplateNodeData
 

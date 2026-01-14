@@ -4,7 +4,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from workflow.nodes.base.entities import BaseNodeData
+from apps.workflow_engine.workflow.nodes.base.entities import BaseNodeData
 
 
 class VariableMapping(BaseModel):

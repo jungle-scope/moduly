@@ -106,12 +106,11 @@ WORKFLOW_CELERY_PID=$!
 
 sleep 1
 
-# 4. FastAPI 서버
-echo -e "${GREEN}🖥️ FastAPI 서버 시작...${NC}"
+# 4. Gateway API 서버
+echo -e "${GREEN}🖥️ Gateway API 서버 시작...${NC}"
 (
-    cd apps/server
-    source .venv/bin/activate
-    PYTHONPATH="$PROJECT_ROOT" uvicorn main:app --reload --port 8000
+    source apps/server/.venv/bin/activate
+    PYTHONPATH="$PROJECT_ROOT" uvicorn apps.gateway.main:app --reload --port 8000
 ) &
 FASTAPI_PID=$!
 

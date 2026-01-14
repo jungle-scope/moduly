@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session
 
 from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
-from workflow.core.workflow_logger import WorkflowLogger  # [NEW] 로깅 유틸리티
-from workflow.core.workflow_node_factory import NodeFactory
+from apps.workflow_engine.workflow.core.workflow_logger import WorkflowLogger  # [NEW] 로깅 유틸리티
+from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
 
 
 class WorkflowEngine:

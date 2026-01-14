@@ -3,8 +3,8 @@ from typing import Any, Dict, List, Literal, Optional
 from jinja2 import BaseLoader, Environment, TemplateSyntaxError, UndefinedError
 from pydantic import BaseModel, Field
 
-from workflow.nodes.base.entities import BaseNodeData
-from workflow.nodes.base.node import Node
+from apps.workflow_engine.workflow.nodes.base.entities import BaseNodeData
+from apps.workflow_engine.workflow.nodes.base.node import Node
 
 
 class LoopNodeInput(BaseModel):

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from workflow.nodes.base.entities import BaseNodeData
+from apps.workflow_engine.workflow.nodes.base.entities import BaseNodeData
 
 
 class HttpMethod(str, Enum):

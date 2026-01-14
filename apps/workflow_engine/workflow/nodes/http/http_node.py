@@ -4,8 +4,8 @@ from typing import Any, Dict
 import httpx
 from jinja2 import Environment
 
-from workflow.nodes.base.node import Node
-from workflow.nodes.http.entities import HttpRequestNodeData
+from apps.workflow_engine.workflow.nodes.base.node import Node
+from apps.workflow_engine.workflow.nodes.http.entities import HttpRequestNodeData
 
 _jinja_env = Environment(autoescape=False)
 

@@ -2,8 +2,8 @@
 
 from typing import Any, Dict
 
-from workflow.nodes.base.node import Node
-from workflow.nodes.webhook.entities import WebhookTriggerNodeData
+from apps.workflow_engine.workflow.nodes.base.node import Node
+from apps.workflow_engine.workflow.nodes.webhook.entities import WebhookTriggerNodeData
 
 
 class WebhookTriggerNode(Node[WebhookTriggerNodeData]):

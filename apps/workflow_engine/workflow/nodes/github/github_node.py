@@ -6,8 +6,8 @@ from github import Github
 from github.GithubException import GithubException
 from jinja2 import Environment
 
-from workflow.nodes.base.node import Node
-from workflow.nodes.github.entities import GithubNodeData
+from apps.workflow_engine.workflow.nodes.base.node import Node
+from apps.workflow_engine.workflow.nodes.github.entities import GithubNodeData
 
 _jinja_env = Environment(autoescape=False)
 

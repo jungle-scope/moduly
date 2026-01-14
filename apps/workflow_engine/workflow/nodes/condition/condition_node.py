@@ -2,8 +2,8 @@
 
 from typing import Any, Dict, List
 
-from workflow.core.utils import get_nested_value
-from workflow.nodes.base.node import Node
+from apps.workflow_engine.workflow.core.utils import get_nested_value
+from apps.workflow_engine.workflow.nodes.base.node import Node
 
 from .entities import Condition, ConditionCase, ConditionNodeData, ConditionOperator
 

@@ -2,8 +2,8 @@
 
 from typing import Any, Dict
 
-from workflow.nodes.base.node import Node
-from workflow.nodes.schedule.entities import ScheduleTriggerNodeData
+from apps.workflow_engine.workflow.nodes.base.node import Node
+from apps.workflow_engine.workflow.nodes.schedule.entities import ScheduleTriggerNodeData
 
 
 class ScheduleTriggerNode(Node[ScheduleTriggerNodeData]):

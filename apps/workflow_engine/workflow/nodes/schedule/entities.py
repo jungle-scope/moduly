@@ -2,7 +2,7 @@
 
 from pydantic import Field, field_validator
 
-from workflow.nodes.base.entities import BaseNodeData
+from apps.workflow_engine.workflow.nodes.base.entities import BaseNodeData
 
 
 class ScheduleTriggerNodeData(BaseNodeData):

@@ -97,13 +97,13 @@ def seed_default_llm_models(db: Session) -> None:
     gpt-4.1, o3-mini와 같은 모델이 DB에 존재하도록 보장합니다.
     또한, 해당 모델이 UI에 표시되도록 기존 Credential과 연결합니다.
     """
+    from apps.gateway.services.llm_service import LLMService
     from apps.shared.db.models.llm import (
         LLMCredential,
         LLMModel,
         LLMProvider,
         LLMRelCredentialModel,
     )
-    from services.llm_service import LLMService
 
     # 1. 모든 Provider 조회 후 맵핑 생성
     providers = db.query(LLMProvider).all()
