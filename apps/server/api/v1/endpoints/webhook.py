@@ -2,13 +2,12 @@
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
-
+from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App
 from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 from apps.shared.db.session import get_db
-from workflow.core.workflow_engine import WorkflowEngine
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -52,46 +51,40 @@ def verify_webhook_auth(request: Request, app: App) -> bool:
     return False
 
 
-async def run_webhook_workflow(
-    deployment_id: str, payload: Dict[str, Any], db: Session
+def run_webhook_workflow(
+    deployment_id: str, payload: Dict[str, Any], app_created_by: str, workflow_id: str
 ):
     """
-    백그라운드에서 워크플로우를 실행하는 함수
+    백그라운드에서 워크플로우를 Celery 태스크로 실행하는 함수
 
     Args:
         deployment_id: 배포 ID
         payload: Webhook Payload (JSON)
-        db: DB 세션
+        app_created_by: 앱 생성자 ID
+        workflow_id: 워크플로우 ID
     """
     try:
-        # 배포 정보 조회
-        deployment = (
-            db.query(WorkflowDeployment)
-            .filter(WorkflowDeployment.id == deployment_id)
-            .first()
+        # execution_context 구성
+        execution_context = {
+            "user_id": app_created_by,
+            "workflow_id": workflow_id,
+            "trigger_mode": "webhook",
+            "deployment_id": deployment_id,
+        }
+
+        # Celery 태스크로 워크플로우 실행 위임 (비동기, 결과 대기 안 함)
+        # 배포 그래프 데이터는 Celery Worker에서 조회
+        celery_app.send_task(
+            "workflow.execute_by_deployment",
+            args=[deployment_id, payload, execution_context],
         )
-
-        if not deployment or not deployment.graph_snapshot:
-            print(f"[Webhook Error] Deployment {deployment_id} not found")
-            return
-
-        # 엔진 실행
-        engine = WorkflowEngine(
-            graph=deployment.graph_snapshot,
-            user_input=payload,  # Webhook Payload를 user_input으로 전달
-            is_deployed=True,
-        )
-
-        result = await engine.execute()
-        print(f"[Webhook Success] Workflow executed: {result}")
+        print(f"[Webhook Success] Celery task sent for deployment: {deployment_id}")
 
     except Exception as e:
-        print(f"[Webhook Error] Failed to execute workflow: {str(e)}")
+        print(f"[Webhook Error] Failed to send Celery task: {str(e)}")
         import traceback
 
         traceback.print_exc()
-    finally:
-        db.close()
 
 
 @router.post("/hooks/{url_slug}")
@@ -152,11 +145,14 @@ async def receive_webhook(
     if not deployment:
         raise HTTPException(status_code=404, detail="Active deployment not found")
 
-    # 6. 실행 모드: 엔진 실행 (BackgroundTasks)
-    from apps.shared.db.session import SessionLocal
-
-    bg_db = SessionLocal()
-    background_tasks.add_task(run_webhook_workflow, str(deployment.id), payload, bg_db)
+    # 6. 실행 모드: Celery 태스크로 워크플로우 실행 위임
+    background_tasks.add_task(
+        run_webhook_workflow,
+        str(deployment.id),
+        payload,
+        str(app.created_by),
+        str(app.workflow_id) if app.workflow_id else None,
+    )
 
     return {
         "status": "accepted",

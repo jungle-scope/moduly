@@ -25,8 +25,11 @@ cleanup() {
     if [ ! -z "$DOCKER_PID" ]; then
         kill $DOCKER_PID 2>/dev/null || true
     fi
-    if [ ! -z "$CELERY_PID" ]; then
-        kill $CELERY_PID 2>/dev/null || true
+    if [ ! -z "$LOG_CELERY_PID" ]; then
+        kill $LOG_CELERY_PID 2>/dev/null || true
+    fi
+    if [ ! -z "$WORKFLOW_CELERY_PID" ]; then
+        kill $WORKFLOW_CELERY_PID 2>/dev/null || true
     fi
     if [ ! -z "$FASTAPI_PID" ]; then
         kill $FASTAPI_PID 2>/dev/null || true
@@ -88,11 +91,22 @@ echo -e "${GREEN}📝 Log-System Celery Worker 시작...${NC}"
     export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     PYTHONPATH="$PROJECT_ROOT" celery -A apps.log_system.main worker -Q log -l info -P solo
 ) &
-CELERY_PID=$!
+LOG_CELERY_PID=$!
 
-sleep 2
+sleep 1
 
-# 3. FastAPI 서버
+# 3. Celery Worker (Workflow-Engine)
+echo -e "${GREEN}⚙️ Workflow-Engine Celery Worker 시작...${NC}"
+(
+    source apps/server/.venv/bin/activate
+    export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+    PYTHONPATH="$PROJECT_ROOT" celery -A apps.workflow_engine.main worker -Q workflow -l info -P solo
+) &
+WORKFLOW_CELERY_PID=$!
+
+sleep 1
+
+# 4. FastAPI 서버
 echo -e "${GREEN}🖥️ FastAPI 서버 시작...${NC}"
 (
     cd apps/server
@@ -103,7 +117,7 @@ FASTAPI_PID=$!
 
 sleep 2
 
-# 4. Next.js 클라이언트 (선택)
+# 5. Next.js 클라이언트 (선택)
 if [ -d "apps/client" ]; then
     echo -e "${GREEN}🌐 Next.js 클라이언트 시작...${NC}"
     (

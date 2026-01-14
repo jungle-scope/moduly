@@ -4,17 +4,17 @@ import secrets
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException
-from sqlalchemy import desc, func
-from sqlalchemy.orm import Session
-
+from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App
 from apps.shared.db.models.schedule import Schedule
 from apps.shared.db.models.workflow import Workflow
 from apps.shared.db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from apps.shared.schemas.deployment import DeploymentCreate
+from fastapi import HTTPException
+from sqlalchemy import desc, func
+from sqlalchemy.orm import Session
+
 from services.workflow_service import WorkflowService
-from workflow.core.workflow_engine import WorkflowEngine
 
 
 class DeploymentService:
@@ -363,25 +363,34 @@ class DeploymentService:
         # 5. 그래프 데이터 준비
         graph_data = deployment.graph_snapshot
 
-        # 6. 워크플로우 실행
+        # 6. 워크플로우 실행 (Celery 태스크로 위임)
         try:
             # [NEW] 로깅을 위한 컨텍스트 주입
             execution_context = {
-                "user_id": app.created_by,  # 실행 주체 (앱 소유자에게 비용 청구 시)
+                "user_id": str(app.created_by),  # UUID를 문자열로 변환 (JSON 직렬화)
                 "workflow_id": str(app.workflow_id) if app.workflow_id else None,
                 "trigger_mode": "app",  # [NEW] 실행 모드 (앱 배포 실행)
                 "deployment_id": str(deployment.id),
                 "workflow_version": deployment.version,
             }
-            engine = WorkflowEngine(
-                graph=graph_data,
-                user_input=user_inputs,
-                is_deployed=True,
-                execution_context=execution_context,
-                db=db,
+
+            # Celery 태스크 호출 (workflow.execute)
+            task = celery_app.send_task(
+                "workflow.execute",
+                args=[graph_data, user_inputs, execution_context],
+                kwargs={"is_deployed": True},
             )
-            results = await engine.execute()
-            return {"status": "success", "results": results}
+
+            # 결과 대기 (타임아웃 10분)
+            result = task.get(timeout=600)
+
+            if result.get("status") == "success":
+                return {"status": "success", "results": result.get("result", {})}
+            else:
+                raise HTTPException(status_code=500, detail="Workflow execution failed")
+
+        except celery_app.backend.TimeoutError:
+            raise HTTPException(status_code=504, detail="Workflow execution timed out")
 
         except ValueError as e:
             # 필수 노드 누락 등 검증 에러

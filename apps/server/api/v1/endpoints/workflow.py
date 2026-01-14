@@ -1,14 +1,7 @@
 import json
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
-
-# from sqlalchemy.orm import Session, noload, selectinload
-from starlette.requests import Request
-
-from auth.dependencies import get_current_user
+from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App
 from apps.shared.db.models.user import User
 from apps.shared.db.models.workflow import Workflow
@@ -26,8 +19,15 @@ from apps.shared.schemas.workflow import (
     WorkflowDraftRequest,
     WorkflowResponse,
 )
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+
+# from sqlalchemy.orm import Session, noload, selectinload
+from starlette.requests import Request
+
+from auth.dependencies import get_current_user
 from services.workflow_service import WorkflowService
-from workflow.core.workflow_engine import WorkflowEngine
 
 router = APIRouter()
 
@@ -477,7 +477,7 @@ async def execute_workflow(
     current_user: User = Depends(get_current_user),
 ):
     """
-    PostgreSQL에서 워크플로우 초안 데이터를 조회하고, WorkflowEngine을 사용하여 실행합니다. (인증 필요)
+    PostgreSQL에서 워크플로우 초안 데이터를 조회하고, Celery 태스크로 실행합니다. (인증 필요)
     """
     # 1. 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
@@ -493,7 +493,7 @@ async def execute_workflow(
         # 프론트 토글 상태가 실행 입력에 섞여 올 수 있으므로 분리해서 컨텍스트에만 전달
         memory_mode_enabled = bool(user_input.pop("memory_mode", False))
 
-    # 2. 데이터 조회 및 실행
+    # 2. 데이터 조회 및 Celery 태스크 호출
     try:
         graph = WorkflowService.get_draft(db, workflow_id)
         if not graph:
@@ -501,27 +501,30 @@ async def execute_workflow(
                 status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
             )
 
-        # WorkflowEngine 인스턴스 생성 및 초기화:
-        # 1. 입력받은 graph(dict)를 NodeSchema/EdgeSchema 객체로 파싱 및 검증
-        # 2. 엣지 정보를 바탕으로 노드 간의 실행 경로(Graph 구조) 빌드
-        # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
-        # execution_context에 'db' 세션을 주입하는 이유:
-        # WorkflowNode(모듈)가 실행될 때 대상 워크플로우의 그래프 데이터를 DB에서 로드해야 하기 때문입니다.
-        # 3. 각 노드 타입에 맞는 실제 실행 객체(Node Instance)를 미리 생성하여 메모리에 적재 (실행 준비 완료)
-        engine = WorkflowEngine(
-            graph,
-            user_input,
-            execution_context={
-                "user_id": str(current_user.id),
-                "workflow_id": workflow_id,
-                "memory_mode": memory_mode_enabled,
-            },
-            db=db,
-        )
-        print("user_input", user_input)
+        # execution_context 구성
+        execution_context = {
+            "user_id": str(current_user.id),
+            "workflow_id": workflow_id,
+            "memory_mode": memory_mode_enabled,
+        }
 
-        # 준비된 엔진을 실행 (시작 노드 탐색 -> Queue 기반 순차 실행 -> 결과 반환)
-        return await engine.execute()
+        # Celery 태스크 호출 (workflow.execute)
+        task = celery_app.send_task(
+            "workflow.execute",
+            args=[graph, user_input, execution_context],
+            kwargs={"is_deployed": False},
+        )
+
+        # 결과 대기 (타임아웃 10분)
+        result = task.get(timeout=600)
+
+        if result.get("status") == "success":
+            return result.get("result", {})
+        else:
+            raise HTTPException(status_code=500, detail="Workflow execution failed")
+
+    except celery_app.backend.TimeoutError:
+        raise HTTPException(status_code=504, detail="Workflow execution timed out")
     except ValueError as e:
         # 노드 검증 실패 등의 입력 오류
         raise HTTPException(status_code=400, detail=str(e))
@@ -588,6 +591,9 @@ async def stream_workflow(
 
     # 3. 데이터 조회 및 엔진 초기화
     try:
+        # 스트리밍 모드는 직접 WorkflowEngine 사용 (Celery 비동기 호출 불가)
+        from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
+
         graph = WorkflowService.get_draft(db, workflow_id)
         if not graph:
             raise HTTPException(

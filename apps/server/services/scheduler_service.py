@@ -1,16 +1,14 @@
 """Scheduler Service - APScheduler를 사용한 워크플로우 스케줄 관리"""
 
-import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from apps.shared.db.models.schedule import Schedule
+from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
-
-from apps.shared.db.models.schedule import Schedule
-from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 
 
 class SchedulerService:
@@ -138,10 +136,10 @@ class SchedulerService:
 
         Note:
             이 함수는 APScheduler가 별도 스레드에서 호출합니다.
-            SQLAlchemy 세션은 스레드 안전하지 않으므로, 각 job 실행 시
-            새로운 DB 세션을 생성하여 사용합니다.
+            Celery 태스크로 워크플로우 실행을 위임합니다.
         """
         # 각 job 실행마다 새로운 DB 세션 생성 (스레드 안전성 보장)
+        from apps.shared.celery_app import celery_app
         from apps.shared.db.session import SessionLocal
 
         db = SessionLocal()
@@ -169,52 +167,40 @@ class SchedulerService:
                 )
                 return
 
-            # WorkflowEngine 실행 (AsyncIO 이벤트 루프에서)
-            # Note: BackgroundScheduler는 별도 스레드에서 실행되므로
-            # asyncio 이벤트 루프를 직접 생성해야 함
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # user_input에 스케줄 메타데이터 포함
+            user_input = {
+                "triggered_at": triggered_at,
+                "schedule_id": str(schedule_id),
+            }
 
-            try:
-                # WorkflowEngine import (순환 의존성 방지)
-                from workflow.core.workflow_engine import WorkflowEngine
+            # execution_context 구성
+            execution_context = {
+                "user_id": str(deployment.created_by),  # UUID를 문자열로 변환
+                "workflow_id": str(deployment.app_id) if deployment.app_id else None,
+                "trigger_mode": "schedule",
+                "deployment_id": str(deployment_id),
+            }
 
-                # user_input에 스케줄 메타데이터 포함
-                user_input = {
-                    "triggered_at": triggered_at,
-                    "schedule_id": str(schedule_id),
-                }
+            # Celery 태스크로 워크플로우 실행 위임 (비동기, 결과 대기 안 함)
+            celery_app.send_task(
+                "workflow.execute",
+                args=[deployment.graph_snapshot, user_input, execution_context],
+                kwargs={"is_deployed": True},
+            )
 
-                engine = WorkflowEngine(
-                    graph=deployment.graph_snapshot,
-                    user_input=user_input,
-                    execution_context={
-                        "user_id": deployment.created_by,
-                        "workflow_id": deployment.app_id,
-                    },
-                    is_deployed=True,
-                    db=db,
-                )
+            print(f"[SchedulerService] Celery 태스크 전송 완료: {deployment_id}")
 
-                # 비동기 실행
-                result = loop.run_until_complete(engine.execute())
+            # Schedule 업데이트: last_run_at, next_run_at
+            schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+            if schedule:
+                schedule.last_run_at = datetime.now(timezone.utc)
 
-                print(f"[SchedulerService] 완료: 워크플로우 실행 성공: {deployment_id}")
+                # 다음 실행 시간 계산
+                job = self.scheduler.get_job(str(schedule_id))
+                if job and job.next_run_time:
+                    schedule.next_run_at = job.next_run_time
 
-                # Schedule 업데이트: last_run_at, next_run_at
-                schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
-                if schedule:
-                    schedule.last_run_at = datetime.now(timezone.utc)
-
-                    # 다음 실행 시간 계산
-                    job = self.scheduler.get_job(str(schedule_id))
-                    if job and job.next_run_time:
-                        schedule.next_run_at = job.next_run_time
-
-                    db.commit()
-
-            finally:
-                loop.close()
+                db.commit()
 
         except Exception as e:
             print(f"[SchedulerService] 에러: 워크플로우 실행 실패: {e}")
