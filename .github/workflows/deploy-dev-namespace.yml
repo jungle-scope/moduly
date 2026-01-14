@@ -1,7 +1,21 @@
 name: Deploy to Dev Namespace (Manual)
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - refactor/KAN-492  # 현재 브랜치에서 자동 배포
+    paths:
+      - 'apps/gateway/**'
+      - 'apps/workflow_engine/**'
+      - 'apps/log_system/**'
+      - 'apps/shared/**'
+      - 'docker/gateway/**'
+      - 'docker/workflow_engine/**'
+      - 'docker/log_system/**'
+      - 'infra/k8s/namespaces/dev/**'
+      - '.github/workflows/deploy-dev-namespace.yml'
+  
+  workflow_dispatch:  # 수동 실행도 여전히 가능
     inputs:
       services:
         description: 'Services to deploy (gateway, worker, logger, frontend, or all)'
