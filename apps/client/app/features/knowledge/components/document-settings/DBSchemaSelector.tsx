@@ -394,38 +394,43 @@ export default function DBSchemaSelector({
 
       {/* JOIN 설정 패널 */}
       {selectedTables.length === 2 && (
-        <div className="mx-4 mt-4 mb-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <div className="flex items-start gap-2">
+        <div className="mx-4 mt-4 mb-2 p-4 bg-slate-50/50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-800 rounded-lg">
+          <div className="flex items-start gap-3">
             <div className="mt-0.5">
               {joinConfig ? (
-                <LinkIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <LinkIcon className="w-5 h-5 text-blue-500 dark:text-blue-400" />
               ) : (
-                <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                <AlertTriangle className="w-5 h-5 text-orange-500 dark:text-orange-400" />
               )}
             </div>
             <div className="flex-1">
               {joinConfig && joinConfig.joins ? (
-                <div className="space-y-1">
+                <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       테이블 연결됨
                     </h4>
                     <div className="flex items-center gap-2 text-sm">
-                      <code className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-700 font-medium text-blue-900 dark:text-blue-100">
+                      <code className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-blue-200 dark:border-blue-800 font-medium text-blue-700 dark:text-blue-300">
                         {joinConfig.joins[0].from_table}.
                         {joinConfig.joins[0].from_column}
                       </code>
-                      <ArrowRight className="w-4 h-4 text-blue-400 dark:text-blue-500" />
-                      <code className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-700 font-medium text-blue-900 dark:text-blue-100">
+                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                      <code className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-blue-200 dark:border-blue-800 font-medium text-blue-700 dark:text-blue-300">
                         {joinConfig.joins[0].to_table}.
                         {joinConfig.joins[0].to_column}
                       </code>
                     </div>
                   </div>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-                    <strong>{joinConfig.base_table}</strong> 데이터를 중심으로{' '}
-                    <strong>{joinConfig.joins[0].to_table}</strong> 정보를
-                    덧붙입니다. (LEFT JOIN)
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <strong className="font-medium text-slate-600 dark:text-slate-300">
+                      {joinConfig.base_table}
+                    </strong>{' '}
+                    데이터를 중심으로{' '}
+                    <strong className="font-medium text-slate-600 dark:text-slate-300">
+                      {joinConfig.joins[0].to_table}
+                    </strong>{' '}
+                    정보를 덧붙입니다. (LEFT JOIN)
                   </p>
                 </div>
               ) : (
@@ -458,7 +463,7 @@ export default function DBSchemaSelector({
             >
               {/* Table Header Row */}
               <div
-                className={`flex items-center px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors ${selectedCols.length > 0 ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                className={`flex items-center px-3 py-2.5 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer transition-colors ${selectedCols.length > 0 ? 'bg-gray-100 dark:bg-gray-700' : 'bg-gray-50 dark:bg-gray-750'}`}
                 onClick={() => toggleExpand(table.table_name)}
               >
                 {/* Expand Icon */}
