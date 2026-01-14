@@ -12,19 +12,18 @@ type Props = {
 // 선택 가능한 이모지 목록
 const EMOJIS = [
   // 테크 (기본:💻)
-  '💻', '⌨️', '🖥', '💾', '💿', '🔌', '🖨', '📟',
-  '👨🏻‍💻', '👨🏻‍🔬', '👨🏻‍🔧', '👨🏼‍🚀', '🕹', '🎮', '🧩', '🚀',
-  '🎚', '🎛', '⚒', '🛠️', '⚙️', '🔧', '🔨', '🧱',
-  '🗃', '🪪', '📦', '🔒', '🔑', '🛡️', '🔍',
-
-  // 아이디어, 일
-  '🧠', '⚡', '🔮', '💡', '📝', '📊', '📈', '📅',
-  '📁', '💼', '🎨', '🎭', '📷', '🎵', '✏️', '🖌️',
-
-  // 기타
-  '💬', '📢', '🔔', '❤️', '⭐', '🔥', '📧', '📞',
-  '🌍', '🏠', '🛒', '🎁', '💎', '🦄', '🍀', '🍎',
-  '✨', '💫', '💥', '💢', '💤', '🌟', '💠',
+  '💻',
+  '🚀',
+  '🌟',
+  '📝',
+  '🔧',
+  '🎨',
+  '📈',
+  '💬',
+  '🧠',
+  '💡',
+  '🔍',
+  '📊',
 ];
 
 // 선택 가능한 배경색 목록
@@ -48,7 +47,12 @@ const COLORS = [
  *
  * 사용자가 아이콘의 이모지와 배경색을 선택할 수 있는 팝업 메뉴입니다.
  */
-export const AppIconPicker = ({ currentIcon, onSelect, onClose, className }: Props) => {
+export const AppIconPicker = ({
+  currentIcon,
+  onSelect,
+  onClose,
+  className,
+}: Props) => {
   const ref = useRef<HTMLDivElement>(null);
 
   // 외부 클릭 감지 (Outside Click Detection)
@@ -68,8 +72,8 @@ export const AppIconPicker = ({ currentIcon, onSelect, onClose, className }: Pro
     <div
       ref={ref}
       className={twMerge(
-        "absolute top-12 left-0 z-50 p-3 bg-white rounded-xl shadow-2xl border border-zinc-200 w-64 animate-in fade-in zoom-in-95 duration-100 max-h-[200px] overflow-y-auto scrollbar-hide",
-        className
+        'absolute top-12 left-0 z-50 p-3 bg-white rounded-xl shadow-2xl border border-zinc-200 w-64 animate-in fade-in zoom-in-95 duration-100 max-h-[200px] overflow-y-auto scrollbar-hide',
+        className,
       )}
     >
       <div className="space-y-4">
