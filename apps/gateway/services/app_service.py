@@ -181,7 +181,7 @@ class AppService:
         apps = (
             db.query(App)
             .options(joinedload(App.active_deployment))
-            .filter(App.is_market == True, App.created_by != user_id)
+            .filter(App.is_market == True)
             .all()
         )
 
