@@ -35,6 +35,18 @@ echo -e "\n${YELLOW}📍 Workflow Engine Service 테스트 실행${NC}"
 )
 WORKFLOW_EXIT_CODE=$?
 
+echo -e "\n${YELLOW}📍 Client App Build 테스트 실행${NC}"
+if [ -d "apps/client" ]; then
+    (
+        cd apps/client
+        npm run build
+    )
+    CLIENT_EXIT_CODE=$?
+else
+    echo -e "${YELLOW}⚠️ apps/client 디렉토리가 없어 Client Build 테스트를 건너뜁니다.${NC}"
+    CLIENT_EXIT_CODE=0
+fi
+
 echo -e "\n${GREEN}============================================${NC}"
 echo -e "${GREEN}📊 테스트 결과 요약${NC}"
 echo -e "${GREEN}============================================${NC}"
@@ -51,7 +63,15 @@ else
     echo -e "${RED}❌ Workflow Engine Service: FAIL${NC}"
 fi
 
-if [ $GATEWAY_EXIT_CODE -eq 0 ] && [ $WORKFLOW_EXIT_CODE -eq 0 ]; then
+if [ -d "apps/client" ]; then
+    if [ $CLIENT_EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}✅ Client App Build: PASS${NC}"
+    else
+        echo -e "${RED}❌ Client App Build: FAIL${NC}"
+    fi
+fi
+
+if [ $GATEWAY_EXIT_CODE -eq 0 ] && [ $WORKFLOW_EXIT_CODE -eq 0 ] && [ $CLIENT_EXIT_CODE -eq 0 ]; then
     exit 0
 else
     exit 1

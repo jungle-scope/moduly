@@ -49,5 +49,6 @@
 
 1.  **Gateway Service**: `apps/gateway/tests` 내의 테스트를 실행합니다.
 2.  **Workflow Engine Service**: `apps/workflow_engine/tests` 내의 테스트를 실행합니다.
+3.  **Client App Build**: `apps/client` 디렉토리에서 `npm run build`를 실행하여 빌드 오류를 확인합니다.
 
 각 서비스의 가상환경을 활성화하고 `pytest`를 실행하며, 모든 테스트가 종료되면 결과를 요약하여 출력합니다.
