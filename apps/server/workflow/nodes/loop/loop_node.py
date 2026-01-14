@@ -44,7 +44,7 @@ class LoopNode(Node[LoopNodeData]):
     """
     Loop Node (Hybrid Approach)
 
-    Dify 스타일의 템플릿 문법과 명시적 매핑을 모두 지원합니다.
+    템플릿 문법과 명시적 매핑을 모두 지원합니다.
     - 템플릿 문법: {{node_id.variable}}, {{loop.item}}, {{loop.index}}
     - 암시적 접근: inputs 배열이 비어있으면 모든 외부 변수 자동 전달
     - 명시적 매핑: inputs 배열로 선택적 매핑 가능
@@ -86,7 +86,7 @@ class LoopNode(Node[LoopNodeData]):
     ) -> Dict[str, Any]:
         """
         모든 외부 노드 출력 + Loop 변수를 포함한 컨텍스트 생성
-        Dify 스타일: 모든 변수가 자동으로 접근 가능
+        모든 변수가 자동으로 접근 가능
         """
         context = {}
 
@@ -156,7 +156,7 @@ class LoopNode(Node[LoopNodeData]):
         """
         하이브리드 입력 매핑:
         1. inputs 배열이 있으면 명시적 매핑 사용
-        2. 없으면 모든 외부 변수 자동 전달 (Dify 스타일)
+        2. 없으면 모든 외부 변수 자동 전달
         """
         if self.data.inputs:
             # 명시적 매핑
@@ -172,7 +172,7 @@ class LoopNode(Node[LoopNodeData]):
                 mapped[input_mapping.name] = value
             return mapped
         else:
-            # 암시적: 모든 외부 변수 전달 (Dify 스타일)
+            # 암시적: 모든 외부 변수 전달
             return inputs.copy()
 
     async def _execute_subgraph_scoped(self, context: Dict[str, Any]) -> Dict[str, Any]:
