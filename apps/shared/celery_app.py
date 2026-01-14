@@ -11,8 +11,17 @@ import os
 
 from celery import Celery
 
-# Redis URL 설정
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+# Redis 연결 설정 (개별 환경변수로 URL 동적 생성)
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = os.getenv("REDIS_PORT", "6379")
+REDIS_DB = os.getenv("REDIS_DB", "0")
+
+# 비밀번호 유무에 따라 Redis URL 생성
+if REDIS_PASSWORD:
+    REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+else:
+    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
 
 # Celery 앱 생성
 celery_app = Celery(
