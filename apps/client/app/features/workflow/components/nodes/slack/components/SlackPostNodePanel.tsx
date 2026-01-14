@@ -422,19 +422,13 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
 
         {/* URL 관련 경고 */}
         {mode === 'webhook' && !trimmedUrl && (
-          <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-            <p className="font-semibold mb-1">⚠️ Web Hook URL이 필요합니다.</p>
-          </div>
+          <ValidationAlert message="⚠️ Web Hook URL이 필요합니다." />
         )}
         {mode === 'webhook' && trimmedUrl && !isWebhookUrlValid && (
-          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs">
-            <p className="font-semibold mb-1">⚠️ Web Hook URL 형식이 올바르지 않습니다.</p>
-          </div>
+          <ValidationAlert message="⚠️ Web Hook URL 형식이 올바르지 않습니다." type="warning" />
         )}
         {mode === 'api' && !trimmedUrl && (
-          <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-            <p className="font-semibold mb-1">⚠️ Slack API 엔드포인트가 필요합니다.</p>
-          </div>
+          <ValidationAlert message="⚠️ Slack API 엔드포인트가 필요합니다." />
         )}
       </div>
 
@@ -485,14 +479,10 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
 
           {/* API 인증 관련 경고 */}
           {!data.authConfig?.token?.trim() && (
-            <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-              <p className="font-semibold mb-1">⚠️ 봇 토큰이 필요합니다.</p>
-            </div>
+            <ValidationAlert message="⚠️ 봇 토큰이 필요합니다." />
           )}
           {!data.channel?.trim() && (
-            <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs">
-              <p className="font-semibold mb-1">⚠️ 채널 ID가 필요합니다.</p>
-            </div>
+            <ValidationAlert message="⚠️ 채널 ID가 필요합니다." type="warning" />
           )}
         </>
       )}
@@ -636,18 +626,28 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
                   </div>
                 )}
             </div>
+            {/* Note: This specific warning list is quite custom and complex (red list), 
+                so we can either refactor it into ValidationAlert with complex children 
+                or leave it. The user specifically asked about "fat" messages which usually refers to the p-3 ones.
+                This one is p-3 too. I will make it compact manually for now to match. 
+                Or even better, if I can pass children to ValidationAlert? 
+                ValidationAlert takes `message: ReactNode`. So I can pass the whole structure. */}
             {missingVariables.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-                <p className="font-semibold mb-1">⚠️ 등록되지 않은 입력변수:</p>
-                <ul className="list-disc list-inside">
-                  {missingVariables.map((err, i) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                </ul>
-                <p className="mt-1 text-[10px] text-red-500">
-                  입력변수에 추가하거나 템플릿에서 제거하세요.
-                </p>
-              </div>
+              <ValidationAlert
+                message={(
+                  <>
+                    ⚠️ 등록되지 않은 입력변수:
+                    <ul className="list-disc list-inside mt-1 font-normal">
+                      {missingVariables.map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-[10px] text-red-500 font-normal">
+                      입력변수에 추가하거나 템플릿에서 제거하세요.
+                    </p>
+                  </>
+                )}
+              />
             )}
           </div>
         </div>

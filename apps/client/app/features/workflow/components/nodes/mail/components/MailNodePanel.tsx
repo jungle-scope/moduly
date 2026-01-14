@@ -308,11 +308,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               onChange={(e) => handleUpdateData('email', e.target.value)}
             />
             {emailMissing && (
-              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs mt-1">
-                <p className="font-semibold flex items-center gap-1">
-                  ⚠️ 이메일을 입력해주세요.
-                </p>
-              </div>
+              <ValidationAlert message="⚠️ 이메일을 입력해주세요." />
             )}
           </div>
 

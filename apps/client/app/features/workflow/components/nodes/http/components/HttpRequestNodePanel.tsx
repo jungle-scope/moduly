@@ -266,11 +266,7 @@ export function HttpRequestNodePanel({
       
       {/* URL 미입력 경고 - URL 입력창 바로 아래 */}
       {urlMissing && (
-        <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs">
-          <p className="font-semibold">
-            ⚠️ URL을 입력해주세요.
-          </p>
-        </div>
+        <ValidationAlert message="⚠️ URL을 입력해주세요." />
       )}
       
       <div className="border-b border-gray-200" />
@@ -455,11 +451,7 @@ export function HttpRequestNodePanel({
             
             {/* [VALIDATION] 본문 미입력 경고 */}
             {bodyRequiredButMissing && (
-              <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700 text-xs">
-                <p className="font-semibold flex items-center gap-1">
-                  ⚠️ {data.method || 'POST'} 요청에는 본문(Body)이 필요합니다.
-                </p>
-              </div>
+              <ValidationAlert message={`⚠️ ${data.method || 'POST'} 요청에는 본문(Body)이 필요합니다.`} />
             )}
           </div>
         </CollapsibleSection>
@@ -498,19 +490,21 @@ export function HttpRequestNodePanel({
 
 
       {validationErrors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs mt-2">
-          <p className="font-semibold mb-1">
-            ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
-          </p>
-          <ul className="list-disc list-inside">
-            {validationErrors.map((err, i) => (
-              <li key={i}>{err}</li>
-            ))}
-          </ul>
-          <p className="mt-1 text-[10px] text-red-500">
-            입력변수 섹션에 변수를 등록해주세요.
-          </p>
-        </div>
+        <ValidationAlert
+          message={(
+            <>
+              ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
+              <ul className="list-disc list-inside mt-1 font-normal">
+                {validationErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[10px] text-red-500 font-normal">
+                입력변수 섹션에 변수를 등록해주세요.
+              </p>
+            </>
+          )}
+        />
       )}
 
       {showSuggestions && (
