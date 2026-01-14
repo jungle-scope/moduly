@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { FileText } from 'lucide-react';
-
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { FileExtractionNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
@@ -64,8 +63,6 @@ export const FileExtractionNode: React.FC<FileExtractionNodeProps> = ({
     });
   }, [data.referenced_variables, upstreamNodes]);
 
-
-
   return (
     <BaseNode
       id={id}
@@ -80,8 +77,6 @@ export const FileExtractionNode: React.FC<FileExtractionNodeProps> = ({
             문서를 추출할 파일을 선택해주세요
           </div>
         )}
-        
-
       </div>
     </BaseNode>
   );
