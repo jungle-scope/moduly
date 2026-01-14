@@ -99,6 +99,29 @@ export default function ChunkPreviewList({
     });
   }, [currentSegments, collapsedStates, startIdx]);
 
+  // 요약 통계 계산
+  const statistics = useMemo(() => {
+    if (previewSegments.length === 0) return null;
+
+    const charCounts = previewSegments.map((s) => s.char_count);
+    const tokenCounts = previewSegments.map((s) => s.token_count);
+
+    const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
+    const avg = (arr: number[]) => Math.round(sum(arr) / arr.length);
+
+    return {
+      total: previewSegments.length,
+      charAvg: avg(charCounts),
+      charMin: Math.min(...charCounts),
+      charMax: Math.max(...charCounts),
+      tokenAvg: avg(tokenCounts),
+      tokenMin: Math.min(...tokenCounts),
+      tokenMax: Math.max(...tokenCounts),
+      totalChars: sum(charCounts),
+      totalTokens: sum(tokenCounts),
+    };
+  }, [previewSegments]);
+
   // N번 조각으로 이동 (스크롤 + 하이라이트)
   const handleGoToChunk = useCallback(() => {
     const chunkNum = parseInt(goToChunkInput, 10);
@@ -172,10 +195,18 @@ export default function ChunkPreviewList({
     <div className="h-full flex flex-col bg-white dark:bg-gray-800 overflow-hidden">
       {/* 헤더 */}
       <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-        <h3 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-          <Check className="w-4 h-4" />
-          분할 결과 미리보기
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+            <Check className="w-4 h-4" />
+            분할 결과 미리보기
+          </h3>
+          {statistics && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {statistics.total.toLocaleString()}개 조각 ·{' '}
+              {statistics.totalTokens.toLocaleString()} 토큰
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {headerButton}
           {previewSegments.length > 0 && (
@@ -188,9 +219,6 @@ export default function ChunkPreviewList({
               {hasExpandedInCurrentPage ? '전체 접기' : '전체 펼치기'}
             </button>
           )}
-          <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
-            {previewSegments.length.toLocaleString()}개 조각
-          </span>
         </div>
       </div>
 

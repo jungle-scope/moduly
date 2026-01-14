@@ -626,8 +626,9 @@ export default function DocumentSettingsPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* 1. Left Panel: Settings - DB가 아닐 때만 표시 */}
         {document?.source_type !== 'DB' && (
-          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-            <div className="p-6">
+          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+            {/* 스크롤 가능한 콘텐츠 영역 */}
+            <div className="flex-1 overflow-y-auto p-6">
               {/* FILE일 때만 파싱 전략 노출 */}
               {(document?.source_type === 'FILE' || !document?.source_type) && (
                 <ParsingStrategySettings
@@ -749,11 +750,13 @@ export default function DocumentSettingsPage() {
                   </div>
                 )}
               </div>
-
+            </div>
+            {/* 하단 고정 버튼 영역 */}
+            <div className="flex-none p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <button
                 onClick={handlePreviewClick}
                 disabled={isPreviewLoading || isAnalyzing}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {isPreviewLoading || analyzingAction === 'preview' ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
