@@ -90,15 +90,26 @@ export default function ColumnAutocomplete({
     // 줄 높이 보정 (커서 바로 아래)
     const lineHeight = parseFloat(style.lineHeight) || 20;
 
-    setDropdownPosition({
-      top:
-        rect.top +
-        window.scrollY +
-        spanOffsetTop +
-        lineHeight -
-        textarea.scrollTop,
-      left: rect.left + window.scrollX + spanOffsetLeft - textarea.scrollLeft,
-    });
+    let left =
+      rect.left + window.scrollX + spanOffsetLeft - textarea.scrollLeft;
+    const top =
+      rect.top +
+      window.scrollY +
+      spanOffsetTop +
+      lineHeight -
+      textarea.scrollTop;
+
+    // 화면 경계 보정 (Horizontal Adjustment)
+    const dropdownMaxWidth = 460; // max-w-md (approx 448px) + padding margin
+    const viewportWidth = window.innerWidth;
+    const margin = 20; // 스크롤바 등 여유 공간
+
+    if (left + dropdownMaxWidth > viewportWidth) {
+      // 화면 오른쪽을 넘어가면, 화면 오른쪽 끝에 맞춤 (여유 공간 제외)
+      left = Math.max(margin, viewportWidth - dropdownMaxWidth - margin);
+    }
+
+    setDropdownPosition({ top, left });
 
     document.body.removeChild(div);
   };
