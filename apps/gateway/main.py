@@ -1,4 +1,4 @@
-# .env 파일을 기본값으로 로드 (개발 환경 )
+# .env 파일을 기본값으로 로드 (개발 환경)
 from pathlib import Path
 
 from dotenv import load_dotenv
