@@ -163,7 +163,7 @@ export default function ExplorePage() {
                 className="flex flex-1 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
               >
                 <Maximize className="h-4 w-4" />
-                내부 정보
+                미리보기
               </button>
               <button
                 onClick={(e) => handleClone(e, app.id)}
