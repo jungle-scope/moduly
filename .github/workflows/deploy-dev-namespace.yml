@@ -14,6 +14,8 @@ on:
           - worker
           - logger
           - frontend
+  branches:
+    - '*'  # 모든 브랜치에서 실행 가능
 
 env:
   AWS_REGION: ap-northeast-2
