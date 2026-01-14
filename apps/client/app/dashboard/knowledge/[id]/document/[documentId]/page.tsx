@@ -779,9 +779,6 @@ export default function DocumentSettingsPage() {
                   ? '테이블 및 컬럼 선택'
                   : '원본 문서 확인'}
             </h3>
-            {document?.source_type !== 'DB' && (
-              <span className="text-xs text-gray-500">Read-only</span>
-            )}
           </div>
           <div className="flex-1 w-full h-full p-4">{renderCenterPanel()}</div>
         </div>
