@@ -30,7 +30,7 @@ export default function ExplorePage() {
       setCloningId(appId);
       await appApi.cloneApp(appId);
       toast.success('앱이 성공적으로 복제되었습니다.');
-      router.push('/dashboard');
+      router.push('/dashboard/mymodule');
     } catch (error) {
       console.error('Failed to clone app:', error);
       toast.error('앱 복제에 실패했습니다.');
