@@ -152,7 +152,7 @@ export default function CommonChunkSettings({
               />
             </div>
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              연속된 공백 및 줄바꿈 정리
+              공백 및 줄바꿈 제거
             </span>
           </label>
           <label className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors">
