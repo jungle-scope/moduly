@@ -11,7 +11,7 @@ import os
 
 from celery import Celery
 
-# Redis 연결 설정 (개별 환경변수로 URL 동적 생성)
+# Redis 연결 설정 (개별 환경변수로 URL 동적 생성 )
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = os.getenv("REDIS_PORT", "6379")

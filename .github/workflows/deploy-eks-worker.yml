@@ -5,9 +5,9 @@ on:
     branches:
       - develop
     paths:
-      - 'apps/workflow-engine/**'
+      - 'apps/workflow_engine/**'
       - 'apps/shared/**'
-      - 'docker/workflow-engine/**'
+      - 'docker/workflow_engine/**'
   
   workflow_dispatch:
 
@@ -47,7 +47,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/workflow-engine/Dockerfile .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/workflow_engine/Dockerfile .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         
         # latest 태그도 푸시

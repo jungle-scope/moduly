@@ -5,9 +5,9 @@ on:
     branches:
       - develop
     paths:
-      - 'apps/log-system/**'
+      - 'apps/log_system/**'
       - 'apps/shared/**'
-      - 'docker/log-system/**'
+      - 'docker/log_system/**'
   
   workflow_dispatch:
 
@@ -47,7 +47,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/log-system/Dockerfile .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/log_system/Dockerfile .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         
         # latest 태그도 푸시
