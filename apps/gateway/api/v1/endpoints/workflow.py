@@ -556,8 +556,6 @@ async def stream_workflow(
     """
     import uuid
 
-    from apps.shared.pubsub import subscribe_workflow_events
-
     memory_mode_enabled = False
     # 1. 권한 확인
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
@@ -606,35 +604,53 @@ async def stream_workflow(
     external_run_id = str(uuid.uuid4())
     print(f"[Gateway] 스트리밍 시작 - run_id: {external_run_id}")
 
-    # 5. [NEW] Celery 태스크 호출 (비동기, 결과 대기하지 않음)
+    # 5. 실행 컨텍스트 준비
     execution_context = {
         "user_id": str(current_user.id),
         "workflow_id": workflow_id,
         "memory_mode": memory_mode_enabled,
     }
 
-    celery_app.send_task(
-        "workflow.stream",
-        args=[graph, user_input, execution_context, external_run_id],
-    )
-
-    # 6. [NEW] Redis Pub/Sub 구독 및 SSE 스트리밍
+    # 6. [FIX] Redis Pub/Sub 구독 및 SSE 스트리밍
+    # Race Condition 방지: 구독 완료 후 Celery 태스크 시작
     def event_generator():
         """Redis Pub/Sub을 구독하여 SSE 이벤트로 변환"""
-        try:
-            print(f"[Gateway] Redis 채널 구독 시작: workflow:{external_run_id}")
-            for event in subscribe_workflow_events(external_run_id):
-                # SSE 포맷: "data: {json_content}\n\n"
-                yield f"data: {json.dumps(event)}\n\n"
+        from apps.shared.pubsub import get_redis_client
 
-                # workflow_finish 또는 error 시 종료
-                if event.get("type") in ("workflow_finish", "error"):
-                    print(f"[Gateway] 스트리밍 종료 - type: {event.get('type')}")
-                    break
+        client = get_redis_client()
+        pubsub = client.pubsub()
+        channel = f"workflow:{external_run_id}"
+
+        try:
+            # 1. 먼저 Redis 채널 구독
+            pubsub.subscribe(channel)
+            print(f"[Gateway] Redis 채널 구독 완료: {channel}")
+
+            # 2. 구독 완료 후 Celery 태스크 시작 (중요!)
+            celery_app.send_task(
+                "workflow.stream",
+                args=[graph, user_input, execution_context, external_run_id],
+            )
+            print("[Gateway] Celery 태스크 시작됨")
+
+            # 3. 이벤트 수신 및 SSE 전송
+            for message in pubsub.listen():
+                if message["type"] == "message":
+                    event = json.loads(message["data"])
+                    # SSE 포맷: "data: {json_content}\n\n"
+                    yield f"data: {json.dumps(event)}\n\n"
+
+                    # workflow_finish 또는 error 시 종료
+                    if event.get("type") in ("workflow_finish", "error"):
+                        print(f"[Gateway] 스트리밍 종료 - type: {event.get('type')}")
+                        break
         except Exception as e:
             # 구독 중 에러 발생 시 에러 이벤트 전송
             error_event = {"type": "error", "data": {"message": str(e)}}
             yield f"data: {json.dumps(error_event)}\n\n"
+        finally:
+            pubsub.unsubscribe(channel)
+            pubsub.close()
 
     # 7. StreamingResponse 반환
     return StreamingResponse(event_generator(), media_type="text/event-stream")
