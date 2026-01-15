@@ -88,8 +88,7 @@ export function LoopNodePanel({ nodeId, data }: LoopNodePanelProps) {
               <p className="text-xs text-blue-800 leading-relaxed">
                 💡 <strong>하이브리드 접근:</strong>
                 <br />
-                • 비워두면 모든 외부 변수가 자동으로 접근 가능합니다 (Dify
-                스타일)
+                • 비워두면 모든 외부 변수가 자동으로 접근 가능합니다
                 <br />• 템플릿 문법:{' '}
                 <code className="bg-blue-100 px-1 rounded">{`{{node_id.variable}}`}</code>
                 <br />• Loop 특수 변수:{' '}

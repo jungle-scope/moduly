@@ -225,7 +225,7 @@ export default function NodeDetailsPanel({
   return (
     <div
       ref={panelRef}
-      className="absolute right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200"
+      className="absolute right-0 top-14 bottom-0 w-[400px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200"
     >
       {/* 패널 헤더 */}
       {/* NOTE: [LLM] header prop으로 노드별 아이콘/텍스트를 표시하도록 확장 */}

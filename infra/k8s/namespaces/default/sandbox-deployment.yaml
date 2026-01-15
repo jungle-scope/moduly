@@ -39,7 +39,7 @@ spec:
         - name: HTTPS_PROXY
           value: "http://localhost:3128"
         - name: NO_PROXY
-          value: "localhost,127.0.0.1"
+          value: "localhost,127.0.0.1,.svc,.cluster.local,sandbox-service"
         # Sandbox API 키
         - name: API_KEY
           valueFrom:

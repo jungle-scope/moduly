@@ -95,9 +95,14 @@ DOCKER_PID=$!
 # macOS에서 fork() 호환성 문제 해결을 위해 solo pool 사용 및 환경변수 설정
 echo -e "${GREEN}📝 Log-System Celery Worker 시작...${NC}"
 (
-    source apps/log_system/.venv/bin/activate
+    # OS별 Python 경로 설정
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        VENV_PYTHON="apps/log_system/.venv/Scripts/python"
+    else
+        VENV_PYTHON="apps/log_system/.venv/bin/python"
+    fi
     export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-    PYTHONPATH="$PROJECT_ROOT" celery -A apps.log_system.main worker -Q log -l info -P solo
+    PYTHONPATH="$PROJECT_ROOT" $VENV_PYTHON -m celery -A apps.log_system.main worker -Q log -l info -P solo
 ) &
 LOG_CELERY_PID=$!
 
@@ -106,9 +111,14 @@ sleep 1
 # 3. Celery Worker (Workflow-Engine)
 echo -e "${GREEN}⚙️ Workflow-Engine Celery Worker 시작...${NC}"
 (
-    source apps/workflow_engine/.venv/bin/activate
+    # OS별 Python 경로 설정
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        VENV_PYTHON="apps/workflow_engine/.venv/Scripts/python"
+    else
+        VENV_PYTHON="apps/workflow_engine/.venv/bin/python"
+    fi
     export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-    PYTHONPATH="$PROJECT_ROOT" celery -A apps.workflow_engine.main worker -Q workflow -l info -P solo
+    PYTHONPATH="$PROJECT_ROOT" $VENV_PYTHON -m celery -A apps.workflow_engine.main worker -Q workflow -l info -P solo
 ) &
 WORKFLOW_CELERY_PID=$!
 
@@ -117,8 +127,13 @@ sleep 1
 # 4. Gateway API 서버
 echo -e "${GREEN}🖥️ Gateway API 서버 시작...${NC}"
 (
-    source apps/gateway/.venv/bin/activate
-    PYTHONPATH="$PROJECT_ROOT" uvicorn apps.gateway.main:app --reload --port 8000
+    # OS별 Python 경로 설정
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        VENV_PYTHON="apps/gateway/.venv/Scripts/python"
+    else
+        VENV_PYTHON="apps/gateway/.venv/bin/python"
+    fi
+    PYTHONPATH="$PROJECT_ROOT" $VENV_PYTHON -m uvicorn apps.gateway.main:app --reload --port 8000
 ) &
 FASTAPI_PID=$!
 
