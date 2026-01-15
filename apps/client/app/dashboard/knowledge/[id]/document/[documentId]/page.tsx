@@ -203,6 +203,12 @@ export default function DocumentSettingsPage() {
                   targetDoc.meta_info.db_config.sensitive_columns,
                 );
               }
+              if (targetDoc.meta_info.db_config.aliases) {
+                setAliases(targetDoc.meta_info.db_config.aliases);
+              }
+              if (targetDoc.meta_info.db_config.template) {
+                setTemplate(targetDoc.meta_info.db_config.template);
+              }
               if (targetDoc.meta_info.db_config.connection_id) {
                 setConnectionId(targetDoc.meta_info.db_config.connection_id);
               }
