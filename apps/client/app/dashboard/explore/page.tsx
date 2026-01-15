@@ -30,7 +30,7 @@ export default function ExplorePage() {
       setCloningId(appId);
       await appApi.cloneApp(appId);
       toast.success('앱이 성공적으로 복제되었습니다.');
-      router.push('/dashboard');
+      router.push('/dashboard/mymodule');
     } catch (error) {
       console.error('Failed to clone app:', error);
       toast.error('앱 복제에 실패했습니다.');
@@ -151,6 +151,27 @@ export default function ExplorePage() {
               <p className="mt-2 text-sm text-gray-600 line-clamp-2 dark:text-gray-400">
                 {app.description || '설명이 없습니다.'}
               </p>
+
+              {/* 게시자 정보 */}
+              <div className="mt-3 flex items-center gap-2">
+                {app.owner_name ? (
+                  <>
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-medium text-blue-600">
+                      {app.owner_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {app.owner_name}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-medium text-blue-600">
+                      U
+                    </div>
+                    <span className="text-xs text-gray-500">Unknown</span>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* 작업 푸터 */}
@@ -163,7 +184,7 @@ export default function ExplorePage() {
                 className="flex flex-1 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
               >
                 <Maximize className="h-4 w-4" />
-                내부 정보
+                미리보기
               </button>
               <button
                 onClick={(e) => handleClone(e, app.id)}

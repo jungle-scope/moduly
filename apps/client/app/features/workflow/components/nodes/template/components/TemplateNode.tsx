@@ -3,6 +3,7 @@ import { LayoutTemplate } from 'lucide-react';
 import { BaseNodeData, TemplateNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 import { ValidationBadge } from '../../../ui/ValidationBadge';
+import { hasIncompleteVariables } from '../../../../utils/validationUtils';
 
 interface TemplateNodeProps {
   id: string;
@@ -34,6 +35,13 @@ export const TemplateNode: React.FC<TemplateNodeProps> = ({
     return Array.from(new Set(errors));
   }, [data.template, data.variables]);
 
+  const incompleteVars = useMemo(
+    () => hasIncompleteVariables(data.variables),
+    [data.variables]
+  );
+
+  const hasValidationIssue = missingVariables.length > 0 || incompleteVars;
+
   return (
     <BaseNode
       id={id}
@@ -46,7 +54,7 @@ export const TemplateNode: React.FC<TemplateNodeProps> = ({
         <div className="text-xs text-gray-500">
           {data.variables?.length || 0}개 입력 변수
         </div>
-        {missingVariables.length > 0 && <ValidationBadge />}
+        {hasValidationIssue && <ValidationBadge />}
       </div>
     </BaseNode>
   );

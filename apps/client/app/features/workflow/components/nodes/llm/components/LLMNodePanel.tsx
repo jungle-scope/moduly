@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 
 import { LLMNodeData } from '../../../../types/Nodes';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { HelpCircle, BookOpen, MousePointerClick, Wand2 } from 'lucide-react';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
@@ -29,7 +33,11 @@ interface LLMNodePanelProps {
   data: LLMNodeData;
 }
 
-// [참고] 캐럿 좌표 가져오기
+
+// 노드 실행 필수 요건 체크
+// 1. 시스템 프롬프트 또는 사용자 프롬프트 중 하나 이상 입력되어야 함
+// 2. 모델이 선택되어야 함
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement,
   position: number,
@@ -269,7 +277,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [nodeId, nodes, edges],
   );
 
-  // [VALIDATION] 등록되지 않은 변수 경고
+
   const validationErrors = useMemo(() => {
     const allPrompts =
       (data.system_prompt || '') +
@@ -301,21 +309,13 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     data.referenced_variables,
   ]);
 
-  // [VALIDATION] 불완전한 변수 경고 (이름은 있지만 selector가 불완전한 경우)
-  const incompleteVariables = useMemo(() => {
-    const incomplete: string[] = [];
-    for (const v of data.referenced_variables || []) {
-      const name = (v.name || '').trim();
-      const selector = v.value_selector || [];
-      // 이름은 있지만 selector가 불완전하면 경고
-      if (name && (!selector || selector.length < 2 || !selector[1])) {
-        incomplete.push(name);
-      }
-    }
-    return incomplete;
-  }, [data.referenced_variables]);
 
-  // [VALIDATION] 모든 프롬프트가 비어있는지 확인
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
+  );
+
+
   const allPromptsEmpty = useMemo(() => {
     return (
       !data.system_prompt?.trim() &&
@@ -573,6 +573,11 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           title="" // CollapsibleSection 내부에 타이틀이 있으므로 숨김
           description="프롬프트에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
+        
+
+        {incompleteVariables.length > 0 && (
+          <IncompleteVariablesAlert variables={incompleteVariables} />
+        )}
       </CollapsibleSection>
 
       {/* 2.5 참고 자료 버튼 (참고 자료 그룹 통합) */}
@@ -642,11 +647,10 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
             LLM에 전달할 메시지를 작성하세요. 최소 1개 이상 입력이 필요합니다.
           </p>
 
-          {/* 모든 프롬프트가 비어있으면 경고 */}
           {allPromptsEmpty && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-yellow-700 text-xs">
-              ⚠️ 최소 1개의 프롬프트를 입력해야 실행할 수 있습니다.
-            </div>
+            <ValidationAlert
+              message="⚠️ 최소 1개의 프롬프트를 입력해야 실행할 수 있습니다."
+            />
           )}
 
           <div>
@@ -802,38 +806,10 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
             </div>
           )}
 
-          {/* [VALIDATION] 불완전한 변수 경고 */}
-          {incompleteVariables.length > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded p-3 text-orange-700 text-xs">
-              <p className="font-semibold mb-1">
-                ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
-              </p>
-              <ul className="list-disc list-inside">
-                {incompleteVariables.map((name, i) => (
-                  <li key={i}>{name}</li>
-                ))}
-              </ul>
-              <p className="mt-1 text-[10px] text-orange-500">
-                실행 시 빈 값으로 대체됩니다.
-              </p>
-            </div>
-          )}
 
-          {/* [VALIDATION] 미등록 변수 경고 */}
+
           {validationErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-              <p className="font-semibold mb-1">
-                ⚠️ 등록되지 않은 입력변수가 감지되었습니다:
-              </p>
-              <ul className="list-disc list-inside">
-                {validationErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-              <p className="mt-1 text-[10px] text-red-500">
-                입력변수 섹션에 변수를 등록해주세요.
-              </p>
-            </div>
+            <UnregisteredVariablesAlert variables={validationErrors} />
           )}
         </div>
       </CollapsibleSection>

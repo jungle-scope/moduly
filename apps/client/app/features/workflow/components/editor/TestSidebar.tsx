@@ -60,7 +60,7 @@ export function TestSidebar() {
     ];
   }
 
-  // 패널이 열릴 때 초기화
+  // 패널이 열릴 때 입력값 초기화 (실행 결과는 유지)
   useEffect(() => {
     if (isTestPanelOpen) {
       const initial: Record<string, any> = {};
@@ -92,9 +92,6 @@ export function TestSidebar() {
 
       setInputs(initial);
       setFiles({});
-      setExecutionResult(null);
-      setNodeResults([]);
-      setError(null);
     }
   }, [isTestPanelOpen]);
 
@@ -198,10 +195,6 @@ export function TestSidebar() {
             updateNodeData(data.node_id, { status: 'success' });
 
             // 노드 실행 완료 토스트
-            toast.success(`[${data.node_type}] 실행 완료`, {
-              description: `결과: ${JSON.stringify(data.output).slice(0, 50)}${JSON.stringify(data.output).length > 50 ? '...' : ''}`,
-              duration: 2000,
-            });
 
             // 노드 결과 누적
             setNodeResults((prev) => [
@@ -227,7 +220,6 @@ export function TestSidebar() {
       // 최종 결과 저장
       if (finalResult) {
         setExecutionResult(finalResult);
-        toast.success('모듈이 실행되었습니다.');
       }
     } catch (err: any) {
       console.error('Execution failed:', err);
@@ -245,7 +237,7 @@ export function TestSidebar() {
   };
 
   return (
-    <div className="absolute top-24 right-0 bottom-0 w-96 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col animate-in slide-in-from-right duration-200 dark:bg-gray-900 dark:border-gray-800">
+    <div className="absolute top-26 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200 dark:bg-gray-900 dark:border-gray-800">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between dark:border-gray-800">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">

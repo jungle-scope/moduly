@@ -1,4 +1,6 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import { ValidationBadge } from '../../../ui/ValidationBadge';
+import { hasIncompleteVariables } from '../../../../utils/validationUtils';
 import { NodeProps, Node } from '@xyflow/react';
 import { Github } from 'lucide-react';
 import { GithubNodeData } from '../../../../types/Nodes';
@@ -23,6 +25,14 @@ export const GithubNode = memo(
     const action = data.action || 'get_pr';
     const actionClass = actionColors[action] || defaultActionColor;
     const actionName = actionNames[action] || action;
+
+    const hasValidationIssue = useMemo(() => {
+      const tokenMissing = !data.api_token?.trim();
+      const ownerMissing = !data.repo_owner?.trim();
+      const repoMissing = !data.repo_name?.trim();
+      const prMissing = !data.pr_number || data.pr_number <= 0;
+      return tokenMissing || ownerMissing || repoMissing || prMissing || hasIncompleteVariables(data.referenced_variables);
+    }, [data.api_token, data.repo_owner, data.repo_name, data.pr_number, data.referenced_variables]);
 
     return (
       <BaseNode
@@ -51,6 +61,8 @@ export const GithubNode = memo(
               PR #{data.pr_number}
             </div>
           )}
+          
+          {hasValidationIssue && <ValidationBadge />}
         </div>
       </BaseNode>
     );

@@ -2,13 +2,23 @@ import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { MailNodeData, EmailProvider } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
+import { AlertTriangle } from 'lucide-react';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 
 interface MailNodePanelProps {
   nodeId: string;
   data: MailNodeData;
 }
+
+// 노드 실행 필수 요건 체크
+// 1. SMTP 서버 설정(호스트, 포트, 사용자)이 완료되어야 함
+// 2. 수신자 이메일이 입력되어야 함
+// 3. 제목과 본문이 입력되어야 함
 
 // Provider별 IMAP 서버 프리셋
 const PROVIDER_PRESETS: Record<
@@ -143,6 +153,19 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
     [data.referenced_variables, handleUpdateData],
   );
 
+  const emailMissing = useMemo(() => {
+    return !data.email?.trim();
+  }, [data.email]);
+
+  const passwordMissing = useMemo(() => {
+    return !data.password?.trim();
+  }, [data.password]);
+
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables],
+  );
+
   // 자동완성 핸들러
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const target = e.target as HTMLTextAreaElement;
@@ -199,19 +222,18 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             <label className="text-xs font-medium text-gray-700">
               메일 서비스
             </label>
-            <select
-              className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+            <RoundedSelect
               value={data.provider || 'gmail'}
-              onChange={(e) =>
-                handleProviderChange(e.target.value as EmailProvider)
-              }
-            >
-              <option value="gmail">Gmail</option>
-              <option value="naver">Naver</option>
-              <option value="daum">Daum</option>
-              <option value="outlook">Outlook</option>
-              <option value="custom">직접 설정</option>
-            </select>
+              onChange={(val) => handleProviderChange(val as EmailProvider)}
+              options={[
+                { label: 'Gmail', value: 'gmail' },
+                { label: 'Naver', value: 'naver' },
+                { label: 'Daum', value: 'daum' },
+                { label: 'Outlook', value: 'outlook' },
+                { label: '직접 설정', value: 'custom' },
+              ]}
+              placeholder="메일 서비스 선택"
+            />
           </div>
 
           <div className="flex flex-col gap-1">
@@ -287,6 +309,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               value={data.email || ''}
               onChange={(e) => handleUpdateData('email', e.target.value)}
             />
+            {emailMissing && (
+              <ValidationAlert message="⚠️ 이메일을 입력해주세요." />
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -303,6 +328,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             <p className="text-[10px] text-gray-500">
               💡 Gmail: 앱 비밀번호 사용 권장
             </p>
+            {passwordMissing && (
+              <ValidationAlert message="⚠️ 비밀번호를 입력해주세요." />
+            )}
           </div>
         </div>
       </CollapsibleSection>
@@ -318,6 +346,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           title=""
           description="검색 조건에서 사용할 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
+
+        {/* [VALIDATION] 불완전한 변수 경고 */}
+        <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 
       {/* 4. 검색 옵션 */}
@@ -368,7 +399,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           )}
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">보낸 사람</label>
+            <label className="text-xs font-medium text-gray-700">
+              보낸 사람
+            </label>
             <input
               type="text"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
@@ -400,9 +433,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
                 value={data.start_date || ''}
                 onChange={(e) => handleUpdateData('start_date', e.target.value)}
               />
-              <p className="text-[10px] text-gray-500">
-                💡 기본값: 7일 전
-              </p>
+              <p className="text-[10px] text-gray-500">💡 기본값: 7일 전</p>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -421,17 +452,19 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           {/* 폴더 */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">폴더</label>
-            <select
-              className="h-8 rounded border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:border-blue-500"
+            <RoundedSelect
               value={data.folder || 'INBOX'}
-              onChange={(e) => handleUpdateData('folder', e.target.value)}
-            >
-              <option value="INBOX">INBOX</option>
-              <option value="SENT">SENT</option>
-              <option value="DRAFTS">DRAFTS</option>
-              <option value="SPAM">SPAM</option>
-              <option value="TRASH">TRASH</option>
-            </select>
+              onChange={(val) => handleUpdateData('folder', val)}
+              options={[
+                { label: 'INBOX', value: 'INBOX' },
+                { label: 'SENT', value: 'SENT' },
+                { label: 'DRAFTS', value: 'DRAFTS' },
+                { label: 'SPAM', value: 'SPAM' },
+                { label: 'TRASH', value: 'TRASH' },
+              ]}
+              placeholder="폴더 선택"
+              className="h-8 py-1"
+            />
           </div>
 
           {/* 최대 결과 수 */}
