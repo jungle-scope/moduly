@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict
@@ -46,6 +47,9 @@ class DbProcessor(BaseProcessor):
             elif isinstance(value, (datetime, date)):
                 # datetime/date -> ISO format string
                 result[key] = value.isoformat()
+            elif isinstance(value, uuid.UUID):
+                # UUID -> str
+                result[key] = str(value)
             elif isinstance(value, (list, dict)):
                 # 중첩된 구조는 그대로 (PostgreSQL JSON 타입 등)
                 result[key] = value
