@@ -20,9 +20,14 @@ import { PuzzleEdge } from '../../edges/PuzzleEdge';
 interface WorkflowInnerCanvasProps {
   nodes: Node[];
   edges: Edge[];
+  interactive?: boolean;
 }
 
-const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
+const InnerCanvasContent = ({
+  nodes,
+  edges,
+  interactive = false,
+}: WorkflowInnerCanvasProps) => {
   // 노드 타입 메모이제이션
   const nodeTypes = useMemo(
     () => ({ ...coreNodeTypes }),
@@ -61,15 +66,16 @@ const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
         fitView
         fitViewOptions={{ padding: 0.2, maxZoom: 1.25 }}
         proOptions={{ hideAttribution: true }}
-        // 상호작용 비활성화 (캔버스 고정)
+        // 상호작용 설정 (interactive prop에 따라 결정)
+        // 노드 드래그/연결은 항상 비활성화 (미리보기/임베딩 용도이므로)
         nodesDraggable={false}
         nodesConnectable={false}
-        elementsSelectable={false}
-        zoomOnScroll={false}
-        panOnScroll={false}
-        zoomOnPinch={false}
-        panOnDrag={false}
-        zoomOnDoubleClick={false}
+        elementsSelectable={interactive}
+        zoomOnScroll={interactive}
+        panOnScroll={interactive}
+        zoomOnPinch={interactive}
+        panOnDrag={interactive}
+        zoomOnDoubleClick={interactive}
         preventScrolling={true}
         // 기본 뷰포트 설정
         defaultViewport={defaultViewport}
@@ -88,11 +94,16 @@ const InnerCanvasContent = ({ nodes, edges }: WorkflowInnerCanvasProps) => {
 export const WorkflowInnerCanvas = ({
   nodes,
   edges,
+  interactive,
 }: WorkflowInnerCanvasProps) => {
   // 별도의 Provider로 감싸서 메인 캔버스와 상태 격리
   return (
     <ReactFlowProvider>
-      <InnerCanvasContent nodes={nodes} edges={edges} />
+      <InnerCanvasContent
+        nodes={nodes}
+        edges={edges}
+        interactive={interactive}
+      />
     </ReactFlowProvider>
   );
 };

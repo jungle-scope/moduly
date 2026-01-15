@@ -146,11 +146,31 @@ export default function EditorHeader() {
           throw new Error('App ID를 찾을 수 없습니다.');
         }
 
+        const { nodes, edges, features, envVariables, runtimeVariables } =
+          useWorkflowStore.getState();
+
+        // 뷰포트는 현재 상태나 기본값 사용
+        const viewport = useWorkflowStore
+          .getState()
+          .workflows.find((w) => w.id === activeWorkflow?.id)?.viewport || {
+          x: 0,
+          y: 0,
+          zoom: 1,
+        };
+
         const response = await workflowApi.createDeployment({
           app_id: activeWorkflow.appId,
           description,
           type: deploymentType,
           is_active: true,
+          graph_snapshot: {
+            nodes,
+            edges,
+            viewport,
+            features,
+            envVariables,
+            runtimeVariables,
+          },
         });
 
         // 배포 성공 알림 (버전 기록 갱신용)
