@@ -12,8 +12,8 @@ apps/client/.next/
 # Environment
 .env
 .env.*
-!.env.example  # 예시 파일은 공유해도 됨
-!**/.env.example  # 하위 폴더의 예시 파일도 공유
+!.env.example
+!**/.env.example
 !docker/.env.example
 
 # 1. .vscode 폴더 전체를 무시합니다.

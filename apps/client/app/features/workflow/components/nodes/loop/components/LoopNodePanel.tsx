@@ -4,6 +4,7 @@ import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
 
 interface LoopNodePanelProps {
   nodeId: string;
@@ -145,16 +146,16 @@ export function LoopNodePanel({ nodeId, data }: LoopNodePanelProps) {
             <label className="text-xs font-semibold text-gray-700">
               오류 응답 방법
             </label>
-            <select
-              className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-500 bg-gray-50"
+            <RoundedSelect
               value={data.error_strategy || 'end'}
-              onChange={(e) =>
-                handleUpdateData('error_strategy', e.target.value)
-              }
-            >
-              <option value="end">종료</option>
-              <option value="continue">건너뛰고 계속 진행</option>
-            </select>
+              onChange={(val) => handleUpdateData('error_strategy', val)}
+              options={[
+                { label: '종료', value: 'end' },
+                { label: '건너뛰고 계속 진행', value: 'continue' },
+              ]}
+              placeholder="오류 처리 방식"
+              className="px-2 py-1.5 text-xs bg-gray-50"
+            />
           </div>
         </div>
       </CollapsibleSection>
