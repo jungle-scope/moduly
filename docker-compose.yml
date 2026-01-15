@@ -11,10 +11,23 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d moduly_local"]
       interval: 60s
       timeout: 5s
       retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: moduly-dev-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -31,4 +44,5 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   pgadmin_data:
