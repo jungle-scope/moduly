@@ -26,6 +26,9 @@ spec:
         # Backend API URL (dev namespace의 Gateway 서비스)
         - name: NEXT_PUBLIC_API_URL
           value: "http://api-service.dev.svc.cluster.local:8000"
+        # Next.js API Route에서 사용하는 백엔드 URL
+        - name: API_URL
+          value: "http://api-service.dev.svc.cluster.local:8000"
         # 환경 표시
         - name: NEXT_PUBLIC_ENV
           value: "dev"

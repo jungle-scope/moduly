@@ -38,18 +38,18 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DB_PASSWORD
-        # Redis 설정 (default namespace의 Redis 공유, DB 1번 사용)
-        - name: REDIS_URL
-          value: redis://:$(REDIS_PASSWORD)@redis-master.default.svc.cluster.local:6379/1
-        - name: REDIS_HOST
-          value: redis-master.default.svc.cluster.local
-        - name: REDIS_PORT
-          value: "6379"
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
               name: app-secrets
               key: REDIS_PASSWORD
+        # Redis 설정 (default namespace의 Redis 공유, DB 1번 사용)
+        - name: REDIS_HOST
+          value: redis-master.default.svc.cluster.local
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_DB
+          value: "1"
         # CORS 설정 (로컬 테스트용)
         - name: CORS_ORIGINS
           value: "http://localhost:3000,http://127.0.0.1:3000"
