@@ -79,7 +79,8 @@ export function useDragConnectionPreview(nodes: AppNode[]): DragPreviewResult {
 
       if (nearestNode) {
         // Determine if dragged node should be on right or left
-        const isRight = mousePosition.x > nearestNode.position.x + 150;
+        const isRight =
+          mousePosition.x > (nearestNode as AppNode).position.x + 150;
 
         // 시작 노드(startNode, scheduleTrigger)의 왼쪽과 응답 노드(answerNode)의 오른쪽은 연결 불가
         const nodeType = (nearestNode as any).type as string;
@@ -104,9 +105,9 @@ export function useDragConnectionPreview(nodes: AppNode[]): DragPreviewResult {
 
         const draggedNodePosition = {
           x: isRight
-            ? nearestNode.position.x + NODE_WIDTH + SPACING // Right: after nearest node
-            : nearestNode.position.x - NODE_WIDTH - SPACING, // Left: before nearest node
-          y: nearestNode.position.y,
+            ? (nearestNode as AppNode).position.x + NODE_WIDTH + SPACING // Right: after nearest node
+            : (nearestNode as AppNode).position.x - NODE_WIDTH - SPACING, // Left: before nearest node
+          y: (nearestNode as AppNode).position.y,
         };
 
         setPreviewState({

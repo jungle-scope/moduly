@@ -1,6 +1,6 @@
 import React from 'react';
 import { useReactFlow } from '@xyflow/react';
-import type { AppNode } from '../../../types/Nodes';
+import type { AppNode } from '../../types/Nodes';
 
 interface DragConnectionOverlayProps {
   nearestNode: AppNode | null;
