@@ -60,7 +60,7 @@ export function TestSidebar() {
     ];
   }
 
-  // 패널이 열릴 때 초기화
+  // 패널이 열릴 때 입력값 초기화 (실행 결과는 유지)
   useEffect(() => {
     if (isTestPanelOpen) {
       const initial: Record<string, any> = {};
@@ -79,9 +79,6 @@ export function TestSidebar() {
       });
       setInputs(initial);
       setFiles({});
-      setExecutionResult(null);
-      setNodeResults([]);
-      setError(null);
     }
   }, [isTestPanelOpen]);
 
