@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, Trash2, ArrowRight } from 'lucide-react';
 import { AppNode } from '../../../types/Nodes';
 import { getNodeOutputs } from '../../../utils/getNodeOutputs';
+import { RoundedSelect } from '../../ui/RoundedSelect';
 
 export interface ReferencedVariable {
   name: string;
@@ -143,44 +144,47 @@ export const ReferencedVariablesControl: React.FC<
               {/* (1) Source Group: Node & Output */}
               <div className="flex flex-[4] flex-col gap-1 sm:flex-row sm:items-center">
                 <div className="relative flex-1">
-                  <select
-                    className="w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
+                  <RoundedSelect
                     value={selectedSourceNodeId}
-                    onChange={(e) =>
-                      handleSelectorUpdate(index, 0, e.target.value)
+                    onChange={(val) =>
+                      handleSelectorUpdate(index, 0, val as string)
                     }
-                  >
-                    <option value="">노드 선택</option>
-                    {upstreamNodes.map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {(n.data as { title?: string })?.title || n.type}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { label: '노드 선택', value: '' },
+                      ...upstreamNodes.map((n) => ({
+                        label: (n.data as { title?: string })?.title || n.type,
+                        value: n.id,
+                      })),
+                    ]}
+                    placeholder="노드 선택"
+                    className="py-1.5 text-xs"
+                  />
                 </div>
 
                 <div className="relative flex-1">
-                  <select
-                    className={`w-full appearance-none rounded-md border px-2 py-1.5 text-xs font-medium transition-colors focus:border-blue-500 focus:outline-none ${
-                      !selectedSourceNodeId
-                        ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300'
-                        : 'border-gray-200 bg-gray-50 text-gray-700 focus:bg-white'
-                    }`}
+                  <RoundedSelect
                     value={selectedVarKey}
-                    onChange={(e) =>
-                      handleSelectorUpdate(index, 1, e.target.value)
+                    onChange={(val) =>
+                      handleSelectorUpdate(index, 1, val as string)
                     }
+                    options={[
+                      {
+                        label: !selectedSourceNodeId
+                          ? '출력 선택'
+                          : '출력값 선택',
+                        value: '',
+                      },
+                      ...availableOutputs.map((outKey: string) => ({
+                        label: outKey,
+                        value: outKey,
+                      })),
+                    ]}
                     disabled={!selectedSourceNodeId}
-                  >
-                    <option value="">
-                      {!selectedSourceNodeId ? '출력 선택' : '출력값 선택'}
-                    </option>
-                    {availableOutputs.map((outKey: string) => (
-                      <option key={outKey} value={outKey}>
-                        {outKey}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder={
+                      !selectedSourceNodeId ? '출력 선택' : '출력값 선택'
+                    }
+                    className="py-1.5 text-xs"
+                  />
                 </div>
               </div>
 
