@@ -10,3 +10,4 @@ Requires-Dist: redis>=5.0.0
 Requires-Dist: psycopg2-binary>=2.9.0
 Requires-Dist: pgvector>=0.3.0
 Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: alembic>=1.12.0
