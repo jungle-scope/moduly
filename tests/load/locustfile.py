@@ -57,7 +57,12 @@ class WorkflowUser(HttpUser):
         }
 
         # 테스트 입력 데이터
-        payload = {"inputs": {"score": random.randint(1, 100)}}
+        payload = {
+            "inputs": {
+                "score": random.randint(1, 100),
+                "pdf": "https://moduly-dev-file-upload.s3.amazonaws.com/uploads/1e9d5de3-ed0f-4d1c-8aee-53e4afd78fd8/d9aeb862-119e-4c22-9317-36555098eddc_welcome.pdf",
+            }
+        }
 
         with self.client.post(
             f"/api/v1/run/{self.deployment_slug}",
