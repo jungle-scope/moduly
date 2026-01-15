@@ -20,7 +20,8 @@ export const ConditionNode = memo(
         <div className="p-4 text-sm text-gray-500 text-center">
           {/* Output Handles - Flexbox Refactor */}
           {/* 탭 높이(14px)만큼 더 바깥으로 내밀기 위해 너비와 마진 조정 (28px + 14px = 42px) */}
-          <div className="flex flex-col gap-2 mt-4 z-10 w-[calc(100%+42px)] -mr-[42px] self-end">
+          {/* Output Handles - Refactored for correct alignment */}
+          <div className="flex flex-col gap-2 mt-4 z-10 w-full">
             {/* Case별 핸들 */}
             {cases.map((caseItem, index) => (
               <div
@@ -34,7 +35,7 @@ export const ConditionNode = memo(
                   type="source"
                   position={Position.Right}
                   id={caseItem.id}
-                  className="!static !transform-none" // Flex 내부 정렬을 위해 static 사용
+                  className="!absolute !right-[-36px] !top-1/2 !-translate-y-1/2"
                 />
               </div>
             ))}
@@ -48,7 +49,7 @@ export const ConditionNode = memo(
                 type="source"
                 position={Position.Right}
                 id="default"
-                className="!static !transform-none"
+                className="!absolute !right-[-36px] !top-1/2 !-translate-y-1/2"
               />
             </div>
           </div>
