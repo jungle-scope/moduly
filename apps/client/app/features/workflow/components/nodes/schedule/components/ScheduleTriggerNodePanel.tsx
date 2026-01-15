@@ -3,6 +3,7 @@ import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { useState, useEffect } from 'react';
 import { HelpCircle } from 'lucide-react';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
 
 interface ScheduleTriggerNodePanelProps {
   nodeId: string;
@@ -218,16 +219,18 @@ export function ScheduleTriggerNodePanel({
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       단위
                     </label>
-                    <select
+                    <RoundedSelect
                       value={intervalUnit}
-                      onChange={(e) =>
-                        setIntervalUnit(e.target.value as 'minutes' | 'hours')
+                      onChange={(val) =>
+                        setIntervalUnit(val as 'minutes' | 'hours')
                       }
-                      className="w-full px-3 py-2 text-xs border rounded bg-white hover:border-violet-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                    >
-                      <option value="minutes">분</option>
-                      <option value="hours">시간</option>
-                    </select>
+                      options={[
+                        { label: '분', value: 'minutes' },
+                        { label: '시간', value: 'hours' },
+                      ]}
+                      placeholder="단위"
+                      className="px-3 py-2 text-xs"
+                    />
                   </div>
                 </div>
               )}
@@ -365,19 +368,18 @@ export function ScheduleTriggerNodePanel({
       <CollapsibleSection title="타임존" defaultOpen={true}>
         {/* 타임존 선택 (공통) */}
         <div>
-          <select
+          <RoundedSelect
             value={data.timezone}
-            onChange={(e) =>
-              updateNodeData(nodeId, { timezone: e.target.value })
+            onChange={(val) =>
+              updateNodeData(nodeId, { timezone: val as string })
             }
-            className="w-full px-3 py-2 text-xs border rounded bg-white hover:border-violet-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
-          >
-            {TIMEZONES.map((tz) => (
-              <option key={tz.value} value={tz.value}>
-                {tz.label}
-              </option>
-            ))}
-          </select>
+            options={TIMEZONES.map((tz) => ({
+              label: tz.label,
+              value: tz.value,
+            }))}
+            placeholder="Timezone 선택"
+            className="px-3 py-2 text-xs"
+          />
         </div>
       </CollapsibleSection>
     </div>

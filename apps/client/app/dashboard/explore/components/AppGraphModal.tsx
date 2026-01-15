@@ -130,7 +130,11 @@ export function AppGraphModal({ isOpen, onClose, app }: AppGraphModalProps) {
               </button>
             </div>
           ) : (
-            <WorkflowInnerCanvas nodes={nodes} edges={edges} />
+            <WorkflowInnerCanvas
+              nodes={nodes}
+              edges={edges}
+              interactive={true}
+            />
           )}
         </div>
 
