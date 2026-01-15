@@ -78,6 +78,21 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     }
   }, [isABTestOpen]);
 
+  // ESC 키로 A/B 테스트 모드 종료 (X 버튼과 동일한 동작)
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isABTestOpen) {
+        // X 버튼과 동일: onReset() + onToggle()
+        setABRunA(null);
+        setABRunB(null);
+        setSelectionTarget(null);
+        setIsABTestOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isABTestOpen]);
+
   // ========================
   // LOG FUNCTIONS
   // ========================
