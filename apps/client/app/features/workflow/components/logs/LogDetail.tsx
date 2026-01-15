@@ -24,6 +24,7 @@ import {
   Sparkles,
   FileText,
   Bot,
+  BookOpen,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { LogExecutionPath } from './LogExecutionPath';
@@ -107,6 +108,11 @@ const getNodeDisplayInfo = (
       label: '템플릿',
       icon: <FileText className="w-4 h-4" />,
       color: 'text-teal-600 bg-teal-50',
+    },
+    variableExtractionNode: {
+      label: '변수 추출',
+      icon: <BookOpen className="w-4 h-4" />,
+      color: 'text-cyan-600 bg-cyan-50',
     },
   };
 

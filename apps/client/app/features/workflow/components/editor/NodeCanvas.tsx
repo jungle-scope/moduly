@@ -60,6 +60,7 @@ import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
 import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
+import { VariableExtractionNodePanel } from '../nodes/variable_extraction/components/VariableExtractionNodePanel';
 import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTriggerNodePanel';
 import { ScheduleTriggerNodePanel } from '../nodes/schedule/components/ScheduleTriggerNodePanel';
 import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
@@ -1040,6 +1041,13 @@ export default function NodeCanvas() {
                   {selectedNode &&
                     selectedNodeType === 'fileExtractionNode' && (
                       <FileExtractionNodePanel
+                        nodeId={selectedNode.id}
+                        data={selectedNode.data as any}
+                      />
+                    )}
+                  {selectedNode &&
+                    selectedNodeType === 'variableExtractionNode' && (
+                      <VariableExtractionNodePanel
                         nodeId={selectedNode.id}
                         data={selectedNode.data as any}
                       />
