@@ -2,13 +2,19 @@ import React, { useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { FileExtractionNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 
 interface FileExtractionNodePanelProps {
   nodeId: string;
   data: FileExtractionNodeData;
 }
+
+// 노드 실행 필수 요건 체크
+// 1. 파일 형식이 지정되어야 함
+// 2. 입력 변수 매핑이 완료되어야 함
 
 export const FileExtractionNodePanel: React.FC<
   FileExtractionNodePanelProps
@@ -48,6 +54,12 @@ export const FileExtractionNodePanel: React.FC<
     updateNodeData(nodeId, { referenced_variables: newVars });
   };
 
+
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
+  );
+
   return (
     <div className="flex flex-col gap-4">
       {/* 파일 경로 변수 선택기 */}
@@ -65,6 +77,9 @@ export const FileExtractionNodePanel: React.FC<
           showItemLabel={true}
           hideAlias={false}
         />
+
+
+        <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
     </div>
   );

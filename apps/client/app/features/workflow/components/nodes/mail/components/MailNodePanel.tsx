@@ -2,14 +2,23 @@ import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { MailNodeData, EmailProvider } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { RoundedSelect } from '../../../ui/RoundedSelect';
+import { AlertTriangle } from 'lucide-react';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 
 interface MailNodePanelProps {
   nodeId: string;
   data: MailNodeData;
 }
+
+// 노드 실행 필수 요건 체크
+// 1. SMTP 서버 설정(호스트, 포트, 사용자)이 완료되어야 함
+// 2. 수신자 이메일이 입력되어야 함
+// 3. 제목과 본문이 입력되어야 함
 
 // Provider별 IMAP 서버 프리셋
 const PROVIDER_PRESETS: Record<
@@ -142,6 +151,19 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
       handleUpdateData('referenced_variables', newVars);
     },
     [data.referenced_variables, handleUpdateData],
+  );
+
+  const emailMissing = useMemo(() => {
+    return !data.email?.trim();
+  }, [data.email]);
+
+  const passwordMissing = useMemo(() => {
+    return !data.password?.trim();
+  }, [data.password]);
+
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables],
   );
 
   // 자동완성 핸들러
@@ -287,6 +309,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
               value={data.email || ''}
               onChange={(e) => handleUpdateData('email', e.target.value)}
             />
+            {emailMissing && (
+              <ValidationAlert message="⚠️ 이메일을 입력해주세요." />
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -303,6 +328,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             <p className="text-[10px] text-gray-500">
               💡 Gmail: 앱 비밀번호 사용 권장
             </p>
+            {passwordMissing && (
+              <ValidationAlert message="⚠️ 비밀번호를 입력해주세요." />
+            )}
           </div>
         </div>
       </CollapsibleSection>
@@ -318,6 +346,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           title=""
           description="검색 조건에서 사용할 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
+
+        {/* [VALIDATION] 불완전한 변수 경고 */}
+        <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 
       {/* 4. 검색 옵션 */}
