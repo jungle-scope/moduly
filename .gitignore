@@ -79,3 +79,10 @@ infra/k8s/secrets.yaml
 alembic/__pycache__/
 alembic/versions/__pycache__/
 *.pyc
+
+# Python Build Artifacts
+*.egg-info/
+build/
+dist/
+.eggs/
+
