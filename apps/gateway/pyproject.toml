@@ -2,7 +2,7 @@
 name = "moduly-gateway"
 version = "0.1.0"
 description = "Moduly Gateway - API 게이트웨이 서비스"
-requires-python = ">=3.11"
+requires-python = "==3.11.*"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
