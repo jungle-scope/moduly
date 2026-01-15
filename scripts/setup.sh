@@ -42,18 +42,7 @@ setup_python_app() {
 
     if [ ! -d ".venv" ]; then
         echo -e "   - 가상환경(.venv) 생성 중..."
-        
-        # Python 3.11 이상 우선 사용 (moduly-shared 요구사항)
-        PYTHON_CMD="python3"
-        if command -v python3.11 &> /dev/null; then
-            PYTHON_CMD="python3.11"
-            echo -e "     (Python 3.11을 감지하여 사용합니다)"
-        elif command -v python3.12 &> /dev/null; then
-            PYTHON_CMD="python3.12"
-            echo -e "     (Python 3.12를 감지하여 사용합니다)"
-        fi
-        
-        $PYTHON_CMD -m venv .venv
+        python3 -m venv .venv
     fi
 
     # 가상환경 활성화
@@ -107,8 +96,7 @@ setup_python_app "Log System" "apps/log_system" true
 setup_python_app "Workflow Engine" "apps/workflow_engine" true
 
 # 4. Shared (테스트용 등 필요시) - Shared는 보통 다른 앱에 의존성으로 설치되지만, 
-# 독립적인 개발 및 DB 마이그레이션을 위해 venv가 필요함.
-setup_python_app "Shared" "apps/shared" false
+# 독립적인 개발을 위해 venv가 필요할 수도 있음. 여기서는 생략하거나 필요시 추가.
 
 # 5. Client 설정
 if [ -d "apps/client" ]; then
