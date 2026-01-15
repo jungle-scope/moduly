@@ -2,7 +2,7 @@
 name = "moduly-shared"
 version = "0.1.0"
 description = "Moduly 마이크로서비스 공유 패키지 (DB 모델, 스키마, Celery 설정)"
-requires-python = ">=3.11"
+requires-python = "==3.11.*"
 dependencies = [
     "sqlalchemy>=2.0.0",
     "pydantic>=2.0.0",

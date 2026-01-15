@@ -14,6 +14,7 @@ import {
   Pencil,
   ListTodo,
   CircleHelp,
+  ListFilter,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -650,10 +651,10 @@ export default function DocumentSettingsPage() {
               {status === 'indexing'
                 ? '처리 중...'
                 : status === 'pending'
-                  ? '설정 저장 및 처리 시작'
+                  ? '처리 시작'
                   : status === 'completed'
                     ? '처리 완료됨'
-                    : '저장 및 처리 시작'}
+                    : '처리 시작'}
             </button>
           </div>
         </div>
@@ -662,8 +663,9 @@ export default function DocumentSettingsPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* 1. Left Panel: Settings - DB가 아닐 때만 표시 */}
         {document?.source_type !== 'DB' && (
-          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-            <div className="p-6">
+          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+            {/* 스크롤 가능한 콘텐츠 영역 */}
+            <div className="flex-1 overflow-y-auto p-6">
               {/* FILE일 때만 파싱 전략 노출 */}
               {(document?.source_type === 'FILE' || !document?.source_type) && (
                 <ParsingStrategySettings
@@ -685,10 +687,11 @@ export default function DocumentSettingsPage() {
               />
 
               {/* 범위 선택 UI */}
-              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  🎯 청크 선택 범위
-                </h4>
+              <div className="mt-6">
+                <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium py-1.5 px-3 -mx-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg text-sm mb-3">
+                  <ListFilter className="w-4 h-4" />
+                  <h4>청크 선택 범위</h4>
+                </div>
 
                 {/* 모드 선택 라디오 버튼 */}
                 <div className="space-y-2 mb-4">
@@ -735,27 +738,42 @@ export default function DocumentSettingsPage() {
                 {/* 조건부 입력 폼 */}
                 {selectionMode === 'range' && (
                   <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      청크 범위 (예: 1-100, 500-600)
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-2">
+                      처리할 청크 번호 범위
                     </label>
-                    <input
-                      type="text"
-                      value={chunkRange}
-                      onChange={(e) => setChunkRange(e.target.value)}
-                      placeholder="1-100, 500-600"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={chunkRange.split('-')[0] || ''}
+                        onChange={(e) => {
+                          const end = chunkRange.split('-')[1] || '';
+                          setChunkRange(`${e.target.value}-${end}`);
+                        }}
+                        placeholder="시작"
+                        min={1}
+                        className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm text-center"
+                      />
+                      <span className="text-gray-400">~</span>
+                      <input
+                        type="number"
+                        value={chunkRange.split('-')[1] || ''}
+                        onChange={(e) => {
+                          const start = chunkRange.split('-')[0] || '';
+                          setChunkRange(`${start}-${e.target.value}`);
+                        }}
+                        placeholder="끝"
+                        min={1}
+                        className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm text-center"
+                      />
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      쉼표로 구분하여 여러 범위 입력 가능
+                      예: 1번부터 100번까지만 처리
                     </p>
                   </div>
                 )}
 
                 {selectionMode === 'keyword' && (
                   <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      키워드
-                    </label>
                     <input
                       type="text"
                       value={keywordFilter}
@@ -764,23 +782,25 @@ export default function DocumentSettingsPage() {
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      입력한 키워드를 포함하는 청크만 표시
+                      대소문자 구분 없이 검색
                     </p>
                   </div>
                 )}
               </div>
-
+            </div>
+            {/* 하단 고정 버튼 영역 */}
+            <div className="flex-none p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <button
                 onClick={handlePreviewClick}
                 disabled={isPreviewLoading || isAnalyzing}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {isPreviewLoading || analyzingAction === 'preview' ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <RefreshCw className="w-4 h-4" />
                 )}
-                설정 적용 및 결과 미리보기
+                결과 미리보기
               </button>
             </div>
           </div>
@@ -796,9 +816,6 @@ export default function DocumentSettingsPage() {
                   ? '테이블 및 컬럼 선택'
                   : '원본 문서 확인'}
             </h3>
-            {document?.source_type !== 'DB' && (
-              <span className="text-xs text-gray-500">Read-only</span>
-            )}
           </div>
           <div className="flex-1 w-full h-full p-4">{renderCenterPanel()}</div>
         </div>

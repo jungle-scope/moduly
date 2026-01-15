@@ -40,7 +40,6 @@ setup_python_app() {
     
     cd "$PROJECT_ROOT/$app_path"
 
-    # 가상환경이 없으면 생성
     if [ ! -d ".venv" ]; then
         echo -e "   - 가상환경(.venv) 생성 중..."
         python3 -m venv .venv 2>/dev/null || python -m venv .venv
