@@ -235,7 +235,7 @@ def _prepare_db_source(db: Session, user: User, connection_id: Optional[UUID]):
         "connection_name": conn.name,
     }
 
-    return None, f"DB: {conn.name}", meta_info
+    return None, conn.name, meta_info
 
 
 @router.post("/document/{document_id}/analyze", response_model=DocumentAnalyzeResponse)
