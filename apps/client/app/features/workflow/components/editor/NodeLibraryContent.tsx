@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Search } from 'lucide-react';
 import { nodeRegistry, NodeDefinition } from '../../config/nodeRegistry';
+import { useWorkflowStore } from '../../store/useWorkflowStore';
 
 interface NodeLibraryContentProps {
   onDragStart?: (
@@ -34,8 +35,19 @@ export const NodeLibraryContent = ({
   onHoverNode,
   disabledNodeTypes = [],
 }: NodeLibraryContentProps) => {
+  // 노드 개수 확인하여 초기 탭 결정
+  // 처음 생성 시: 시작 노드 1개만 존재 -> 'start' 탭
+  // 이후: 노드가 2개 이상이거나 시작 노드가 아닌 경우 -> 'nodes' 탭
+  const nodes = useWorkflowStore((state) => state.nodes);
+  const isInitialState =
+    nodes.length === 1 &&
+    (nodes[0].type === 'startNode' ||
+      nodes[0].type === 'webhookTrigger' ||
+      nodes[0].type === 'scheduleTrigger');
+  const initialTab = isInitialState ? 'start' : 'nodes';
+
   const [activeTab, setActiveTab] =
-    useState<(typeof TABS)[number]['id']>('start');
+    useState<(typeof TABS)[number]['id']>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
 
   // 탭에 따른 카테고리 필터링
