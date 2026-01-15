@@ -26,7 +26,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
 
   // 앱 아이콘 상태 (이모지 및 배경색)
   const [appIcon, setAppIcon] = useState<AppIconSelection>({
-    emoji: '🤖',
+    emoji: '💻',
     bg: '#FFEAD5',
   });
 
@@ -142,7 +142,7 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
       <div
         role="dialog"
         aria-modal="true"
-        className="w-[400px] bg-white dark:bg-zinc-900 rounded-xl shadow-2xl overflow-hidden transform transition-all animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800"
+        className="w-[400px] bg-white dark:bg-zinc-900 rounded-xl shadow-2xl transform transition-all animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800 relative"
       >
         <div className="p-6">
           {/* 헤더: 제목 및 닫기 버튼 */}
@@ -179,19 +179,40 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                 앱 이름 <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-3">
-                {/* 아이콘 선택기 */}
-                <div className="relative">
+                {/* 아이콘 선택기 트리거 */}
+                <div className="relative group">
                   <AppIcon
                     icon={appIcon}
                     onClick={() => setShowAppIconPicker(!showAppIconPicker)}
-                    className="shadow-sm border border-zinc-200 dark:border-zinc-700 w-10 h-10 hover:ring-2 ring-blue-100 transition-all"
+                    className="shadow-sm border border-zinc-200 dark:border-zinc-700 w-10 h-10 group-hover:ring-2 ring-blue-100 transition-all"
                   />
+                  {/* Edit Overlay Hint */}
+                  <div
+                    onClick={() => setShowAppIconPicker(!showAppIconPicker)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 rounded-lg cursor-pointer transition-opacity z-10"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </div>
+
+                  {/* 아이콘 선택기 (Popover) */}
                   {showAppIconPicker && (
                     <AppIconPicker
                       currentIcon={appIcon}
                       onSelect={(newIcon) => {
                         setAppIcon(newIcon);
-                        // 아이콘 선택 후 닫지 않고 색상도 고를 수 있게 유지
                       }}
                       onClose={() => setShowAppIconPicker(false)}
                     />
@@ -212,7 +233,6 @@ export default function CreateAppModal({ onSuccess, onClose }: CreateAppProps) {
                 />
               </div>
             </div>
-
             {/* 앱 설명 입력 */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-zinc-300 mb-2">

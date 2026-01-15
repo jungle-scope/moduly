@@ -10,6 +10,7 @@ import {
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
 
 // [참고] 캐럿 좌표 가져오기 (LLMNodePanel에서 복사됨)
 const getCaretCoordinates = (
@@ -197,19 +198,21 @@ export function HttpRequestNodePanel({
     <div className="flex flex-col gap-2 relative">
       {/* 1. 메서드 & URL */}
       <div className="flex gap-2">
-        <select
-          className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium w-24"
-          value={data.method || 'GET'}
-          onChange={(e) =>
-            handleUpdateData('method', e.target.value as HttpMethod)
-          }
-        >
-          <option value="GET">GET</option>
-          <option value="POST">POST</option>
-          <option value="PUT">PUT</option>
-          <option value="DELETE">DELETE</option>
-          <option value="PATCH">PATCH</option>
-        </select>
+        <div className="w-24 flex-shrink-0">
+          <RoundedSelect
+            value={data.method || 'GET'}
+            onChange={(val) => handleUpdateData('method', val as HttpMethod)}
+            options={[
+              { label: 'GET', value: 'GET' },
+              { label: 'POST', value: 'POST' },
+              { label: 'PUT', value: 'PUT' },
+              { label: 'DELETE', value: 'DELETE' },
+              { label: 'PATCH', value: 'PATCH' },
+            ]}
+            placeholder="Method"
+          />
+        </div>
+
         <input
           ref={urlRef}
           className="h-9 flex-1 rounded-md border border-gray-300 px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
@@ -236,17 +239,16 @@ export function HttpRequestNodePanel({
       <CollapsibleSection title="인증" showDivider>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <select
-              className="h-8 w-full rounded border border-gray-300 bg-white px-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            <RoundedSelect
               value={data.authType || 'none'}
-              onChange={(e) =>
-                handleUpdateData('authType', e.target.value as AuthType)
-              }
-            >
-              <option value="none">인증 없음</option>
-              <option value="bearer">Bearer Token</option>
-              <option value="apiKey">API Key</option>
-            </select>
+              onChange={(val) => handleUpdateData('authType', val as AuthType)}
+              options={[
+                { label: '인증 없음', value: 'none' },
+                { label: 'Bearer Token', value: 'bearer' },
+                { label: 'API Key', value: 'apiKey' },
+              ]}
+              placeholder="인증 방식 선택"
+            />
           </div>
 
           {data.authType === 'bearer' && (
@@ -288,7 +290,9 @@ export function HttpRequestNodePanel({
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-700">API Key</label>
+                <label className="text-xs font-medium text-gray-700">
+                  API Key
+                </label>
                 <input
                   className="w-full h-8 rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
                   placeholder="예) my-secret-key-123"
@@ -358,8 +362,8 @@ export function HttpRequestNodePanel({
           )}
 
           <div className="text-[10px] text-blue-600 bg-blue-50 p-2 rounded">
-            헤더를 비워두면 Body가 있는 경우{' '}
-            <code>application/json</code>이 자동 추가됩니다.
+            헤더를 비워두면 Body가 있는 경우 <code>application/json</code>이
+            자동 추가됩니다.
           </div>
         </div>
       </CollapsibleSection>
