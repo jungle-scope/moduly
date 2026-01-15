@@ -164,16 +164,26 @@ export default function ColumnAutocomplete({
     const lastOpenBrace = textBeforeCursor.lastIndexOf('{{');
     const beforeBrace = value.substring(0, lastOpenBrace);
 
-    const newValue = `${beforeBrace}{{${item.fullName}}}${textAfterCursor}`;
+    // 스마트 별칭 생성 로직
+    let finalAlias = item.column;
+    const isCollision = allColumns.some(
+      (col) => col.table !== item.table && col.column === item.column,
+    );
+
+    if (isCollision) {
+      finalAlias = `${item.table}_${item.column}`;
+    }
+
+    const newValue = `${beforeBrace}{{${finalAlias}}}${textAfterCursor}`;
     onChange(newValue);
 
-    // Alias 자동 생성
+    // Alias 자동 생성 및 저장
     if (onAliasGenerate) {
-      onAliasGenerate(item.table, item.column, item.fullName);
+      onAliasGenerate(item.table, item.column, finalAlias);
     }
 
     // 커서 위치 조정
-    const newCursorPos = beforeBrace.length + item.fullName.length + 4;
+    const newCursorPos = beforeBrace.length + finalAlias.length + 4;
     setTimeout(() => {
       const textarea = document.querySelector(
         'textarea',
@@ -188,7 +198,7 @@ export default function ColumnAutocomplete({
   };
 
   // 키보드 네비게이션
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<any>) => {
     if (!showDropdown) return;
 
     if (e.key === 'ArrowDown') {
@@ -220,7 +230,7 @@ export default function ColumnAutocomplete({
   return (
     <div className="relative h-full flex flex-col">
       <Editor
-        ref={textareaRef}
+        ref={textareaRef as any}
         value={value}
         onValueChange={handleInputChange}
         highlight={highlightCode}
