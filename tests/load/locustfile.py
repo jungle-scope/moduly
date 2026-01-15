@@ -14,6 +14,7 @@ Locust 워크플로우 부하 테스트
   LOAD_TEST_AUTH_TOKEN: 인증 토큰
 """
 
+import json
 import os
 import random
 from pathlib import Path
@@ -71,7 +72,7 @@ class WorkflowUser(HttpUser):
                         response.success()
                     else:
                         response.failure(f"Workflow failed: {data}")
-                except Exception as e:
+                except json.JSONDecodeError as e:
                     response.failure(f"JSON parse error: {e}")
             elif response.status_code == 401:
                 response.failure("Authentication failed - check LOAD_TEST_AUTH_TOKEN")
@@ -80,7 +81,9 @@ class WorkflowUser(HttpUser):
                     "Deployment not found - check LOAD_TEST_DEPLOYMENT_SLUG"
                 )
             else:
-                response.failure(f"HTTP {response.status_code}: {response.text[:200]}")
+                response.failure(
+                    f"HTTP {response.status_code}: {(response.text or '')[:200]}"
+                )
 
 
 @events.test_start.add_listener

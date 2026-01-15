@@ -5,17 +5,24 @@
 
 set -e
 
+# 색상 정의
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 echo "🚀 Moduly 개발 환경 시작..."
 echo "프로젝트 루트: $PROJECT_ROOT"
 
-# 색상 정의
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# 가상환경 체크 및 자동 설정
+if [ ! -d "apps/gateway/.venv" ] || [ ! -d "apps/log_system/.venv" ] || [ ! -d "apps/workflow_engine/.venv" ]; then
+    echo -e "${YELLOW}⚠️ 일부 가상환경이 발견되지 않았습니다. 초기 설정을 진행합니다...${NC}"
+    ./scripts/setup.sh
+    echo -e "${GREEN}✨ 초기 설정 완료! 서비스를 시작합니다.${NC}"
+fi
 
 # 정리 함수 (Ctrl+C 시 모든 프로세스 종료)
 cleanup() {
