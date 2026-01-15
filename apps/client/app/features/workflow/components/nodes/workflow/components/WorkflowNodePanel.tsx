@@ -9,6 +9,7 @@ import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
 
 interface WorkflowNodePanelProps {
   nodeId: string;
@@ -197,53 +198,60 @@ export const WorkflowNodePanel: React.FC<WorkflowNodePanelProps> = ({
                     <div className="flex flex-row gap-2 items-center">
                       {/* 노드 선택 */}
                       <div className="flex-[1]">
-                        <select
-                          className="w-full rounded border border-gray-300 p-1.5 text-xs truncate"
+                        <RoundedSelect
                           value={selectedNodeId}
-                          onChange={(e) =>
+                          onChange={(val) =>
                             handleSelectorUpdate(
                               targetVar.name,
                               0,
-                              e.target.value,
+                              val as string,
                             )
                           }
-                        >
-                          <option value="">노드 선택</option>
-                          {upstreamNodes.map((n) => (
-                            <option key={n.id} value={n.id}>
-                              {(n.data.title as string) || n.type}
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { label: '노드 선택', value: '' },
+                            ...upstreamNodes.map((n) => ({
+                              label: (n.data.title as string) || n.type,
+                              value: n.id,
+                            })),
+                          ]}
+                          placeholder="노드 선택"
+                          className="p-1.5 text-xs"
+                        />
                       </div>
 
                       {/* 출력 선택 */}
                       <div className="flex-[1] relative">
-                        <select
-                          className={`w-full rounded border p-1.5 text-xs truncate ${
+                        <RoundedSelect
+                          value={selectedOutputKey}
+                          onChange={(val) =>
+                            handleSelectorUpdate(
+                              targetVar.name,
+                              1,
+                              val as string,
+                            )
+                          }
+                          options={[
+                            {
+                              label: !selectedNodeId
+                                ? '변수 선택'
+                                : '출력 선택',
+                              value: '',
+                            },
+                            ...availableOutputs.map((outKey) => ({
+                              label: outKey,
+                              value: outKey,
+                            })),
+                          ]}
+                          disabled={!selectedNodeId}
+                          placeholder={
+                            !selectedNodeId ? '변수 선택' : '출력 선택'
+                          }
+                          className={`p-1.5 text-xs ${
                             !selectedNodeId
                               ? 'bg-gray-100 text-gray-400 border-gray-200'
                               : 'border-gray-300 bg-white'
                           }`}
-                          value={selectedOutputKey}
-                          onChange={(e) =>
-                            handleSelectorUpdate(
-                              targetVar.name,
-                              1,
-                              e.target.value,
-                            )
-                          }
-                          disabled={!selectedNodeId}
-                        >
-                          <option value="">
-                            {!selectedNodeId ? '변수 선택' : '출력 선택'}
-                          </option>
-                          {availableOutputs.map((outKey) => (
-                            <option key={outKey} value={outKey}>
-                              {outKey}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
                     </div>
                   </div>

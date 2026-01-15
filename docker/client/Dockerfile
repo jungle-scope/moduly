@@ -36,6 +36,9 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# [FIX] .next/cache 디렉토리 생성 및 소유권 설정 (런타임 캐시용)
+RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
+
 # Public 파일 복사 (standalone이 처리 안 하면)
 COPY --from=builder /app/public ./public
 

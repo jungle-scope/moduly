@@ -26,13 +26,19 @@ export function LLMReferenceSidePanel({
   onClose,
 }: LLMReferenceSidePanelProps) {
   const { updateNodeData } = useWorkflowStore();
-  
+
   // Knowledge base state
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseResponse[]>([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseResponse[]>(
+    [],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [details, setDetails] = useState<Record<string, KnowledgeBaseDetailResponse>>({});
-  const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
+  const [details, setDetails] = useState<
+    Record<string, KnowledgeBaseDetailResponse>
+  >({});
+  const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>(
+    {},
+  );
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [hasLoadedBases, setHasLoadedBases] = useState(false);
 
@@ -40,7 +46,10 @@ export function LLMReferenceSidePanel({
   const selectedKnowledgeBases = data.knowledgeBases || [];
   const effectiveSelectedKnowledgeBases = useMemo(() => {
     if (!hasLoadedBases) return selectedKnowledgeBases;
-    return sanitizeSelectedKnowledgeBases(selectedKnowledgeBases, knowledgeBases);
+    return sanitizeSelectedKnowledgeBases(
+      selectedKnowledgeBases,
+      knowledgeBases,
+    );
   }, [hasLoadedBases, knowledgeBases, selectedKnowledgeBases]);
   const selectedIds = useMemo(
     () => new Set(effectiveSelectedKnowledgeBases.map((kb) => kb.id)),
@@ -163,18 +172,23 @@ export function LLMReferenceSidePanel({
         {/* Knowledge Base Selection */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">참고 자료 그룹 선택</span>
+            <span className="text-sm font-medium text-gray-700">
+              참고 자료 그룹 선택
+            </span>
             <span className="text-xs text-gray-500">
-              선택됨: <span className="font-semibold text-indigo-600">{selectedIds.size}</span>
+              선택됨:{' '}
+              <span className="font-semibold text-indigo-600">
+                {selectedIds.size}
+              </span>
             </span>
           </div>
 
           {loading && (
-            <div className="text-xs text-indigo-600 animate-pulse">불러오는 중...</div>
+            <div className="text-xs text-indigo-600 animate-pulse">
+              불러오는 중...
+            </div>
           )}
-          {error && (
-            <div className="text-xs text-red-500">{error}</div>
-          )}
+          {error && <div className="text-xs text-red-500">{error}</div>}
 
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
             {(knowledgeBases || []).map((kb) => {
@@ -182,9 +196,10 @@ export function LLMReferenceSidePanel({
               const isExpanded = expandedIds.has(kb.id);
               const kbDetail = details[kb.id];
               const kbDetailLoading = detailLoading[kb.id];
-              const completedDocs = kbDetail?.documents?.filter(
-                (doc) => doc.status === 'completed',
-              ) || [];
+              const completedDocs =
+                kbDetail?.documents?.filter(
+                  (doc) => doc.status === 'completed',
+                ) || [];
 
               return (
                 <div
@@ -252,7 +267,31 @@ export function LLMReferenceSidePanel({
                               key={doc.id || `${kb.id}-doc-${index}`}
                               className="px-3 py-1.5 text-xs text-gray-900 flex items-center justify-between"
                             >
-                              <span className="truncate flex-1">{doc.filename}</span>
+                              <span className="truncate flex-1">
+                                {(() => {
+                                  const filename = doc.filename;
+                                  // API source: URL이면 도메인만 추출
+                                  if (
+                                    filename.startsWith('http://') ||
+                                    filename.startsWith('https://')
+                                  ) {
+                                    try {
+                                      return new URL(filename).hostname;
+                                    } catch {
+                                      return filename;
+                                    }
+                                  }
+                                  // FILE source: UUID prefix 제거
+                                  if (
+                                    filename.length > 37 &&
+                                    filename[36] === '_'
+                                  ) {
+                                    return filename.substring(37);
+                                  }
+                                  // DB source 등: 그대로 반환
+                                  return filename;
+                                })()}
+                              </span>
                               <span className="text-[10px] text-gray-500 ml-2">
                                 {doc.chunk_count ?? 0}청크
                               </span>
@@ -285,7 +324,9 @@ export function LLMReferenceSidePanel({
           {/* Score Threshold */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <label className="text-xs font-medium text-gray-600">Score Threshold</label>
+              <label className="text-xs font-medium text-gray-600">
+                Score Threshold
+              </label>
               <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
                 {scoreThreshold.toFixed(2)}
               </span>
@@ -321,7 +362,9 @@ export function LLMReferenceSidePanel({
             </div>
             <div className="flex justify-between text-[10px] text-gray-400">
               <span>느슨하게</span>
-              <span className="text-indigo-500">권장: {recommendedScoreRange[0]}~{recommendedScoreRange[1]}</span>
+              <span className="text-indigo-500">
+                권장: {recommendedScoreRange[0]}~{recommendedScoreRange[1]}
+              </span>
               <span>엄격하게</span>
             </div>
           </div>
@@ -329,7 +372,9 @@ export function LLMReferenceSidePanel({
           {/* Top K */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <label className="text-xs font-medium text-gray-600">Top K (반환 개수)</label>
+              <label className="text-xs font-medium text-gray-600">
+                Top K (반환 개수)
+              </label>
               <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
                 {topK}
               </span>
@@ -365,7 +410,9 @@ export function LLMReferenceSidePanel({
             </div>
             <div className="flex justify-between text-[10px] text-gray-400">
               <span>1</span>
-              <span className="text-indigo-500">권장: {recommendedTopKRange[0]}~{recommendedTopKRange[1]}</span>
+              <span className="text-indigo-500">
+                권장: {recommendedTopKRange[0]}~{recommendedTopKRange[1]}
+              </span>
               <span>20</span>
             </div>
           </div>
@@ -375,7 +422,8 @@ export function LLMReferenceSidePanel({
         <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-1">
           <p className="text-xs font-medium text-blue-800">💡 사용 방법</p>
           <p className="text-[11px] text-blue-700">
-            선택한 참고 자료 그룹에서 사용자 프롬프트를 기반으로 관련 문서를 검색하여 LLM에 컨텍스트로 제공합니다.
+            선택한 참고 자료 그룹에서 사용자 프롬프트를 기반으로 관련 문서를
+            검색하여 LLM에 컨텍스트로 제공합니다.
           </p>
         </div>
       </div>

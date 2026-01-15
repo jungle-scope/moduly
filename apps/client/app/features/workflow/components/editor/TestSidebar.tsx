@@ -182,10 +182,6 @@ export function TestSidebar() {
             updateNodeData(data.node_id, { status: 'success' });
 
             // 노드 실행 완료 토스트
-            toast.success(`[${data.node_type}] 실행 완료`, {
-              description: `결과: ${JSON.stringify(data.output).slice(0, 50)}${JSON.stringify(data.output).length > 50 ? '...' : ''}`,
-              duration: 2000,
-            });
 
             // 노드 결과 누적
             setNodeResults((prev) => [
@@ -211,7 +207,6 @@ export function TestSidebar() {
       // 최종 결과 저장
       if (finalResult) {
         setExecutionResult(finalResult);
-        toast.success('모듈이 실행되었습니다.');
       }
     } catch (err: any) {
       console.error('Execution failed:', err);
