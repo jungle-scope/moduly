@@ -164,30 +164,19 @@ class PdfParser(BaseParser):
 
         print(f"[PdfParser] Running LlamaParse on {file_path}")
         try:
-            # 이벤트 루프를 먼저 생성 (LlamaParse 객체 생성 시 필요)
-            import asyncio
+            # fast_mode=True uses text extraction mostly, False uses OCR (required for scanned docs)
+            # result_type="markdown" caused 'markdown' error in some versions, relying on default for now
+            parser = LlamaParse(
+                api_key=api_key,
+                # result_type="markdown",
+                language="ko",
+                fast_mode=False,
+                verbose=True,
+            )
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                # fast_mode=True uses text extraction mostly, False uses OCR (required for scanned docs)
-                # result_type="markdown" caused 'markdown' error in some versions, relying on default for now
-                parser = LlamaParse(
-                    api_key=api_key,
-                    # result_type="markdown",
-                    language="ko",
-                    fast_mode=False,
-                    verbose=True,
-                )
-
-                # 비동기 메서드 실행
-                documents = loop.run_until_complete(parser.aload_data(file_path))
-                print(
-                    f"[PdfParser] LlamaParse returned {len(documents)} document objects"
-                )
-            finally:
-                loop.close()
+            # load_data returns List[Document]
+            documents = parser.load_data(file_path)
+            print(f"[PdfParser] LlamaParse returned {len(documents)} document objects")
 
             results = []
             for doc in documents:
