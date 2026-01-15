@@ -35,13 +35,16 @@ class DbNlTransformer(BaseTransformer):
             return str(input_data)
 
         # Jinja2 템플릿 사용
-        if template_str and aliases:
+        if template_str:
             try:
-                # Alias 기반 데이터 매핑
-                template_data = {}
-                for column, alias in aliases.items():
-                    value = input_data.get(column, "")
-                    template_data[alias] = value
+                # 1. 기본 데이터 컨텍스트 (컬럼명 그대로 사용)
+                template_data = input_data.copy()
+
+                # 2. Alias 매핑 (있는 경우 덮어쓰기/추가)
+                if aliases:
+                    for column, alias in aliases.items():
+                        value = input_data.get(column, "")
+                        template_data[alias] = value
 
                 # Jinja2 렌더링
                 template = Template(template_str)
