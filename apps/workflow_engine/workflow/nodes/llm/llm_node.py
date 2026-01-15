@@ -77,22 +77,22 @@ class LLMNode(Node[LLMNodeData]):
                 db_session = temp_session
             try:
                 user_id_str = self.execution_context.get("user_id")
-                client = None
-                if user_id_str:
-                    try:
-                        user_id = uuid.UUID(user_id_str)
-                        client = LLMService.get_client_for_user(
-                            db_session, user_id=user_id, model_id=self.data.model_id
-                        )
-                    except Exception as e:
-                        print(
-                            f"[LLMNode] User context found but failed to get client: {e}. Fallback to legacy."
-                        )
-
-                if not client:
-                    client = LLMService.get_client_with_any_credential(
-                        db_session, model_id=self.data.model_id
+                if not user_id_str:
+                    raise ValueError(
+                        "LLM 노드 실행에는 user_id가 필요합니다. "
+                        "사용자 컨텍스트를 전달하거나 클라이언트를 주입하세요."
                     )
+
+                try:
+                    user_id = uuid.UUID(user_id_str)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        "LLM 노드 실행에 유효한 user_id가 필요합니다."
+                    ) from exc
+
+                client = LLMService.get_client_for_user(
+                    db_session, user_id=user_id, model_id=self.data.model_id
+                )
             finally:
                 # 임시 세션은 호출 후 정리
                 if temp_session is not None:
@@ -190,25 +190,25 @@ class LLMNode(Node[LLMNodeData]):
                     if session_for_fallback is None:
                         fallback_session = SessionLocal()
                         session_for_fallback = fallback_session
-                    user_id_str = self.execution_context.get("user_id")
-                    if user_id_str:
-                        try:
-                            user_id = uuid.UUID(user_id_str)
-                            fallback_client = LLMService.get_client_for_user(
-                                session_for_fallback,
-                                user_id=user_id,
-                                model_id=fallback_model_id,
-                            )
-                        except Exception as e:
-                            print(
-                                f"[LLMNode] Fallback client load failed: {e}. "
-                                "Fallback to legacy."
-                            )
 
-                    if not fallback_client:
-                        fallback_client = LLMService.get_client_with_any_credential(
-                            session_for_fallback, model_id=fallback_model_id
+                    user_id_str = self.execution_context.get("user_id")
+                    if not user_id_str:
+                        raise ValueError(
+                            "폴백 모델 실행에는 user_id가 필요합니다. "
+                            "사용자 컨텍스트를 전달하거나 클라이언트를 주입하세요."
                         )
+                    try:
+                        user_id = uuid.UUID(user_id_str)
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError(
+                            "폴백 모델 실행에 유효한 user_id가 필요합니다."
+                        ) from exc
+
+                    fallback_client = LLMService.get_client_for_user(
+                        session_for_fallback,
+                        user_id=user_id,
+                        model_id=fallback_model_id,
+                    )
             finally:
                 if fallback_session is not None:
                     fallback_session.close()

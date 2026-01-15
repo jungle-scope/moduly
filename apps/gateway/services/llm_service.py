@@ -562,12 +562,6 @@ class LLMService:
         cred = LLMService._get_valid_credential_for_user(db, user_id, provider_id)
 
         if not cred:
-            # 개발 모드 검증 시 플레이스홀더 유저 폴백 시도
-            if user_id != LLMService.PLACEHOLDER_USER_ID:
-                return LLMService.get_client_for_user(
-                    db, LLMService.PLACEHOLDER_USER_ID, model_id
-                )
-
             raise ValueError(
                 f"No valid credential found for user {user_id} (Model: {model_id})"
             )
@@ -592,36 +586,11 @@ class LLMService:
     @staticmethod
     def get_client_with_any_credential(db: Session, model_id: Optional[str] = None):
         """
-        [DEPRECATED] 호환/개발 모드: 첫 번째 유효 크리덴셜로 클라이언트를 생성합니다.
-        user_id가 없는 LLMNode 경로에서 사용됩니다.
-        TODO: 모든 워크플로우가 유효한 유저 컨텍스트로 실행되면 제거.
+        [DEPRECATED] 안전성 문제로 비활성화되었습니다.
+        user_id 없는 실행은 허용하지 않습니다.
         """
-        # 1. 유효한 크리덴셜 1개 조회
-        cred = db.query(LLMCredential).filter(LLMCredential.is_valid == True).first()
-        if not cred:
-            raise ValueError(
-                "No valid LLM credential found in system. Please register one via API."
-            )
-
-        # 2. 설정 로드
-        try:
-            cfg = json.loads(cred.encrypted_config)
-            api_key = cfg.get("apiKey")
-            base_url = cfg.get("baseUrl")
-        except:
-            raise ValueError("Invalid credential config")
-
-        # 3. 프로바이더/모델 결정
-        # 프로바이더 타입 조회
-        db.refresh(cred)
-        provider_type = cred.provider.name  # 예: openai
-
-        target_model = model_id if model_id else "gpt-4o"
-
-        return get_llm_client(
-            provider=provider_type,
-            model_id=target_model,
-            credentials={"apiKey": api_key, "baseUrl": base_url},
+        raise ValueError(
+            "Deprecated API: user_id 컨텍스트 없이 LLM 클라이언트를 생성할 수 없습니다."
         )
 
     @staticmethod
@@ -827,10 +796,6 @@ class LLMService:
         credential = LLMService._get_valid_credential_for_user(
             db, user_id, model.provider_id
         )
-        if not credential and user_id != LLMService.PLACEHOLDER_USER_ID:
-            credential = LLMService._get_valid_credential_for_user(
-                db, LLMService.PLACEHOLDER_USER_ID, model.provider_id
-            )
         if not credential:
             print(f"[LLMService] Usage log skipped: no credential for user {user_id}.")
             return None
