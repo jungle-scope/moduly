@@ -104,7 +104,8 @@ export default function DocumentSettingsPage() {
   const [selectionMode, setSelectionMode] = useState<
     'all' | 'range' | 'keyword'
   >('all');
-  const [chunkRange, setChunkRange] = useState<string>(''); // "1-100, 500-600" 형식
+  const [rangeStart, setRangeStart] = useState<string>('');
+  const [rangeEnd, setRangeEnd] = useState<string>('');
   const [keywordFilter, setKeywordFilter] = useState<string>('');
 
   // SSE 연결 (Indexing 상태일 때)
@@ -268,7 +269,8 @@ export default function DocumentSettingsPage() {
     connectionId: connectionId,
     // 범위 선택
     selectionMode,
-    chunkRange,
+    rangeStart,
+    rangeEnd,
     keywordFilter,
   });
 
@@ -744,10 +746,12 @@ export default function DocumentSettingsPage() {
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
-                        value={chunkRange.split('-')[0] || ''}
-                        onChange={(e) => {
-                          const end = chunkRange.split('-')[1] || '';
-                          setChunkRange(`${e.target.value}-${end}`);
+                        value={rangeStart}
+                        onChange={(e) => setRangeStart(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (['e', 'E', '+', '-', '.'].includes(e.key)) {
+                            e.preventDefault();
+                          }
                         }}
                         placeholder="시작"
                         min={1}
@@ -756,10 +760,12 @@ export default function DocumentSettingsPage() {
                       <span className="text-gray-400">~</span>
                       <input
                         type="number"
-                        value={chunkRange.split('-')[1] || ''}
-                        onChange={(e) => {
-                          const start = chunkRange.split('-')[0] || '';
-                          setChunkRange(`${start}-${e.target.value}`);
+                        value={rangeEnd}
+                        onChange={(e) => setRangeEnd(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (['e', 'E', '+', '-', '.'].includes(e.key)) {
+                            e.preventDefault();
+                          }
                         }}
                         placeholder="끝"
                         min={1}

@@ -98,8 +98,8 @@ class IngestionOrchestrator:
                     else:
                         indices.add(int(part))
             except Exception as e:
-                print(f"[WARNING] Invalid chunk range format: {chunk_range} ({e})")
-                return chunks  # 파싱 실패 시 전체 반환 (안전장치)
+                print(f"[ERROR] Invalid chunk range format: {chunk_range} ({e})")
+                raise ValueError(f"잘못된 청크 범위 형식입니다: {chunk_range}") from e
 
             # 인덱스는 1부터 시작한다고 가정 (UI와 통일)
             return [c for i, c in enumerate(chunks) if (i + 1) in indices]
