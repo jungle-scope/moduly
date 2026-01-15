@@ -165,25 +165,26 @@ export default function ColumnAutocomplete({
     const beforeBrace = value.substring(0, lastOpenBrace);
 
     // 스마트 별칭 생성 로직
-    let finalAlias = item.column;
+    let insertText = item.column;
     const isCollision = allColumns.some(
       (col) => col.table !== item.table && col.column === item.column,
     );
 
+    // 충돌 시에는 원래 이름(table.column) 사용
     if (isCollision) {
-      finalAlias = `${item.table}_${item.column}`;
+      insertText = item.fullName;
     }
 
-    const newValue = `${beforeBrace}{{${finalAlias}}}${textAfterCursor}`;
+    const newValue = `${beforeBrace}{{${insertText}}}${textAfterCursor}`;
     onChange(newValue);
 
-    // Alias 자동 생성 및 저장
-    if (onAliasGenerate) {
-      onAliasGenerate(item.table, item.column, finalAlias);
+    // 충돌이 없을 때만 짧은 별칭 자동 생성 (충돌 시에는 기본 문법 사용하므로 별칭 불필요)
+    if (!isCollision && onAliasGenerate) {
+      onAliasGenerate(item.table, item.column, item.column);
     }
 
     // 커서 위치 조정
-    const newCursorPos = beforeBrace.length + finalAlias.length + 4;
+    const newCursorPos = beforeBrace.length + insertText.length + 4;
     setTimeout(() => {
       const textarea = document.querySelector(
         'textarea',

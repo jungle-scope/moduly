@@ -35,16 +35,20 @@ class DbNlTransformer(BaseTransformer):
         if not isinstance(input_data, dict):
             return str(input_data)
 
-        # Jinja2 템플릿 사용
-        if template_str and aliases:
+        # Jinja2 템플릿 사용 (Template만 있어도 렌더링 시도)
+        if template_str:
             try:
-                # Alias 기반 데이터 매핑
-                template_data = {}
-                for column, alias in aliases.items():
-                    value = input_data.get(column, "")
-                    template_data[alias] = value
+                # 1. 원본 데이터 포함 (기본 키 접근 지원)
+                template_data = input_data.copy()
+                
+                # 2. Alias 매핑 (덮어쓰기)
+                if aliases:
+                    for column, alias in aliases.items():
+                        # 값이 존재하는 경우에만 매핑
+                        if column in input_data:
+                            template_data[alias] = input_data[column]
 
-                # Jinja2 렌더링
+                # 3. Jinja2 렌더링
                 template = Template(template_str)
                 result = template.render(**template_data)
 
