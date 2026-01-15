@@ -1,6 +1,8 @@
-import { WorkflowRun } from '@/app/features/workflow/types/Api';
-import { ArrowLeft, ArrowRight, X, Minus, Plus, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
 import { LogDetail } from './LogDetail';
+import { WorkflowRun } from '../../types/Api';
+import { ArrowLeft, ArrowRight, X, Minus, Plus, TrendingDown, TrendingUp, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
+import { getNodeDisplayInfo } from '../../utils/nodeDisplayUtils';
 
 interface LogDetailComparisonModalProps {
     runA: WorkflowRun;
@@ -54,6 +56,8 @@ export const LogDetailComparisonModal = ({ runA, runB, onBack }: LogDetailCompar
         );
     };
 
+    const [isSummaryOpen, setIsSummaryOpen] = useState(true);
+
     return (
         <div className="flex flex-col h-full bg-gray-50">
              {/* Header with Summary */}
@@ -72,78 +76,88 @@ export const LogDetailComparisonModal = ({ runA, runB, onBack }: LogDetailCompar
                             </h2>
                         </div>
                     </div>
+                    
+                    <button 
+                        onClick={() => setIsSummaryOpen(!isSummaryOpen)}
+                        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 font-medium px-3 py-1.5 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                        {isSummaryOpen ? '요약 접기' : '요약 보기'}
+                        {isSummaryOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
                 </div>
 
                 {/* Summary Table */}
-                <div className="px-6 py-4 bg-gray-50/50">
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-500 font-medium text-xs uppercase border-b border-gray-100">
-                                <tr>
-                                    <th className="px-4 py-3 w-1/4">항목</th>
-                                    <th className="px-4 py-3 w-1/4">실행 A (기준)</th>
-                                    <th className="px-4 py-3 w-1/4">실행 B (비교군)</th>
-                                    <th className="px-4 py-3 w-1/4">차이</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {/* 1. Duration */}
-                                <tr>
-                                    <td className="px-4 py-3 font-medium text-gray-700">소요 시간</td>
-                                    <td className="px-4 py-3">{runA.duration?.toFixed(2)}s</td>
-                                    <td className="px-4 py-3">{runB.duration?.toFixed(2)}s</td>
-                                    <td className="px-4 py-3">{renderDiffBadge(durationDiff, 'duration')}</td>
-                                </tr>
-                                {/* 2. Tokens */}
-                                <tr>
-                                    <td className="px-4 py-3 font-medium text-gray-700">총 토큰 사용량</td>
-                                    <td className="px-4 py-3">{statsA.totalTokens.toLocaleString()}</td>
-                                    <td className="px-4 py-3">{statsB.totalTokens.toLocaleString()}</td>
-                                    <td className="px-4 py-3">{renderDiffBadge(tokenDiff, 'token')}</td>
-                                </tr>
-                                {/* 3. Cost */}
-                                <tr>
-                                    <td className="px-4 py-3 font-medium text-gray-700">총 비용</td>
-                                    <td className="px-4 py-3 text-amber-600">${statsA.totalCost.toFixed(6)}</td>
-                                    <td className="px-4 py-3 text-amber-600">${statsB.totalCost.toFixed(6)}</td>
-                                    <td className="px-4 py-3">{renderDiffBadge(costDiff, 'cost')}</td>
-                                </tr>
-                                {/* 4. Version */}
-                                <tr>
-                                    <td className="px-4 py-3 font-medium text-gray-700">실행 버전</td>
-                                    <td className="px-4 py-3">
-                                        {runA.workflow_version ? (
-                                            <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-xs font-bold border border-indigo-100">v{runA.workflow_version}</span>
-                                        ) : <span className="text-gray-400 text-xs">Draft</span>}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {runB.workflow_version ? (
-                                            <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-xs font-bold border border-indigo-100">v{runB.workflow_version}</span>
-                                        ) : <span className="text-gray-400 text-xs">Draft</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-400">-</td>
-                                </tr>
-                                {/* 5. Status */}
-                                {(runA.status === 'failed' || runB.status === 'failed') && (
-                                     <tr className="bg-red-50/30">
-                                         <td className="px-4 py-3 font-medium text-red-700">상태</td>
-                                         <td className="px-4 py-3">
-                                             {runA.status === 'failed' ? (
-                                                 <span className="text-red-600 font-bold text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> 실패</span>
-                                             ) : <span className="text-green-600 text-xs">성공</span>}
-                                         </td>
-                                         <td className="px-4 py-3">
-                                             {runB.status === 'failed' ? (
-                                                 <span className="text-red-600 font-bold text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> 실패</span>
-                                             ) : <span className="text-green-600 text-xs">성공</span>}
-                                         </td>
-                                         <td className="px-4 py-3"></td>
-                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
+                {isSummaryOpen && (
+                    <div className="px-6 py-4 bg-gray-50/50 animate-in slide-in-from-top-2 duration-200">
+                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 text-gray-500 font-medium text-xs uppercase border-b border-gray-100">
+                                    <tr>
+                                        <th className="px-4 py-3 w-1/4">항목</th>
+                                        <th className="px-4 py-3 w-1/4">실행 A (기준)</th>
+                                        <th className="px-4 py-3 w-1/4">실행 B (비교군)</th>
+                                        <th className="px-4 py-3 w-1/4">차이</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {/* 1. Duration */}
+                                    <tr>
+                                        <td className="px-4 py-3 font-medium text-gray-700">소요 시간</td>
+                                        <td className="px-4 py-3">{runA.duration?.toFixed(2)}s</td>
+                                        <td className="px-4 py-3">{runB.duration?.toFixed(2)}s</td>
+                                        <td className="px-4 py-3">{renderDiffBadge(durationDiff, 'duration')}</td>
+                                    </tr>
+                                    {/* 2. Tokens */}
+                                    <tr>
+                                        <td className="px-4 py-3 font-medium text-gray-700">총 토큰 사용량</td>
+                                        <td className="px-4 py-3">{statsA.totalTokens.toLocaleString()}</td>
+                                        <td className="px-4 py-3">{statsB.totalTokens.toLocaleString()}</td>
+                                        <td className="px-4 py-3">{renderDiffBadge(tokenDiff, 'token')}</td>
+                                    </tr>
+                                    {/* 3. Cost */}
+                                    <tr>
+                                        <td className="px-4 py-3 font-medium text-gray-700">총 비용</td>
+                                        <td className="px-4 py-3 text-amber-600">${statsA.totalCost.toFixed(6)}</td>
+                                        <td className="px-4 py-3 text-amber-600">${statsB.totalCost.toFixed(6)}</td>
+                                        <td className="px-4 py-3">{renderDiffBadge(costDiff, 'cost')}</td>
+                                    </tr>
+                                    {/* 4. Version */}
+                                    <tr>
+                                        <td className="px-4 py-3 font-medium text-gray-700">실행 버전</td>
+                                        <td className="px-4 py-3">
+                                            {runA.workflow_version ? (
+                                                <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-xs font-bold border border-indigo-100">v{runA.workflow_version}</span>
+                                            ) : <span className="text-gray-400 text-xs">Draft</span>}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {runB.workflow_version ? (
+                                                <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-xs font-bold border border-indigo-100">v{runB.workflow_version}</span>
+                                            ) : <span className="text-gray-400 text-xs">Draft</span>}
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-400">-</td>
+                                    </tr>
+                                    {/* 5. Status */}
+                                    {(runA.status === 'failed' || runB.status === 'failed') && (
+                                         <tr className="bg-red-50/30">
+                                             <td className="px-4 py-3 font-medium text-red-700">상태</td>
+                                             <td className="px-4 py-3">
+                                                 {runA.status === 'failed' ? (
+                                                     <span className="text-red-600 font-bold text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> 실패</span>
+                                                 ) : <span className="text-green-600 text-xs">성공</span>}
+                                             </td>
+                                             <td className="px-4 py-3">
+                                                 {runB.status === 'failed' ? (
+                                                     <span className="text-red-600 font-bold text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> 실패</span>
+                                                 ) : <span className="text-green-600 text-xs">성공</span>}
+                                             </td>
+                                             <td className="px-4 py-3"></td>
+                                         </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                )}
              </div>
 
              {/* Split View Body */}
