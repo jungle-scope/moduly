@@ -34,6 +34,7 @@ import ChunkPreviewList from '@/app/features/knowledge/components/preview/ChunkP
 import DBConnectionForm from '@/app/features/knowledge/components/create-knowledge-modal/DBConnectionForm';
 import { DBConfig } from '@/app/features/knowledge/types/DB';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
+import { useGenericCredential } from '@/app/features/knowledge/hooks/useGenericCredential';
 
 // UUID prefix가 있으면 제거, API URL이면 도메인만 추출
 const getDisplayFilename = (filename: string): string => {
@@ -69,6 +70,11 @@ export default function DocumentSettingsPage() {
   const [selectedDbItems, setSelectedDbItems] = useState<
     Record<string, string[]>
   >({});
+
+  // [신규] LlamaParse 키 확인 Hook
+  const { hasKey: hasLlamaParseKey, isLoading: isKeyLoading } =
+    useGenericCredential('llamaparse');
+
   const [sensitiveColumns, setSensitiveColumns] = useState<
     Record<string, string[]>
   >({});
@@ -89,6 +95,10 @@ export default function DocumentSettingsPage() {
   const [apiOriginalData, setApiOriginalData] = useState<any>(null); // API 원본 데이터 (SessionStorage)
   const [enableAutoChunking, setEnableAutoChunking] = useState<boolean>(true); // 자동 청킹 활성화
   const [joinConfig, setJoinConfig] = useState<JoinConfig | null>(null); // JOIN 설정 상태
+
+  // 작업 불가능 조건: (전략이 llamaparse인데 키가 없으면)
+  const isActionDisabled =
+    parsingStrategy === 'llamaparse' && !isKeyLoading && !hasLlamaParseKey;
 
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
@@ -641,7 +651,10 @@ export default function DocumentSettingsPage() {
             <button
               onClick={handleSaveClick}
               disabled={
-                isAnalyzing || status === 'completed' || status === 'indexing'
+                isActionDisabled ||
+                isAnalyzing ||
+                status === 'completed' ||
+                status === 'indexing'
               }
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
@@ -673,6 +686,7 @@ export default function DocumentSettingsPage() {
                 <ParsingStrategySettings
                   strategy={parsingStrategy}
                   setStrategy={setParsingStrategy}
+                  hasKey={hasLlamaParseKey}
                 />
               )}
               <CommonChunkSettings
@@ -798,7 +812,7 @@ export default function DocumentSettingsPage() {
             <div className="flex-none p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <button
                 onClick={handlePreviewClick}
-                disabled={isPreviewLoading || isAnalyzing}
+                disabled={isActionDisabled || isPreviewLoading || isAnalyzing}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {isPreviewLoading || analyzingAction === 'preview' ? (

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FileJson, HelpCircle, Lock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
-import { useGenericCredential } from '../../hooks/useGenericCredential';
 
 interface ParsingStrategySettingsProps {
   strategy: 'general' | 'llamaparse';
   setStrategy: (val: 'general' | 'llamaparse') => void;
+  hasKey?: boolean;
 }
 
 // Tooltip Component
@@ -37,7 +37,7 @@ function Tooltip({ text }: { text: string }) {
       </span>
       {show && (
         <div
-          className="fixed z-[9999] w-56 px-3 py-2 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded-lg shadow-xl -translate-x-1/2 -translate-y-full pointer-events-none"
+          className="fixed z-50 w-56 px-3 py-2 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded-lg shadow-xl -translate-x-1/2 -translate-y-full pointer-events-none"
           style={{ top: position.top, left: position.left }}
         >
           {text}
@@ -51,30 +51,10 @@ function Tooltip({ text }: { text: string }) {
 export default function ParsingStrategySettings({
   strategy,
   setStrategy,
+  hasKey = false,
 }: ParsingStrategySettingsProps) {
-  const { hasKey, isLoading } = useGenericCredential('llamaparse');
-  const [showWarning, setShowWarning] = useState(false);
-  const [shake, setShake] = useState(false);
-
-  // strategy가 llamaparse인데 키가 없으면 경고 표시 (초기 진입 시)
-  useEffect(() => {
-    if (!isLoading && !hasKey && strategy === 'llamaparse') {
-      setShowWarning(true);
-    } else if (hasKey) {
-      setShowWarning(false);
-    }
-  }, [isLoading, hasKey, strategy]);
-
-  const handleProClick = () => {
-    setStrategy('llamaparse');
-    if (!hasKey) {
-      setShowWarning(true);
-      setShake(true);
-      setTimeout(() => setShake(false), 500); // 흔들림 효과 리셋
-    } else {
-      setShowWarning(false);
-    }
-  };
+  // strategy가 llamaparse인데 키가 없으면 경고 표시
+  const showWarning = !hasKey && strategy === 'llamaparse';
 
   return (
     <section className="space-y-2 mb-4">
@@ -87,10 +67,7 @@ export default function ParsingStrategySettings({
       <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 relative">
         <button
           type="button"
-          onClick={() => {
-            setStrategy('general');
-            setShowWarning(false);
-          }}
+          onClick={() => setStrategy('general')}
           className={`flex-1 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${
             strategy === 'general'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
@@ -102,15 +79,15 @@ export default function ParsingStrategySettings({
         </button>
         <button
           type="button"
-          onClick={handleProClick}
+          onClick={() => setStrategy('llamaparse')}
           className={`flex-1 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 relative ${
             strategy === 'llamaparse'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-          } ${shake ? 'animate-shake' : ''}`}
+          }`}
         >
           Pro
-          {!hasKey && !isLoading && (
+          {!hasKey && (
             <Lock className="w-3 h-3 text-gray-400 dark:text-gray-500" />
           )}
           <span className="absolute -top-1 -right-1 px-1 py-0.5 bg-indigo-500 text-white text-[8px] font-bold rounded">
