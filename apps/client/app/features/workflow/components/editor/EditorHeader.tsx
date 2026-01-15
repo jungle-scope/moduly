@@ -11,7 +11,7 @@ export default function EditorHeader() {
   return (
     <header className="h-10 min-h-[40px] bg-gradient-to-r from-blue-50 via-white to-blue-50/30 flex items-center px-4">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm">
+      <nav className="flex items-center gap-2 text-sm ml-2">
         <button
           onClick={() => router.push('/dashboard/mymodule')}
           className="text-gray-600 hover:text-gray-900 transition-colors"
