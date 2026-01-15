@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import requests
 from sqlalchemy.orm import Session, joinedload
 
+from apps.gateway.services.llm_client.factory import get_llm_client
 from apps.shared.db.models.llm import (
     LLMCredential,
     LLMModel,
@@ -18,7 +19,6 @@ from apps.shared.schemas.llm import (
     LLMModelResponse,
     LLMProviderResponse,
 )
-from apps.gateway.services.llm_client.factory import get_llm_client
 
 
 class LLMService:
@@ -472,6 +472,20 @@ class LLMService:
         )
         if not provider:
             raise ValueError(f"Provider {request.provider_id} not found")
+
+        # [Defensive Check] 키 형식과 프로바이더 불일치 감지
+        if provider.name == "google" and request.api_key.startswith("sk-"):
+            raise ValueError(
+                "입력하신 키는 OpenAI 형식을 따르고 있습니다. Google Provider가 아닌 OpenAI를 선택했는지 확인해주세요."
+            )
+        if provider.name == "openai" and request.api_key.startswith("AIza"):
+            raise ValueError(
+                "입력하신 키는 Google 형식을 따르고 있습니다. OpenAI Provider가 아닌 Google을 선택했는지 확인해주세요."
+            )
+        if provider.name == "openai" and request.api_key.startswith("sk-ant"):
+            raise ValueError(
+                "입력하신 키는 Anthropic 형식을 따르고 있습니다. OpenAI가 아닌 Anthropic을 선택했는지 확인해주세요."
+            )
 
         # 2. API 키 검증 및 모델 조회
         remote_models = LLMService._fetch_remote_models(
