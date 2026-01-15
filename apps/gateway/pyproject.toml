@@ -33,6 +33,7 @@ dependencies = [
     "langchain-text-splitters>=0.3.0",  # text_splitter module (separated in v0.3)
     "jinja2>=3.1.0",  # Template rendering for DB data
     "pymupdf4llm",
+    "llama-parse==0.5.15",  # LlamaParse SDK (Pydantic v2 compatible version)
     "python-docx",
     "openpyxl",
     "pandas",

@@ -1,5 +1,6 @@
 import hashlib
 import re
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -9,10 +10,10 @@ from fastapi import UploadFile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
-from apps.shared.db.models.knowledge import Document, DocumentChunk, SourceType
-from apps.shared.db.session import SessionLocal
 from apps.gateway.services.ingestion.factory import IngestionFactory
 from apps.gateway.services.storage import get_storage_service  # [NEW]
+from apps.shared.db.models.knowledge import Document, DocumentChunk, SourceType
+from apps.shared.db.session import SessionLocal
 
 
 class IngestionOrchestrator:
@@ -168,7 +169,11 @@ class IngestionOrchestrator:
             if doc.source_type == "DB":
                 final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
             else:
-                final_chunks = self._refine_chunks(raw_blocks)
+                # 전처리 적용 (FILE, API 타입)
+                full_text = "\n".join([b["content"] for b in raw_blocks])
+                preprocessed_text = self.preprocess_text(full_text, doc.meta_info or {})
+                preprocessed_blocks = [{"content": preprocessed_text, "metadata": {}}]
+                final_chunks = self._refine_chunks(preprocessed_blocks)
 
             # 필터링 적용
             meta = doc.meta_info or {}
@@ -339,16 +344,11 @@ class IngestionOrchestrator:
         # 2. 전처리
         full_text = "\n".join([b["content"] for b in raw_blocks])
 
-        if remove_urls_emails:
-            full_text = re.sub(
-                r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
-                "",
-                full_text,
-            )
-            full_text = re.sub(r"[\w\.-]+@[\w\.-]+", "", full_text)
-        if remove_whitespace:
-            full_text = re.sub(r"[ \t]+", " ", full_text)
-            full_text = re.sub(r"\n{3,}", "\n\n", full_text)
+        options = {
+            "remove_urls_emails": remove_urls_emails,
+            "normalize_whitespace": remove_whitespace,  # 파라미터명 호환
+        }
+        full_text = self.preprocess_text(full_text, options)
 
         # 3. 청킹
         separators = ["\n\n", "\n", ".", " ", ""]
@@ -425,7 +425,6 @@ class IngestionOrchestrator:
 
     def _save_to_vector_db(self, doc: Document, chunks: List[Dict[str, Any]]):
         import tiktoken
-
         from services.llm_service import LLMService
         from utils.encryption import encryption_manager
         from utils.template_utils import count_tokens
@@ -657,3 +656,69 @@ class IngestionOrchestrator:
             except Exception as e:
                 print(f"[ERROR] Failed to re-index document {doc.id}: {e}")
                 self._update_status(doc.id, "failed", str(e))
+
+    def preprocess_text(self, text: str, options: Dict[str, Any]) -> str:
+        """
+        RAG를 위한 텍스트 전처리
+
+        Args:
+            text: 원본 텍스트
+            options: 전처리 옵션
+                - remove_urls_emails: URL/이메일 제거 (기본: False)
+                - normalize_whitespace: 공백 정규화 (기본: True)
+                - remove_markdown_separators: 마크다운 구분자 제거 (기본: True)
+                - remove_control_chars: 제어 문자 제거 (기본: True)
+
+        Returns:
+            전처리된 텍스트
+        """
+        # === 필수 전처리 (항상 적용) ===
+
+        # 1. 유니코드 정규화 (한글 자모 분리 방지)
+        text = unicodedata.normalize("NFC", text)
+
+        # === 선택적 전처리 ===
+
+        # 2. 마크다운 구분자 처리 (LlamaParse 출력용)
+        if options.get("remove_markdown_separators", True):
+            # 수평선을 단일 줄바꿈으로 변환
+            text = re.sub(r"^-{3,}$", "\n", text, flags=re.MULTILINE)
+            text = re.sub(r"^\*{3,}$", "\n", text, flags=re.MULTILINE)
+            text = re.sub(r"^={3,}$", "\n", text, flags=re.MULTILINE)
+
+        # 3. URL/이메일 제거
+        if options.get("remove_urls_emails", False):
+            # URL 제거 (http, https, ftp, ftps)
+            text = re.sub(
+                r"(?:https?|ftps?)://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+                "",
+                text,
+            )
+            # 이메일 제거
+            text = re.sub(r"[\w\.-]+@[\w\.-]+\.\w+", "", text)
+
+        # 4. 공백 정규화
+        if options.get("normalize_whitespace", True):
+            # 단일 공백
+            text = re.sub(r"[ \t]+", " ", text)
+            # 과도한 줄바꿈 (3줄 이상 → 2줄)
+            text = re.sub(r"\n{3,}", "\n\n", text)
+            # 줄 끝 공백 제거
+            text = re.sub(r"[ \t]+\n", "\n", text)
+            # 줄 시작 공백 제거
+            text = re.sub(r"\n[ \t]+", "\n", text)
+
+        # 5. 제어 문자 제거 (탭, 줄바꿈 제외)
+        if options.get("remove_control_chars", True):
+            text = "".join(
+                char
+                for char in text
+                if unicodedata.category(char)[0] != "C" or char in "\n\t"
+            )
+
+        # === 필수 전처리 (마무리) ===
+
+        # 6. 앞뒤 공백 제거
+        text = text.strip()
+
+        return text
