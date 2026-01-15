@@ -9,7 +9,7 @@ DB 데이터의 Jinja2 렌더링 결과를 길이에 따라 조건부로 청킹�
 from typing import Any, Dict, List, Optional
 
 import tiktoken
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
 class AdaptiveDbChunker:

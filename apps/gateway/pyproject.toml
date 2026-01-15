@@ -20,7 +20,7 @@ dependencies = [
     "itsdangerous>=2.1.0",  # SessionMiddleware dependency
     "cryptography>=41.0.0",  # Encryption (security.py)
     "boto3>=1.28.0",  # S3 storage
-    "paramiko>=3.3.0",  # SSH tunnel
+    "paramiko>=2.12.0,<3.0",  # SSH tunnel (DSSKey compatibility with sshtunnel) -> 나중에 수정하기
     "sshtunnel>=0.4.0",  # SSH tunnel for DB
     "authlib>=1.2.0",  # OAuth (Google login)
     # Celery 호출용
@@ -30,6 +30,8 @@ dependencies = [
     "langchain>=0.3.0",
     "langchain-community>=0.3.0",
     "langchain-openai>=0.2.0",
+    "langchain-text-splitters>=0.3.0",  # text_splitter module (separated in v0.3)
+    "jinja2>=3.1.0",  # Template rendering for DB data
     "pymupdf4llm",
     "python-docx",
     "openpyxl",

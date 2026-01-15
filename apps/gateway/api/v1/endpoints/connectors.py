@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from apps.gateway.api.deps import get_db
 from apps.gateway.auth.dependencies import get_current_user
 from apps.gateway.connectors.postgres import PostgresConnector
+from apps.gateway.utils.encryption import encryption_manager
 from apps.shared.db.models.connection import Connection
 from apps.shared.db.models.user import User
 from apps.shared.schemas.connector import (
@@ -14,7 +15,6 @@ from apps.shared.schemas.connector import (
     DBConnectionTestResponse,
 )
 from apps.shared.schemas.connector_detail import DBConnectionDetailResponse
-from apps.gateway.utils.encryption import encryption_manager
 
 router = APIRouter()
 
