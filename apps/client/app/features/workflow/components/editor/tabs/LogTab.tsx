@@ -41,9 +41,15 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const abSectionRef = useRef<HTMLDivElement>(null);
 
+  // UUID 형식 검증 함수
+  const isValidUUID = (id: string) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
+  };
+
   // Initial Load
   useEffect(() => {
-    if (workflowId) {
+    if (workflowId && isValidUUID(workflowId)) {
       loadLogs();
     }
   }, [workflowId]);
@@ -76,6 +82,7 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
   // LOG FUNCTIONS
   // ========================
   const fetchAndSelectRun = async (runId: string) => {
+    if (!isValidUUID(workflowId)) return;
     try {
       const run = await workflowApi.getWorkflowRun(workflowId, runId);
       setSelectedLog(run);
@@ -214,17 +221,39 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     setIsCompareModalOpen(true);
   };
 
-  const handleCompareSelect = (targetRun: WorkflowRun) => {
+  const handleCompareSelect = async (targetRun: WorkflowRun) => {
     setIsCompareModalOpen(false);
-    setCompareLog(targetRun);
-    setViewMode('compare');
+    try {
+      // 비교 대상의 상세 정보(node_runs 포함) 가져오기
+      const detailedRun = await workflowApi.getWorkflowRun(workflowId, targetRun.id);
+      setCompareLog(detailedRun);
+      setViewMode('compare');
+    } catch (err) {
+      console.error('Failed to fetch compare run details:', err);
+      // 실패 시 기존 데이터로 진행
+      setCompareLog(targetRun);
+      setViewMode('compare');
+    }
   };
 
-  const startABCompare = () => {
+  const startABCompare = async () => {
     if (abRunA && abRunB) {
-      setSelectedLog(abRunA);
-      setCompareLog(abRunB);
-      setViewMode('compare');
+      try {
+        // A/B 모두 상세 정보 가져오기
+        const [detailedA, detailedB] = await Promise.all([
+          workflowApi.getWorkflowRun(workflowId, abRunA.id),
+          workflowApi.getWorkflowRun(workflowId, abRunB.id),
+        ]);
+        setSelectedLog(detailedA);
+        setCompareLog(detailedB);
+        setViewMode('compare');
+      } catch (err) {
+        console.error('Failed to fetch A/B run details:', err);
+        // 실패 시 기존 데이터로 진행
+        setSelectedLog(abRunA);
+        setCompareLog(abRunB);
+        setViewMode('compare');
+      }
     }
   };
 

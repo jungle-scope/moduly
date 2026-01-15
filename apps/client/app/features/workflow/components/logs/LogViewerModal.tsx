@@ -175,17 +175,39 @@ export const LogViewerModal = ({ isOpen, onClose, workflowId, initialRunId, onBa
     setIsCompareModalOpen(true);
   };
 
-  const handleCompareSelect = (targetRun: WorkflowRun) => {
+  const handleCompareSelect = async (targetRun: WorkflowRun) => {
     setIsCompareModalOpen(false);
-    setCompareLog(targetRun);
-    setViewMode('compare');
+    try {
+      // 비교 대상의 상세 정보(node_runs 포함) 가져오기
+      const detailedRun = await workflowApi.getWorkflowRun(workflowId, targetRun.id);
+      setCompareLog(detailedRun);
+      setViewMode('compare');
+    } catch (err) {
+      console.error("Failed to fetch compare run details:", err);
+      // 실패 시 기존 데이터로 진행
+      setCompareLog(targetRun);
+      setViewMode('compare');
+    }
   };
 
-  const startABCompare = () => {
+  const startABCompare = async () => {
     if (abRunA && abRunB) {
-      setSelectedLog(abRunA);
-      setCompareLog(abRunB);
-      setViewMode('compare');
+      try {
+        // A/B 모두 상세 정보 가져오기
+        const [detailedA, detailedB] = await Promise.all([
+          workflowApi.getWorkflowRun(workflowId, abRunA.id),
+          workflowApi.getWorkflowRun(workflowId, abRunB.id),
+        ]);
+        setSelectedLog(detailedA);
+        setCompareLog(detailedB);
+        setViewMode('compare');
+      } catch (err) {
+        console.error("Failed to fetch A/B run details:", err);
+        // 실패 시 기존 데이터로 진행
+        setSelectedLog(abRunA);
+        setCompareLog(abRunB);
+        setViewMode('compare');
+      }
     }
   };
 
