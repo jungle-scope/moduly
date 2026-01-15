@@ -864,13 +864,10 @@ export default function DocumentSettingsPage() {
               💰 비용 승인 필요
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              <span className="font-medium text-amber-600">
-                {analyzeResult.cost_estimate.credits} 포인트
-              </span>
-              은 유료 기능입니다.
+              이 기능은 유료 기능입니다.
               <br />
               <span className="block mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm">
-                파일: <strong>{analyzeResult.filename}</strong>
+                파일: <strong>{analyzeResult.filename.substring(37)}</strong>
                 <br />
                 예상 결제 포인트:{' '}
                 <strong className="text-amber-600">
