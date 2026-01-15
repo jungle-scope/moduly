@@ -1,9 +1,12 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, AlertTriangle } from 'lucide-react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { TemplateNodeData, TemplateVariable } from '../../../../types/Nodes';
-
+import { ValidationAlert } from '../../../ui/ValidationAlert';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { TemplateWizardModal } from '../../../modals/TemplateWizardModal';
@@ -17,6 +20,10 @@ interface TemplateNodePanelProps {
  * [참고] 캐럿 좌표 가져오기
  * Textarea의 커서 위치(top, left)를 계산하기 위해 Mirror Div를 사용합니다.
  */
+// 노드 실행 필수 요건 체크
+// 1. 템플릿 내용이 비어있지 않아야 함
+// 2. 입력 변수 매핑이 완료되어야 함
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement,
   position: number,
@@ -144,7 +151,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
 
   // 선택자 업데이트 핸들러
 
-  // [자동완성] '{{' 트리거 확인
+
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const target = e.target as HTMLTextAreaElement;
     const value = target.value;
@@ -172,7 +179,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     }
   };
 
-  // [자동완성] 변수 삽입
+
   const insertVariable = (varName: string) => {
     const currentValue = data.template || '';
     const textarea = textareaRef.current;
@@ -196,7 +203,7 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     }
   };
 
-  // [유효성 검사] 등록되지 않은 변수 확인
+
   const validationErrors = useMemo(() => {
     const template = data.template || '';
     const registeredNames = new Set(
@@ -215,6 +222,12 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
     return Array.from(new Set(errors)); // 중복 제거
   }, [data.template, data.variables]);
 
+
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.variables),
+    [data.variables]
+  );
+
   return (
     <div className="flex flex-col gap-2">
       {/* 1. 변수 매핑 */}
@@ -228,6 +241,9 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
           title=""
           description="템플릿에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
+        
+
+        <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 
       {/* 2. 템플릿 에디터 */}
@@ -305,19 +321,12 @@ export const TemplateNodePanel: React.FC<TemplateNodePanelProps> = ({
             )}
           </div>
 
-          {/* [유효성 검사] 경고 블록 */}
+
           {validationErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-xs">
-              <p className="font-semibold mb-1">
-                ⚠️ 등록되지 않은 변수가 감지되었습니다:
-              </p>
-              <ul className="list-disc list-inside">
-                {validationErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-            </div>
+            <UnregisteredVariablesAlert variables={validationErrors} />
           )}
+
+
         </div>
       </CollapsibleSection>
       
