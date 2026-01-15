@@ -16,7 +16,6 @@ Locust 워크플로우 부하 테스트
 
 import json
 import os
-import random
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -59,8 +58,8 @@ class WorkflowUser(HttpUser):
         # 테스트 입력 데이터
         payload = {
             "inputs": {
-                "score": random.randint(1, 100),
-                "pdf": "https://moduly-dev-file-upload.s3.amazonaws.com/uploads/1e9d5de3-ed0f-4d1c-8aee-53e4afd78fd8/d9aeb862-119e-4c22-9317-36555098eddc_welcome.pdf",
+                # "score": random.randint(1, 100),
+                # "pdf": "https://moduly-dev-file-upload.s3.amazonaws.com/uploads/1e9d5de3-ed0f-4d1c-8aee-53e4afd78fd8/d9aeb862-119e-4c22-9317-36555098eddc_welcome.pdf",
             }
         }
 
