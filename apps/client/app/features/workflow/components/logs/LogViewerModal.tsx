@@ -275,7 +275,13 @@ export const LogViewerModal = ({ isOpen, onClose, workflowId, initialRunId, onBa
                                 <div ref={abSectionRef} className="scroll-mt-4 transition-all duration-300 mb-4">
                                     <LogABTestBar 
                                         isOpen={isABTestOpen}
-                                        onToggle={() => setIsABTestOpen(!isABTestOpen)}
+                                        onToggle={() => {
+                                          const newOpen = !isABTestOpen;
+                                          setIsABTestOpen(newOpen);
+                                          if (newOpen && !abRunA) {
+                                            setSelectionTarget('A');
+                                          }
+                                        }}
                                         runA={abRunA}
                                         runB={abRunB}
                                         selectionTarget={selectionTarget}

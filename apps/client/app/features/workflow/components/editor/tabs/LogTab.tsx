@@ -297,7 +297,13 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
             >
               <LogABTestBar
                 isOpen={isABTestOpen}
-                onToggle={() => setIsABTestOpen(!isABTestOpen)}
+                onToggle={() => {
+                  const newOpen = !isABTestOpen;
+                  setIsABTestOpen(newOpen);
+                  if (newOpen && !abRunA) {
+                    setSelectionTarget('A');
+                  }
+                }}
                 runA={abRunA}
                 runB={abRunB}
                 selectionTarget={selectionTarget}
