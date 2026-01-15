@@ -143,10 +143,13 @@ export const LogViewerModal = ({ isOpen, onClose, workflowId, initialRunId, onBa
         return;
       }
       setABRunA(log);
-      setSelectionTarget(null);
       
-      // Auto-scroll if both are now selected
-      if (abRunB) {
+      // [MODIFIED] B가 없으면 자동으로 B 선택 모드로 전환
+      if (!abRunB) {
+         setSelectionTarget('B');
+      } else {
+         setSelectionTarget(null);
+          // Auto-scroll if both are now selected
           setTimeout(() => {
               abSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }, 100);

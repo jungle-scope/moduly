@@ -205,11 +205,15 @@ export const LogAndMonitoringModal = ({
         return;
       }
       setABRunA(log);
-      setSelectionTarget(null);
-      if (abRunB) {
-        setTimeout(() => {
-          abSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+      
+      // [MODIFIED] B가 없으면 자동으로 B 선택 모드로 전환
+      if (!abRunB) {
+         setSelectionTarget('B');
+      } else {
+         setSelectionTarget(null);
+         setTimeout(() => {
+           abSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+         }, 100);
       }
       return;
     }
