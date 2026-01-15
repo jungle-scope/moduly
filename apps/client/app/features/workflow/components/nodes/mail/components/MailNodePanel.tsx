@@ -4,6 +4,7 @@ import { MailNodeData, EmailProvider } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
 
 interface MailNodePanelProps {
   nodeId: string;
@@ -199,19 +200,18 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
             <label className="text-xs font-medium text-gray-700">
               메일 서비스
             </label>
-            <select
-              className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+            <RoundedSelect
               value={data.provider || 'gmail'}
-              onChange={(e) =>
-                handleProviderChange(e.target.value as EmailProvider)
-              }
-            >
-              <option value="gmail">Gmail</option>
-              <option value="naver">Naver</option>
-              <option value="daum">Daum</option>
-              <option value="outlook">Outlook</option>
-              <option value="custom">직접 설정</option>
-            </select>
+              onChange={(val) => handleProviderChange(val as EmailProvider)}
+              options={[
+                { label: 'Gmail', value: 'gmail' },
+                { label: 'Naver', value: 'naver' },
+                { label: 'Daum', value: 'daum' },
+                { label: 'Outlook', value: 'outlook' },
+                { label: '직접 설정', value: 'custom' },
+              ]}
+              placeholder="메일 서비스 선택"
+            />
           </div>
 
           <div className="flex flex-col gap-1">
@@ -368,7 +368,9 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           )}
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">보낸 사람</label>
+            <label className="text-xs font-medium text-gray-700">
+              보낸 사람
+            </label>
             <input
               type="text"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
@@ -400,9 +402,7 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
                 value={data.start_date || ''}
                 onChange={(e) => handleUpdateData('start_date', e.target.value)}
               />
-              <p className="text-[10px] text-gray-500">
-                💡 기본값: 7일 전
-              </p>
+              <p className="text-[10px] text-gray-500">💡 기본값: 7일 전</p>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -421,17 +421,19 @@ export function MailNodePanel({ nodeId, data }: MailNodePanelProps) {
           {/* 폴더 */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">폴더</label>
-            <select
-              className="h-8 rounded border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:border-blue-500"
+            <RoundedSelect
               value={data.folder || 'INBOX'}
-              onChange={(e) => handleUpdateData('folder', e.target.value)}
-            >
-              <option value="INBOX">INBOX</option>
-              <option value="SENT">SENT</option>
-              <option value="DRAFTS">DRAFTS</option>
-              <option value="SPAM">SPAM</option>
-              <option value="TRASH">TRASH</option>
-            </select>
+              onChange={(val) => handleUpdateData('folder', val)}
+              options={[
+                { label: 'INBOX', value: 'INBOX' },
+                { label: 'SENT', value: 'SENT' },
+                { label: 'DRAFTS', value: 'DRAFTS' },
+                { label: 'SPAM', value: 'SPAM' },
+                { label: 'TRASH', value: 'TRASH' },
+              ]}
+              placeholder="폴더 선택"
+              className="h-8 py-1"
+            />
           </div>
 
           {/* 최대 결과 수 */}
