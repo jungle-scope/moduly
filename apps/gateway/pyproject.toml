@@ -38,6 +38,9 @@ dependencies = [
     "pandas",
     # Shared 패키지 의존성
     "moduly-shared",
+    # 테스트 의존성
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
 ]
 
 [build-system]
