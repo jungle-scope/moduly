@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  FileJson,
-  HelpCircle,
-  Lock,
-  AlertTriangle,
-  ArrowRight,
-} from 'lucide-react';
+import { FileJson, HelpCircle, Lock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useGenericCredential } from '../../hooks/useGenericCredential';
 
