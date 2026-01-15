@@ -29,6 +29,7 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
+  type Edge,
 } from '@xyflow/react';
 import dagre from 'dagre';
 
@@ -64,6 +65,8 @@ import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTrig
 import { ScheduleTriggerNodePanel } from '../nodes/schedule/components/ScheduleTriggerNodePanel';
 import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
 import { LLMReferenceSidePanel } from '../nodes/llm/components/LLMReferenceSidePanel';
+import { useDragConnectionPreview } from '../../hooks/useDragConnectionPreview';
+import { DragConnectionOverlay } from './DragConnectionOverlay';
 
 export default function NodeCanvas() {
   const {
@@ -104,6 +107,13 @@ export default function NodeCanvas() {
   const [isParamPanelOpen, setIsParamPanelOpen] = useState(false);
   const [isRefPanelOpen, setIsRefPanelOpen] = useState(false);
   const [isNodeLibraryOpen, setIsNodeLibraryOpen] = useState(true);
+
+  // Drag connection preview
+  const {
+    previewState,
+    onDragOver: handleDragOver,
+    resetPreview,
+  } = useDragConnectionPreview(nodes);
 
   // 전체화면 모드 변경 시 사이드바 자동 토글
   useEffect(() => {
@@ -747,16 +757,22 @@ export default function NodeCanvas() {
       const nodeDef = getNodeDefinition(nodeDefId);
       if (!nodeDef) return;
 
-      const position = screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
+      // Use preview position if available, otherwise use mouse position
+      const position =
+        previewState.draggedNodePosition ||
+        screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
 
       // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
       if (nodeDef.type === 'workflowNode') {
         setSearchModalContext({ isOpen: true, position });
         return;
       }
+
+      // Remove ghost node and create real node
+      const filteredNodes = nodes.filter((n) => n.id !== 'GHOST');
 
       const newNode: AppNode = {
         id: `${nodeDef.id}-${Date.now()}`,
@@ -765,15 +781,38 @@ export default function NodeCanvas() {
         position,
       };
 
-      setNodes([...nodes, newNode]);
+      setNodes([...filteredNodes, newNode]);
+
+      // Auto-connect if there's a nearest node
+      if (previewState.nearestNode) {
+        const newEdge = {
+          id: `e-${Date.now()}`,
+          source: previewState.isRight
+            ? previewState.nearestNode.id
+            : newNode.id,
+          target: previewState.isRight
+            ? newNode.id
+            : previewState.nearestNode.id,
+          type: 'puzzle',
+        };
+        setEdges([...edges, newEdge]);
+      }
+
+      // Clean up preview
+      resetPreview();
     },
-    [screenToFlowPosition, setNodes, nodes],
+    [
+      screenToFlowPosition,
+      setNodes,
+      nodes,
+      resetPreview,
+      previewState,
+      setEdges,
+      edges,
+    ],
   );
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
+  // onDragOver is now handled by useDragPreview hook
 
   const handleAddNodeFromLibrary = useCallback(
     (nodeDefId: string) => {
@@ -906,6 +945,8 @@ export default function NodeCanvas() {
             <div
               className="w-full h-full relative"
               onContextMenu={(e) => e.preventDefault()}
+              onDragOver={handleDragOver}
+              onDrop={onDrop}
             >
               <ReactFlow
                 nodes={nodes}
@@ -918,8 +959,6 @@ export default function NodeCanvas() {
                 onPaneContextMenu={onPaneContextMenu}
                 onNodeContextMenu={onNodeContextMenu}
                 onEdgeContextMenu={onEdgeContextMenu}
-                onDrop={onDrop}
-                onDragOver={onDragOver}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 defaultEdgeOptions={defaultEdgeOptions}
@@ -938,6 +977,13 @@ export default function NodeCanvas() {
                   color="#d1d5db"
                 />
               </ReactFlow>
+
+              {/* Drag connection preview overlay */}
+              <DragConnectionOverlay
+                nearestNode={previewState.nearestNode}
+                draggedNodePosition={previewState.draggedNodePosition}
+                isRight={previewState.isRight}
+              />
 
               {/* 플로팅 하단 패널 */}
               <BottomPanel

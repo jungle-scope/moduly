@@ -22,12 +22,13 @@ interface BaseNodeProps {
   sourceHandleId?: string;
   targetHandleStyle?: React.CSSProperties;
   sourceHandleStyle?: React.CSSProperties;
+
+  onHandlePlusClick?: (side: 'left' | 'right') => void;
 }
 
-export const SmartHandle: React.FC<HandleProps & { className?: string }> = ({
-  className,
-  ...props
-}) => {
+export const SmartHandle: React.FC<
+  HandleProps & { className?: string; showPlusButton?: boolean }
+> = ({ className, showPlusButton = true, ...props }) => {
   return (
     <Handle
       {...props}
@@ -37,12 +38,38 @@ export const SmartHandle: React.FC<HandleProps & { className?: string }> = ({
         className,
       )}
     >
-      {/* 
-         시각적 가이드: 
-         노드에 마우스를 올렸을(group-hover) 때만 중앙에 작은 파란색 점이 나타납니다.
-         이것이 '연결 가능한 지점'임을 암시(Hint)합니다. 
-      */}
-      <div className="w-3 h-3 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      {showPlusButton && (
+        <>
+          {/* 호버 시 나타나는 플러스 버튼 */}
+          <div
+            className="w-6 h-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center bg-blue-500"
+            style={{ position: 'relative' }}
+          >
+            {/* 플러스 아이콘 - 가로선 */}
+            <div
+              className="absolute bg-white pointer-events-none"
+              style={{
+                width: '12px',
+                height: '2px',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+            {/* 플러스 아이콘 - 세로선 */}
+            <div
+              className="absolute bg-white pointer-events-none"
+              style={{
+                width: '2px',
+                height: '12px',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          </div>
+        </>
+      )}
     </Handle>
   );
 };
@@ -191,6 +218,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
             position={Position.Left}
             className="-ml-2"
             style={getHandleStyle('left')}
+            showPlusButton={showTargetHandle}
           />
         )}
 
@@ -223,6 +251,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
             position={Position.Right}
             className="-mr-2"
             style={getHandleStyle('right')}
+            showPlusButton={showSourceHandle}
           />
         )}
       </div>
