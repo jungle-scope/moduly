@@ -8,11 +8,19 @@ import {
   HttpVariable,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { RoundedSelect } from '../../../ui/RoundedSelect';
+import { AlertTriangle } from 'lucide-react';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { UnregisteredVariablesAlert } from '../../../ui/UnregisteredVariablesAlert';
 
-// [참고] 캐럿 좌표 가져오기 (LLMNodePanel에서 복사됨)
+// 노드 실행 필수 요건 체크
+// 1. URL이 입력되어 있어야 함
+// 2. GET, DELETE 제외 메서드는 Body가 있어야 함
+
 const getCaretCoordinates = (
   element: HTMLTextAreaElement | HTMLInputElement,
   position: number,
@@ -82,6 +90,41 @@ export function HttpRequestNodePanel({
   const upstreamNodes = useMemo(
     () => getUpstreamNodes(nodeId, nodes, edges),
     [nodeId, nodes, edges],
+  );
+
+  const urlMissing = useMemo(() => {
+    return !data.url?.trim();
+  }, [data.url]);
+
+  const bodyRequiredButMissing = useMemo(() => {
+    const method = data.method || 'GET';
+    if (method === 'GET' || method === 'DELETE') return false;
+    return !data.body?.trim();
+  }, [data.method, data.body]);
+
+  const validationErrors = useMemo(() => {
+    const allContent = (data.url || '') + (data.body || '');
+    const registeredNames = new Set(
+      (data.referenced_variables || [])
+        .map((v) => v.name?.trim())
+        .filter(Boolean),
+    );
+    const errors: string[] = [];
+
+    const regex = /\{\{\s*([^}]+?)\s*\}\}/g;
+    let match;
+    while ((match = regex.exec(allContent)) !== null) {
+      const varName = match[1].trim();
+      if (varName && !registeredNames.has(varName)) {
+        errors.push(varName);
+      }
+    }
+    return Array.from(new Set(errors));
+  }, [data.url, data.body, data.referenced_variables]);
+
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables],
   );
 
   const handleUpdateData = useCallback(
@@ -223,6 +266,9 @@ export function HttpRequestNodePanel({
           autoComplete="off"
         />
       </div>
+
+      {urlMissing && <ValidationAlert message="⚠️ URL을 입력해주세요." />}
+
       <div className="border-b border-gray-200" />
 
       {/* 2. 입력변수 */}
@@ -235,6 +281,10 @@ export function HttpRequestNodePanel({
           onRemove={handleRemoveVariable}
           title=""
         />
+
+        {incompleteVariables.length > 0 && (
+          <IncompleteVariablesAlert variables={incompleteVariables} />
+        )}
       </CollapsibleSection>
       <CollapsibleSection title="인증" showDivider>
         <div className="flex flex-col gap-3">
@@ -386,6 +436,12 @@ export function HttpRequestNodePanel({
             <div className="text-[10px] text-gray-500">
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능
             </div>
+
+            {bodyRequiredButMissing && (
+              <ValidationAlert
+                message={`⚠️ ${data.method || 'POST'} 요청에는 본문(Body)이 필요합니다.`}
+              />
+            )}
           </div>
         </CollapsibleSection>
       )}
@@ -418,6 +474,12 @@ export function HttpRequestNodePanel({
       </CollapsibleSection>
 
       {/* 자동완성 제안 드롭다운 */}
+      {/* [VALIDATION] 경고 영역 */}
+
+      {validationErrors.length > 0 && (
+        <UnregisteredVariablesAlert variables={validationErrors} />
+      )}
+
       {showSuggestions && (
         <div
           className="absolute z-50 w-48 rounded border border-gray-200 bg-white shadow-lg"

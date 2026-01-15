@@ -3,6 +3,7 @@ import { NodeProps, Node } from '@xyflow/react';
 import { Globe } from 'lucide-react';
 import { HttpRequestNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
+import { ValidationBadge } from '../../../ui/ValidationBadge';
 
 // Method badge colors
 const methodColors: Record<string, string> = {
@@ -19,6 +20,11 @@ export const HttpRequestNode = memo(
   ({ data, selected }: NodeProps<Node<HttpRequestNodeData>>) => {
     const method = data.method || 'GET';
     const methodClass = methodColors[method] || defaultMethodColor;
+
+
+    const urlMissing = !data.url?.trim();
+    const bodyRequiredButMissing = method !== 'GET' && !data.body?.trim();
+    const hasValidationIssue = urlMissing || bodyRequiredButMissing;
 
     return (
       <BaseNode
@@ -43,6 +49,10 @@ export const HttpRequestNode = memo(
               {data.url || 'URL을 입력하세요'}
             </div>
           </div>
+          
+          {hasValidationIssue && (
+            <ValidationBadge />
+          )}
         </div>
       </BaseNode>
     );
@@ -50,3 +60,4 @@ export const HttpRequestNode = memo(
 );
 
 HttpRequestNode.displayName = 'HttpRequestNode';
+
