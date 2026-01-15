@@ -53,8 +53,4 @@ celery_app.conf.update(
     worker_concurrency=4,  # 동시 실행 워커 수
     # 결과 설정
     result_expires=3600,  # 결과 만료 시간 (1시간)
-    # Heartbeat 설정 (LLM/Code 노드 실행 시 안정성 향상)
-    broker_heartbeat=120,  # 브로커 heartbeat 간격 (기본 60초 → 120초)
-    worker_send_task_events=True,  # 워커 이벤트 전송
-    worker_pool_restarts=True,  # 워커 풀 재시작 활성화
 )
