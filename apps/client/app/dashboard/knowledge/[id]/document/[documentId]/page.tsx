@@ -35,6 +35,25 @@ import { DBConfig } from '@/app/features/knowledge/types/DB';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
 import ColumnAutocomplete from '@/app/features/knowledge/components/document-settings/ColumnAutocomplete';
 
+// UUID prefix가 있으면 제거, API URL이면 도메인만 추출
+const getDisplayFilename = (filename: string): string => {
+  // API source: URL이면 도메인만 추출
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    try {
+      const url = new URL(filename);
+      return url.hostname;
+    } catch {
+      return filename;
+    }
+  }
+  // FILE source: UUID prefix 제거
+  if (filename.length > 37 && filename[36] === '_') {
+    return filename.substring(37);
+  }
+  // DB source 등: 그대로 반환
+  return filename;
+};
+
 export default function DocumentSettingsPage() {
   const params = useParams();
   const router = useRouter();
@@ -46,6 +65,7 @@ export default function DocumentSettingsPage() {
   const [status, setStatus] = useState<string>(''); // 문서 상태
   const [errorMessage, setErrorMessage] = useState<string | null>(null); // [추가] 에러 메시지 상태
   const [document, setDocument] = useState<DocumentResponse | null>(null);
+  const [kbName, setKbName] = useState<string>(''); // KB 이름 상태 추가
   const [selectedDbItems, setSelectedDbItems] = useState<
     Record<string, string[]>
   >({});
@@ -144,7 +164,16 @@ export default function DocumentSettingsPage() {
   useEffect(() => {
     const fetchDocument = async () => {
       try {
-        const targetDoc = await knowledgeApi.getDocument(kbId, documentId);
+        // KB 정보와 문서 정보를 병렬로 조회
+        const [kbData, targetDoc] = await Promise.all([
+          knowledgeApi.getKnowledgeBase(kbId),
+          knowledgeApi.getDocument(kbId, documentId),
+        ]);
+
+        // KB 이름 설정
+        if (kbData) {
+          setKbName(kbData.name);
+        }
         if (targetDoc) {
           setDocument(targetDoc);
           setStatus(targetDoc.status);
@@ -489,23 +518,29 @@ export default function DocumentSettingsPage() {
             <span>홈</span>
           </Link>
           <ChevronRight className="w-3 h-3 text-gray-300" />
-          <Link
-            href={`/dashboard/knowledge/${kbId}`}
-            className="hover:text-blue-600"
-          >
-            지식
+          <Link href="/dashboard/knowledge" className="hover:text-blue-600">
+            지식 관리
           </Link>
           <ChevronRight className="w-3 h-3 text-gray-300" />
           <Link
             href={`/dashboard/knowledge/${kbId}`}
             className="hover:text-blue-600 max-w-[150px] truncate"
-            title={document?.filename}
+            title={kbName}
           >
-            {document?.filename || '소스'}
+            {kbName || '지식베이스'}
           </Link>
           <ChevronRight className="w-3 h-3 text-gray-300" />
-          <span className="text-gray-900 dark:text-white font-medium">
-            설정
+          <span
+            className="text-gray-900 dark:text-white font-medium max-w-[150px] truncate"
+            title={
+              document?.filename
+                ? getDisplayFilename(document.filename)
+                : undefined
+            }
+          >
+            {document?.filename
+              ? getDisplayFilename(document.filename)
+              : '문서'}
           </span>
         </div>
 
@@ -527,7 +562,9 @@ export default function DocumentSettingsPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">
-                {document?.filename || '문서 설정'}
+                {document?.filename
+                  ? getDisplayFilename(document.filename)
+                  : '문서 설정'}
               </h1>
 
               {/* Metadata Badges */}

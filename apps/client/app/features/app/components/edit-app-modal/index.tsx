@@ -124,7 +124,7 @@ export default function EditAppModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="w-[400px] bg-white dark:bg-zinc-900 rounded-xl shadow-2xl overflow-hidden transform transition-all animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800"
+        className="w-[400px] bg-white dark:bg-zinc-900 rounded-xl shadow-2xl transform transition-all animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800 relative"
       >
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -159,12 +159,34 @@ export default function EditAppModal({
                 앱 이름 <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-3">
-                <div className="relative">
+                <div className="relative group">
                   <AppIcon
                     icon={appIcon}
                     onClick={() => setShowAppIconPicker(!showAppIconPicker)}
-                    className="shadow-sm border border-zinc-200 dark:border-zinc-700 w-10 h-10 hover:ring-2 ring-blue-100 transition-all"
+                    className="shadow-sm border border-zinc-200 dark:border-zinc-700 w-10 h-10 group-hover:ring-2 ring-blue-100 transition-all"
                   />
+                  {/* Edit Overlay Hint */}
+                  <div
+                    onClick={() => setShowAppIconPicker(!showAppIconPicker)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 rounded-lg cursor-pointer transition-opacity z-10"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </div>
+
+                  {/* 아이콘 선택기 (Popover) */}
                   {showAppIconPicker && (
                     <AppIconPicker
                       currentIcon={appIcon}

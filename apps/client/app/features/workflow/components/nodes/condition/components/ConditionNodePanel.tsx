@@ -9,6 +9,7 @@ import {
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
 
 interface ConditionNodePanelProps {
   nodeId: string;
@@ -206,28 +207,22 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                       }
                       placeholder={`Case ${caseIndex + 1}`}
                     />
-                    <div className="relative">
-                      <select
-                        className="appearance-none text-xs pl-2 pr-6 py-1 rounded border border-gray-200 bg-white font-medium text-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all cursor-pointer"
+                    <div className="w-20">
+                      <RoundedSelect
                         value={caseItem.logical_operator}
-                        onChange={(e) =>
+                        onChange={(val) =>
                           handleUpdateCaseLogicalOperator(
                             caseIndex,
-                            e.target.value as 'and' | 'or',
+                            val as 'and' | 'or',
                           )
                         }
-                      >
-                        <option value="and">AND</option>
-                        <option value="or">OR</option>
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-gray-500">
-                        <svg
-                          className="h-3 w-3 fill-current"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                        </svg>
-                      </div>
+                        options={[
+                          { label: 'AND', value: 'and' },
+                          { label: 'OR', value: 'or' },
+                        ]}
+                        placeholder="Op"
+                        className="py-1 px-2 text-xs"
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -308,56 +303,67 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
 
                           {/* Variable Selector Row */}
                           <div className="flex gap-2">
-                            <select
-                              className="w-1/2 appearance-none rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
-                              value={condition.variable_selector?.[0] || ''}
-                              onChange={(e) => {
-                                handleUpdateCondition(
-                                  caseIndex,
-                                  conditionIndex,
-                                  'variable_selector',
-                                  [e.target.value, ''],
-                                );
-                              }}
-                            >
-                              <option value="" disabled>
-                                노드 선택
-                              </option>
-                              {upstreamNodes.map((n) => (
-                                <option key={n.id} value={n.id}>
-                                  {(n.data as { title?: string })?.title ||
-                                    n.type}
-                                </option>
-                              ))}
-                            </select>
-
-                            {isStartNode ? (
-                              <select
-                                className="w-1/2 appearance-none rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
-                                value={condition.variable_selector?.[1] || ''}
-                                onChange={(e) => {
-                                  const currentNode =
-                                    condition.variable_selector?.[0] || '';
+                            <div className="flex-1">
+                              <RoundedSelect
+                                value={condition.variable_selector?.[0] || ''}
+                                onChange={(val) => {
                                   handleUpdateCondition(
                                     caseIndex,
                                     conditionIndex,
                                     'variable_selector',
-                                    [currentNode, e.target.value],
+                                    [val as string, ''],
                                   );
                                 }}
-                                disabled={sourceVariables.length === 0}
-                              >
-                                <option value="" disabled>
-                                  {sourceVariables.length === 0
-                                    ? '변수 없음'
-                                    : '변수 선택'}
-                                </option>
-                                {sourceVariables.map((v) => (
-                                  <option key={v.value} value={v.value}>
-                                    {v.label}
-                                  </option>
-                                ))}
-                              </select>
+                                options={[
+                                  { label: '노드 선택', value: '' },
+                                  ...upstreamNodes.map((n) => ({
+                                    label:
+                                      (n.data as { title?: string })?.title ||
+                                      n.type,
+                                    value: n.id,
+                                  })),
+                                ]}
+                                placeholder="노드 선택"
+                                className="w-full py-1.5 text-xs text-gray-700 bg-gray-50 border-gray-200"
+                              />
+                            </div>
+
+                            {isStartNode ? (
+                              <div className="flex-1">
+                                <RoundedSelect
+                                  value={condition.variable_selector?.[1] || ''}
+                                  onChange={(val) => {
+                                    const currentNode =
+                                      condition.variable_selector?.[0] || '';
+                                    handleUpdateCondition(
+                                      caseIndex,
+                                      conditionIndex,
+                                      'variable_selector',
+                                      [currentNode, val as string],
+                                    );
+                                  }}
+                                  disabled={sourceVariables.length === 0}
+                                  options={[
+                                    {
+                                      label:
+                                        sourceVariables.length === 0
+                                          ? '변수 없음'
+                                          : '변수 선택',
+                                      value: '',
+                                    },
+                                    ...sourceVariables.map((v) => ({
+                                      label: v.label,
+                                      value: v.value,
+                                    })),
+                                  ]}
+                                  placeholder={
+                                    sourceVariables.length === 0
+                                      ? '변수 없음'
+                                      : '변수 선택'
+                                  }
+                                  className="w-full py-1.5 text-xs text-gray-700 bg-gray-50 border-gray-200"
+                                />
+                              </div>
                             ) : (
                               <input
                                 className="w-1/2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-gray-700 placeholder:font-normal placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors"
@@ -378,24 +384,23 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                           </div>
 
                           {/* Operator Selector */}
-                          <select
-                            className="w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none"
+                          <RoundedSelect
                             value={condition.operator}
-                            onChange={(e) =>
+                            onChange={(val) =>
                               handleUpdateCondition(
                                 caseIndex,
                                 conditionIndex,
                                 'operator',
-                                e.target.value,
+                                val as string,
                               )
                             }
-                          >
-                            {CONDITION_OPERATORS.map((op) => (
-                              <option key={op.value} value={op.value}>
-                                {op.label}
-                              </option>
-                            ))}
-                          </select>
+                            options={CONDITION_OPERATORS.map((op) => ({
+                              label: op.label,
+                              value: op.value,
+                            }))}
+                            placeholder="조건 선택"
+                            className="bg-gray-50 border-gray-200 text-xs py-1.5"
+                          />
 
                           {/* Value Input */}
                           <input

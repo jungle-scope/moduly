@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # PostgreSQL Database with pgvector extension
@@ -14,45 +14,58 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d moduly"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d moduly_local"]
       interval: 30s
       timeout: 5s
       retries: 5
     networks:
       - moduly-network
 
-  # Backend API (FastAPI)
-  backend:
+  # Redis (Celery Broker & Pub/Sub)
+  redis:
+    image: redis:7-alpine
+    container_name: moduly-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - moduly-network
+
+  # Gateway API (FastAPI)
+  gateway:
     build:
       context: ..
-      dockerfile: docker/server/Dockerfile
-    container_name: moduly-backend
+      dockerfile: docker/gateway/Dockerfile
+    container_name: moduly-gateway
     environment:
-      # Database - individual variables (session.py uses these to construct DATABASE_URL)
+      # Database
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: admin
       DB_PASSWORD: admin123
       DB_NAME: moduly_local
-      
-      # JWT Secret (REQUIRED - change in production)
+
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+
+      # JWT Secret
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
-      
-      # Sandbox configuration
+
+      # Sandbox
       SANDBOX_URL: http://sandbox:8194
       SANDBOX_API_KEY: ${SANDBOX_API_KEY:-dify-sandbox-key}
-      
-      # Proxy configuration
+
+      # Proxy
       HTTP_PROXY: http://proxy:3128
       HTTPS_PROXY: http://proxy:3128
-      # Important: Exclude internal services from proxy
-      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,backend"
-      
-      # AWS (optional)
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
-      
+      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,redis,workflow_engine,log_system"
+
       # Python
       PYTHONUNBUFFERED: 1
       PYTHONPATH: /app
@@ -61,13 +74,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       sandbox:
         condition: service_started
-      proxy:
-        condition: service_started
     volumes:
-      # Upload files persistence
-      - backend_uploads:/app/apps/server/uploads
+      - gateway_uploads:/app/uploads
     networks:
       - moduly-network
     healthcheck:
@@ -77,27 +89,100 @@ services:
       start_period: 30s
       retries: 3
 
+  # Workflow Engine (Celery Worker)
+  workflow_engine:
+    build:
+      context: ..
+      dockerfile: docker/workflow_engine/Dockerfile
+    container_name: moduly-workflow-engine
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: moduly_local
+
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+
+      # Sandbox
+      SANDBOX_URL: http://sandbox:8194
+      SANDBOX_API_KEY: ${SANDBOX_API_KEY:-dify-sandbox-key}
+
+      # Proxy
+      HTTP_PROXY: http://proxy:3128
+      HTTPS_PROXY: http://proxy:3128
+      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,redis,gateway,log_system"
+
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - moduly-network
+
+  # Log System (Celery Worker)
+  log_system:
+    build:
+      context: ..
+      dockerfile: docker/log_system/Dockerfile
+    container_name: moduly-log-system
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: moduly_local
+
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - moduly-network
+
   # Frontend (Next.js)
   frontend:
     build:
       context: ..
       dockerfile: docker/client/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://backend:8000
+        NEXT_PUBLIC_API_URL: http://gateway:8000
     container_name: moduly-frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:8000
-      API_URL: http://backend:8000
+      NEXT_PUBLIC_API_URL: http://gateway:8000
+      API_URL: http://gateway:8000
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      - gateway
     networks:
       - moduly-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000",
+        ]
       interval: 60s
       timeout: 10s
       start_period: 30s
@@ -116,11 +201,10 @@ services:
       - "8194:8194"
     networks:
       - moduly-network
-    # Security: restrict resources
     mem_limit: 512m
     cpus: 0.5
 
-  # HTTP Proxy (Squid) - for security and external HTTP requests
+  # HTTP Proxy (Squid)
   proxy:
     build:
       context: ..
@@ -140,7 +224,8 @@ services:
 
 volumes:
   postgres_data:
-  backend_uploads:
+  redis_data:
+  gateway_uploads:
 
 networks:
   moduly-network:
