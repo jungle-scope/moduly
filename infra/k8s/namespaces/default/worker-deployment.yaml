@@ -39,6 +39,7 @@ spec:
       containers:
       - name: worker
         image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine:latest
+        imagePullPolicy: Always  # latest 태그 사용 시 항상 최신 이미지 pull
         env:
         - name: DB_HOST
           value: postgresql.default.svc.cluster.local
@@ -66,8 +67,8 @@ spec:
               key: REDIS_PASSWORD
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 200m      
+            memory: 256Mi  
           limits:
-            cpu: 200m
-            memory: 256Mi
+            cpu: 500m   
+            memory: 512Mi
