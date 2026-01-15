@@ -86,3 +86,5 @@ build/
 dist/
 .eggs/
 
+# 테스트 유저와 관련 데이터 삭제 스크립트 (개발시 DB CRUD 확인용)
+scripts/cleanup_users.py
