@@ -154,7 +154,7 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     setFilteredLogs(result);
   };
 
-  const handleLogSelect = (log: WorkflowRun) => {
+  const handleLogSelect = async (log: WorkflowRun) => {
     // A/B Selection Mode
     if (selectionTarget === 'A') {
       if (abRunB?.id === log.id) {
@@ -191,9 +191,17 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
       return;
     }
 
-    // Default Navigation
-    setSelectedLog(log);
-    setViewMode('detail');
+    // Default Navigation - 상세 API 호출하여 node_runs 포함한 전체 데이터 가져오기
+    try {
+      const detailedRun = await workflowApi.getWorkflowRun(workflowId, log.id);
+      setSelectedLog(detailedRun);
+      setViewMode('detail');
+    } catch (error) {
+      console.error('Failed to fetch run details:', error);
+      // 실패 시 목록 데이터라도 표시
+      setSelectedLog(log);
+      setViewMode('detail');
+    }
   };
 
   const handleBackToList = () => {

@@ -18,11 +18,13 @@ export interface WorkflowNodeRun {
   node_type: string;
   status: string;
   inputs?: Record<string, any>;
+  process_data?: Record<string, any>;  // 노드 옵션 스냅샷 (실행 시점 설정)
   outputs?: Record<string, any>;
   error_message?: string;
   started_at: string;
   finished_at?: string;
 }
+
 
 export interface WorkflowRun {
   id: string;

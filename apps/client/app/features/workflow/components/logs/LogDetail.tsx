@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { JsonDataDisplay } from './JsonDataDisplay';
 import { ko } from 'date-fns/locale';
 import {
   WorkflowRun,
@@ -24,6 +25,9 @@ import {
   Sparkles,
   FileText,
   Bot,
+  ChevronDown,
+  Upload,
+  Download,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { LogExecutionPath } from './LogExecutionPath';
@@ -119,6 +123,418 @@ const getNodeDisplayInfo = (
   );
 };
 
+// 접었다 펼치기 가능한 섹션 컴포넌트
+const CollapsibleSection = ({
+  title,
+  icon,
+  defaultOpen = true,
+  bgColor = 'gray',
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  defaultOpen?: boolean;
+  bgColor?: 'amber' | 'gray';
+  children: React.ReactNode;
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  const colorClasses = {
+    amber: 'bg-amber-50 border-amber-200',
+    gray: 'bg-gray-50 border-gray-200',
+  };
+
+  const headerColorClasses = {
+    amber: 'text-amber-700',
+    gray: 'text-gray-700',
+  };
+
+  return (
+    <div className={`rounded-lg border ${colorClasses[bgColor]}`}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-opacity-80 transition-all"
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <h4 className={`font-semibold text-sm ${headerColorClasses[bgColor]}`}>
+            {title}
+          </h4>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 transition-transform ${headerColorClasses[bgColor]} ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+      {isOpen && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  );
+};
+
+// 노드 설정 섹션 (NodeOptionsDisplay를 CollapsibleSection으로 감싸지 않고, 내부에서 직접 처리)
+const NodeOptionsSection = ({
+  nodeType,
+  options,
+}: {
+  nodeType: string;
+  options: Record<string, any>;
+}) => {
+  return (
+    <CollapsibleSection
+      title="실행 시점 노드 설정"
+      icon={<span>⚙️</span>}
+      bgColor="amber"
+      defaultOpen={true}
+    >
+      <div className="pt-2">
+        <NodeOptionsDisplay nodeType={nodeType} options={options} />
+      </div>
+    </CollapsibleSection>
+  );
+};
+
+// 입력 데이터 섹션
+const InputDataSection = ({ data }: { data: any }) => {
+  return (
+    <CollapsibleSection
+      title="입력 데이터"
+      icon={<Upload className="w-4 h-4" />}
+      bgColor="gray"
+      defaultOpen={true}
+    >
+      <div className="bg-white rounded border border-gray-200 p-4 max-h-96 overflow-y-auto">
+        <JsonDataDisplay data={data} initiallyExpanded={true} />
+      </div>
+    </CollapsibleSection>
+  );
+};
+
+// 출력 데이터 섹션
+const OutputDataSection = ({ data }: { data: any }) => {
+  return (
+    <CollapsibleSection
+      title="출력 데이터"
+      icon={<Download className="w-4 h-4" />}
+      bgColor="gray"
+      defaultOpen={true}
+    >
+      <div className="bg-white rounded border border-gray-200 p-4 max-h-96 overflow-y-auto">
+        <JsonDataDisplay data={data} initiallyExpanded={true} />
+      </div>
+    </CollapsibleSection>
+  );
+};
+
+// 옵션 필드 아이템 컴포넌트
+const OptionFieldItem = ({
+  label,
+  value,
+  type,
+  isEmpty,
+}: {
+  label: string;
+  value: any;
+  type?: 'text' | 'code' | 'list' | 'json' | 'variables-table';
+  isEmpty: boolean;
+}) => {
+  return (
+    <div className="text-xs">
+      <span className="font-semibold text-gray-700 block mb-1">{label}</span>
+      {isEmpty ? (
+        <div className="bg-white rounded border border-gray-200 p-2 min-h-[32px]" />
+      ) : type === 'code' ? (
+        <pre className="bg-gray-900 text-gray-100 rounded p-2 overflow-x-auto max-h-40 overflow-y-auto font-mono">
+          {value}
+        </pre>
+      ) : type === 'list' && Array.isArray(value) ? (
+        <div className="flex flex-wrap gap-1">
+          {value.map((v: any, i: number) => (
+            <span
+              key={i}
+              className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs"
+            >
+              {v.name || v.id || JSON.stringify(v)}
+            </span>
+          ))}
+        </div>
+      ) : type === 'variables-table' && Array.isArray(value) ? (
+        <div className="bg-white rounded border border-gray-200 overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700 border-b">변수명</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700 border-b">표시명</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700 border-b">타입</th>
+                <th className="px-2 py-1.5 text-center font-semibold text-gray-700 border-b">필수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {value.map((v: any, i: number) => (
+                <tr key={i} className="border-b last:border-b-0">
+                  <td className="px-2 py-1.5 font-mono text-gray-700">{v.name}</td>
+                  <td className="px-2 py-1.5 text-gray-700">{v.label}</td>
+                  <td className="px-2 py-1.5">
+                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">
+                      {v.type}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-center">
+                    {v.required ? (
+                      <span className="text-red-600 font-bold">✓</span>
+                    ) : (
+                      <span className="text-gray-300">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : type === 'json' ? (
+        <pre className="bg-white rounded border border-gray-200 p-2 overflow-x-auto max-h-24 overflow-y-auto font-mono text-gray-600">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      ) : (
+        // text 타입과 기본 타입(모델명 등) 모두 동일한 스타일 적용 (흰색 박스)
+        <div className="bg-white rounded border border-gray-200 p-2 max-h-32 overflow-y-auto">
+          <p className="text-gray-700 whitespace-pre-wrap font-mono text-[11px]">
+            {String(value)}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// 노드 타입별 설정 표시 컴포넌트
+const NodeOptionsDisplay = ({
+  nodeType,
+  options,
+}: {
+  nodeType: string;
+  options: Record<string, any>;
+}) => {
+  // 제외할 공통 필드
+  const excludeFields = ['title', 'description', 'status'];
+
+  // 값이 비어있는지 확인하는 헬퍼
+  const isEmpty = (value: any): boolean => {
+    if (value === undefined || value === null || value === '') return true;
+    if (Array.isArray(value) && value.length === 0) return true;
+    if (typeof value === 'object' && Object.keys(value).length === 0) return true;
+    return false;
+  };
+
+  // 노드 타입별 표시할 필드 구성 (행 단위로 그룹화)
+  const getDisplayConfig = (type: string) => {
+    type FieldConfig = { key: string; label: string; type?: 'text' | 'code' | 'list' | 'json' | 'variables-table' };
+    const configs: Record<string, { label: string; rows: FieldConfig[][] }> = {
+      llmNode: {
+        label: 'LLM 설정',
+        rows: [
+          [
+            { key: 'model_id', label: '모델' },
+            { key: 'fallback_model_id', label: '폴백 모델' },
+          ],
+          [{ key: 'system_prompt', label: '시스템 프롬프트', type: 'text' }],
+          [{ key: 'user_prompt', label: '사용자 프롬프트', type: 'text' }],
+          [{ key: 'assistant_prompt', label: '어시스턴트 프롬프트', type: 'text' }],
+          [{ key: 'parameters', label: '파라미터', type: 'json' }],
+          [{ key: 'knowledgeBases', label: '지식 베이스', type: 'list' }],
+        ],
+      },
+      codeNode: {
+        label: '코드 설정',
+        rows: [
+          [{ key: 'code', label: '코드', type: 'code' }],
+          [
+            { key: 'timeout', label: '타임아웃 (초)' },
+            { key: 'inputs', label: '입력 변수 매핑', type: 'json' },
+          ],
+        ],
+      },
+      httpRequestNode: {
+        label: 'HTTP 요청 설정',
+        rows: [
+          [
+            { key: 'method', label: '메서드' },
+            { key: 'url', label: 'URL' },
+          ],
+          [{ key: 'headers', label: '헤더', type: 'json' }],
+          [{ key: 'body', label: '바디', type: 'text' }],
+          [
+            { key: 'timeout', label: '타임아웃 (ms)' },
+            { key: 'authType', label: '인증 타입' },
+          ],
+        ],
+      },
+      conditionNode: {
+        label: '조건 설정',
+        rows: [
+          [{ key: 'cases', label: '조건 케이스', type: 'json' }],
+          [{ key: 'logical_operator', label: '논리 연산자' }],
+        ],
+      },
+      templateNode: {
+        label: '템플릿 설정',
+        rows: [
+          [{ key: 'template', label: '템플릿', type: 'text' }],
+          [{ key: 'referenced_variables', label: '참조 변수', type: 'json' }],
+        ],
+      },
+      startNode: {
+        label: '시작 노드 설정',
+        rows: [
+          [{ key: 'trigger_type', label: '트리거 타입' }],
+          [{ key: 'variables', label: '입력 변수', type: 'variables-table' }],
+        ],
+      },
+      answerNode: {
+        label: 'Answer 노드 설정',
+        rows: [
+          [{ key: 'outputs', label: '출력 변수', type: 'json' }],
+        ],
+      },
+      webhookTriggerNode: {
+        label: 'Webhook 트리거 설정',
+        rows: [
+          [{ key: 'provider', label: 'Provider' }],
+          [{ key: 'variable_mappings', label: '변수 매핑', type: 'json' }],
+        ],
+      },
+      mailNode: {
+        label: 'Mail 노드 설정',
+        rows: [
+          [
+            { key: 'provider', label: 'Provider' },
+            { key: 'email', label: '이메일' },
+          ],
+          [
+            { key: 'folder', label: '폴더' },
+            { key: 'max_results', label: '최대 결과' },
+          ],
+          [{ key: 'keyword', label: '검색 키워드' }],
+          [{ key: 'sender', label: '발신자 필터' }],
+          [{ key: 'subject', label: '제목 필터' }],
+          [
+            { key: 'unread_only', label: '읽지 않은 메일만' },
+            { key: 'mark_as_read', label: '읽음 표시' },
+          ],
+        ],
+      },
+      workflowNode: {
+        label: 'Workflow 노드 설정',
+        rows: [
+          [
+            { key: 'workflowId', label: '워크플로우 ID' },
+            { key: 'appId', label: '앱 ID' },
+          ],
+          [{ key: 'inputs', label: '입력 매핑', type: 'json' }],
+        ],
+      },
+      fileExtractionNode: {
+        label: 'File Extraction 노드 설정',
+        rows: [
+          [{ key: 'referenced_variables', label: '참조 변수', type: 'json' }],
+        ],
+      },
+      githubNode: {
+        label: 'GitHub 노드 설정',
+        rows: [
+          [
+            { key: 'action', label: '액션' },
+            { key: 'pr_number', label: 'PR 번호' },
+          ],
+          [
+            { key: 'repo_owner', label: '저장소 소유자' },
+            { key: 'repo_name', label: '저장소 이름' },
+          ],
+          [{ key: 'comment_body', label: '댓글 내용', type: 'text' }],
+        ],
+      },
+      scheduleTriggerNode: {
+        label: 'Schedule 트리거 설정',
+        rows: [
+          [
+            { key: 'cron_expression', label: 'Cron 표현식' },
+            { key: 'timezone', label: '타임존' },
+          ],
+        ],
+      },
+      loopNode: {
+        label: 'Loop 노드 설정',
+        rows: [
+          [
+            { key: 'loop_key', label: '반복 대상 키' },
+            { key: 'max_iterations', label: '최대 반복' },
+          ],
+          [
+            { key: 'parallel_mode', label: '병렬 모드' },
+            { key: 'error_strategy', label: '에러 전략' },
+            { key: 'flatten_output', label: '출력 평탄화' },
+          ],
+          [
+            { key: 'inputs', label: '입력 매핑', type: 'json' },
+            { key: 'outputs', label: '출력 매핑', type: 'json' },
+          ],
+        ],
+      },
+    };
+    return configs[type] || null;
+  };
+
+  const config = getDisplayConfig(nodeType);
+
+  // 설정이 없으면 필터링된 JSON 표시 (기존 유지)
+  if (!config) {
+    const filteredOptions = Object.fromEntries(
+      Object.entries(options).filter(([key]) => !excludeFields.includes(key))
+    );
+    if (Object.keys(filteredOptions).length === 0) return null;
+
+    // CollapsibleSection에서 사용되므로 외부 래퍼 없이 내용만 반환
+    return (
+      <pre className="text-xs font-mono text-gray-600 overflow-x-auto whitespace-pre-wrap break-all max-h-48 overflow-y-auto">
+        {JSON.stringify(filteredOptions, null, 2)}
+      </pre>
+    );
+  }
+
+  // 렌더링할 행 데이터 준비
+  const displayRows = config.rows.map((row) =>
+    row.map((field) => ({
+      ...field,
+      value: options[field.key],
+      isEmpty: isEmpty(options[field.key]),
+    }))
+  );
+
+  // 모든 필드가 undefined면 표시 안 함
+  const hasAnyValue = displayRows.flat().some((item) => item.value !== undefined);
+  if (!hasAnyValue) return null;
+
+  // CollapsibleSection에서 사용되므로 외부 래퍼 없이 내용만 반환
+  return (
+    <div className="space-y-3">
+      {displayRows.map((row, rowIndex) => (
+        <div key={rowIndex} className="flex gap-4">
+          {row.map((item) => (
+            <div key={item.key} className="flex-1 min-w-0">
+              <OptionFieldItem
+                label={item.label}
+                value={item.value}
+                type={item.type}
+                isEmpty={item.isEmpty}
+              />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // Calculate node duration from started_at and finished_at
 const getNodeDuration = (node: WorkflowNodeRun): string | null => {
   if (!node.started_at || !node.finished_at) return null;
@@ -128,6 +544,7 @@ const getNodeDuration = (node: WorkflowNodeRun): string | null => {
   if (durationMs < 0) return null;
   return (durationMs / 1000).toFixed(2);
 };
+
 
 export const LogDetail = ({
   run,
@@ -312,23 +729,19 @@ export const LogDetail = ({
           </h3>
           {selectedNode ? (
             <div className="space-y-6">
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 className="font-semibold text-sm text-gray-700 mb-2">
-                  Input Data
-                </h4>
-                <pre className="text-xs font-mono text-gray-600 overflow-x-auto whitespace-pre-wrap break-all">
-                  {JSON.stringify(selectedNode.inputs, null, 2)}
-                </pre>
-              </div>
+              {/* 실행 시점 노드 설정 (맨 위) */}
+              {selectedNode.process_data?.node_options && (
+                <NodeOptionsSection
+                  nodeType={selectedNode.node_type}
+                  options={selectedNode.process_data.node_options}
+                />
+              )}
 
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 className="font-semibold text-sm text-gray-700 mb-2">
-                  Output Data
-                </h4>
-                <pre className="text-xs font-mono text-gray-600 overflow-x-auto whitespace-pre-wrap break-all">
-                  {JSON.stringify(selectedNode.outputs, null, 2)}
-                </pre>
-              </div>
+              {/* 입력 데이터 */}
+              <InputDataSection data={selectedNode.inputs} />
+
+              {/* 출력 데이터 */}
+              <OutputDataSection data={selectedNode.outputs} />
 
               {selectedNode.error_message && (
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
@@ -341,6 +754,8 @@ export const LogDetail = ({
                 </div>
               )}
             </div>
+
+
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-gray-400">
               <BrainCircuit className="w-12 h-12 mb-3 opacity-20" />

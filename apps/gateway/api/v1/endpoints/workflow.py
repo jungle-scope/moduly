@@ -3,7 +3,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, noload, selectinload
 
 # from sqlalchemy.orm import Session, noload, selectinload
 from starlette.requests import Request
@@ -66,7 +66,7 @@ def get_workflow_runs(
 
     runs = (
         db.query(WorkflowRun)
-        # .options(noload(WorkflowRun.node_runs))
+        .options(noload(WorkflowRun.node_runs))
         .filter(WorkflowRun.workflow_id == workflow_id)
         .order_by(WorkflowRun.started_at.desc())
         .offset(skip)
@@ -94,7 +94,7 @@ def get_workflow_run_detail(
 
     run = (
         db.query(WorkflowRun)
-        # .options(selectinload(WorkflowRun.node_runs))
+        .options(selectinload(WorkflowRun.node_runs))
         .filter(WorkflowRun.id == run_id, WorkflowRun.workflow_id == workflow_id)
         .first()
     )
