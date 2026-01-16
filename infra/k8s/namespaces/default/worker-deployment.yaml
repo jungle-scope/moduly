@@ -1,7 +1,7 @@
 # Worker Deployment
-# 
+#
 # 역할: 백그라운드 작업 처리 (현재는 Placeholder)
-# 
+#
 # API Server와의 주요 차이점:
 # 1. 실행 명령어: API는 uvicorn, Worker는 python/celery
 # 2. 포트: API는 8000 포트 EXPOSE, Worker는 포트 없음
@@ -9,17 +9,17 @@
 # 4. Health Check: API는 HTTP health check, Worker는 없음
 # 5. 리소스: Worker가 더 적은 CPU/메모리 (100m/128Mi vs 200m/256Mi)
 # 6. Replicas: Worker는 1개, API는 2개
-# 
+#
 # 나중에 수정할 부분:
 # - 21-23번 줄: Celery 구현 시 command와 args 수정
 #   예시)
 #   command: ["celery"]
 #   args: ["-A", "apps.server.worker", "worker", "--loglevel=info"]
-# 
+#
 # - 필요시 Health Check 추가 (Celery inspect 사용)
 # - 작업량에 따라 replicas 증가
 # - 리소스 조정 (resources.requests/limits)
-# 
+#
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,7 +27,7 @@ metadata:
   labels:
     app: worker
 spec:
-  replicas: 1
+  replicas: 4
   selector:
     matchLabels:
       app: worker
@@ -37,51 +37,63 @@ spec:
         app: worker
     spec:
       containers:
-      - name: worker
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine:latest
-        imagePullPolicy: Always  # latest 태그 사용 시 항상 최신 이미지 pull
-        env:
-        - name: DB_HOST
-          value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
-        - name: DB_PORT
-          value: "5432"
-        - name: DB_NAME
-          value: moduly
-        - name: DB_USER
-          value: postgres
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: DB_PASSWORD
-        - name: REDIS_HOST
-          value: redis-master.default.svc.cluster.local
-        - name: REDIS_PORT
-          value: "6379"
-        - name: REDIS_DB
-          value: "0"
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: REDIS_PASSWORD
-        # Sandbox 설정 (Code 노드 실행용)
-        - name: SANDBOX_URL
-          value: "http://sandbox-service.default.svc.cluster.local:8194"
-        - name: SANDBOX_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: SANDBOX_API_KEY
-        # S3 설정 (파일 처리용)
-        - name: S3_BUCKET_NAME
-          value: "moduly-dev-file-upload"
-        - name: AWS_REGION
-          value: "ap-northeast-2"
-        resources:
-          requests:
-            cpu: 200m      
-            memory: 256Mi  
-          limits:
-            cpu: 500m   
-            memory: 512Mi  
+        - name: worker
+          image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine:latest
+          imagePullPolicy: Always # latest 태그 사용 시 항상 최신 이미지 pull
+          env:
+            - name: DB_HOST
+              value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: moduly
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_HOST
+              value: redis-master.default.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+            # [FIX] 브로커/백엔드 Redis DB 분리 (I/O 경합 방지)
+            - name: REDIS_BROKER_DB
+              value: "0"
+            - name: REDIS_BACKEND_DB
+              value: "1"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
+            # Sandbox 설정 (Code 노드 실행용)
+            - name: SANDBOX_URL
+              value: "http://sandbox-service.default.svc.cluster.local:8194"
+            - name: SANDBOX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SANDBOX_API_KEY
+            # S3 설정 (파일 처리용)
+            - name: STORAGE_TYPE
+              value: "CLOUD"
+            - name: S3_BUCKET_NAME
+              value: "moduly-dev-file-upload"
+            - name: AWS_REGION
+              value: "ap-northeast-2"
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: ENCRYPTION_KEY
+          # [FIX] 리소스 증가 (worker_concurrency 16 대응)
+          resources:
+            requests:
+              cpu: 1000m # 200m → 1000m (5배)
+              memory: 1Gi # 256Mi → 1Gi (4배)
+            limits:
+              cpu: 2000m # 500m → 2000m (4배)
+              memory: 2Gi # 512Mi → 2Gi (4배)
+

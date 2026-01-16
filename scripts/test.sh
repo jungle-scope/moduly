@@ -51,9 +51,14 @@ WORKFLOW_EXIT_CODE=$?
 
 echo -e "\n${YELLOW}📍 Shared Library & Unit 테스트 실행 (with Workflow Venv)${NC}"
 (
-    source apps/workflow_engine/.venv/bin/activate
+    # OS별 Python 경로 설정
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        VENV_PYTHON="apps/workflow_engine/.venv/Scripts/python"
+    else
+        VENV_PYTHON="apps/workflow_engine/.venv/bin/python"
+    fi
     export PYTHONPATH="$PROJECT_ROOT"
-    pytest apps/shared/tests
+    $VENV_PYTHON -m pytest apps/shared/tests
 )
 UNIT_EXIT_CODE=$?
 

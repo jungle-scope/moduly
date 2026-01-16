@@ -11,9 +11,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
 from apps.gateway.services.ingestion.factory import IngestionFactory
-from apps.gateway.services.storage import get_storage_service  # [NEW]
+from apps.gateway.services.storage import get_storage_service
 from apps.shared.db.models.knowledge import Document, DocumentChunk, SourceType
 from apps.shared.db.session import SessionLocal
+from apps.shared.distributed_lock import DistributedLock
 
 
 class IngestionOrchestrator:
@@ -112,101 +113,111 @@ class IngestionOrchestrator:
         return chunks
 
     def process_document(self, document_id: UUID):
-        session = SessionLocal()
-        self.db = session
 
-        try:
-            print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
-            doc = self.db.query(Document).get(document_id)
-            if not doc:
-                print(f"[DEBUG] Document {document_id} not found.")
+        # 락 획득 시도 (2분 TTL)
+        lock = DistributedLock(f"doc_processing:{document_id}", ttl=120)
+        
+        with lock.lock() as acquired:
+            if not acquired:
+                print(f"[IngestionOrchestrator] Document {document_id} is already being processed by another worker")
                 return
 
-            # 초기 상태 저장 (업데이트 전)
-            initial_status = doc.status
+            session = SessionLocal()
+            self.db = session
 
-            # 이미 처리된 문서인지 확인 (중복 방지)
-            if doc.status == "completed":
-                pass
+            try:
+                print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
+                doc = self.db.query(Document).get(document_id)
+                if not doc:
+                    print(f"[DEBUG] Document {document_id} not found.")
+                    return
 
-            self._update_status(document_id, "indexing")
+                # 초기 상태 저장 (업데이트 전)
+                initial_status = doc.status
 
-            # 문서 소스 타입에 맞는 Processor 생성
-            processor = IngestionFactory.get_processor(
-                doc.source_type, self.db, self.user_id
-            )
-            print(f"[DEBUG] Processor created: {type(processor).__name__}")
+                # 이미 처리 완료된 문서 건너뛰기
+                if doc.status == "completed":
+                    print(f"[INFO] Document {document_id} already completed, skipping...")
+                    return
 
-            source_config = self._build_config(doc)
+                self._update_status(document_id, "indexing")
 
-            result = processor.process(source_config)
+                # 문서 소스 타입에 맞는 Processor 생성
+                processor = IngestionFactory.get_processor(
+                    doc.source_type, self.db, self.user_id
+                )
+                print(f"[DEBUG] Processor created: {type(processor).__name__}")
 
-            if result.metadata.get("error"):
-                raise Exception(result.metadata["error"])
+                source_config = self._build_config(doc)
 
-            raw_blocks = result.chunks
-            if not raw_blocks:
-                print("No content extracted.")
+                result = processor.process(source_config)
+
+                if result.metadata.get("error"):
+                    raise Exception(result.metadata["error"])
+
+                raw_blocks = result.chunks
+                if not raw_blocks:
+                    print("No content extracted.")
+                    self._update_status(document_id, "completed")
+                    return
+
+                full_text = "".join([b["content"] for b in raw_blocks])
+                new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
+                # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
+                # 임베딩 모델이 변경된 경우에도 재처리
+                if (
+                    doc.content_hash == new_hash
+                    and doc.embedding_model == self.ai_model
+                    and initial_status != "failed"
+                ):
+                    print("Content unchanged. Skipping.")
+                    self._update_status(document_id, "completed")
+                    return
+
+                doc.content_hash = new_hash
+                self.db.commit()
+
+                if doc.source_type == "DB":
+                    final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
+                else:
+                    # 전처리 적용 (FILE, API 타입)
+                    full_text = "\n".join([b["content"] for b in raw_blocks])
+                    preprocessed_text = self.preprocess_text(full_text, doc.meta_info or {})
+                    preprocessed_blocks = [{"content": preprocessed_text, "metadata": {}}]
+                    final_chunks = self._refine_chunks(preprocessed_blocks)
+
+                # 필터링 적용
+                meta = doc.meta_info or {}
+                selection_mode = meta.get("selection_mode", "all")
+                chunk_range = meta.get("chunk_range")
+                keyword_filter = meta.get("keyword_filter")
+
+                filtered_chunks = self._filter_chunks(
+                    final_chunks, selection_mode, chunk_range, keyword_filter
+                )
+
+                print(
+                    f"[DEBUG] Filtering: {len(final_chunks)} -> {len(filtered_chunks)} chunks (Mode: {selection_mode})"
+                )
+
+                self._save_to_vector_db(doc, filtered_chunks)
+                print(
+                    f"[IngestionOrchestrator] Document processing completed successfully: {doc.filename} ({document_id})"
+                )
                 self._update_status(document_id, "completed")
-                return
 
-            full_text = "".join([b["content"] for b in raw_blocks])
-            new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
-            # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
-            # 임베딩 모델이 변경된 경우에도 재처리
-            if (
-                doc.content_hash == new_hash
-                and doc.embedding_model == self.ai_model
-                and initial_status != "failed"
-            ):
-                print("Content unchanged. Skipping.")
-                self._update_status(document_id, "completed")
-                return
+            except Exception as e:
+                print(f"\n{'=' * 40}")
+                print("[ERROR] [IngestionOrchestrator] Processing FAILED")
+                print(f"Document ID: {document_id}")
+                print(f"Reason: {e}")
+                print(f"{'=' * 40}\n")
+                self.db.rollback()
+                self._update_status(document_id, "failed", str(e))
 
-            doc.content_hash = new_hash
-            self.db.commit()
-
-            if doc.source_type == "DB":
-                final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
-            else:
-                # 전처리 적용 (FILE, API 타입)
-                full_text = "\n".join([b["content"] for b in raw_blocks])
-                preprocessed_text = self.preprocess_text(full_text, doc.meta_info or {})
-                preprocessed_blocks = [{"content": preprocessed_text, "metadata": {}}]
-                final_chunks = self._refine_chunks(preprocessed_blocks)
-
-            # 필터링 적용
-            meta = doc.meta_info or {}
-            selection_mode = meta.get("selection_mode", "all")
-            chunk_range = meta.get("chunk_range")
-            keyword_filter = meta.get("keyword_filter")
-
-            filtered_chunks = self._filter_chunks(
-                final_chunks, selection_mode, chunk_range, keyword_filter
-            )
-
-            print(
-                f"[DEBUG] Filtering: {len(final_chunks)} -> {len(filtered_chunks)} chunks (Mode: {selection_mode})"
-            )
-
-            self._save_to_vector_db(doc, filtered_chunks)
-            print(
-                f"[IngestionOrchestrator] Document processing completed successfully: {doc.filename} ({document_id})"
-            )
-            self._update_status(document_id, "completed")
-
-        except Exception as e:
-            print(f"\n{'=' * 40}")
-            print("[ERROR] [IngestionOrchestrator] Processing FAILED")
-            print(f"Document ID: {document_id}")
-            print(f"Reason: {e}")
-            print(f"{'=' * 40}\n")
-            self.db.rollback()
-            self._update_status(document_id, "failed", str(e))
-
-        finally:
-            if session:
-                session.close()
+            finally:
+                if session:
+                    session.close()
 
     def resume_processing(self, document_id: UUID, strategy: str):
         """

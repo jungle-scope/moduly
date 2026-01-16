@@ -13,23 +13,6 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 - 🔒 **안전한 코드 실행** - 격리된 샌드박스 환경에서 사용자 코드 실행
 - 📦 **Docker 지원** - 명령어 한 줄로 전체 스택 실행
 
-## 🏗️ 아키텍처
-
-```
-┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-│  프론트엔드  │────▶ │   백엔드    │────▶ │ PostgreSQL  │
-│   Next.js   │      │   FastAPI   │      │  + pgvector │
-└─────────────┘      └─────────────┘      └─────────────┘
-                            │
-                            ├────▶ 샌드박스 (코드 실행)
-                            └────▶ 프록시 (HTTP 보안)
-```
-
-**기술 스택:**
-- **프론트엔드:** Next.js 16, TypeScript, TailwindCSS, React Flow, Zustand
-- **백엔드:** FastAPI, SQLAlchemy, PostgreSQL, LangChain
-- **인프라:** Docker, Kubernetes
-
 ## 🚀 빠른 시작
 
 ### 사전 요구사항
@@ -41,20 +24,31 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 1. **저장소 클론**
    ```bash
    git clone https://github.com/YOUR_USERNAME/moduly.git
-   cd moduly
    ```
 
-2. **모든 서비스 시작**
+2. **환경 변수 설정 (선택사항)**
    ```bash
-   docker compose -f docker/docker-compose.yml up -d
+   cd docker
+   cp .env.example .env
+   # .env 파일을 열어 필요한 설정을 수정할 수 있습니다.
    ```
 
-3. **애플리케이션 접속**
-   - 프론트엔드: http://localhost:3000
-   - 백엔드 API: http://localhost:8000
-   - API 문서: http://localhost:8000/docs
+3. **모든 서비스 시작**
+   ```bash
+   docker-compose -f docker/docker-compose.yml up -d
+   ```
+   
+   > **참고**: 첫 실행 시 이미지 빌드와 DB 마이그레이션이 자동으로 진행됩니다. 완료까지 3-5분 정도 소요됩니다.
 
-4. **API 키 설정**
+4. **애플리케이션 접속**
+   
+   브라우저에서 다음 주소로 접속:
+   - **Moduly 애플리케이션**: http://localhost
+   - API 문서: http://localhost/api/docs
+
+   > **✨ 단일 진입점**: Nginx 리버스 프록시를 통해 프론트엔드와 백엔드 모두 `http://localhost`에서 제공됩니다.
+
+5. **API 키 설정**
    - 웹 인터페이스의 설정 페이지로 이동
    - OpenAI API 키 추가 ([여기서 발급](https://platform.openai.com/api-keys))
    - 필요한 다른 통합 구성
