@@ -3,12 +3,11 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
+from apps.shared.db.base import Base
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
-
-from apps.shared.db.base import Base
 
 
 class DeploymentType(str, Enum):
@@ -22,6 +21,7 @@ class DeploymentType(str, Enum):
         "workflow_node"  # 워크플로우 노드로 배포 (다른 워크플로우에서 재사용)
     )
     SCHEDULE = "schedule"  # 스케줄 트리거 배포 (알람)
+    WEBHOOK = "webhook"  # 웹훅 트리거 배포
 
 
 class WorkflowDeployment(Base):

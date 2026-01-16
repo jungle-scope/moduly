@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Copy, Eye, EyeOff, Clock, Globe } from 'lucide-react';
-import { DeploymentResult, DeploymentType } from './types';
+import { DeploymentResult } from './types';
+import { DeploymentType } from '../../types/Deployment';
 import { formatCronExpression } from './utils';
 
 interface SuccessStepProps {
@@ -109,9 +110,7 @@ ${authHeader}  -d '{
   };
 
   // Webhook trigger detection
-  const isWebhookTrigger =
-    deploymentType === 'api' &&
-    result.graph_snapshot?.nodes?.some((n: any) => n.type === 'webhookTrigger');
+  const isWebhookTrigger = deploymentType === 'webhook';
 
   return (
     <>
@@ -235,7 +234,7 @@ ${authHeader}  -d '{
         )}
 
         {/* Schedule Trigger Deployment */}
-        {deploymentType === 'schedule' && result.cronExpression && (
+        {deploymentType === 'schedule' && (
           <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
             {/* Header */}
             <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
@@ -259,7 +258,9 @@ ${authHeader}  -d '{
                   실행 주기
                 </span>
                 <p className="text-lg font-bold text-gray-900 leading-tight">
-                  {formatCronExpression(result.cronExpression)}
+                  {result.cronExpression
+                    ? formatCronExpression(result.cronExpression)
+                    : '주기 설정이 없습니다.'}
                 </p>
               </div>
 
@@ -281,7 +282,7 @@ ${authHeader}  -d '{
                     CRON EXPRESSION
                   </span>
                   <code className="text-[10px] font-mono font-medium text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-200 tracking-wide">
-                    {result.cronExpression}
+                    {result.cronExpression || 'N/A'}
                   </code>
                 </div>
               </div>

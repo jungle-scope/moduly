@@ -35,6 +35,7 @@ ENV PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y \
     libpq5 \
     curl \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # 빌더 스테이지에서 설치된 패키지 복사
@@ -44,8 +45,15 @@ COPY --from=builder /install /usr/local
 COPY apps/shared /app/apps/shared
 COPY apps/gateway /app/apps/gateway
 
+# Entrypoint 스크립트 복사
+COPY docker/gateway/docker-entrypoint.sh /docker-entrypoint.sh
+
 # 보안: Root가 아닌 일반 유저로 실행
 RUN useradd -m appuser && chown -R appuser:appuser /app
+
+# Entrypoint 스크립트 실행 권한 설정
+RUN chmod +x /docker-entrypoint.sh
+
 USER appuser
 
 # 헬스 체크 설정
@@ -54,5 +62,5 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
 
 EXPOSE 8000
 
-# 실행 명령
-CMD ["uvicorn", "apps.gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Entrypoint 스크립트 실행
+ENTRYPOINT ["/docker-entrypoint.sh"]

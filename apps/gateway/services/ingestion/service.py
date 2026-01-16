@@ -11,9 +11,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
 from apps.gateway.services.ingestion.factory import IngestionFactory
-from apps.gateway.services.storage import get_storage_service  # [NEW]
+from apps.gateway.services.storage import get_storage_service
 from apps.shared.db.models.knowledge import Document, DocumentChunk, SourceType
 from apps.shared.db.session import SessionLocal
+from apps.shared.distributed_lock import DistributedLock
 
 
 class IngestionOrchestrator:
@@ -98,8 +99,8 @@ class IngestionOrchestrator:
                     else:
                         indices.add(int(part))
             except Exception as e:
-                print(f"[WARNING] Invalid chunk range format: {chunk_range} ({e})")
-                return chunks  # 파싱 실패 시 전체 반환 (안전장치)
+                print(f"[ERROR] Invalid chunk range format: {chunk_range} ({e})")
+                raise ValueError(f"잘못된 청크 범위 형식입니다: {chunk_range}") from e
 
             # 인덱스는 1부터 시작한다고 가정 (UI와 통일)
             return [c for i, c in enumerate(chunks) if (i + 1) in indices]
@@ -112,97 +113,111 @@ class IngestionOrchestrator:
         return chunks
 
     def process_document(self, document_id: UUID):
-        session = SessionLocal()
-        self.db = session
 
-        try:
-            print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
-            doc = self.db.query(Document).get(document_id)
-            if not doc:
-                print(f"[DEBUG] Document {document_id} not found.")
+        # 락 획득 시도 (2분 TTL)
+        lock = DistributedLock(f"doc_processing:{document_id}", ttl=120)
+        
+        with lock.lock() as acquired:
+            if not acquired:
+                print(f"[IngestionOrchestrator] Document {document_id} is already being processed by another worker")
                 return
 
-            # 초기 상태 저장 (업데이트 전)
-            initial_status = doc.status
+            session = SessionLocal()
+            self.db = session
 
-            # 이미 처리된 문서인지 확인 (중복 방지)
-            if doc.status == "completed":
-                pass
+            try:
+                print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
+                doc = self.db.query(Document).get(document_id)
+                if not doc:
+                    print(f"[DEBUG] Document {document_id} not found.")
+                    return
 
-            self._update_status(document_id, "indexing")
+                # 초기 상태 저장 (업데이트 전)
+                initial_status = doc.status
 
-            # 문서 소스 타입에 맞는 Processor 생성
-            processor = IngestionFactory.get_processor(
-                doc.source_type, self.db, self.user_id
-            )
-            print(f"[DEBUG] Processor created: {type(processor).__name__}")
+                # 이미 처리 완료된 문서 건너뛰기
+                if doc.status == "completed":
+                    print(f"[INFO] Document {document_id} already completed, skipping...")
+                    return
 
-            source_config = self._build_config(doc)
+                self._update_status(document_id, "indexing")
 
-            result = processor.process(source_config)
+                # 문서 소스 타입에 맞는 Processor 생성
+                processor = IngestionFactory.get_processor(
+                    doc.source_type, self.db, self.user_id
+                )
+                print(f"[DEBUG] Processor created: {type(processor).__name__}")
 
-            if result.metadata.get("error"):
-                raise Exception(result.metadata["error"])
+                source_config = self._build_config(doc)
 
-            raw_blocks = result.chunks
-            if not raw_blocks:
-                print("No content extracted.")
+                result = processor.process(source_config)
+
+                if result.metadata.get("error"):
+                    raise Exception(result.metadata["error"])
+
+                raw_blocks = result.chunks
+                if not raw_blocks:
+                    print("No content extracted.")
+                    self._update_status(document_id, "completed")
+                    return
+
+                full_text = "".join([b["content"] for b in raw_blocks])
+                new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
+                # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
+                # 임베딩 모델이 변경된 경우에도 재처리
+                if (
+                    doc.content_hash == new_hash
+                    and doc.embedding_model == self.ai_model
+                    and initial_status != "failed"
+                ):
+                    print("Content unchanged. Skipping.")
+                    self._update_status(document_id, "completed")
+                    return
+
+                doc.content_hash = new_hash
+                self.db.commit()
+
+                if doc.source_type == "DB":
+                    final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
+                else:
+                    # 전처리 적용 (FILE, API 타입)
+                    full_text = "\n".join([b["content"] for b in raw_blocks])
+                    preprocessed_text = self.preprocess_text(full_text, doc.meta_info or {})
+                    preprocessed_blocks = [{"content": preprocessed_text, "metadata": {}}]
+                    final_chunks = self._refine_chunks(preprocessed_blocks)
+
+                # 필터링 적용
+                meta = doc.meta_info or {}
+                selection_mode = meta.get("selection_mode", "all")
+                chunk_range = meta.get("chunk_range")
+                keyword_filter = meta.get("keyword_filter")
+
+                filtered_chunks = self._filter_chunks(
+                    final_chunks, selection_mode, chunk_range, keyword_filter
+                )
+
+                print(
+                    f"[DEBUG] Filtering: {len(final_chunks)} -> {len(filtered_chunks)} chunks (Mode: {selection_mode})"
+                )
+
+                self._save_to_vector_db(doc, filtered_chunks)
+                print(
+                    f"[IngestionOrchestrator] Document processing completed successfully: {doc.filename} ({document_id})"
+                )
                 self._update_status(document_id, "completed")
-                return
 
-            full_text = "".join([b["content"] for b in raw_blocks])
-            new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
-            # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
-            # 임베딩 모델이 변경된 경우에도 재처리
-            if (
-                doc.content_hash == new_hash
-                and doc.embedding_model == self.ai_model
-                and initial_status != "failed"
-            ):
-                print("Content unchanged. Skipping.")
-                self._update_status(document_id, "completed")
-                return
+            except Exception as e:
+                print(f"\n{'=' * 40}")
+                print("[ERROR] [IngestionOrchestrator] Processing FAILED")
+                print(f"Document ID: {document_id}")
+                print(f"Reason: {e}")
+                print(f"{'=' * 40}\n")
+                self.db.rollback()
+                self._update_status(document_id, "failed", str(e))
 
-            doc.content_hash = new_hash
-            self.db.commit()
-
-            if doc.source_type == "DB":
-                final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
-            else:
-                # 전처리 적용 (FILE, API 타입)
-                full_text = "\n".join([b["content"] for b in raw_blocks])
-                preprocessed_text = self.preprocess_text(full_text, doc.meta_info or {})
-                preprocessed_blocks = [{"content": preprocessed_text, "metadata": {}}]
-                final_chunks = self._refine_chunks(preprocessed_blocks)
-
-            # 필터링 적용
-            meta = doc.meta_info or {}
-            selection_mode = meta.get("selection_mode", "all")
-            chunk_range = meta.get("chunk_range")
-            keyword_filter = meta.get("keyword_filter")
-
-            filtered_chunks = self._filter_chunks(
-                final_chunks, selection_mode, chunk_range, keyword_filter
-            )
-
-            print(
-                f"[DEBUG] Filtering: {len(final_chunks)} -> {len(filtered_chunks)} chunks (Mode: {selection_mode})"
-            )
-
-            self._save_to_vector_db(doc, filtered_chunks)
-            print(
-                f"[IngestionOrchestrator] Document processing completed successfully: {doc.filename} ({document_id})"
-            )
-            self._update_status(document_id, "completed")
-
-        except Exception as e:
-            print(f"[IngestionOrchestrator] Failed: {e}")
-            self.db.rollback()
-            self._update_status(document_id, "failed", str(e))
-
-        finally:
-            if session:
-                session.close()
+            finally:
+                if session:
+                    session.close()
 
     def resume_processing(self, document_id: UUID, strategy: str):
         """
@@ -429,27 +444,23 @@ class IngestionOrchestrator:
         from utils.encryption import encryption_manager
         from utils.template_utils import count_tokens
 
-        self.db.query(DocumentChunk).filter(
-            DocumentChunk.document_id == doc.id
-        ).delete()
         new_chunks = []
         print(f"[DEBUG] 시작 : _save_to_vector_db, 청크수: {len(chunks)} chunks")
 
         # LLM 클라이언트 초기화 (임베딩 생성용)
+        # API Key 오류 등 발생 시 즉시 실패 처리 (상위에서 catch)
         llm_client = None
         if self.user_id:
-            try:
-                llm_client = LLMService.get_client_for_user(
-                    db=self.db,
-                    user_id=self.user_id,
-                    model_id=self.ai_model,  # 예: "text-embedding-3-small"
-                )
-                print("[DEBUG] 임베딩 모델이 입력된 llm_client 생성 완료")
-            except Exception as e:
-                print(f"[ERROR] Failed to get LLM client: {e}")
-                print("[WARNING] Falling back to dummy vectors")
+            llm_client = LLMService.get_client_for_user(
+                db=self.db,
+                user_id=self.user_id,
+                model_id=self.ai_model,  # 예: "text-embedding-3-small"
+            )
+            print("[DEBUG] 임베딩 모델이 입력된 llm_client 생성 완료")
         else:
             print("[WARNING] No user_id provided.")
+            # user_id가 없는 경우도 에러로 처리하거나, 필요하다면 정책 결정.
+            # 현재 로직상 user_id 필수.
 
         # ========================================
         # 토큰 기반 배치 구성
@@ -516,30 +527,15 @@ class IngestionOrchestrator:
             self.db.commit()
 
             if llm_client:
-                try:
-                    # 배치 임베딩 호출
-                    batch_embeddings = llm_client.embed_batch(batch_texts)
+                # 배치 임베딩 호출 - 실패 시 즉시 에러 발생 (Raise)
+                batch_embeddings = llm_client.embed_batch(batch_texts)
 
-                    # 인덱스 매핑
-                    for idx, embedding in zip(batch_indices, batch_embeddings):
-                        all_embeddings[idx] = embedding
-
-                except Exception as e:
-                    print(f"[ERROR] Batch embedding failed for batch {batch_idx}: {e}")
-                    # Fallback: 개별 임베딩
-                    for idx, chunk in batch:
-                        try:
-                            embedding = llm_client.embed(chunk["content"])
-                            all_embeddings[idx] = embedding
-                        except Exception as e2:
-                            print(
-                                f"[ERROR] Individual embedding also failed for chunk {idx}: {e2}"
-                            )
-                            all_embeddings[idx] = [0.1] * 1536
+                # 인덱스 매핑
+                for idx, embedding in zip(batch_indices, batch_embeddings):
+                    all_embeddings[idx] = embedding
             else:
-                # LLM client 없으면 더미 벡터
-                for idx, _ in batch:
-                    all_embeddings[idx] = [0.1] * 1536
+                # 여기까지 왔는데 client가 없으면 에러
+                raise ValueError("LLM Client initialization failed.")
 
         # ========================================
         # content 암호화 & DB 저장
@@ -554,7 +550,11 @@ class IngestionOrchestrator:
                 self.db.commit()
 
             content = chunk["content"]
-            embedding = all_embeddings.get(i, [0.1] * 1536)
+            embedding = all_embeddings.get(i)
+
+            if not embedding:
+                # 이론상 발생 불가하지만 안전장치
+                raise ValueError(f"Embedding not found for chunk {i}")
 
             # Keyword Extraction (for Hybrid Search)
             keywords = []
@@ -575,6 +575,7 @@ class IngestionOrchestrator:
                 r.extract_keywords_from_text(content)
                 keywords = r.get_ranked_phrases()[:10]
             except Exception as e:
+                # 키워드 추출 실패는 치명적이지 않음 (로그만 남김)
                 print(f"[WARNING] Keyword extraction failed: {e}")
 
             # 메타데이터에 키워드 추가
@@ -586,6 +587,8 @@ class IngestionOrchestrator:
                 encrypted_content = encryption_manager.encrypt(content)
             except Exception as e:
                 print(f"[ERROR] Failed to encrypt content for chunk {i}: {e}")
+                # 암호화 실패는 치명적일 수 있으나, 일단 원문 저장할지? -> 보안상 실패가 나을 수도.
+                # 현재 로직 유지 (원문 저장) 하되, 이번 Fix 범위 밖.
                 encrypted_content = content
 
             new_chunk = DocumentChunk(
@@ -598,6 +601,12 @@ class IngestionOrchestrator:
                 embedding=embedding,
             )
             new_chunks.append(new_chunk)
+
+        # !!! CRITICAL: 기존 청크 삭제를 맨 마지막에 수행 (Atomic-like behavior) !!!
+        # 임베딩 생성 중 실패하면 삭제되지 않음.
+        self.db.query(DocumentChunk).filter(
+            DocumentChunk.document_id == doc.id
+        ).delete()
 
         self.db.bulk_save_objects(new_chunks)
 

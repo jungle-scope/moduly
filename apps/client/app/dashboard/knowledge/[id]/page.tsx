@@ -12,7 +12,7 @@ import {
   Clock,
   Settings,
   Trash2,
-  RotateCw,
+  // RotateCw,
   Bot,
   FolderOpen,
   Webhook,
@@ -24,7 +24,7 @@ import {
   knowledgeApi,
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
-import { SourceType } from '@/app/features/knowledge/types/Knowledge';
+// import { SourceType } from '@/app/features/knowledge/types/Knowledge';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
 import ChangeEmbeddingModelModal from '@/app/features/knowledge/components/change-embedding-model-modal';
@@ -250,23 +250,23 @@ export default function KnowledgeDetailPage() {
     }
   };
 
-  const handleSyncDocument = async (
-    documentId: string,
-    sourceType: SourceType,
-  ) => {
-    try {
-      await knowledgeApi.syncDocument(id, documentId);
-      fetchKnowledgeBase();
-      const message =
-        sourceType === 'DB'
-          ? 'DB 동기화가 시작되었습니다.'
-          : 'API 동기화가 시작되었습니다.';
-      toast.success(message);
-    } catch (error) {
-      console.error('Failed to sync document:', error);
-      toast.error('동기화 실패');
-    }
-  };
+  // const handleSyncDocument = async (
+  //   documentId: string,
+  //   sourceType: SourceType,
+  // ) => {
+  //   try {
+  //     await knowledgeApi.syncDocument(id, documentId);
+  //     fetchKnowledgeBase();
+  //     const message =
+  //       sourceType === 'DB'
+  //         ? 'DB 동기화가 시작되었습니다.'
+  //         : 'API 동기화가 시작되었습니다.';
+  //     toast.success(message);
+  //   } catch (error) {
+  //     console.error('Failed to sync document:', error);
+  //     toast.error('동기화 실패');
+  //   }
+  // };
 
   const handleNameUpdate = async () => {
     if (!editName.trim()) {
@@ -575,7 +575,7 @@ export default function KnowledgeDetailPage() {
                     <td className="px-5 py-2.5">
                       <div className="flex items-center gap-1.5">
                         {renderStatusBadge(doc.status)}
-                        {doc.source_type &&
+                        {/* {doc.source_type &&
                           ['API', 'DB'].includes(doc.source_type) && (
                             <button
                               className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all"
@@ -589,7 +589,7 @@ export default function KnowledgeDetailPage() {
                             >
                               <RotateCw className="h-3.5 w-3.5" />
                             </button>
-                          )}
+                          )} */}
                       </div>
                     </td>
                     <td className="px-5 py-2.5 text-gray-500 text-xs">

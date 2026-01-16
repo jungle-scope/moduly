@@ -6,7 +6,8 @@ import { X, Clock, ChevronRight, CheckCircle2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { getDeploymentBadgeInfo } from '@/app/features/app/utils/tagUtils';
+import { Tag } from '@/app/features/app/components/Tag';
+import { getModuleTags } from '@/app/features/app/utils/tagUtils';
 
 export function VersionHistorySidebar() {
   const {
@@ -187,13 +188,15 @@ export function VersionHistorySidebar() {
                         onClick={() => previewVersion(v)}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${
-                              getDeploymentBadgeInfo(v.type).bgColor
-                            } ${getDeploymentBadgeInfo(v.type).textColor}`}
-                          >
-                            {getDeploymentBadgeInfo(v.type).label}
-                          </span>
+                          {(() => {
+                            const tags = getModuleTags({
+                              active_deployment_type: v.type,
+                            } as any);
+                            const tag = tags[0];
+                            return tag ? (
+                              <Tag label={tag.label} type={tag.type} />
+                            ) : null;
+                          })()}
                           <span
                             className={`font-medium text-base truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}
                           >

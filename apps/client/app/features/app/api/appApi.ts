@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { DeploymentType } from '../../workflow/types/Deployment';
 
 const API_BASE_URL = '/api/v1';
 
@@ -35,12 +36,7 @@ export interface App {
   forked_from?: string;
   workflow_id?: string;
   active_deployment_id?: string;
-  active_deployment_type?:
-    | 'api'
-    | 'webapp'
-    | 'widget'
-    | 'mcp'
-    | 'workflow_node';
+  active_deployment_type?: DeploymentType;
   active_deployment_is_active?: boolean;
   owner_name?: string;
   created_at: string;
@@ -51,7 +47,7 @@ export interface Deployment {
   id: string;
   app_id: string;
   version: number;
-  type: 'api' | 'webapp' | 'widget' | 'mcp' | 'workflow_node';
+  type: DeploymentType;
   description?: string;
   is_active: boolean;
   created_at: string;

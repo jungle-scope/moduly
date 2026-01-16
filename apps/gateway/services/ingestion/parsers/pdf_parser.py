@@ -117,9 +117,9 @@ class PdfParser(BaseParser):
             results = []
             for chunk in md_text_chunks:
                 text_content = chunk["text"]
-                print(
-                    f"[PdfParser] Page {chunk['metadata']['page'] + 1} content sample: {text_content[:50]}..."
-                )
+                # print(
+                #     f"[PdfParser] Page {chunk['metadata']['page'] + 1} content sample: {text_content[:50]}..."
+                # )
                 results.append(
                     {"text": text_content, "page": chunk["metadata"]["page"] + 1}
                 )
