@@ -45,16 +45,22 @@ celery_app.conf.update(
         "log.*": {"queue": "log"},
     },
     # 태스크 설정
-    task_track_started=True,  # 태스크 시작 상태 추적
+    task_track_started=False,  # [FIX] STARTED 상태 추적 비활성화 (Protocol Error 방지)
     task_time_limit=600,  # 태스크 최대 실행 시간 (10분)
     task_soft_time_limit=540,  # 소프트 타임아웃 (9분)
     # 워커 설정
-    worker_prefetch_multiplier=1,  # 메모리 효율 (한 번에 하나씩)
-    worker_concurrency=4,  # 동시 실행 워커 수
+    worker_prefetch_multiplier=4,  # [FIX] 프리페치 증가 (1 → 4)
+    worker_concurrency=16,  # [FIX] 동시 실행 워커 수 증가 (4 → 16)
     # 결과 설정
     result_expires=3600,  # 결과 만료 시간 (1시간)
     # Heartbeat 설정 (LLM/Code 노드 실행 시 안정성 향상)
     broker_heartbeat=120,  # 브로커 heartbeat 간격 (기본 60초 → 120초)
     worker_send_task_events=True,  # 워커 이벤트 전송
     worker_pool_restarts=True,  # 워커 풀 재시작 활성화
+    # [NEW] Redis 연결 풀 설정 (연결 경합 방지)
+    broker_pool_limit=20,  # 브로커 연결 풀 크기
+    redis_max_connections=20,  # Redis 최대 연결 수
+    result_backend_transport_options={
+        "max_connections": 20,  # 결과 백엔드 연결 풀
+    },
 )
