@@ -260,8 +260,8 @@ class DbProcessor(BaseProcessor):
         def transform_strategy(row_dict):
             return transformer.transform(
                 row_dict,
-                template_str=selection.get("template"),
-                aliases=selection.get("aliases"),
+                template_str=source_config.get("template") or selection.get("template"),
+                aliases=source_config.get("aliases") or selection.get("aliases"),
             )
 
         def encryption_key_strategy(table, col):
@@ -315,13 +315,23 @@ class DbProcessor(BaseProcessor):
             render_context = namespaced_data.copy()
 
             # Alias 적용
-            for sel in selections:
-                table = sel["table_name"]
-                table_aliases = sel.get("aliases", {})
-                if table in namespaced_data:
-                    for col, val in namespaced_data[table].items():
-                        if col in table_aliases:
-                            render_context[table_aliases[col]] = val
+            global_aliases = source_config.get("aliases")
+            if global_aliases:
+                for table, col_map in global_aliases.items():
+                    if table in namespaced_data:
+                        for col, val in namespaced_data[table].items():
+                            if col in col_map:
+                                render_context[col_map[col]] = val
+            
+            # 개별 selection Alias (Legacy)
+            else:
+                for sel in selections:
+                    table = sel["table_name"]
+                    table_aliases = sel.get("aliases", {})
+                    if table in namespaced_data:
+                        for col, val in namespaced_data[table].items():
+                            if col in table_aliases:
+                                render_context[table_aliases[col]] = val
 
             if template_str:
                 try:
