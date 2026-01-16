@@ -91,6 +91,15 @@ class WorkflowEngine:
         [FIX] 메모리 누수 방지를 위해 모든 참조를 명시적으로 정리합니다.
         Celery 태스크에서 finally 블록에서 호출되어야 합니다.
         """
+        # [FIX] 노드 인스턴스 내부의 서브그래프 엔진도 정리 (LoopNode 등)
+        for node_instance in self.node_instances.values():
+            if (
+                hasattr(node_instance, "_subgraph_engine")
+                and node_instance._subgraph_engine
+            ):
+                node_instance._subgraph_engine.cleanup()
+                node_instance._subgraph_engine = None
+
         # 노드 관련 정리
         self.node_instances.clear()
         self.node_schemas.clear()
@@ -157,9 +166,12 @@ class WorkflowEngine:
             workflow_timeout=self.workflow_timeout,
         )
 
-        # 서브그래프 실행
-        result = await subgraph_engine.execute()
-        return result
+        # [FIX] 메모리 누수 방지: 서브그래프 실행 후 명시적 cleanup
+        try:
+            result = await subgraph_engine.execute()
+            return result
+        finally:
+            subgraph_engine.cleanup()
 
     async def execute_stream(self):
         """
