@@ -20,7 +20,7 @@ class DeploymentType(str, Enum):
     WORKFLOW_NODE = (
         "workflow_node"  # 워크플로우 노드로 배포 (다른 워크플로우에서 재사용)
     )
-    SCHEDULE = "SCHEDULE"  # 스케줄 트리거 배포 (알람)
+    SCHEDULE = "schedule"  # 스케줄 트리거 배포 (알람)
     WEBHOOK = "webhook"  # 웹훅 트리거 배포
 
 
