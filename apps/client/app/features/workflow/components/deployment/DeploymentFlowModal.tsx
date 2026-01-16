@@ -107,7 +107,8 @@ export function DeploymentFlowModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
       <div
         className={`relative bg-white rounded-lg shadow-xl w-full mx-4 flex flex-col overflow-hidden ${
-          deploymentType === 'api' && currentStep === 'success'
+          (deploymentType === 'api' || deploymentType === 'webhook') &&
+          currentStep === 'success'
             ? 'max-w-6xl'
             : 'max-w-lg'
         }`}

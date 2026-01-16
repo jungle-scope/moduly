@@ -109,9 +109,7 @@ ${authHeader}  -d '{
   };
 
   // Webhook trigger detection
-  const isWebhookTrigger =
-    deploymentType === 'api' &&
-    result.graph_snapshot?.nodes?.some((n: any) => n.type === 'webhookTrigger');
+  const isWebhookTrigger = deploymentType === 'webhook';
 
   return (
     <>
