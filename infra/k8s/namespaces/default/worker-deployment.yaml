@@ -27,7 +27,7 @@ metadata:
   labels:
     app: worker
 spec:
-  replicas: 1
+  replicas: 4
   selector:
     matchLabels:
       app: worker

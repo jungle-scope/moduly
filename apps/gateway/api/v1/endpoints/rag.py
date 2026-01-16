@@ -1,4 +1,3 @@
-import os
 from typing import List, Optional
 from uuid import UUID
 
@@ -16,6 +15,14 @@ from sqlalchemy.orm import Session
 
 from apps.gateway.api.deps import get_db
 from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.core.config import settings
+
+# from services.ingestion_local_service import IngestionService
+from apps.gateway.services.ingestion.service import (
+    IngestionOrchestrator as IngestionService,
+)
+from apps.gateway.services.retrieval import RetrievalService
+from apps.gateway.services.storage import get_storage_service
 from apps.shared.db.models.connection import Connection
 from apps.shared.db.models.knowledge import Document, KnowledgeBase, SourceType
 from apps.shared.db.models.user import User
@@ -27,11 +34,6 @@ from apps.shared.schemas.rag import (
     RAGResponse,
     SearchQuery,
 )
-
-# from services.ingestion_local_service import IngestionService
-from apps.gateway.services.ingestion.service import IngestionOrchestrator as IngestionService
-from apps.gateway.services.retrieval import RetrievalService
-from apps.gateway.services.storage import get_storage_service
 
 router = APIRouter()
 
@@ -132,7 +134,7 @@ async def upload_document(
     - file이 제공되면 기존 방식대로 백엔드를 통해 S3에 업로드 (기존 방식)
     """
     # 0. 환경 변수 확인 (Ingestion Mode)
-    ingestion_mode = os.getenv("RAG_INGESTION_MODE", "LOCAL").upper()
+    ingestion_mode = (settings.STORAGE_TYPE or "LOCAL").upper()
     print(f"=== [upload_document] Request Received (Mode: {ingestion_mode}) ===")
 
     # 1. 자료 확인 또는 생성
