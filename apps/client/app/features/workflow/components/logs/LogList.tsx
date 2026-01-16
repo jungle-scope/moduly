@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { WorkflowRun } from '@/app/features/workflow/types/Api';
 import { CheckCircle2, XCircle, Clock, PlayCircle } from 'lucide-react';
+import { LogExecutionPath } from './LogExecutionPath';
 
 interface LogListProps {
   logs: WorkflowRun[];

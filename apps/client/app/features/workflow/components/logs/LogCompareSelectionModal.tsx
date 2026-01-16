@@ -2,7 +2,7 @@ import { WorkflowRun } from '@/app/features/workflow/types/Api';
 import { X, CheckCircle2, XCircle, PlayCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { LogExecutionPath } from '../detail-components/LogExecutionPath';
+import { LogExecutionPath } from './LogExecutionPath';
 
 interface LogCompareSelectionModalProps {
   isOpen: boolean;

@@ -11,7 +11,6 @@ class WorkflowNodeRunSchema(BaseModel):
     node_type: str
     status: str
     inputs: Optional[Dict[str, Any]]
-    process_data: Optional[Dict[str, Any]] = None  # [NEW] 노드 옵션 스냅샷
     outputs: Optional[Dict[str, Any]]
     error_message: Optional[str]
     started_at: datetime
@@ -53,31 +52,10 @@ class WorkflowRunSchema(BaseModel):
 #     pass
 
 
-class WorkflowRunSummarySchema(BaseModel):
-    id: UUID
-    workflow_id: UUID
-    user_id: UUID
-    status: str
-    trigger_mode: str
-    inputs: Optional[Dict[str, Any]]
-    outputs: Optional[Dict[str, Any]]
-    error_message: Optional[str]
-    started_at: datetime
-    finished_at: Optional[datetime]
-    duration: Optional[float]
-    workflow_version: Optional[int] = None
-    deployment_id: Optional[UUID] = None
-    total_tokens: Optional[int] = 0
-    total_cost: Optional[float] = 0.0
-    # node_runs 제외됨
-
-    class Config:
-        from_attributes = True
-
-
 class WorkflowRunListResponse(BaseModel):
     total: int
-    items: List[WorkflowRunSummarySchema]
+    items: List[WorkflowRunSchema]
+    # items: List[WorkflowRunListItemSchema]
 
 
 # [NEW] Dashboard Schemas
