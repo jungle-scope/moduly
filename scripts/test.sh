@@ -21,17 +21,31 @@ set +e
 
 echo -e "\n${YELLOW}📍 Gateway Service 테스트 실행${NC}"
 (
-    source apps/gateway/.venv/bin/activate
+    cd apps/gateway
+    # OS별 Python 경로 설정
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        VENV_PYTHON=".venv/Scripts/python"
+    else
+        VENV_PYTHON=".venv/bin/python"
+    fi
     export PYTHONPATH="$PROJECT_ROOT"
-    pytest apps/gateway/tests
+    $VENV_PYTHON -m pip install -e .[dev] > /dev/null 2>&1
+    $VENV_PYTHON -m pytest tests
 )
 GATEWAY_EXIT_CODE=$?
 
 echo -e "\n${YELLOW}📍 Workflow Engine Service 테스트 실행${NC}"
 (
-    source apps/workflow_engine/.venv/bin/activate
+    cd apps/workflow_engine
+    # OS별 Python 경로 설정
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        VENV_PYTHON=".venv/Scripts/python"
+    else
+        VENV_PYTHON=".venv/bin/python"
+    fi
     export PYTHONPATH="$PROJECT_ROOT"
-    pytest apps/workflow_engine/tests
+    $VENV_PYTHON -m pip install -e .[dev] > /dev/null 2>&1
+    $VENV_PYTHON -m pytest tests
 )
 WORKFLOW_EXIT_CODE=$?
 
