@@ -1,6 +1,6 @@
 import { WorkflowRun } from '@/app/features/workflow/types/Api';
 import { BarChart, Coins, Zap } from 'lucide-react';
-import { getNodeDisplayInfo } from '../shared/nodeDisplayInfo';
+import { getNodeDisplayInfo } from '@/app/features/workflow/utils/nodeDisplayUtils';
 
 interface LogTokenAnalysisProps {
   run: WorkflowRun;
@@ -10,7 +10,7 @@ interface LogTokenAnalysisProps {
 export const LogTokenAnalysis = ({ run, onNodeSelect }: LogTokenAnalysisProps) => {
   const nodeRuns = run.node_runs || [];
 
-  // 1. 노드별 토큰 사용량 계산
+  // 1. Calculate By Node
   const usageByNode = nodeRuns
     .filter((n) => (n.outputs as any)?.usage?.total_tokens)
     .map((n) => {
@@ -32,7 +32,7 @@ export const LogTokenAnalysis = ({ run, onNodeSelect }: LogTokenAnalysisProps) =
     })
     .sort((a, b) => b.totalTokens - a.totalTokens); // Scarcity first
 
-  // 2. 모델별 토큰 사용량 계산
+  // 2. Calculate By Model
   const usageByModel = usageByNode.reduce(
     (acc, curr) => {
       const model = curr.model;

@@ -6,7 +6,7 @@ import {
     PlayCircle
 } from 'lucide-react';
 import React from 'react';
-import { getNodeDisplayInfo } from '../shared/nodeDisplayInfo';
+import { getNodeDisplayInfo } from '@/app/features/workflow/utils/nodeDisplayUtils';
 
 interface LogExecutionPathProps {
     nodeRuns: WorkflowNodeRun[];

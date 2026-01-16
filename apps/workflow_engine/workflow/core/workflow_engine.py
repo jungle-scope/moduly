@@ -437,14 +437,7 @@ class WorkflowEngine:
         # [실시간 스트리밍] node_start 이벤트를 Task 생성 시점(실행 시작 전)에 즉시 전송
         # [FIX] 서브 워크플로우에서는 노드 로깅도 스킵 (UI 간섭 방지)
         if not self.is_subworkflow:
-            # [NEW] 노드 옵션 스냅샷 추출 (실행 시점 설정 기록용)
-            node_options_snapshot = self._extract_node_options(node_schema)
-            self.logger.create_node_log(
-                node_id,
-                node_schema.type,
-                inputs,
-                process_data=node_options_snapshot,
-            )
+            self.logger.create_node_log(node_id, node_schema.type, inputs)
 
         # [FIX] Redis Pub/Sub으로 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
         run_id = self.execution_context.get("workflow_run_id")
@@ -801,27 +794,3 @@ class WorkflowEngine:
         #     "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
         #     "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
         # )
-
-    def _extract_node_options(self, node_schema) -> Dict[str, Any]:
-        """
-        노드 설정을 process_data용 스냅샷으로 추출합니다.
-        실행 시점의 노드 옵션을 로그에 저장하여 디버깅/분석에 활용합니다.
-
-        Args:
-            node_schema: 노드 스키마 (NodeSchema)
-
-        Returns:
-            노드 옵션 스냅샷 딕셔너리
-        """
-        try:
-            # node_schema.data를 그대로 복사
-            data = dict(node_schema.data) if node_schema.data else {}
-
-            return {
-                "node_options": data,
-                "node_title": data.get("title", ""),
-            }
-        except Exception as e:
-            # 스냅샷 추출 실패 시에도 워크플로우 실행은 계속
-            print(f"[WorkflowEngine] 노드 옵션 스냅샷 추출 실패: {e}")
-            return {}
