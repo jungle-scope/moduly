@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Dict
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App  # noqa: F401
@@ -76,6 +77,7 @@ def _deserialize_datetime(value):
 def create_run_log(self, data: Dict[str, Any]):
     """워크플로우 실행 로그 생성"""
     session = SessionLocal()
+    run_id = None
     try:
         # 트리거 모드 정규화
         trigger_mode = data.get("trigger_mode")
@@ -126,6 +128,19 @@ def create_run_log(self, data: Dict[str, Any]):
 
         return {"status": "success", "run_id": str(run_id)}
 
+    except IntegrityError as e:
+        session.rollback()
+        if run_id is not None:
+            existing = (
+                session.query(WorkflowRun.id)
+                .filter(WorkflowRun.id == run_id)
+                .first()
+            )
+            if existing:
+                # 동일 run_id 재시도 시 중복 insert는 정상으로 간주합니다.
+                return {"status": "success", "run_id": str(run_id)}
+        print(f"[Log-System] create_run_log 실패: {e}")
+        raise self.retry(exc=e, countdown=2**self.request.retries)
     except Exception as e:
         session.rollback()
         print(f"[Log-System] create_run_log 실패: {e}")

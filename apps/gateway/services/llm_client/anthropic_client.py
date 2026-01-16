@@ -99,6 +99,9 @@ class AnthropicClient(BaseLLMClient):
                 kwargs["stop_sequences"] = stop_sequences
 
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in allowed_keys}
+        if "temperature" in filtered_kwargs and "top_p" in filtered_kwargs:
+            # Anthropic 일부 모델은 temperature/top_p 동시 지정 불가
+            filtered_kwargs.pop("top_p", None)
         payload.update(filtered_kwargs)
 
         try:

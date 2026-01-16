@@ -227,12 +227,7 @@ export function LLMParameterSidePanel({
               <span className="whitespace-nowrap">다양</span>
             </div>
           </div>
-        ) : (
-          <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
-            Claude 계열 모델은 Temperature 또는 Top P 중 하나만 허용됩니다.
-            현재는 Temperature만 사용합니다.
-          </div>
-        )}
+        ) : null}
 
         {/* Max Tokens */}
         <div className="space-y-2">
