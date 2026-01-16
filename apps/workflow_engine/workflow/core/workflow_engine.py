@@ -50,7 +50,8 @@ class WorkflowEngine:
         self.node_instances = {}  # Node 인스턴스 저장
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
-        self.execution_context = execution_context or {}
+        # 외부에서 전달된 dict를 직접 수정하지 않도록 복사본 사용
+        self.execution_context = dict(execution_context or {})
         self.workflow_timeout = workflow_timeout  # [NEW] 전체 타임아웃 설정
         self.start_time = 0.0  # [NEW] 실행 시작 시간
 

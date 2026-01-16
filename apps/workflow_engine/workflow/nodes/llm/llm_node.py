@@ -228,6 +228,35 @@ class LLMNode(Node[LLMNodeData]):
         except Exception:
             text = ""
         usage = response.get("usage", {}) if isinstance(response, dict) else {}
+        if not text and isinstance(response, dict):
+            summary = {"keys": sorted(response.keys())}
+            choices = response.get("choices")
+            if isinstance(choices, list):
+                summary["choices_len"] = len(choices)
+                if choices and isinstance(choices[0], dict):
+                    summary["choice0_keys"] = sorted(choices[0].keys())
+                    message = choices[0].get("message")
+                    if isinstance(message, dict):
+                        summary["message_keys"] = sorted(message.keys())
+                        content = message.get("content")
+                        summary["message_content_type"] = type(content).__name__
+                        if isinstance(content, str):
+                            summary["message_content_len"] = len(content)
+                        elif isinstance(content, list):
+                            summary["message_content_len"] = len(content)
+            output = response.get("output")
+            if output is not None:
+                summary["output_type"] = type(output).__name__
+                if isinstance(output, list):
+                    summary["output_len"] = len(output)
+                    if output and isinstance(output[0], dict):
+                        summary["output0_keys"] = sorted(output[0].keys())
+            output_text = response.get("output_text")
+            if output_text is not None:
+                summary["output_text_type"] = type(output_text).__name__
+                if isinstance(output_text, str):
+                    summary["output_text_len"] = len(output_text)
+            print(f"[llmNode] empty text response summary: {summary}")
 
         # STEP 5. 결과 포맷팅 --------------------------------------------------
         cost = 0.0
