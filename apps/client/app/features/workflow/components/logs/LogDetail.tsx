@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { JsonDataDisplay } from './JsonDataDisplay';
+import { JsonDataDisplay } from './shared/JsonDataDisplay';
 import { ko } from 'date-fns/locale';
 import {
   WorkflowRun,
@@ -15,12 +15,12 @@ import {
   Download,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { LogExecutionPath } from './LogExecutionPath';
-import { LogTokenAnalysis } from './LogTokenAnalysis';
-import { getNodeDisplayInfo } from './utils/nodeDisplayInfo';
-import { getNodeDuration } from './utils/nodeUtils';
-import { CollapsibleSection } from './components/CollapsibleSection';
-import { NodeOptionsDisplay } from './components/NodeOptionsDisplay';
+import { LogExecutionPath } from './detail-components/LogExecutionPath';
+import { LogTokenAnalysis } from './detail-components/LogTokenAnalysis';
+import { getNodeDisplayInfo } from './shared/nodeDisplayInfo';
+import { getNodeDuration } from './shared/nodeUtils';
+import { CollapsibleSection } from './shared/CollapsibleSection';
+import { NodeOptionsDisplay } from './shared/NodeOptionsDisplay';
 
 interface LogDetailProps {
   run: WorkflowRun;

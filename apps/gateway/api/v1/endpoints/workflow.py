@@ -3,6 +3,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy import Integer
 from sqlalchemy.orm import Session, noload, selectinload
 
 # from sqlalchemy.orm import Session, noload, selectinload
@@ -139,33 +140,19 @@ def get_workflow_stats(
         # 기간 필터 (기본 30일)
         cutoff_date = datetime.now() - timedelta(days=days)
 
-        base_query = db.query(WorkflowRun).filter(
-            WorkflowRun.workflow_id == workflow_id,
-            WorkflowRun.started_at >= cutoff_date,
-        )
+        # base_query는 쿼리 통합으로 더 이상 사용하지 않음
 
-        # === 1. Summary Stats ===
-        total_runs = base_query.count()
-        success_count = base_query.filter(
-            WorkflowRun.status == RunStatus.SUCCESS
-        ).count()
-
-        # Avg Duration
-        avg_duration = (
-            db.query(func.avg(WorkflowRun.duration))
-            .filter(
-                WorkflowRun.workflow_id == workflow_id,
-                WorkflowRun.started_at >= cutoff_date,
-                WorkflowRun.duration.isnot(None),
-            )
-            .scalar()
-            or 0.0
-        )
-
-        # Total Cost & Tokens
-        total_cost_res = (
+        # === 1. Summary Stats (쿼리 통합 최적화) ===
+        # [OPTIMIZATION] 4개의 개별 쿼리를 1개로 통합
+        summary_stats = (
             db.query(
-                func.sum(WorkflowRun.total_cost), func.sum(WorkflowRun.total_tokens)
+                func.count(WorkflowRun.id).label("total_runs"),
+                func.sum(
+                    func.cast(WorkflowRun.status == RunStatus.SUCCESS, Integer)
+                ).label("success_count"),
+                func.avg(WorkflowRun.duration).label("avg_duration"),
+                func.sum(WorkflowRun.total_cost).label("total_cost"),
+                func.sum(WorkflowRun.total_tokens).label("total_tokens"),
             )
             .filter(
                 WorkflowRun.workflow_id == workflow_id,
@@ -174,8 +161,11 @@ def get_workflow_stats(
             .first()
         )
 
-        total_cost = float(total_cost_res[0] or 0.0)
-        total_tokens = int(total_cost_res[1] or 0)
+        total_runs = summary_stats.total_runs or 0
+        success_count = summary_stats.success_count or 0
+        avg_duration = float(summary_stats.avg_duration or 0.0)
+        total_cost = float(summary_stats.total_cost or 0.0)
+        total_tokens = int(summary_stats.total_tokens or 0)
 
         summary = StatsSummary(
             totalRuns=total_runs,
@@ -309,6 +299,9 @@ def get_workflow_stats(
         recent_failures = []
         failed_runs = (
             db.query(WorkflowRun)
+            .options(
+                selectinload(WorkflowRun.node_runs)
+            )  # [FIX] N+1 문제 해결: node_runs 미리 로드
             .filter(
                 WorkflowRun.workflow_id == workflow_id,
                 WorkflowRun.status == RunStatus.FAILED,

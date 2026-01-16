@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { LogDetail } from './LogDetail';
-import { WorkflowRun } from '../../types/Api';
+import { LogDetail } from '../LogDetail';
+import { WorkflowRun } from '@/app/features/workflow/types/Api';
 import { ArrowLeft, ArrowRight, X, Minus, Plus, TrendingDown, TrendingUp, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
-import { getNodeDisplayInfo } from '../../utils/nodeDisplayUtils';
+import { getNodeDisplayInfo } from '@/app/features/workflow/utils/nodeDisplayUtils';
 
 interface LogDetailComparisonModalProps {
     runA: WorkflowRun;
@@ -26,7 +26,7 @@ export const LogDetailComparisonModal = ({ runA, runB, onBack }: LogDetailCompar
     const statsA = calculateStats(runA);
     const statsB = calculateStats(runB);
 
-    // Diffs (B - A)
+    // 차이값 계산 (B - A)
     const durationDiff = (runB.duration || 0) - (runA.duration || 0);
     const tokenDiff = statsB.totalTokens - statsA.totalTokens;
     const costDiff = statsB.totalCost - statsA.totalCost;
@@ -35,10 +35,7 @@ export const LogDetailComparisonModal = ({ runA, runB, onBack }: LogDetailCompar
         if (val === 0) return <span className="text-gray-400 text-xs">-</span>;
         
         const isPositive = val > 0;
-        // Cost/Token: Lower is better (Green if negative)
-        // Duration: Lower is better (Green if negative)
-        // So positive (Increase) is usually bad (Red), Negative (Decrease) is good (Green).
-        // Except if tokens increase implies "Result Quality" increase? Usually efficiency view assumes lower is better.
+        // 비용/토큰/시간: 낮을수록 좋음 (증가=빨강, 감소=초록)
         
         const isBad = isPositive; 
         const colorClass = isBad ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50';

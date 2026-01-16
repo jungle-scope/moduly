@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Clock } from 'lucide-react';
 
 import { workflowApi } from '@/app/features/workflow/api/workflowApi';
@@ -11,14 +11,20 @@ import {
   LogFilterBar,
   LogFilters,
 } from '@/app/features/workflow/components/logs/LogFilterBar';
-import { LogDetailComparisonModal } from '@/app/features/workflow/components/logs/LogDetailComparisonModal';
-import { LogCompareSelectionModal } from '@/app/features/workflow/components/logs/LogCompareSelectionModal';
-import { LogABTestBar } from '@/app/features/workflow/components/logs/LogABTestBar';
+import { LogDetailComparisonModal } from '@/app/features/workflow/components/logs/ab-test/LogDetailComparisonModal';
+import { LogCompareSelectionModal } from '@/app/features/workflow/components/logs/ab-test/LogCompareSelectionModal';
+import { LogABTestBar } from '@/app/features/workflow/components/logs/ab-test/LogABTestBar';
 
 interface LogTabProps {
   workflowId: string;
   initialRunId?: string | null;
 }
+
+// [BEST PRACTICE] 순수 함수는 컴포넌트 외부에 정의
+const isValidUUID = (id: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+};
 
 export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
   const [logs, setLogs] = useState<WorkflowRun[]>([]);
@@ -31,7 +37,7 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     'list',
   );
 
-  // A/B Test State
+  // A/B 테스트 상태
   const [isABTestOpen, setIsABTestOpen] = useState(false);
   const [abRunA, setABRunA] = useState<WorkflowRun | null>(null);
   const [abRunB, setABRunB] = useState<WorkflowRun | null>(null);
@@ -41,62 +47,10 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const abSectionRef = useRef<HTMLDivElement>(null);
 
-  // UUID 형식 검증 함수
-  const isValidUUID = (id: string) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(id);
-  };
-
-  // Initial Load
-  useEffect(() => {
-    if (workflowId && isValidUUID(workflowId)) {
-      loadLogs();
-    }
-  }, [workflowId]);
-
-  // Handle initialRunId change (e.g. navigation from Monitoring)
-  useEffect(() => {
-    if (initialRunId) {
-      fetchAndSelectRun(initialRunId);
-    } else {
-      // If cleared or null, maybe stay or list?
-      // Usually only nav sets this.
-      // If we want to support resetting, we might need logic.
-      // For now, if provided, we select.
-    }
-  }, [initialRunId]);
-
-  // Auto-scroll to A/B Section when opened
-  useEffect(() => {
-    if (isABTestOpen && abSectionRef.current) {
-      setTimeout(() => {
-        abSectionRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-      }, 100);
-    }
-  }, [isABTestOpen]);
-
-  // ESC 키로 A/B 테스트 모드 종료 (X 버튼과 동일한 동작)
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isABTestOpen) {
-        // X 버튼과 동일: onReset() + onToggle()
-        setABRunA(null);
-        setABRunB(null);
-        setSelectionTarget(null);
-        setIsABTestOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [isABTestOpen]);
-
   // ========================
-  // LOG FUNCTIONS
+  // 로그 함수 (useCallback 적용)
   // ========================
-  const fetchAndSelectRun = async (runId: string) => {
+  const fetchAndSelectRun = useCallback(async (runId: string) => {
     if (!isValidUUID(workflowId)) return;
     try {
       const run = await workflowApi.getWorkflowRun(workflowId, runId);
@@ -106,9 +60,9 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
       console.error('Failed to fetch initial run:', err);
       setViewMode('list');
     }
-  };
+  }, [workflowId]);
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       setLogLoading(true);
       const response = await workflowApi.getWorkflowRuns(workflowId, logPage);
@@ -119,9 +73,9 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     } finally {
       setLogLoading(false);
     }
-  };
+  }, [workflowId, logPage]);
 
-  const handleFilterChange = (filters: LogFilters) => {
+  const handleFilterChange = useCallback((filters: LogFilters) => {
     let result = [...logs];
 
     if (filters.status !== 'all') {
@@ -174,10 +128,10 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     }
 
     setFilteredLogs(result);
-  };
+  }, [logs]);
 
   const handleLogSelect = async (log: WorkflowRun) => {
-    // A/B Selection Mode
+    // A/B 선택 모드
     if (selectionTarget === 'A') {
       if (abRunB?.id === log.id) {
         alert('이미 B(비교군)로 선택된 실행입니다. 다른 실행을 선택해주세요.');
@@ -190,7 +144,7 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
          setSelectionTarget('B');
       } else {
          setSelectionTarget(null);
-         // Auto-scroll if both are now selected
+         // A, B 모두 선택 완료 시 자동 스크롤
          setTimeout(() => {
            abSectionRef.current?.scrollIntoView({
              behavior: 'smooth',
@@ -231,17 +185,17 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     }
   };
 
-  const handleBackToList = () => {
+  const handleBackToList = useCallback(() => {
     setSelectedLog(null);
     setCompareLog(null);
     setViewMode('list');
-  };
+  }, []);
 
-  const handleCompareClick = () => {
+  const handleCompareClick = useCallback(() => {
     setIsCompareModalOpen(true);
-  };
+  }, []);
 
-  const handleCompareSelect = async (targetRun: WorkflowRun) => {
+  const handleCompareSelect = useCallback(async (targetRun: WorkflowRun) => {
     setIsCompareModalOpen(false);
     try {
       // 비교 대상의 상세 정보(node_runs 포함) 가져오기
@@ -254,9 +208,9 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
       setCompareLog(targetRun);
       setViewMode('compare');
     }
-  };
+  }, [workflowId]);
 
-  const startABCompare = async () => {
+  const startABCompare = useCallback(async () => {
     if (abRunA && abRunB) {
       try {
         // A/B 모두 상세 정보 가져오기
@@ -275,13 +229,58 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
         setViewMode('compare');
       }
     }
-  };
+  }, [workflowId, abRunA, abRunB]);
 
-  const resetABTest = () => {
+  const resetABTest = useCallback(() => {
     setABRunA(null);
     setABRunB(null);
     setSelectionTarget(null);
-  };
+  }, []);
+
+  // ========================
+  // 이펙트 (함수 선언 후 배치)
+  // ========================
+  
+  // 초기 로드
+  useEffect(() => {
+    if (workflowId && isValidUUID(workflowId)) {
+      loadLogs();
+    }
+  }, [workflowId, loadLogs]);
+
+  // 모니터링에서 네비게이션 시 initialRunId 변경 처리
+  useEffect(() => {
+    if (initialRunId) {
+      fetchAndSelectRun(initialRunId);
+    }
+  }, [initialRunId, fetchAndSelectRun]);
+
+  // A/B 섹션 열림 시 자동 스크롤
+  useEffect(() => {
+    if (isABTestOpen && abSectionRef.current) {
+      setTimeout(() => {
+        abSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }, 100);
+    }
+  }, [isABTestOpen]);
+
+  // ESC 키로 A/B 테스트 모드 종료 (X 버튼과 동일한 동작)
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isABTestOpen) {
+        // X 버튼과 동일: onReset() + onToggle()
+        setABRunA(null);
+        setABRunB(null);
+        setSelectionTarget(null);
+        setIsABTestOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isABTestOpen]);
 
   return (
     <div className="h-full w-full bg-gray-100 flex flex-col overflow-hidden">
