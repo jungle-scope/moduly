@@ -49,7 +49,7 @@ spec:
             - name: REDIS_PORT
               value: "6379"
             - name: REDIS_DB
-              value: "1"
+              value: "2" # 분산 락 전용 DB (Celery와 분리)
             # CORS 설정 (로컬 테스트용)
             - name: CORS_ORIGINS
               value: "http://localhost:3000,http://127.0.0.1:3000"
