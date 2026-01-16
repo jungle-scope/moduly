@@ -43,6 +43,8 @@ spec:
               value: "0"
             - name: REDIS_BACKEND_DB
               value: "1"
+            - name: REDIS_DB
+              value: "2" # 분산 락 전용 DB (Celery와 분리)
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:

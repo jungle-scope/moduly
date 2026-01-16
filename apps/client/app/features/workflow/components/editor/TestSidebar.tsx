@@ -14,7 +14,11 @@ import {
 import { toast } from 'sonner';
 import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
 
-export function TestSidebar() {
+type TestSidebarProps = {
+  appendMemoryFlag?: (inputs: Record<string, any> | FormData) => Record<string, any> | FormData;
+};
+
+export function TestSidebar({ appendMemoryFlag }: TestSidebarProps) {
   const {
     isTestPanelOpen,
     toggleTestPanel,
@@ -166,10 +170,12 @@ export function TestSidebar() {
 
       let finalResult: any = null;
 
-      // 2. 스트리밍 실행
+      // 2. 스트리밍 실행 (기억모드 플래그 적용)
+      const inputsWithMemory = appendMemoryFlag ? appendMemoryFlag(finalInputs) : finalInputs;
+
       await workflowApi.executeWorkflowStream(
         activeWorkflowId,
-        finalInputs,
+        inputsWithMemory as Record<string, any>,
         async (event) => {
           // 시각적 피드백을 위한 지연
           await new Promise((resolve) => setTimeout(resolve, 500));

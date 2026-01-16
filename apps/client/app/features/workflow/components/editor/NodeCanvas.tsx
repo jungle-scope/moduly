@@ -144,6 +144,7 @@ export default function NodeCanvas() {
     hasProviderKey,
     memoryModeDescription,
     toggleMemoryMode,
+    appendMemoryFlag,
     modals: memoryModeModals,
   } = useMemoryMode(router, toast);
 
@@ -1156,7 +1157,7 @@ export default function NodeCanvas() {
       {/* Sidebars */}
       <SettingsSidebar />
       <VersionHistorySidebar />
-      <TestSidebar />
+      <TestSidebar appendMemoryFlag={appendMemoryFlag} />
 
       {/* Deployment Flow Modal */}
       <DeploymentFlowModal
