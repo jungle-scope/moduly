@@ -28,6 +28,8 @@ import {
 import { calculateAutoLayout } from '../../utils/layoutHelpers';
 import { useDeployment } from '../../hooks/useDeployment';
 import { arrangeConditionNodeChildren } from '../../utils/arrangeConditionNodes';
+import { useContextMenu } from '../../hooks/useContextMenu';
+import { useNodeCreation } from '../../hooks/useNodeCreation';
 
 import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -165,6 +167,41 @@ export default function NodeCanvas() {
     toggleTestPanel,
     setSelectedNodeId,
     setSelectedNodeType,
+  });
+
+  // Context menu hook
+  const {
+    contextMenu,
+    nodeContextMenu,
+    edgeContextMenu,
+    isContextNodeSelectorOpen,
+    contextMenuPos,
+    setContextMenu,
+    setNodeContextMenu,
+    setEdgeContextMenu,
+    setIsContextNodeSelectorOpen,
+    onPaneContextMenu,
+    handleCloseContextMenu,
+    handleAddNodeFromContext,
+    handleAddMemoFromContext,
+    handleTestRunFromContext,
+    handleSelectNodeFromContext,
+  } = useContextMenu({
+    nodes,
+    setNodes,
+    triggerWorkflowRun: useWorkflowStore.getState().triggerWorkflowRun,
+    setSearchModalContext,
+  });
+
+  // Node creation hook
+  const { onDrop, handleAddNodeFromLibrary } = useNodeCreation({
+    nodes,
+    setNodes,
+    edges,
+    setEdges,
+    previewState,
+    resetPreview,
+    setSearchModalContext,
   });
 
   // 전체화면 모드 변경 시 사이드바 자동 토글
@@ -420,29 +457,6 @@ export default function NodeCanvas() {
     return activeWorkflow?.appId;
   }, [workflows, activeWorkflowId]);
 
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    isOpen: boolean;
-  } | null>(null);
-
-  // 노드/Edge 우클릭 삭제 메뉴용 state
-  const [nodeContextMenu, setNodeContextMenu] = useState<{
-    x: number;
-    y: number;
-    nodeId: string;
-  } | null>(null);
-
-  const [edgeContextMenu, setEdgeContextMenu] = useState<{
-    x: number;
-    y: number;
-    edgeId: string;
-  } | null>(null);
-
-  const [isContextNodeSelectorOpen, setIsContextNodeSelectorOpen] =
-    useState(false);
-  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
-
   // 노드 우클릭 핸들러
   const onNodeContextMenu = useCallback(
     (event: React.MouseEvent, node: Node) => {
@@ -517,250 +531,11 @@ export default function NodeCanvas() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [nodes, edges, setNodes, setEdges]);
 
-  const onPaneContextMenu = useCallback(
-    (event: React.MouseEvent | MouseEvent) => {
-      event.preventDefault();
-      const x = event.clientX;
-      const y = event.clientY;
-
-      setContextMenu({ x, y, isOpen: true });
-      setContextMenuPos({ x, y });
-      setNodeContextMenu(null);
-      setEdgeContextMenu(null);
-    },
-    [],
-  );
-
-  const handleCloseContextMenu = useCallback(() => {
-    setContextMenu(null);
-    setNodeContextMenu(null);
-    setEdgeContextMenu(null);
-  }, []);
-
-  const handleAddNodeFromContext = useCallback(() => {
-    setContextMenu(null);
-    setIsContextNodeSelectorOpen(true);
-  }, []);
-
-  const handleAddMemoFromContext = useCallback(() => {
-    if (!contextMenuPos) return;
-
-    const position = screenToFlowPosition({
-      x: contextMenuPos.x,
-      y: contextMenuPos.y,
-    });
-
-    const newNote: NoteNode = {
-      id: `note-${Date.now()}`,
-      type: 'note',
-      data: { content: '', title: '메모' },
-      position,
-      style: { width: 300, height: 100 },
-    };
-
-    setNodes([...nodes, newNote]);
-    setContextMenu(null);
-  }, [contextMenuPos, screenToFlowPosition, setNodes, nodes]);
-
-  const { triggerWorkflowRun } = useWorkflowStore();
-
-  const handleTestRunFromContext = useCallback(() => {
-    triggerWorkflowRun();
-    setContextMenu(null);
-  }, [triggerWorkflowRun]);
-
-  const handleSelectNodeFromContext = useCallback(
-    (nodeDefId: string) => {
-      const nodeDef = getNodeDefinition(nodeDefId);
-      if (!nodeDef) return;
-
-      const position = screenToFlowPosition({
-        x: contextMenuPos.x,
-        y: contextMenuPos.y,
-      });
-
-      // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
-      if (nodeDef.type === 'workflowNode') {
-        setSearchModalContext({ isOpen: true, position });
-        setIsContextNodeSelectorOpen(false);
-        return;
-      }
-
-      const newNode: AppNode = {
-        id: `${nodeDef.id}-${Date.now()}`,
-        type: nodeDef.type as any,
-        data: nodeDef.defaultData() as any,
-        position,
-      };
-
-      setNodes([...nodes, newNode]);
-      setIsContextNodeSelectorOpen(false);
-    },
-    [contextMenuPos, screenToFlowPosition, setNodes, nodes],
-  );
-
   useEffect(() => {
     const handleClick = () => handleCloseContextMenu();
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, [handleCloseContextMenu]);
-
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-
-      const nodeDefId = event.dataTransfer.getData('application/reactflow');
-      if (!nodeDefId) return;
-
-      const nodeDef = getNodeDefinition(nodeDefId);
-      if (!nodeDef) return;
-
-      // Use preview position if available, otherwise use mouse position
-      const position =
-        previewState.draggedNodePosition ||
-        screenToFlowPosition({
-          x: event.clientX,
-          y: event.clientY,
-        });
-
-      // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
-      if (nodeDef.type === 'workflowNode') {
-        setSearchModalContext({ isOpen: true, position });
-        return;
-      }
-
-      // Remove ghost node and create real node
-      const filteredNodes = nodes.filter((n) => n.id !== 'GHOST');
-
-      const newNode: AppNode = {
-        id: `${nodeDef.id}-${Date.now()}`,
-        type: nodeDef.type as any,
-        data: nodeDef.defaultData() as any,
-        position,
-      };
-
-      // Auto-connect if there's a nearest node
-      let sourceHandle: string | undefined;
-      let updatedConditionNode: AppNode | null = null;
-
-      if (previewState.nearestNode) {
-        // For condition nodes, use priority-based auto-connect
-        if (
-          previewState.isRight &&
-          previewState.nearestNode.type === 'conditionNode'
-        ) {
-          const conditionNode = previewState.nearestNode;
-
-          // Find first available handle in priority order
-          let targetHandle = findFirstAvailableHandle(conditionNode, edges);
-
-          // If all handles are connected, create new case
-          if (targetHandle === null) {
-            const result = createNewCaseForConnection(conditionNode);
-            targetHandle = result.caseId;
-            updatedConditionNode = result.updatedNode;
-          }
-
-          sourceHandle = targetHandle;
-        }
-      }
-
-      // Update nodes: add new node and update condition node if needed
-      let nodesToSet: AppNode[];
-      if (updatedConditionNode) {
-        const updatedNodes = filteredNodes.map((node) =>
-          node.id === updatedConditionNode!.id ? updatedConditionNode! : node,
-        );
-        nodesToSet = [...updatedNodes, newNode];
-      } else {
-        nodesToSet = [...filteredNodes, newNode];
-      }
-
-      // If connected to a condition node, arrange all its children
-      if (
-        previewState.nearestNode &&
-        previewState.nearestNode.type === 'conditionNode'
-      ) {
-        // Create temporary edges array to include the new edge
-        const tempEdges = previewState.nearestNode
-          ? [
-              ...edges,
-              {
-                id: `temp-${Date.now()}`,
-                source: previewState.isRight
-                  ? previewState.nearestNode.id
-                  : newNode.id,
-                target: previewState.isRight
-                  ? newNode.id
-                  : previewState.nearestNode.id,
-                sourceHandle: sourceHandle || undefined,
-              },
-            ]
-          : edges;
-
-        nodesToSet = arrangeConditionNodeChildren(
-          updatedConditionNode || previewState.nearestNode,
-          nodesToSet,
-          tempEdges as Edge[],
-        );
-      }
-
-      setNodes(nodesToSet);
-
-      // Create edge if there's a nearest node
-      if (previewState.nearestNode) {
-        const newEdge = {
-          id: `e-${Date.now()}`,
-          source: previewState.isRight
-            ? previewState.nearestNode.id
-            : newNode.id,
-          target: previewState.isRight
-            ? newNode.id
-            : previewState.nearestNode.id,
-          sourceHandle: sourceHandle || undefined,
-          type: 'puzzle',
-        };
-
-        setEdges([...edges, newEdge]);
-      }
-
-      // Clean up preview
-      resetPreview();
-    },
-    [
-      screenToFlowPosition,
-      setNodes,
-      nodes,
-      resetPreview,
-      previewState,
-      setEdges,
-      edges,
-    ],
-  );
-
-  // onDragOver is now handled by useDragPreview hook
-
-  const handleAddNodeFromLibrary = useCallback(
-    (nodeDefId: string) => {
-      const nodeDef = getNodeDefinition(nodeDefId);
-      if (!nodeDef) return;
-
-      const centerPos = screenToFlowPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      });
-
-      const newNode: AppNode = {
-        id: `${nodeDef.id}-${Date.now()}`,
-        type: nodeDef.type as any,
-        data: nodeDef.defaultData() as any,
-        position: centerPos,
-      };
-
-      setNodes([...nodes, newNode]);
-    },
-    [screenToFlowPosition, setNodes, nodes],
-  );
 
   // [NEW] 탭 상태
   const [activeTab, setActiveTab] = useState<'editor' | 'logs' | 'monitoring'>(
