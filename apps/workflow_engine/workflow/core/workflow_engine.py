@@ -91,6 +91,15 @@ class WorkflowEngine:
         [FIX] 메모리 누수 방지를 위해 모든 참조를 명시적으로 정리합니다.
         Celery 태스크에서 finally 블록에서 호출되어야 합니다.
         """
+        # [FIX] 노드 인스턴스 내부의 서브그래프 엔진도 정리 (LoopNode 등)
+        for node_instance in self.node_instances.values():
+            if (
+                hasattr(node_instance, "_subgraph_engine")
+                and node_instance._subgraph_engine
+            ):
+                node_instance._subgraph_engine.cleanup()
+                node_instance._subgraph_engine = None
+
         # 노드 관련 정리
         self.node_instances.clear()
         self.node_schemas.clear()
@@ -127,39 +136,6 @@ class WorkflowEngine:
                 raise ValueError(event["data"]["message"])
 
         return final_context
-
-    async def execute_subgraph(
-        self,
-        nodes: List[Dict],
-        edges: List[Dict],
-        initial_inputs: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """
-        서브그래프를 독립적인 워크플로우로 실행
-        Loop 노드나 Workflow 노드에서 사용
-
-        Args:
-            nodes: 서브그래프의 노드 리스트
-            edges: 서브그래프의 엣지 리스트
-            initial_inputs: 서브그래프 시작 시 입력 변수
-
-        Returns:
-            서브그래프 실행 결과
-        """
-        # 새로운 WorkflowEngine 인스턴스 생성 (독립적인 실행 컨텍스트)
-        subgraph_engine = WorkflowEngine(
-            graph={"nodes": nodes, "edges": edges},
-            user_input=initial_inputs,
-            execution_context=self.execution_context.copy(),
-            is_deployed=self.is_deployed,
-            db=self.execution_context.get("db"),
-            parent_run_id=self.execution_context.get("workflow_run_id"),
-            workflow_timeout=self.workflow_timeout,
-        )
-
-        # 서브그래프 실행
-        result = await subgraph_engine.execute()
-        return result
 
     async def execute_stream(self):
         """
