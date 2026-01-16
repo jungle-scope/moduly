@@ -88,12 +88,11 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: ENCRYPTION_KEY
-          # [FIX] 리소스 증가 (worker_concurrency 16 대응)
           resources:
             requests:
-              cpu: 1000m # 200m → 1000m (5배)
-              memory: 1Gi # 256Mi → 1Gi (4배)
+              cpu: 200m
+              memory: 512Mi 
             limits:
-              cpu: 2000m # 500m → 2000m (4배)
-              memory: 2Gi # 512Mi → 2Gi (4배)
+              cpu: 500m 
+              memory: 2Gi 
 
