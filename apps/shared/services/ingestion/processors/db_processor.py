@@ -1,19 +1,20 @@
 import logging
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict
 
-from apps.gateway.services.ingestion.chunkers.adaptive_db_chunker import (
+from apps.shared.services.ingestion.chunkers.adaptive_db_chunker import (
     AdaptiveDbChunker,
 )
-from apps.gateway.services.ingestion.processors.base import (
+from apps.shared.services.ingestion.processors.base import (
     BaseProcessor,
     ProcessingResult,
 )
-from apps.gateway.services.ingestion.transformers.db_nl_transformer import (
+from apps.shared.services.ingestion.transformers.db_nl_transformer import (
     DbNlTransformer,
 )
-from apps.gateway.utils.encryption import encryption_manager
+from apps.shared.utils.encryption import encryption_manager
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,9 @@ class DbProcessor(BaseProcessor):
             elif isinstance(value, (datetime, date)):
                 # datetime/date -> ISO format string
                 result[key] = value.isoformat()
+            elif isinstance(value, uuid.UUID):
+                # UUID -> str
+                result[key] = str(value)
             elif isinstance(value, (list, dict)):
                 # 중첩된 구조는 그대로 (PostgreSQL JSON 타입 등)
                 result[key] = value
@@ -198,7 +202,7 @@ class DbProcessor(BaseProcessor):
             join_config = source_config.get("join_config", {})
             if join_config.get("enabled", False) and len(selections) == 2:
                 logger.info(
-                    f"Processing with JOIN mode: {selections[0]['table_name']} + {selections[1]['table_name']}"
+                    f"[DB처리] JOIN 모드: {selections[0]['table_name']} + {selections[1]['table_name']}"
                 )
                 join_chunks = self._process_with_join(
                     connector,
@@ -255,7 +259,7 @@ class DbProcessor(BaseProcessor):
 
         selection = selections[0]
         table_name = selection["table_name"]
-        logger.info(f"Processing single table: {table_name}")
+        logger.info(f"[DB처리] 단일 테이블 처리: {table_name}")
 
         columns = selection.get("columns", ["*"])
         limit = source_config.get("limit", 1000)
@@ -267,8 +271,8 @@ class DbProcessor(BaseProcessor):
         def transform_strategy(row_dict):
             return transformer.transform(
                 row_dict,
-                template_str=source_config.get("template") or selection.get("template"),
-                aliases=source_config.get("aliases") or selection.get("aliases"),
+                template_str=selection.get("template"),
+                aliases=selection.get("aliases"),
             )
 
         def encryption_key_strategy(table, col):
@@ -299,8 +303,11 @@ class DbProcessor(BaseProcessor):
         chunker,
     ):
         """2테이블 JOIN 모드 처리"""
+        from apps.shared.utils.join_query_utils import (
+            convert_to_namespace,
+            generate_join_query,
+        )
         from jinja2 import Template
-        from utils.join_query_utils import convert_to_namespace, generate_join_query
 
         limit = source_config.get("limit", 1000)
         query = generate_join_query(selections, join_config, limit)
@@ -321,23 +328,13 @@ class DbProcessor(BaseProcessor):
             render_context = namespaced_data.copy()
 
             # Alias 적용
-            global_aliases = source_config.get("aliases")
-            if global_aliases:
-                for table, col_map in global_aliases.items():
-                    if table in namespaced_data:
-                        for col, val in namespaced_data[table].items():
-                            if col in col_map:
-                                render_context[col_map[col]] = val
-            
-            # 개별 selection Alias (Legacy)
-            else:
-                for sel in selections:
-                    table = sel["table_name"]
-                    table_aliases = sel.get("aliases", {})
-                    if table in namespaced_data:
-                        for col, val in namespaced_data[table].items():
-                            if col in table_aliases:
-                                render_context[table_aliases[col]] = val
+            for sel in selections:
+                table = sel["table_name"]
+                table_aliases = sel.get("aliases", {})
+                if table in namespaced_data:
+                    for col, val in namespaced_data[table].items():
+                        if col in table_aliases:
+                            render_context[table_aliases[col]] = val
 
             if template_str:
                 try:
@@ -384,12 +381,12 @@ class DbProcessor(BaseProcessor):
         enable_chunking = source_config.get("enable_auto_chunking", True)
 
         row_count = 0
-        logger.info("Executing query...")
+        logger.info("[DB처리] 쿼리 실행 중...")
 
         for row_dict in connector.fetch_data(config_dict, query):
             row_count += 1
             if row_count % 100 == 0:
-                logger.info(f"Processing rows: {row_count}")
+                logger.info(f"[DB처리] 처리 중: {row_count}개 행")
 
             # 1. 텍스트 변환 (Strategy)
             nl_text = transform_strategy(row_dict)
@@ -432,5 +429,5 @@ class DbProcessor(BaseProcessor):
                 logger.error(f"Row {row_count} chunking failed: {e}")
                 continue
 
-        logger.info(f"Completed processing: {row_count} rows, {len(chunks)} chunks")
+        logger.info(f"[DB처리] 완료: {row_count}개 행, {len(chunks)}개 청크")
         return chunks

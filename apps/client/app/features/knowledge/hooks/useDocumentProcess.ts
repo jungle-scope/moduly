@@ -32,7 +32,8 @@ interface UseDocumentProcessProps {
   connectionId?: string; // 외부에서 주입받을 수 있는 connectionId
   // 범위 선택 관련
   selectionMode?: 'all' | 'range' | 'keyword';
-  chunkRange?: string; // "1-100, 500-600"
+  rangeStart?: string;
+  rangeEnd?: string;
   keywordFilter?: string;
 }
 
@@ -45,7 +46,8 @@ export function useDocumentProcess({
   settings,
   connectionId: connectionIdOverride,
   selectionMode = 'all',
-  chunkRange = '',
+  rangeStart = '',
+  rangeEnd = '',
   keywordFilter = '',
 }: UseDocumentProcessProps) {
   const [analyzingAction, setAnalyzingAction] = useState<
@@ -101,14 +103,29 @@ export function useDocumentProcess({
       enable_auto_chunking: settings.enableAutoChunking ?? true,
       // 필터링 파라미터 전송
       selection_mode: selectionMode,
-      chunk_range: chunkRange,
+      chunk_range:
+        selectionMode === 'range' && rangeStart && rangeEnd
+          ? `${rangeStart}-${rangeEnd}`
+          : undefined,
       keyword_filter: keywordFilter,
     };
+  };
+
+  // 유효성 검사 헬퍼
+  const validateRequest = () => {
+    if (selectionMode === 'range') {
+      if (!rangeStart || !rangeEnd) {
+        toast.error('번호를 입력해주세요');
+        return false;
+      }
+    }
+    return true;
   };
 
   // 저장 및 처리 (Save)
   const executeSave = async (strategy: 'general' | 'llamaparse') => {
     if (!document) return;
+    if (!validateRequest()) return;
     try {
       const requestData = createRequestData(strategy);
       await knowledgeApi.processDocument(kbId, document.id, requestData);
@@ -137,6 +154,7 @@ export function useDocumentProcess({
   // 3. 미리보기 (Preview)
   const executePreview = async (strategy: 'general' | 'llamaparse') => {
     if (!kbId || !documentId) return;
+    if (!validateRequest()) return;
     setIsPreviewLoading(true);
     try {
       const requestData = createRequestData(strategy);

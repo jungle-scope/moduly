@@ -4,6 +4,7 @@ Workflow-Engine Celery 태스크 정의
 """
 
 import asyncio
+import uuid
 from typing import Any, Dict
 
 from apps.shared.celery_app import celery_app
@@ -38,6 +39,18 @@ def execute_workflow(
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
+        # [NEW] DB Knowledge Base 동기화 (Sync Hook)
+        try:
+            user_id_str = execution_context.get("user_id")
+            if user_id_str:
+                from apps.workflow_engine.services.sync_service import SyncService
+
+                user_id = uuid.UUID(user_id_str)
+                syncer = SyncService(db=session, user_id=user_id)
+                syncer.sync_knowledge_bases(graph)
+        except Exception as e:
+            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+
         engine = WorkflowEngine(
             graph=graph,
             user_input=user_input,
@@ -108,6 +121,18 @@ def execute_deployed_workflow(
         # execution_context에 workflow_id 추가
         execution_context["workflow_id"] = workflow_id
 
+        # [NEW] DB Knowledge Base 동기화 (Sync Hook)
+        try:
+            user_id_str = execution_context.get("user_id")
+            if user_id_str:
+                from apps.workflow_engine.services.sync_service import SyncService
+
+                user_id = uuid.UUID(user_id_str)
+                syncer = SyncService(db=session, user_id=user_id)
+                syncer.sync_knowledge_bases(graph)
+        except Exception as e:
+            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+
         engine = WorkflowEngine(
             graph=graph,
             user_input=user_input,
@@ -174,6 +199,18 @@ def execute_by_deployment(
         if not deployment.graph_snapshot:
             raise ValueError(f"배포 그래프 데이터가 없습니다: {deployment_id}")
 
+        # [NEW] DB Knowledge Base 동기화 (Sync Hook)
+        try:
+            user_id_str = execution_context.get("user_id")
+            if user_id_str:
+                from apps.workflow_engine.services.sync_service import SyncService
+
+                user_id = uuid.UUID(user_id_str)
+                syncer = SyncService(db=session, user_id=user_id)
+                syncer.sync_knowledge_bases(deployment.graph_snapshot)
+        except Exception as e:
+            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+
         engine = WorkflowEngine(
             graph=deployment.graph_snapshot,
             user_input=user_input,
@@ -232,6 +269,18 @@ def stream_workflow(
     try:
         # 외부 run_id를 execution_context에 주입
         execution_context["workflow_run_id"] = external_run_id
+
+        # [NEW] DB Knowledge Base 동기화 (Sync Hook)
+        try:
+            user_id_str = execution_context.get("user_id")
+            if user_id_str:
+                from apps.workflow_engine.services.sync_service import SyncService
+
+                user_id = uuid.UUID(user_id_str)
+                syncer = SyncService(db=session, user_id=user_id)
+                syncer.sync_knowledge_bases(graph)
+        except Exception as e:
+            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
