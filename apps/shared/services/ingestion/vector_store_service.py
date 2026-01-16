@@ -148,7 +148,7 @@ class VectorStoreService:
             content = chunk["content"]
             embedding = final_embeddings.get(i)
 
-            if not embedding:
+            if embedding is None:
                 # 이론상 발생하면 안 되지만 안전장치
                 logger.error(f"Missing embedding for chunk {i}")
                 continue
