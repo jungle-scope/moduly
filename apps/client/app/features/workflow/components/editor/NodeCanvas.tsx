@@ -27,6 +27,7 @@ import {
 } from '../../utils/conditionNodeHelpers';
 import { calculateAutoLayout } from '../../utils/layoutHelpers';
 import { useDeployment } from '../../hooks/useDeployment';
+import { arrangeConditionNodeChildren } from '../../utils/arrangeConditionNodes';
 
 import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -665,14 +666,46 @@ export default function NodeCanvas() {
       }
 
       // Update nodes: add new node and update condition node if needed
+      let nodesToSet: AppNode[];
       if (updatedConditionNode) {
         const updatedNodes = filteredNodes.map((node) =>
           node.id === updatedConditionNode!.id ? updatedConditionNode! : node,
         );
-        setNodes([...updatedNodes, newNode]);
+        nodesToSet = [...updatedNodes, newNode];
       } else {
-        setNodes([...filteredNodes, newNode]);
+        nodesToSet = [...filteredNodes, newNode];
       }
+
+      // If connected to a condition node, arrange all its children
+      if (
+        previewState.nearestNode &&
+        previewState.nearestNode.type === 'conditionNode'
+      ) {
+        // Create temporary edges array to include the new edge
+        const tempEdges = previewState.nearestNode
+          ? [
+              ...edges,
+              {
+                id: `temp-${Date.now()}`,
+                source: previewState.isRight
+                  ? previewState.nearestNode.id
+                  : newNode.id,
+                target: previewState.isRight
+                  ? newNode.id
+                  : previewState.nearestNode.id,
+                sourceHandle: sourceHandle || undefined,
+              },
+            ]
+          : edges;
+
+        nodesToSet = arrangeConditionNodeChildren(
+          updatedConditionNode || previewState.nearestNode,
+          nodesToSet,
+          tempEdges as Edge[],
+        );
+      }
+
+      setNodes(nodesToSet);
 
       // Create edge if there's a nearest node
       if (previewState.nearestNode) {
