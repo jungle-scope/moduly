@@ -2,8 +2,8 @@
 Moduly Celery 앱 설정
 
 마이크로서비스 간 비동기 통신을 위한 Celery 설정입니다.
-- 브로커: Redis
-- 결과 백엔드: Redis
+- 브로커: Redis (DB 0)
+- 결과 백엔드: Redis (DB 1) - [NEW] 브로커와 분리하여 I/O 경합 방지
 - 태스크 라우팅: workflow, log 큐로 분리
 """
 
@@ -15,19 +15,26 @@ from celery import Celery
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = os.getenv("REDIS_PORT", "6379")
-REDIS_DB = os.getenv("REDIS_DB", "0")
+REDIS_BROKER_DB = os.getenv("REDIS_BROKER_DB", "0")  # [NEW] 브로커용 DB
+REDIS_BACKEND_DB = os.getenv("REDIS_BACKEND_DB", "1")  # [NEW] 결과 백엔드용 DB
 
 # 비밀번호 유무에 따라 Redis URL 생성
 if REDIS_PASSWORD:
-    REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+    REDIS_BROKER_URL = (
+        f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_BROKER_DB}"
+    )
+    REDIS_BACKEND_URL = (
+        f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_BACKEND_DB}"
+    )
 else:
-    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+    REDIS_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_BROKER_DB}"
+    REDIS_BACKEND_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_BACKEND_DB}"
 
-# Celery 앱 생성
+# Celery 앱 생성 - [FIX] 브로커와 백엔드 분리
 celery_app = Celery(
     "moduly",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=REDIS_BROKER_URL,
+    backend=REDIS_BACKEND_URL,
 )
 
 # Celery 설정
