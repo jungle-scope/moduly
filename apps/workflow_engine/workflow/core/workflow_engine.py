@@ -662,7 +662,9 @@ class WorkflowEngine:
         # [PERF] 분기가 있는 경우 (O(1))
         if selected_handle is not None:
             key = (node_id, selected_handle)
-            return self.edge_handles.get(key, [])
+            next_nodes = self.edge_handles.get(key, [])
+
+            return next_nodes
 
         # [PERF] 분기가 없는 경우 (O(1))
         return self.adjacency_list.get(node_id, [])
