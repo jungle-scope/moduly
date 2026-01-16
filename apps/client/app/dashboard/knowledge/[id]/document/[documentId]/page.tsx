@@ -34,6 +34,7 @@ import ChunkPreviewList from '@/app/features/knowledge/components/preview/ChunkP
 import DBConnectionForm from '@/app/features/knowledge/components/create-knowledge-modal/DBConnectionForm';
 import { DBConfig } from '@/app/features/knowledge/types/DB';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
+import { useGenericCredential } from '@/app/features/knowledge/hooks/useGenericCredential';
 import ColumnAutocomplete from '@/app/features/knowledge/components/document-settings/ColumnAutocomplete';
 
 // UUID prefix가 있으면 제거, API URL이면 도메인만 추출
@@ -70,6 +71,11 @@ export default function DocumentSettingsPage() {
   const [selectedDbItems, setSelectedDbItems] = useState<
     Record<string, string[]>
   >({});
+
+  // [신규] LlamaParse 키 확인 Hook
+  const { hasKey: hasLlamaParseKey, isLoading: isKeyLoading } =
+    useGenericCredential('llamaparse');
+
   const [sensitiveColumns, setSensitiveColumns] = useState<
     Record<string, string[]>
   >({});
@@ -91,6 +97,10 @@ export default function DocumentSettingsPage() {
   const [enableAutoChunking, setEnableAutoChunking] = useState<boolean>(true); // 자동 청킹 활성화
   const [joinConfig, setJoinConfig] = useState<JoinConfig | null>(null); // JOIN 설정 상태
 
+  // 작업 불가능 조건: (전략이 llamaparse인데 키가 없으면)
+  const isActionDisabled =
+    parsingStrategy === 'llamaparse' && !isKeyLoading && !hasLlamaParseKey;
+
   // 실시간 진행 상태
   const [progress, setProgress] = useState(0);
 
@@ -105,7 +115,8 @@ export default function DocumentSettingsPage() {
   const [selectionMode, setSelectionMode] = useState<
     'all' | 'range' | 'keyword'
   >('all');
-  const [chunkRange, setChunkRange] = useState<string>(''); // "1-100, 500-600" 형식
+  const [rangeStart, setRangeStart] = useState<string>('');
+  const [rangeEnd, setRangeEnd] = useState<string>('');
   const [keywordFilter, setKeywordFilter] = useState<string>('');
 
   // Alias 자동 생성 핸들러
@@ -290,7 +301,8 @@ export default function DocumentSettingsPage() {
     connectionId: connectionId,
     // 범위 선택
     selectionMode,
-    chunkRange,
+    rangeStart,
+    rangeEnd,
     keywordFilter,
   });
 
@@ -641,7 +653,10 @@ export default function DocumentSettingsPage() {
             <button
               onClick={handleSaveClick}
               disabled={
-                isAnalyzing || status === 'completed' || status === 'indexing'
+                isActionDisabled ||
+                isAnalyzing ||
+                status === 'completed' ||
+                status === 'indexing'
               }
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
@@ -673,6 +688,7 @@ export default function DocumentSettingsPage() {
                 <ParsingStrategySettings
                   strategy={parsingStrategy}
                   setStrategy={setParsingStrategy}
+                  hasKey={hasLlamaParseKey}
                 />
               )}
               <CommonChunkSettings
@@ -746,10 +762,12 @@ export default function DocumentSettingsPage() {
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
-                        value={chunkRange.split('-')[0] || ''}
-                        onChange={(e) => {
-                          const end = chunkRange.split('-')[1] || '';
-                          setChunkRange(`${e.target.value}-${end}`);
+                        value={rangeStart}
+                        onChange={(e) => setRangeStart(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (['e', 'E', '+', '-', '.'].includes(e.key)) {
+                            e.preventDefault();
+                          }
                         }}
                         placeholder="시작"
                         min={1}
@@ -758,10 +776,12 @@ export default function DocumentSettingsPage() {
                       <span className="text-gray-400">~</span>
                       <input
                         type="number"
-                        value={chunkRange.split('-')[1] || ''}
-                        onChange={(e) => {
-                          const start = chunkRange.split('-')[0] || '';
-                          setChunkRange(`${start}-${e.target.value}`);
+                        value={rangeEnd}
+                        onChange={(e) => setRangeEnd(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (['e', 'E', '+', '-', '.'].includes(e.key)) {
+                            e.preventDefault();
+                          }
                         }}
                         placeholder="끝"
                         min={1}
@@ -794,7 +814,7 @@ export default function DocumentSettingsPage() {
             <div className="flex-none p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <button
                 onClick={handlePreviewClick}
-                disabled={isPreviewLoading || isAnalyzing}
+                disabled={isActionDisabled || isPreviewLoading || isAnalyzing}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {isPreviewLoading || analyzingAction === 'preview' ? (
@@ -866,13 +886,10 @@ export default function DocumentSettingsPage() {
               💰 비용 승인 필요
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              <span className="font-medium text-amber-600">
-                {analyzeResult.cost_estimate.credits} 포인트
-              </span>
-              은 유료 기능입니다.
+              이 기능은 유료 기능입니다.
               <br />
               <span className="block mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm">
-                파일: <strong>{analyzeResult.filename}</strong>
+                파일: <strong>{analyzeResult.filename.substring(37)}</strong>
                 <br />
                 예상 결제 포인트:{' '}
                 <strong className="text-amber-600">
