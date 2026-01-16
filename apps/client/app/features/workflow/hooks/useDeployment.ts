@@ -2,10 +2,17 @@ import { useState, useCallback } from 'react';
 import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import type { DeploymentResult } from '../components/deployment/types';
+import type { AppNode } from '../types/Nodes';
 
-type DeploymentType = 'api' | 'webapp' | 'widget' | 'workflow_node';
+type DeploymentType =
+  | 'api'
+  | 'webapp'
+  | 'widget'
+  | 'workflow_node'
+  | 'SCHEDULE';
 
 interface UseDeploymentProps {
+  nodes: AppNode[]; // 시작 노드 타입 확인 및 graph_snapshot용
   isSettingsOpen: boolean;
   toggleSettings: () => void;
   isVersionHistoryOpen: boolean;
@@ -17,6 +24,7 @@ interface UseDeploymentProps {
 }
 
 export function useDeployment({
+  nodes,
   isSettingsOpen,
   toggleSettings,
   isVersionHistoryOpen,
@@ -80,6 +88,12 @@ export function useDeployment({
     setShowDeployDropdown(false);
   }, []);
 
+  const handlePublishAsSchedule = useCallback(() => {
+    setDeploymentType('SCHEDULE');
+    setShowDeployFlowModal(true);
+    setShowDeployDropdown(false);
+  }, []);
+
   const handleDeploy = useCallback(
     async (description: string): Promise<DeploymentResult> => {
       try {
@@ -103,6 +117,7 @@ export function useDeployment({
           version: response.version,
           input_schema: response.input_schema ?? null,
           output_schema: response.output_schema ?? null,
+          graph_snapshot: { nodes }, // webhook trigger 감지용
         };
 
         if (deploymentType === 'webapp') {
@@ -112,6 +127,14 @@ export function useDeployment({
         } else if (deploymentType === 'workflow_node') {
           result.isWorkflowNode = true;
           result.auth_secret = null;
+        } else if (deploymentType === 'SCHEDULE') {
+          // schedule 노드에서 cron expression, timezone 추출
+          const scheduleNode = nodes.find((n) => n.type === 'scheduleTrigger');
+          if (scheduleNode) {
+            const data = scheduleNode.data as any;
+            result.cronExpression = data.cronExpression || data.cron_expression;
+            result.timezone = data.timezone || data.time_zone || 'Asia/Seoul';
+          }
         }
 
         return result;
@@ -123,7 +146,7 @@ export function useDeployment({
         };
       }
     },
-    [deploymentType, activeWorkflow?.appId],
+    [deploymentType, activeWorkflow?.appId, nodes],
   );
 
   return {
@@ -137,6 +160,7 @@ export function useDeployment({
     handlePublishAsWebApp,
     handlePublishAsWidget,
     handlePublishAsWorkflowNode,
+    handlePublishAsSchedule,
     handleDeploy,
   };
 }

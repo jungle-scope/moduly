@@ -196,7 +196,7 @@ export function VersionHistorySidebar() {
                                     ? 'bg-purple-100 text-purple-700'
                                     : v.type === 'workflow_node'
                                       ? 'bg-orange-100 text-orange-700'
-                                      : v.type === 'schedule'
+                                      : v.type === 'SCHEDULE'
                                         ? 'bg-violet-100 text-violet-700'
                                         : 'bg-gray-100 text-gray-700'
                             }`}
@@ -209,7 +209,7 @@ export function VersionHistorySidebar() {
                                   ? '위젯'
                                   : v.type === 'workflow_node'
                                     ? '모듈'
-                                    : v.type === 'schedule'
+                                    : v.type === 'SCHEDULE'
                                       ? '알람'
                                       : 'MCP'}
                           </span>
