@@ -65,7 +65,9 @@ class VectorStoreService:
 
             # SHA-256 해시 생성 (내용 비교용)
             chunk_hash = hashlib.sha256(decrypted_content.encode("utf-8")).hexdigest()
-            existing_map[chunk_hash] = chunk.embedding
+            existing_map[chunk_hash] = (
+                list(chunk.embedding) if chunk.embedding is not None else None
+            )
 
         # 2. 임베딩 대상 분류 (해시 비교)
         final_embeddings = {}  # index -> embedding
@@ -86,7 +88,7 @@ class VectorStoreService:
 
         if reused_count > 0:
             logger.info(
-                f"[벡터저장] {reused_count}개 청크 재사용 (절감 효과!) / {len(chunks_to_embed)}개 신규 임베딩"
+                f"[벡터저장] {reused_count}개 청크 재사용... {len(chunks_to_embed)}개 신규 임베딩"
             )
 
         # 3. 신규 청크 임베딩 (Batch Processing)
