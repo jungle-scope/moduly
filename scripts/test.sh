@@ -49,6 +49,14 @@ echo -e "\n${YELLOW}📍 Workflow Engine Service 테스트 실행${NC}"
 )
 WORKFLOW_EXIT_CODE=$?
 
+echo -e "\n${YELLOW}📍 Shared/Unit Logic 테스트 실행 (with Workflow Venv)${NC}"
+(
+    source apps/workflow_engine/.venv/bin/activate
+    export PYTHONPATH="$PROJECT_ROOT"
+    pytest tests/unit
+)
+UNIT_EXIT_CODE=$?
+
 echo -e "\n${YELLOW}📍 Client App Build 테스트 실행${NC}"
 if [ -d "apps/client" ]; then
     (
@@ -77,6 +85,12 @@ else
     echo -e "${RED}❌ Workflow Engine Service: FAIL${NC}"
 fi
 
+if [ $UNIT_EXIT_CODE -eq 0 ]; then
+    echo -e "${GREEN}✅ Shared/Unit Logic: PASS${NC}"
+else
+    echo -e "${RED}❌ Shared/Unit Logic: FAIL${NC}"
+fi
+
 if [ -d "apps/client" ]; then
     if [ $CLIENT_EXIT_CODE -eq 0 ]; then
         echo -e "${GREEN}✅ Client App Build: PASS${NC}"
@@ -85,7 +99,7 @@ if [ -d "apps/client" ]; then
     fi
 fi
 
-if [ $GATEWAY_EXIT_CODE -eq 0 ] && [ $WORKFLOW_EXIT_CODE -eq 0 ] && [ $CLIENT_EXIT_CODE -eq 0 ]; then
+if [ $GATEWAY_EXIT_CODE -eq 0 ] && [ $WORKFLOW_EXIT_CODE -eq 0 ] && [ $UNIT_EXIT_CODE -eq 0 ] && [ $CLIENT_EXIT_CODE -eq 0 ]; then
     exit 0
 else
     exit 1

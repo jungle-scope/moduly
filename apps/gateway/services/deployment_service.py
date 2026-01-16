@@ -385,19 +385,38 @@ class DeploymentService:
                 kwargs={"is_deployed": True},
             )
 
-            # [FIX] 비동기 이벤트 루프 차단 방지를 위해 스레드 풀에서 대기
+            # [FIX] 비동기 폴링 패턴으로 결과 대기 (스레드 풀 고갈 방지)
             import asyncio
+            import time
 
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(None, lambda: task.get(timeout=600))
+            from celery.result import AsyncResult
+
+            async def wait_for_celery_result(task_id: str, timeout: int = 600):
+                """비동기적으로 Celery 결과 대기 (폴링 방식)"""
+                result = AsyncResult(task_id, app=celery_app)
+                start_time = time.time()
+
+                while not result.ready():
+                    elapsed = time.time() - start_time
+                    if elapsed > timeout:
+                        raise TimeoutError(
+                            f"Workflow execution timed out after {timeout} seconds"
+                        )
+                    await asyncio.sleep(0.5)  # 비동기 대기 (이벤트 루프 블로킹 방지)
+
+                if result.failed():
+                    raise result.result  # 예외 다시 발생
+                return result.result
+
+            result = await wait_for_celery_result(task.id, timeout=600)
 
             if result.get("status") == "success":
                 return {"status": "success", "results": result.get("result", {})}
             else:
                 raise HTTPException(status_code=500, detail="Workflow execution failed")
 
-        except celery_app.backend.TimeoutError:
-            raise HTTPException(status_code=504, detail="Workflow execution timed out")
+        except TimeoutError as e:
+            raise HTTPException(status_code=504, detail=str(e))
 
         except ValueError as e:
             # 필수 노드 누락 등 검증 에러
