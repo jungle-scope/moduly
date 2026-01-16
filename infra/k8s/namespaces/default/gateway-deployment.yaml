@@ -72,8 +72,8 @@ spec:
                   name: app-secrets
                   key: ENCRYPTION_KEY
             # S3 설정 (IRSA)
-            - name: RAG_INGESTION_MODE
-              value: "PROD"
+            - name: STORAGE_TYPE
+              value: "CLOUD"
             - name: S3_BUCKET_NAME
               value: "moduly-dev-file-upload"
             - name: AWS_REGION
