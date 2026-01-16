@@ -160,8 +160,6 @@ export function useMemoryMode(router = useRouter(), toaster = toast) {
   const memoryModeDescription =
     '최근 실행 기록을 요약해 다음 실행에 컨텍스트로 반영합니다. 추가 LLM 호출로 비용이 늘 수 있으니 켜기 전에 확인해주세요.';
 
-
-
   // 키 상태 조회 (최소 침습)
   useEffect(() => {
     const fetchKeyStatus = async () => {
