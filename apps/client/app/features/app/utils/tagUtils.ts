@@ -16,7 +16,6 @@ export function getModuleTags(app: App): ModuleTag[] {
       { label: string; type: ModuleTag['type'] }
     > = {
       api: { label: 'REST API', type: 'api' },
-      webhook: { label: '웹훅', type: 'webhook' },
       webapp: { label: '웹 앱', type: 'webapp' },
       widget: { label: '챗봇', type: 'widget' },
       workflow_node: { label: '서브 모듈', type: 'workflow_node' },

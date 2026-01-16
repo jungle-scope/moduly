@@ -18,7 +18,7 @@ export function Tag({ label, type }: TagProps) {
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${colorClasses}`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${colors[type]}`}
     >
       {label}
     </span>

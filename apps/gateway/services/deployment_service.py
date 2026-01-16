@@ -521,8 +521,6 @@ class DeploymentService:
 
         return None
 
-    삭제
-
     @staticmethod
     def _deactivate_other_deployments(
         db: Session,
