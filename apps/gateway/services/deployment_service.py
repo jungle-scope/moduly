@@ -522,6 +522,23 @@ class DeploymentService:
         return None
 
     @staticmethod
+    def _find_schedule_trigger_node(graph_snapshot: dict) -> dict | None:
+        """
+        graph_snapshot에서 ScheduleTrigger 노드를 찾습니다.
+
+        Returns:
+            ScheduleTrigger 노드 객체 또는 None
+        """
+        if not graph_snapshot or not graph_snapshot.get("nodes"):
+            return None
+
+        for node in graph_snapshot["nodes"]:
+            if node.get("type") == "scheduleTrigger":
+                return node
+
+        return None
+
+    @staticmethod
     def _deactivate_other_deployments(
         db: Session,
         app_id: uuid.UUID,
