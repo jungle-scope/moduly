@@ -1,17 +1,22 @@
 import { useCallback, useState, useMemo } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import Editor from '@monaco-editor/react';
-import { Maximize2, Minimize2, Wand2 } from 'lucide-react';
+import { Maximize2, Minimize2, Wand2, AlertTriangle } from 'lucide-react';
 import { CodeNodeData, CodeNodeInput } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
 import { CodeWizardModal } from '../../../modals/CodeWizardModal';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 
 interface CodeNodePanelProps {
   nodeId: string;
   data: CodeNodeData;
 }
+
+// 노드 실행 필수 요건 체크
+// 1. 코드가 비어있지 않아야 함
+// 2. 입력 변수 매핑이 완료되어야 함
 
 const DEFAULT_CODE = `def main(inputs):
     # 입력변수를 inputs['변수명']의 형태로 할당
@@ -104,6 +109,19 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
     return (data.inputs || []).map(input => input.name).filter(Boolean);
   }, [data.inputs]);
 
+
+  const incompleteVariables = useMemo(() => {
+    const incomplete: { name: string; value_selector: string[] }[] = [];
+    for (const input of data.inputs || []) {
+      const name = (input.name || '').trim();
+      const source = (input.source || '').trim();
+      if (name && !source) {
+        incomplete.push({ name, value_selector: [] });
+      }
+    }
+    return incomplete;
+  }, [data.inputs]);
+
   return (
     <div className="flex flex-col h-full gap-2">
       {/* 입력변수 섹션 */}
@@ -126,6 +144,8 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
             </code>{' '}
             으로 사용
           </div>
+          
+          <IncompleteVariablesAlert variables={incompleteVariables} />
         </div>
       </CollapsibleSection>
 

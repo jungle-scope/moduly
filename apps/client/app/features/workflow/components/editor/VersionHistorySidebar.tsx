@@ -76,7 +76,7 @@ export function VersionHistorySidebar() {
 
   return (
     <>
-      <div className="absolute top-24 right-0 bottom-0 w-96 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col animate-in slide-in-from-right duration-200">
+      <div className="absolute top-26 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200">
         {/* 헤더 */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-2 text-gray-800">
@@ -196,7 +196,7 @@ export function VersionHistorySidebar() {
                                     ? 'bg-purple-100 text-purple-700'
                                     : v.type === 'workflow_node'
                                       ? 'bg-orange-100 text-orange-700'
-                                      : v.type === 'schedule'
+                                      : v.type === 'SCHEDULE'
                                         ? 'bg-violet-100 text-violet-700'
                                         : 'bg-gray-100 text-gray-700'
                             }`}
@@ -209,7 +209,7 @@ export function VersionHistorySidebar() {
                                   ? '위젯'
                                   : v.type === 'workflow_node'
                                     ? '모듈'
-                                    : v.type === 'schedule'
+                                    : v.type === 'SCHEDULE'
                                       ? '알람'
                                       : 'MCP'}
                           </span>

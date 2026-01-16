@@ -10,8 +10,8 @@ Locust 워크플로우 부하 테스트
     --headless --users 10 --spawn-rate 2 --run-time 30s
 
 환경변수 (.env):
-  LOAD_TEST_DEPLOYMENT_SLUG: 테스트할 워크플로우 URL slug
-  LOAD_TEST_AUTH_TOKEN: 인증 토큰
+  LOAD_TEST_DEPLOYMENT_SLUG_1: 테스트할 워크플로우 URL slug
+  LOAD_TEST_AUTH_TOKEN_1: 인증 토큰
 """
 
 import json
@@ -40,13 +40,15 @@ class WorkflowUser(HttpUser):
 
     def on_start(self):
         """테스트 시작 시 환경변수에서 설정 로드"""
-        self.deployment_slug = os.getenv("LOAD_TEST_DEPLOYMENT_SLUG")
-        self.auth_token = os.getenv("LOAD_TEST_AUTH_TOKEN")
+        self.deployment_slug = os.getenv("LOAD_TEST_DEPLOYMENT_SLUG_1")
+        self.auth_token = os.getenv("LOAD_TEST_AUTH_TOKEN_1")
 
         if not self.deployment_slug:
-            raise ValueError("LOAD_TEST_DEPLOYMENT_SLUG 환경변수가 설정되지 않았습니다")
+            raise ValueError(
+                "LOAD_TEST_DEPLOYMENT_SLUG_1 환경변수가 설정되지 않았습니다"
+            )
         if not self.auth_token:
-            raise ValueError("LOAD_TEST_AUTH_TOKEN 환경변수가 설정되지 않았습니다")
+            raise ValueError("LOAD_TEST_AUTH_TOKEN_1 환경변수가 설정되지 않았습니다")
 
     @task
     def run_workflow(self):
@@ -56,8 +58,13 @@ class WorkflowUser(HttpUser):
             "Content-Type": "application/json",
         }
 
-        # 테스트 입력 데이터 (math 변수 사용)
-        payload = {"inputs": {"math": random.randint(1, 100)}}
+        # 테스트 입력 데이터
+        payload = {
+            "inputs": {
+                "score": random.randint(1, 100),
+                "pdf": "https://moduly-dev-file-upload.s3.amazonaws.com/uploads/1e9d5de3-ed0f-4d1c-8aee-53e4afd78fd8/d9aeb862-119e-4c22-9317-36555098eddc_welcome.pdf",
+            }
+        }
 
         with self.client.post(
             f"/api/v1/run/{self.deployment_slug}",
@@ -75,10 +82,10 @@ class WorkflowUser(HttpUser):
                 except json.JSONDecodeError as e:
                     response.failure(f"JSON parse error: {e}")
             elif response.status_code == 401:
-                response.failure("Authentication failed - check LOAD_TEST_AUTH_TOKEN")
+                response.failure("Authentication failed - check LOAD_TEST_AUTH_TOKEN_1")
             elif response.status_code == 404:
                 response.failure(
-                    "Deployment not found - check LOAD_TEST_DEPLOYMENT_SLUG"
+                    "Deployment not found - check LOAD_TEST_DEPLOYMENT_SLUG_1"
                 )
             else:
                 response.failure(
@@ -89,8 +96,8 @@ class WorkflowUser(HttpUser):
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     """테스트 시작 시 설정 정보 출력"""
-    slug = os.getenv("LOAD_TEST_DEPLOYMENT_SLUG", "NOT SET")
-    token = os.getenv("LOAD_TEST_AUTH_TOKEN", "NOT SET")
+    slug = os.getenv("LOAD_TEST_DEPLOYMENT_SLUG_1", "NOT SET")
+    token = os.getenv("LOAD_TEST_AUTH_TOKEN_1", "NOT SET")
     token_preview = f"{token[:10]}..." if token != "NOT SET" else "NOT SET"
 
     print(f"\n{'=' * 50}")

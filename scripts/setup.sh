@@ -40,32 +40,38 @@ setup_python_app() {
     
     cd "$PROJECT_ROOT/$app_path"
 
-    # 가상환경이 없으면 생성
     if [ ! -d ".venv" ]; then
         echo -e "   - 가상환경(.venv) 생성 중..."
-        python3 -m venv .venv
+        python3 -m venv .venv 2>/dev/null || python -m venv .venv
     fi
 
-    # 가상환경 활성화
-    source .venv/bin/activate
+    # OS별 가상환경 경로 설정
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        # Windows (Git Bash)
+        VENV_PYTHON=".venv/Scripts/python"
+        VENV_PIP=".venv/Scripts/pip"
+    else
+        # Mac/Linux
+        VENV_PYTHON=".venv/bin/python"
+        VENV_PIP=".venv/bin/pip"
+    fi
 
     # pip 업그레이드
     echo -e "   - pip 업그레이드 중..."
-    pip install --upgrade pip > /dev/null
+    $VENV_PYTHON -m pip install --upgrade pip > /dev/null
 
     # Shared 패키지 설치 (필요한 경우)
     if [ "$install_shared" = true ]; then
         echo -e "   - Shared 패키지 설치 중..."
-        # shared 패키지가 -e (editable) 모드로 설치되도록 함
-        pip install -e "$PROJECT_ROOT/apps/shared" > /dev/null
+        $VENV_PIP install -e "$PROJECT_ROOT/apps/shared" > /dev/null
     fi
 
     # 의존성 설치
     echo -e "   - 의존성 설치/업데이트 중..."
-    pip install -e . > /dev/null
+    $VENV_PIP install -e . > /dev/null
 
-    # 가상환경 비활성화
-    deactivate
+    # 프로젝트 루트로 돌아가기
+    cd "$PROJECT_ROOT"
 
     echo -e "${GREEN}✓ [$app_name] 설정 완료${NC}"
     echo ""

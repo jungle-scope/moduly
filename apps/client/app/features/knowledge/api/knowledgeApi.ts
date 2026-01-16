@@ -32,9 +32,11 @@ export interface DocumentPreviewRequest {
       table_name: string;
       columns: string[];
       sensitive_columns?: string[];
-      aliases?: Record<string, string>;
-      template?: string;
     }[];
+    selected_items?: Record<string, string[]>;
+    sensitive_columns?: Record<string, string[]>;
+    aliases?: Record<string, Record<string, string>>;
+    template?: string;
     connection_id?: string;
     join_config?: JoinConfig;
   } | null;

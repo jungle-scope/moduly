@@ -5,6 +5,7 @@ import { Slack } from 'lucide-react';
 import { SlackPostNodeData } from '../../../../types/Nodes';
 import { BaseNode } from '../../BaseNode';
 import { ValidationBadge } from '../../../ui/ValidationBadge';
+import { hasIncompleteVariables } from '../../../../utils/validationUtils';
 
 export const SlackPostNode = memo(
   ({ data, selected }: NodeProps<Node<SlackPostNodeData>>) => {
@@ -69,6 +70,7 @@ export const SlackPostNode = memo(
       if (!hasMessage && !hasValidBlocks) return true;
       if (blocksJsonError) return true;
       if (missingVariables.length > 0) return true;
+      if (hasIncompleteVariables(data.referenced_variables)) return true;
 
       return false;
     }, [
