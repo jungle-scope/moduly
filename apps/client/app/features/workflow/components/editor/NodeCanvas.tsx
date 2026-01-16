@@ -113,7 +113,7 @@ export default function NodeCanvas() {
     selectedInnerNode,
   } = useWorkflowStore();
 
-  const { fitView, setViewport, getViewport, screenToFlowPosition } =
+  const { fitView, setViewport, getViewport, screenToFlowPosition, deleteElements } =
     useReactFlow();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
@@ -501,21 +501,21 @@ export default function NodeCanvas() {
     [],
   );
 
-  // 노드 삭제 핸들러
+  // 노드 삭제 핸들러 (React Flow 내부 로직 사용)
   const handleDeleteNode = useCallback(() => {
     if (!nodeContextMenu) return;
-    setNodes(nodes.filter((n) => n.id !== nodeContextMenu.nodeId));
+    deleteElements({ nodes: [{ id: nodeContextMenu.nodeId }] });
     setNodeContextMenu(null);
-  }, [nodeContextMenu, nodes, setNodes]);
+  }, [nodeContextMenu, deleteElements]);
 
-  // Edge 삭제 핸들러
+  // Edge 삭제 핸들러 (React Flow 내부 로직 사용)
   const handleDeleteEdge = useCallback(() => {
     if (!edgeContextMenu) return;
-    setEdges(edges.filter((e) => e.id !== edgeContextMenu.edgeId));
+    deleteElements({ edges: [{ id: edgeContextMenu.edgeId }] });
     setEdgeContextMenu(null);
-  }, [edgeContextMenu, edges, setEdges]);
+  }, [edgeContextMenu, deleteElements]);
 
-  // Delete 키 핸들러
+  // Delete 키 핸들러 (React Flow 내부 로직 사용)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // input/textarea에서는 무시
@@ -527,21 +527,23 @@ export default function NodeCanvas() {
       }
 
       if (event.key === 'Delete') {
-        // 선택된 노드가 있으면 삭제
+        // 선택된 노드/엣지가 있으면 삭제
         const selectedNodes = nodes.filter((n) => n.selected);
         const selectedEdges = edges.filter((e) => e.selected);
 
         if (selectedNodes.length > 0 || selectedEdges.length > 0) {
           event.preventDefault();
-          setNodes(nodes.filter((n) => !n.selected));
-          setEdges(edges.filter((e) => !e.selected));
+          deleteElements({
+            nodes: selectedNodes.map((n) => ({ id: n.id })),
+            edges: selectedEdges.map((e) => ({ id: e.id })),
+          });
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [nodes, edges, deleteElements]);
 
   useEffect(() => {
     const handleClick = () => handleCloseContextMenu();

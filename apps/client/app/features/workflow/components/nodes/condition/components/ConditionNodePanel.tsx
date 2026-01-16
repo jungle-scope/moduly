@@ -194,10 +194,10 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
             return (
               <div
                 key={caseItem.id}
-                className="border border-gray-200 rounded-lg overflow-hidden border-l-4 border-l-blue-500"
+                className="border border-gray-200 rounded-lg border-l-4 border-l-blue-500"
               >
                 {/* Case 헤더 */}
-                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200 rounded-tr-lg">
                   <div className="flex items-center gap-2">
                     <input
                       className="text-sm font-medium text-gray-700 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1 transition-colors hover:bg-gray-200/50"
