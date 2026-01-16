@@ -6,6 +6,7 @@ interface DragPreviewState {
   nearestNode: AppNode | null;
   draggedNodePosition: { x: number; y: number } | null;
   isRight: boolean; // Whether dragged node is to the right of nearest node
+  highlightedHandle: string | null; // 🆕 Which handle is highlighted during drag
 }
 
 interface DragPreviewResult {
@@ -19,13 +20,54 @@ interface DragPreviewResult {
  *
  * Calculates smart positioning for dragged node and shows connection preview
  */
-export function useDragConnectionPreview(nodes: AppNode[]): DragPreviewResult {
+
+/**
+ * Calculate which handle will be used for connection (priority-based)
+ * Priority: default -> case1 -> case2 -> ...
+ * This matches the actual connection logic in onDrop
+ */
+function calculatePriorityHandle(
+  conditionNode: AppNode,
+  edges: any[], // Edge array to check existing connections
+): string {
+  const cases = (conditionNode.data as any).cases || [];
+
+  // Priority 1: default (if not connected)
+  const isDefaultConnected = edges.some(
+    (edge: any) =>
+      edge.source === conditionNode.id && edge.sourceHandle === 'default',
+  );
+  if (!isDefaultConnected) {
+    return 'default';
+  }
+
+  // Priority 2+: cases in order (if not connected)
+  for (const caseItem of cases) {
+    const isCaseConnected = edges.some(
+      (edge: any) =>
+        edge.source === conditionNode.id && edge.sourceHandle === caseItem.id,
+    );
+    if (!isCaseConnected) {
+      return caseItem.id;
+    }
+  }
+
+  // All handles connected - will create new case
+  // Highlight the position where new case will be created
+  return `case-new-${cases.length + 1}`;
+}
+
+export function useDragConnectionPreview(
+  nodes: AppNode[],
+  edges: any[],
+): DragPreviewResult {
   const { screenToFlowPosition } = useReactFlow();
 
   const [previewState, setPreviewState] = useState<DragPreviewState>({
     nearestNode: null,
     draggedNodePosition: null,
     isRight: false,
+    highlightedHandle: null,
   });
 
   const onDragOver = useCallback(
@@ -44,6 +86,7 @@ export function useDragConnectionPreview(nodes: AppNode[]): DragPreviewResult {
             nearestNode: null,
             draggedNodePosition: null,
             isRight: false,
+            highlightedHandle: null,
           });
         }
         return;
@@ -94,6 +137,7 @@ export function useDragConnectionPreview(nodes: AppNode[]): DragPreviewResult {
             nearestNode: null,
             draggedNodePosition: null,
             isRight: false,
+            highlightedHandle: null,
           });
           return;
         }
@@ -110,27 +154,48 @@ export function useDragConnectionPreview(nodes: AppNode[]): DragPreviewResult {
           y: (nearestNode as AppNode).position.y,
         };
 
+        // Calculate highlighted handle for condition nodes (priority-based)
+        let highlightedHandle: string | null = null;
+        if (isRight && (nearestNode as any).type === 'conditionNode') {
+          highlightedHandle = calculatePriorityHandle(
+            nearestNode as AppNode,
+            edges,
+          );
+        }
+
+        // Set global for ConditionNode to access
+        (window as any).__dragHighlightedHandle__ = highlightedHandle;
+
         setPreviewState({
           nearestNode,
           draggedNodePosition,
           isRight,
+          highlightedHandle,
         });
       } else {
+        // Clear global when no nearest node
+        (window as any).__dragHighlightedHandle__ = null;
+
         setPreviewState({
           nearestNode: null,
           draggedNodePosition: null,
           isRight: false,
+          highlightedHandle: null,
         });
       }
     },
-    [nodes, screenToFlowPosition, previewState],
+    [nodes, screenToFlowPosition, previewState, edges],
   );
 
   const resetPreview = useCallback(() => {
+    // Clear global state
+    (window as any).__dragHighlightedHandle__ = null;
+
     setPreviewState({
       nearestNode: null,
       draggedNodePosition: null,
       isRight: false,
+      highlightedHandle: null,
     });
   }, []);
 
