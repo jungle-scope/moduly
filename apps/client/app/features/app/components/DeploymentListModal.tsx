@@ -15,8 +15,9 @@ const DEPLOYMENT_TYPE_LABELS: Record<string, string> = {
   api: 'REST API',
   webapp: '웹 앱',
   widget: '위젯',
-  mcp: 'MCP',
   workflow_node: '서브 모듈',
+  webhook: '웹훅',
+  schedule: '알람',
 };
 
 export default function DeploymentListModal({
