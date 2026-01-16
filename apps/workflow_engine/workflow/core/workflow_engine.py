@@ -659,20 +659,11 @@ class WorkflowEngine:
         """
         selected_handle = result.get("selected_handle")
 
-        # 🔍 DEBUG: Track sourceHandle matching for condition nodes
-        if selected_handle is not None:
-            print(f"[DEBUG] Getting next nodes for {node_id}")
-            print(f"[DEBUG] selected_handle: {selected_handle}")
-            print(
-                f"[DEBUG] Available keys in edge_handles: {[k for k in self.edge_handles.keys() if k[0] == node_id]}"
-            )
-
         # [PERF] 분기가 있는 경우 (O(1))
         if selected_handle is not None:
             key = (node_id, selected_handle)
             next_nodes = self.edge_handles.get(key, [])
-            # 🔍 DEBUG: Track matching result
-            print(f"[DEBUG] Looking for key: {key}, found: {next_nodes}")
+
             return next_nodes
 
         # [PERF] 분기가 없는 경우 (O(1))
@@ -690,12 +681,6 @@ class WorkflowEngine:
     def _build_optimized_graph(self):
         """엣지를 분석하여 효율적인 그래프 구조 생성 (O(E) 한 번만)"""
         for edge in self.edges:
-            # 🔍 DEBUG: Track edge data with sourceHandle
-            if edge.sourceHandle is not None:
-                print(
-                    f"[DEBUG] Building edge: source={edge.source}, target={edge.target}, sourceHandle={edge.sourceHandle}"
-                )
-
             # 정방향 그래프 (source -> targets)
             if edge.source not in self.adjacency_list:
                 self.adjacency_list[edge.source] = []

@@ -6,7 +6,7 @@ export type DeploymentType =
   | 'webapp'
   | 'widget'
   | 'workflow_node'
-  | 'schedule';
+  | 'SCHEDULE';
 
 export interface DeploymentResult {
   success: boolean;
