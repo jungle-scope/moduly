@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DeploymentStep, DeploymentType, DeploymentResult } from './types';
+import { DeploymentStep, DeploymentResult } from './types';
+import { DeploymentType } from '../../types/Deployment';
 import { InputStep } from './InputStep';
 import { SuccessStep } from './SuccessStep';
 import { ErrorStep } from './ErrorStep';
