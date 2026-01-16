@@ -112,6 +112,26 @@ def delete_credential(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.post("/credentials/{credential_id}/sync-models")
+def sync_credential_models(
+    credential_id: UUID,
+    purge_unverified: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    해당 크리덴셜 기준으로 모델 매핑을 재동기화합니다.
+    """
+    try:
+        return LLMService.sync_credential_models(
+            db, current_user.id, credential_id, purge_unverified=purge_unverified
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 # --- Stats ---
 
 

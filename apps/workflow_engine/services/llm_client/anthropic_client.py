@@ -28,10 +28,17 @@ class AnthropicClient(BaseLLMClient):
     def __init__(self, model_id: str, credentials: Dict[str, Any]):
         super().__init__(model_id=model_id, credentials=credentials)
         self.api_key = credentials.get("apiKey") or credentials.get("api_key")
-        self.base_url = credentials.get("baseUrl") or credentials.get("base_url")
-        if not self.api_key or not self.base_url:
+        base_url = credentials.get("baseUrl") or credentials.get("base_url")
+        if not self.api_key or not base_url:
             raise ValueError("Anthropic credentials에 apiKey/baseUrl가 필요합니다.")
+        self.base_url = self._normalize_base_url(base_url)
         self.messages_url = self.base_url.rstrip("/") + "/v1/messages"
+
+    def _normalize_base_url(self, base_url: str) -> str:
+        normalized = base_url.rstrip("/")
+        if normalized.endswith("/v1"):
+            normalized = normalized[:-3]
+        return normalized
 
     def _build_headers(self) -> Dict[str, str]:
         return {
@@ -81,9 +88,18 @@ class AnthropicClient(BaseLLMClient):
         
         if system_content:
             payload["system"] = system_content
-            
-        # 나머지 옵션 추가 (temperature 등)
-        payload.update(kwargs)
+
+        # 허용된 옵션만 전달 (Anthropic은 extra inputs 허용 안 함)
+        allowed_keys = {"temperature", "top_p", "top_k", "stop_sequences", "metadata"}
+        stop_sequences = kwargs.pop("stop", None)
+        if stop_sequences:
+            if isinstance(stop_sequences, list):
+                stop_sequences = [s for s in stop_sequences if isinstance(s, str) and s]
+            if isinstance(stop_sequences, list) and stop_sequences:
+                kwargs["stop_sequences"] = stop_sequences
+
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in allowed_keys}
+        payload.update(filtered_kwargs)
 
         try:
             resp = requests.post(

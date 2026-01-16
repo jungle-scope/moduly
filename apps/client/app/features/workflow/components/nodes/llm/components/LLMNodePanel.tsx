@@ -328,16 +328,51 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [nodeId, updateNodeData],
   );
 
+  const isAnthropicModelId = useCallback(
+    (modelId: string) => {
+      const candidate = modelOptions.find(
+        (model) => model.model_id_for_api_call === modelId,
+      );
+      const provider = (candidate?.provider_name || '').toLowerCase();
+      if (provider) return provider.includes('anthropic');
+      return modelId.toLowerCase().startsWith('claude');
+    },
+    [modelOptions],
+  );
+
+  const stripTopP = (parameters?: Record<string, unknown>) => {
+    if (!parameters || !Object.prototype.hasOwnProperty.call(parameters, 'top_p')) {
+      return parameters;
+    }
+    const { top_p, ...rest } = parameters;
+    return rest;
+  };
+
   const handleModelChange = useCallback(
     (nextModelId: string) => {
       const updates: Partial<LLMNodeData> = { model_id: nextModelId };
       if (data.fallback_model_id && data.fallback_model_id === nextModelId) {
         updates.fallback_model_id = '';
       }
+      if (isAnthropicModelId(nextModelId)) {
+        const nextParams = stripTopP(data.parameters);
+        if (nextParams !== data.parameters) {
+          updates.parameters = nextParams || {};
+        }
+      }
       updateNodeData(nodeId, updates);
     },
-    [data.fallback_model_id, nodeId, updateNodeData],
+    [data.fallback_model_id, data.parameters, isAnthropicModelId, nodeId, updateNodeData],
   );
+
+  useEffect(() => {
+    if (!data.model_id) return;
+    if (!isAnthropicModelId(data.model_id)) return;
+    const nextParams = stripTopP(data.parameters);
+    if (nextParams !== data.parameters) {
+      updateNodeData(nodeId, { parameters: nextParams || {} });
+    }
+  }, [data.model_id, data.parameters, isAnthropicModelId, nodeId, updateNodeData]);
 
   const handleFieldChange = useCallback(
     (field: keyof LLMNodeData, value: any) => {

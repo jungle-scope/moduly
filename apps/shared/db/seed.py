@@ -177,31 +177,6 @@ def seed_default_llm_models(db: Session) -> None:
         if not model:
             continue
 
-        # Provider의 기존 Credential에 연결 (선택사항 - 조회 로직 변경으로 인해 필수는 아니지만 안전장치로 유지)
-        # 1. 해당 Provider의 모든 Credential 조회
-        creds = (
-            db.query(LLMCredential)
-            .filter(LLMCredential.provider_id == provider.id)
-            .all()
-        )
-
-        # 2. 이미 연결된 내역 확인
-        existing_links = (
-            db.query(LLMRelCredentialModel)
-            .filter(LLMRelCredentialModel.model_id == model.id)
-            .all()
-        )
-        linked_cred_ids = {link.credential_id for link in existing_links}
-
-        # 3. 누락된 연결 추가
-        for cred in creds:
-            if cred.id not in linked_cred_ids:
-                rel = LLMRelCredentialModel(
-                    credential_id=cred.id, model_id=model.id, is_verified=True
-                )
-                db.add(rel)
-                # print(f"   Configs: Linked {model_id} to Credential {cred.credential_name}")
-
     if models_seeded_count > 0 or models_updated_count > 0:
         if models_seeded_count > 0:
             print(f"🌱 Seeded {models_seeded_count} new LLM models.")
