@@ -4,7 +4,7 @@ export type DeploymentType =
   | 'mcp'
   | 'webapp'
   | 'workflow_node'
-  | 'schedule';
+  | 'SCHEDULE';
 
 // 입력 변수 스키마 타입
 export interface InputVariable {
