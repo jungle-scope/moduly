@@ -42,7 +42,7 @@ spec:
         imagePullPolicy: Always  # latest 태그 사용 시 항상 최신 이미지 pull
         env:
         - name: DB_HOST
-          value: postgresql.default.svc.cluster.local
+          value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME
