@@ -202,7 +202,7 @@ class DbProcessor(BaseProcessor):
             join_config = source_config.get("join_config", {})
             if join_config.get("enabled", False) and len(selections) == 2:
                 logger.info(
-                    f"Processing with JOIN mode: {selections[0]['table_name']} + {selections[1]['table_name']}"
+                    f"[DB처리] JOIN 모드: {selections[0]['table_name']} + {selections[1]['table_name']}"
                 )
                 join_chunks = self._process_with_join(
                     connector,
@@ -259,7 +259,7 @@ class DbProcessor(BaseProcessor):
 
         selection = selections[0]
         table_name = selection["table_name"]
-        logger.info(f"Processing single table: {table_name}")
+        logger.info(f"[DB처리] 단일 테이블 처리: {table_name}")
 
         columns = selection.get("columns", ["*"])
         limit = source_config.get("limit", 1000)
@@ -381,12 +381,12 @@ class DbProcessor(BaseProcessor):
         enable_chunking = source_config.get("enable_auto_chunking", True)
 
         row_count = 0
-        logger.info("Executing query...")
+        logger.info("[DB처리] 쿼리 실행 중...")
 
         for row_dict in connector.fetch_data(config_dict, query):
             row_count += 1
             if row_count % 100 == 0:
-                logger.info(f"Processing rows: {row_count}")
+                logger.info(f"[DB처리] 처리 중: {row_count}개 행")
 
             # 1. 텍스트 변환 (Strategy)
             nl_text = transform_strategy(row_dict)
@@ -429,5 +429,5 @@ class DbProcessor(BaseProcessor):
                 logger.error(f"Row {row_count} chunking failed: {e}")
                 continue
 
-        logger.info(f"Completed processing: {row_count} rows, {len(chunks)} chunks")
+        logger.info(f"[DB처리] 완료: {row_count}개 행, {len(chunks)}개 청크")
         return chunks

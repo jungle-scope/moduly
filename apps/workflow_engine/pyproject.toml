@@ -17,6 +17,9 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pymupdf4llm>=0.0.5",  # PDF 텍스트 추출
     "PyGithub>=2.1.0",  # GitHub API 통합
+    # [SY] 외부 DB SSH 터널 동기화용
+    "paramiko>=2.12.0,<3.0",
+    "sshtunnel>=0.4.0,<0.5",
 ]
 
 [build-system]

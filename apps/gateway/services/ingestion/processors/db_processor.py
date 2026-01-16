@@ -3,9 +3,16 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict
 
-from apps.gateway.services.ingestion.chunkers.adaptive_db_chunker import AdaptiveDbChunker
-from apps.gateway.services.ingestion.processors.base import BaseProcessor, ProcessingResult
-from apps.gateway.services.ingestion.transformers.db_nl_transformer import DbNlTransformer
+from apps.gateway.services.ingestion.chunkers.adaptive_db_chunker import (
+    AdaptiveDbChunker,
+)
+from apps.gateway.services.ingestion.processors.base import (
+    BaseProcessor,
+    ProcessingResult,
+)
+from apps.gateway.services.ingestion.transformers.db_nl_transformer import (
+    DbNlTransformer,
+)
 from apps.gateway.utils.encryption import encryption_manager
 
 logger = logging.getLogger(__name__)
@@ -225,7 +232,7 @@ class DbProcessor(BaseProcessor):
 
     def _get_connector(self, db_type: str):
         if db_type == "postgres":
-            from connectors.postgres import PostgresConnector
+            from apps.shared.connectors.postgres import PostgresConnector
 
             return PostgresConnector()
         # 추후 mysql, oracle 등 추가
@@ -293,7 +300,6 @@ class DbProcessor(BaseProcessor):
     ):
         """2테이블 JOIN 모드 처리"""
         from jinja2 import Template
-
         from utils.join_query_utils import convert_to_namespace, generate_join_query
 
         limit = source_config.get("limit", 1000)

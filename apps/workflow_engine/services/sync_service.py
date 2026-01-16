@@ -36,9 +36,12 @@ class SyncService:
         """
         kb_ids = self._extract_knowledge_base_ids(graph_data)
         if not kb_ids:
+            logger.info("[동기화] 동기화할 지식베이스 없음")
             return 0
 
+        logger.info(f"[동기화] {len(kb_ids)}개 지식베이스 동기화 시작")
         synced_count = 0
+        failed_count = 0
 
         # DB 타입 KnowledgeBase만 필터링 조회
         kbs = (
@@ -66,17 +69,28 @@ class SyncService:
             for doc in documents:
                 try:
                     logger.info(
-                        f"[SyncService] Syncing document {doc.id} (KB: {kb.name})"
+                        f"[동기화] 외부 DB 동기화 중: {doc.filename} (지식베이스: {kb.name})"
                     )
 
                     # 1. DB Fetch & Process
-                    # Document.meta_info에 connection_id, sql 등의 source_config가 있다고 가정
-                    source_config = doc.meta_info or {}
+                    source_config = dict(doc.meta_info or {})
+
+                    # db_config가 있으면 flatten (Gateway _build_config와 동일)
+                    if "db_config" in source_config and isinstance(
+                        source_config["db_config"], dict
+                    ):
+                        source_config.update(source_config["db_config"])
 
                     # Connection ID가 없으면 Skip (설정 미완료 등)
                     if not source_config.get("connection_id"):
-                        logger.warning(f"Document {doc.id} has no connection_id")
+                        logger.warning(
+                            f"[동기화] 외부 DB {doc.filename}에 connection_id 없음, 건너뜀."
+                        )
                         continue
+
+                    logger.info(
+                        f"[동기화] source_config selections: {source_config.get('selections', [])}"
+                    )
 
                     # Processor 실행 (DB 접속 -> SQL 실행 -> NL 변환 -> Chunking)
                     result = self.db_processor.process(source_config)
@@ -91,13 +105,15 @@ class SyncService:
                     synced_count += 1
 
                 except Exception as e:
-                    logger.error(f"[SyncService] Failed to sync document {doc.id}: {e}")
-                    # 워크플로우 실행 자체를 막을지 여부:
-                    # 현재는 동기화 실패 시 '이전 데이터'로라도 실행되도록 Log만 남김.
+                    logger.error(f"[동기화] 외부 DB {doc.filename} 동기화 실패: {e}")
+                    failed_count += 1
+                    # 워크플로우 실행 자체를 막지 않고 이전 데이터로 계속 실행
                     continue
 
-        if synced_count > 0:
-            logger.info(f"[SyncService] Total {synced_count} documents synced.")
+        if synced_count > 0 or failed_count > 0:
+            logger.info(
+                f"[동기화] 완료 - 성공: {synced_count}개, 실패: {failed_count}개"
+            )
 
         return synced_count
 

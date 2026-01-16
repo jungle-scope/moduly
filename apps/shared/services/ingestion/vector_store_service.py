@@ -36,16 +36,11 @@ class VectorStoreService:
         if not doc:
             raise ValueError(f"Document {document_id} not found")
 
-        # 기존 청크 삭제
-        self.db.query(DocumentChunk).filter(
-            DocumentChunk.document_id == document_id
-        ).delete()
-
         if not chunks:
-            logger.warning(f"No chunks to save for document {document_id}")
+            logger.warning(f"[벡터저장] 저장할 청크 없음: 문서 {document_id}")
             return
 
-        logger.info(f"Saving {len(chunks)} chunks for document {document_id}")
+        logger.info(f"[벡터저장] {len(chunks)}개 청크 저장 시작: 문서 {document_id}")
 
         # 1. 배치 구성 (임베딩 비용 효율화)
         MAX_TOKENS_PER_TEXT = 8000
@@ -96,10 +91,9 @@ class VectorStoreService:
                 for idx, emb in zip(indices, embeddings):
                     all_embeddings[idx] = emb
             except Exception as e:
-                logger.error(f"Embedding failed for batch: {e}")
-                # Fallback: dummy vector (검색 안됨)
-                for idx in indices:
-                    all_embeddings[idx] = [0.0] * 1536
+                logger.error(f"[벡터저장] 임베딩 실패: {e}")
+                # 임베딩 실패 시 기존 데이터 보존을 위해 예외 발생
+                raise RuntimeError(f"임베딩 생성 실패로 동기화 중단: {e}")
 
         # 3. DocumentChunk 생성
         new_chunks = []
@@ -128,10 +122,16 @@ class VectorStoreService:
                 )
             )
 
+        # 임베딩 성공 시에만 기존 청크 삭제 후 저장 (원자성 보장)
+        self.db.query(DocumentChunk).filter(
+            DocumentChunk.document_id == document_id
+        ).delete()
+        logger.info(f"[벡터저장] 기존 청크 삭제: 문서 {document_id}")
+
         self.db.bulk_save_objects(new_chunks)
 
         # 문서 상태 업데이트 (모델명 등)
         doc.embedding_model = model_name
         self.db.commit()
 
-        logger.info(f"Successfully saved {len(new_chunks)} chunks.")
+        logger.info(f"[벡터저장] {len(new_chunks)}개 청크 저장 완료")

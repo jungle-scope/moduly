@@ -45,7 +45,7 @@ def execute_workflow(
                 syncer = SyncService(db=session, user_id=user_id)
                 syncer.sync_knowledge_bases(graph)
         except Exception as e:
-            print(f"[Workflow-Engine] Sync Hook Failed: {e}")
+            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
@@ -117,7 +117,7 @@ def execute_deployed_workflow(
                 syncer = SyncService(db=session, user_id=user_id)
                 syncer.sync_knowledge_bases(graph)
         except Exception as e:
-            print(f"[Workflow-Engine] Sync Hook Failed: {e}")
+            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
@@ -185,7 +185,7 @@ def execute_by_deployment(
                 syncer = SyncService(db=session, user_id=user_id)
                 syncer.sync_knowledge_bases(deployment.graph_snapshot)
         except Exception as e:
-            print(f"[Workflow-Engine] Sync Hook Failed: {e}")
+            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=deployment.graph_snapshot,
@@ -246,7 +246,7 @@ def stream_workflow(
                 syncer = SyncService(db=session, user_id=user_id)
                 syncer.sync_knowledge_bases(graph)
         except Exception as e:
-            print(f"[Workflow-Engine] Sync Hook Failed: {e}")
+            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
