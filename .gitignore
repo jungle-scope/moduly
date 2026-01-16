@@ -4,6 +4,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+*.egg-info/
+**/*.egg-info/
 
 # Node
 apps/client/.next/
@@ -78,3 +80,12 @@ infra/k8s/secrets.yaml
 alembic/__pycache__/
 alembic/versions/__pycache__/
 *.pyc
+
+# Python Build Artifacts
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# 테스트 유저와 관련 데이터 삭제 스크립트 (개발시 DB CRUD 확인용)
+scripts/cleanup_users.py

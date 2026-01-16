@@ -48,13 +48,9 @@ export const useAutoSync = () => {
               }
               return node;
             });
-            console.log(
-              '[AutoSync] Migrated nodes (start -> startNode):',
-              data.nodes,
-            );
+
             //TODO: 노드가 없으면 '에러' 대신 '기본값을 주입'하고 있습니다. 백엔드 연동되면 에러페이지 리다이렉트로 수정합니다.
           } else {
-            console.warn('⚠️ 저장된 노드가 없어 기본 노드로 자동 복구합니다.');
             data.nodes = DEFAULT_NODES as AppNode[];
           }
           setWorkflowData(data, workflowId);
@@ -66,8 +62,8 @@ export const useAutoSync = () => {
         }
 
         isLoadedRef.current = true;
-      } catch (error) {
-        console.error('Failed to load workflow:', error);
+      } catch {
+        // Failed to load workflow
       }
     };
 
@@ -87,7 +83,6 @@ export const useAutoSync = () => {
           currentRuntimeVars: typeof runtimeVariables,
         ) => {
           if (!workflowId) {
-            console.warn('[AutoSync] workflowId가 없어 동기화를 건너뜁니다.');
             return;
           }
           try {
@@ -112,10 +107,8 @@ export const useAutoSync = () => {
               envVariables: currentEnvVars,
               runtimeVariables: currentRuntimeVars,
             });
-
-            console.log('[AutoSync] ✅ 저장 완료');
-          } catch (error) {
-            console.error('Failed to sync workflow:', error);
+          } catch {
+            // Failed to sync workflow
           }
         },
         1000, // 1초 동안 추가 입력이 없으면 저장
@@ -135,8 +128,6 @@ export const useAutoSync = () => {
   useEffect(() => {
     // 빈 내용으로 덮어쓰기 방지하기 위해 로딩이 완료되지 않았으면 바로 리턴
     if (!isLoadedRef.current) return;
-
-    console.log('[AutoSync] 🔄 상태 변경 감지');
 
     debouncedSyncRef.current(
       nodes,

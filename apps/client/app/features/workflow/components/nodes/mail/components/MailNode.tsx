@@ -1,4 +1,6 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import { ValidationBadge } from '../../../ui/ValidationBadge';
+import { hasIncompleteVariables } from '../../../../utils/validationUtils';
 import { NodeProps, Node } from '@xyflow/react';
 import { Mail } from 'lucide-react';
 import { MailNodeData } from '../../../../types/Nodes';
@@ -26,6 +28,12 @@ export const MailNode = memo(
     const iconColor = providerColors[provider] || providerColors.custom;
     const providerName = providerNames[provider] || provider;
 
+    const hasValidationIssue = useMemo(() => {
+      const emailMissing = !data.email?.trim();
+      const passwordMissing = !data.password?.trim();
+      return emailMissing || passwordMissing || hasIncompleteVariables(data.referenced_variables);
+    }, [data.email, data.password, data.referenced_variables]);
+
     return (
       <BaseNode
         data={data}
@@ -47,17 +55,9 @@ export const MailNode = memo(
             )}
           </div>
 
-          {/* Search Info */}
-          {data.keyword && (
-            <div className="text-xs text-gray-600 truncate">
-              <span className="font-medium">키워드:</span> {data.keyword}
-            </div>
-          )}
-          {data.sender && (
-            <div className="text-xs text-gray-600 truncate">
-              <span className="font-medium">보낸 사람:</span> {data.sender}
-            </div>
-          )}
+
+          
+          {hasValidationIssue && <ValidationBadge />}
         </div>
       </BaseNode>
     );

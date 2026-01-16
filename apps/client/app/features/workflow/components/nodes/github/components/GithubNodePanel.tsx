@@ -2,13 +2,23 @@ import { useCallback, useMemo, useState, useRef } from 'react';
 import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
 import { GithubNodeData } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { AlertTriangle } from 'lucide-react';
+import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
+import { ValidationAlert } from '../../../ui/ValidationAlert';
 
 interface GithubNodePanelProps {
   nodeId: string;
   data: GithubNodeData;
 }
+
+// 노드 실행 필수 요건 체크
+// 1. API 토큰이 입력되어야 함
+// 2. 소유자(Owner)가 입력되어야 함
+// 3. 저장소(Repo) 이름이 입력되어야 함
+// 4. PR 번호가 유효해야 함 (양수)
 
 const getCaretCoordinates = (
   element: HTMLTextAreaElement,
@@ -92,6 +102,32 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
       handleUpdateData('referenced_variables', newVars);
     },
     [data.referenced_variables, handleUpdateData],
+  );
+
+
+  const tokenMissing = useMemo(() => {
+    return !data.api_token?.trim();
+  }, [data.api_token]);
+
+
+  const ownerMissing = useMemo(() => {
+    return !data.repo_owner?.trim();
+  }, [data.repo_owner]);
+
+
+  const repoMissing = useMemo(() => {
+    return !data.repo_name?.trim();
+  }, [data.repo_name]);
+
+
+  const prMissing = useMemo(() => {
+    return !data.pr_number || data.pr_number <= 0;
+  }, [data.pr_number]);
+
+
+  const incompleteVariables = useMemo(
+    () => getIncompleteVariables(data.referenced_variables),
+    [data.referenced_variables]
   );
 
   // 자동완성 핸들러
@@ -178,6 +214,9 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             value={data.api_token || ''}
             onChange={(e) => handleUpdateData('api_token', e.target.value)}
           />
+          {tokenMissing && (
+            <ValidationAlert message="⚠️ API 토큰을 입력해주세요." />
+          )}
         </div>
       </CollapsibleSection>
 
@@ -192,6 +231,8 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
           title="" // 내부 타이틀 숨김
           description="이 섹션에서 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
+        
+        <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 
       {/* 3. 저장소 정보 */}
@@ -205,6 +246,9 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
               value={data.repo_owner || ''}
               onChange={(e) => handleUpdateData('repo_owner', e.target.value)}
             />
+            {ownerMissing && (
+              <ValidationAlert message="⚠️ 소유자를 입력해주세요." />
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
@@ -216,6 +260,9 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
               value={data.repo_name || ''}
               onChange={(e) => handleUpdateData('repo_name', e.target.value)}
             />
+            {repoMissing && (
+              <ValidationAlert message="⚠️ 저장소 이름을 입력해주세요." />
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">
@@ -233,6 +280,9 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             <p className="text-[10px] text-gray-400">
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능
             </p>
+            {prMissing && (
+              <ValidationAlert message="⚠️ PR 번호를 입력해주세요." />
+            )}
           </div>
         </div>
       </CollapsibleSection>

@@ -2,7 +2,7 @@
 name = "moduly-log-system"
 version = "0.1.0"
 description = "Moduly Log System - 워크플로우 실행 로그 수집 및 저장 마이크로서비스"
-requires-python = ">=3.11"
+requires-python = "==3.11.*"
 dependencies = [
     "celery>=5.3.0",
     "redis>=5.0.0",
@@ -14,6 +14,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
 ]
 
 [build-system]

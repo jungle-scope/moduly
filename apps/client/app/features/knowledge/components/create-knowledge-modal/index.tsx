@@ -230,13 +230,17 @@ export default function CreateKnowledgeModal({
     similarity: 0.7,
   });
 
+  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([]);
+
   // 유효성 검사
   const isNameValid = formData.name.length > 0 && formData.name.length <= 50;
   const isDescValid = formData.description.length <= 100;
   const isFormValid =
     isNameValid &&
     isDescValid &&
-    (!knowledgeBaseId ? formData.embeddingModel : true);
+    (!knowledgeBaseId
+      ? formData.embeddingModel && embeddingModels.length > 0
+      : true);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -263,7 +267,6 @@ export default function CreateKnowledgeModal({
     name: string;
     provider_name?: string;
   };
-  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
