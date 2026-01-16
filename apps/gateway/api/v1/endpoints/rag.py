@@ -558,7 +558,7 @@ def _prepare_api_source(
 
     import json
 
-    from core.security import security_service
+    from apps.shared.utils.encryption import encryption_manager as security_service
 
     # 헤더 처리 (JSON 파싱 및 암호화)
     encrypted_headers = None

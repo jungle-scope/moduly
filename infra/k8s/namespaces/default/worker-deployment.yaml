@@ -77,6 +77,8 @@ spec:
                   name: app-secrets
                   key: SANDBOX_API_KEY
             # S3 설정 (파일 처리용)
+            - name: STORAGE_TYPE
+              value: "CLOUD"
             - name: S3_BUCKET_NAME
               value: "moduly-dev-file-upload"
             - name: AWS_REGION
