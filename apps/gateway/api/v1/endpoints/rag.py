@@ -16,6 +16,13 @@ from sqlalchemy.orm import Session
 
 from apps.gateway.api.deps import get_db
 from apps.gateway.auth.dependencies import get_current_user
+
+# from services.ingestion_local_service import IngestionService
+from apps.gateway.services.ingestion.service import (
+    IngestionOrchestrator as IngestionService,
+)
+from apps.gateway.services.retrieval import RetrievalService
+from apps.gateway.services.storage import get_storage_service
 from apps.shared.db.models.connection import Connection
 from apps.shared.db.models.knowledge import Document, KnowledgeBase, SourceType
 from apps.shared.db.models.user import User
@@ -27,11 +34,6 @@ from apps.shared.schemas.rag import (
     RAGResponse,
     SearchQuery,
 )
-
-# from services.ingestion_local_service import IngestionService
-from apps.gateway.services.ingestion.service import IngestionOrchestrator as IngestionService
-from apps.gateway.services.retrieval import RetrievalService
-from apps.gateway.services.storage import get_storage_service
 
 router = APIRouter()
 
@@ -556,7 +558,7 @@ def _prepare_api_source(
 
     import json
 
-    from core.security import security_service
+    from apps.shared.utils.encryption import encryption_manager as security_service
 
     # 헤더 처리 (JSON 파싱 및 암호화)
     encrypted_headers = None

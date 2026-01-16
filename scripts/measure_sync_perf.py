@@ -4,12 +4,14 @@ import os
 import sys
 import time
 import uuid
+from typing import List
 from unittest.mock import MagicMock, patch
 
 # 프로젝트 루트 경로 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from apps.shared.db.models.knowledge import Document, KnowledgeBase
+from apps.shared.db.models.knowledge import Document, DocumentChunk, KnowledgeBase
+from apps.shared.services.ingestion.vector_store_service import VectorStoreService
 from apps.workflow_engine.services.sync_service import SyncService
 
 # 로깅 설정
@@ -22,6 +24,69 @@ try:
 except ImportError:
     tiktoken = None
 
+# ------------------------------------------------------------------
+# Mock Infrastructure (In-Memory DB & Services)
+# ------------------------------------------------------------------
+
+
+class FakeSession:
+    """SQLAlchemy Session을 흉내내는 In-Memory DB"""
+
+    def __init__(self):
+        self.chunks_store: List[DocumentChunk] = []  # document_id -> chunks
+        self.kb_store = []
+        self.doc_store = []
+
+    def query(self, model):
+        self.current_query_model = model
+        return self
+
+    def filter(self, *args, **kwargs):
+        # 매우 단순화된 필터 로직 (실제 조건식 파싱은 복잡하므로 특정 시나리오만 커버)
+        # 실제 코드에서 filter(Document.id == doc_id) 형태로 호출됨
+        # 여기서는 단순히 context만 유지하고 all/first/delete 호출 시 처리
+        return self
+
+    def all(self):
+        if self.current_query_model == DocumentChunk:
+            # 항상 현재 저장된 모든 청크 반환 (filter 무시 - 테스트 환경이므로 하나만 다룸)
+            return list(self.chunks_store)
+        elif self.current_query_model == KnowledgeBase:
+            return list(self.kb_store)
+        elif self.current_query_model == Document:
+            return list(self.doc_store)
+        return []
+
+    def first(self):
+        if self.current_query_model == Document:
+            if self.doc_store:
+                return self.doc_store[0]
+        return None
+
+    def delete(self):
+        if self.current_query_model == DocumentChunk:
+            count = len(self.chunks_store)
+            self.chunks_store = []  # 전체 삭제 시뮬레이션
+            # print(f"DEBUG: Deleted {count} chunks from Memory")
+        return
+
+    def bulk_save_objects(self, objects):
+        # 객체 저장 시뮬레이션
+        for obj in objects:
+            self.chunks_store.append(obj)
+        # print(f"DEBUG: Saved {len(objects)} chunks to Memory")
+
+    def commit(self):
+        pass
+
+    def close(self):
+        pass
+
+
+# ------------------------------------------------------------------
+# Mock Data Generators
+# ------------------------------------------------------------------
+
 
 def count_tokens(text: str) -> int:
     if tiktoken:
@@ -30,136 +95,109 @@ def count_tokens(text: str) -> int:
             return len(enc.encode(text))
         except Exception:
             return len(text) // 4
-    else:
-        return len(text) // 4
+    return len(text) // 4
 
 
 def generate_mock_data(num_rows=1000, edge_case=False):
-    """테스트용 Mock 데이터 생성 (Normal vs Edge Case)"""
     data = []
     print(f"Generating {num_rows} mock rows (Edge Case: {edge_case})...")
 
-    # Edge Case용 샘플 데이터
-    special_chars = "!@#$%^&*()_+{}|:<>?`~-=[]\;',./" * 10
-    korean_sample = "안녕하세요. 이것은 한국어 테스트입니다. " * 5
-    emoji_sample = "🚀🌟🔥😊👍" * 10
-    very_long_text = "Long text " * 500  # 약 1000단어
+    msg = "This is a description for product. It supports vector search." * 3
 
     for i in range(num_rows):
-        if edge_case:
-            # 엣지 케이스 시나리오 랜덤 적용
-            case_type = i % 5
-            if case_type == 0:
-                # 1. 매우 긴 텍스트 (Token Limit 근접 테스트)
-                name = f"Edge-Long-{i}"
-                desc = very_long_text
-            elif case_type == 1:
-                # 2. 특수문자 폭탄
-                name = f"Edge-Special-{i}"
-                desc = special_chars
-            elif case_type == 2:
-                # 3. 다국어 혼합
-                name = f"Edge-MultiLang-{i}"
-                desc = f"{korean_sample} + {emoji_sample} + English"
-            elif case_type == 3:
-                # 4. 빈 내용 (또는 공백만)
-                name = f"Edge-Empty-{i}"
-                desc = "   "
-            else:
-                # 5. 정상 데이터 (섞여있음)
-                name = f"Edge-Normal-{i}"
-                desc = f"Normal description {i}"
+        if edge_case and i % 10 == 0:
+            desc = msg * 20  # Long text
         else:
-            # 일반 데이터
-            name = f"Mock Product {i}"
-            desc = (
-                f"This is a description for product {i}. It supports vector search." * 3
-            )
+            desc = f"{msg} {i}"
 
-        data.append({"id": i, "name": name, "description": desc, "price": 1000 + i})
+        data.append(
+            {"id": i, "name": f"Item {i}", "description": desc, "price": 1000 + i}
+        )
     return data
 
 
-def run_benchmark(num_rows=1000, edge_case=False):
-    print(
-        f"\n🚀 Starting Sync Benchmark (Mock Mode, Rows: {num_rows}, Edge: {edge_case})"
-    )
-    print("--------------------------------------------------")
+# ------------------------------------------------------------------
+# Execution Logic
+# ------------------------------------------------------------------
 
-    # 1. Mock Data Setup
-    mock_chunks = []
-    total_tokens = 0
-    max_tokens_in_row = 0
 
-    start_gen = time.time()
-    mock_data = generate_mock_data(num_rows, edge_case)
+def run_phase2_benchmark(num_rows=1000, edge_case=False):
+    print(f"\n🚀 Starting Phase 2 Incremental Sync Benchmark (Rows: {num_rows})")
+    print("=" * 60)
 
-    for i, row in enumerate(mock_data):
-        text = f"{row['name']} : {row['description']}"
-        tokens = count_tokens(text)
-        total_tokens += tokens
+    # 1. Setup Mock Environment
+    fake_db = FakeSession()
 
-        if tokens > max_tokens_in_row:
-            max_tokens_in_row = tokens
-
-        chunk = {"content": text, "token_count": tokens, "metadata": {"row_id": i}}
-        mock_chunks.append(chunk)
-    end_gen = time.time()
-    print(f"✅ Mock Data Generation Time: {end_gen - start_gen:.4f}s")
-
-    # Processor Result Mock
-    mock_process_result = MagicMock()
-    mock_process_result.chunks = mock_chunks
-
-    # 2. Mock DB Session & ORM Objects
-    mock_db = MagicMock()
+    # Setup Master Data (KB, Document)
     user_id = uuid.uuid4()
     kb_id = uuid.uuid4()
     doc_id = uuid.uuid4()
 
     mock_kb = MagicMock(spec=KnowledgeBase)
     mock_kb.id = kb_id
-    mock_kb.name = "Benchmark KB"
-    mock_kb.user_id = user_id
     mock_kb.embedding_model = "text-embedding-3-small"
+    fake_db.kb_store.append(mock_kb)
 
     mock_doc = MagicMock(spec=Document)
     mock_doc.id = doc_id
     mock_doc.knowledge_base_id = kb_id
-    mock_doc.filename = "benchmark_table"
     mock_doc.source_type = "DB"
     mock_doc.meta_info = {
         "db_config": {"table": "mock_table", "connection_id": "mock_conn"}
     }
+    fake_db.doc_store.append(mock_doc)
 
-    def query_side_effect(model_cls):
-        query_mock = MagicMock()
-        name = getattr(model_cls, "__name__", str(model_cls))
-        if "KnowledgeBase" in name:
-            query_mock.filter.return_value.all.return_value = [mock_kb]
-        elif "Document" in name:
-            query_mock.filter.return_value.all.return_value = [mock_doc]
-        return query_mock
+    # 2. Mock VectorStoreService Dependencies
+    # EncryptionManager: Pass-through (No encryption for test)
+    mock_encryption = MagicMock()
+    mock_encryption.decrypt.side_effect = lambda x: x  # return as is
+    mock_encryption.encrypt.side_effect = lambda x: x
 
-    mock_db.query.side_effect = query_side_effect
+    # EmbeddingService: Mock token usage
+    mock_embedding_service = MagicMock()
 
-    # 3. Instantiate & Patch Services
-    print("🔧 Setting up Service Mocks...")
+    def fake_embed_batch(texts, model):
+        # Return fake 1536-dim vectors
+        return [[0.1] * 1536 for _ in texts]
+
+    mock_embedding_service.embed_batch.side_effect = fake_embed_batch
+
+    # 3. Initialize Services with Real Classes + Mocks
+    # Patch encryption manager globally for the module
     with (
+        patch(
+            "apps.shared.services.ingestion.vector_store_service.encryption_manager",
+            mock_encryption,
+        ),
         patch(
             "apps.workflow_engine.services.sync_service.DbProcessor"
         ) as PatchedProcessor,
-        patch(
-            "apps.workflow_engine.services.sync_service.VectorStoreService"
-        ) as PatchedVectorStore,
     ):
-        mock_processor_instance = PatchedProcessor.return_value
-        mock_processor_instance.process.return_value = mock_process_result
+        # Setup DbProcessor to return our mock chunks
+        mock_data = generate_mock_data(num_rows, edge_case)
+        mock_chunks = []
+        for i, row in enumerate(mock_data):
+            text = f"{row['name']} : {row['description']}"
+            mock_chunks.append(
+                {
+                    "content": text,
+                    "token_count": count_tokens(text),
+                    "metadata": {"row_id": i},
+                }
+            )
 
-        mock_vector_store_instance = PatchedVectorStore.return_value
-        mock_vector_store_instance.save_chunks.return_value = None
+        mock_process_result = MagicMock()
+        mock_process_result.chunks = mock_chunks
+        PatchedProcessor.return_value.process.return_value = mock_process_result
 
-        service = SyncService(db=mock_db, user_id=user_id)
+        # Init Services
+        # IMPORTANT: We use REAL VectorStoreService, but with FakeDB
+        real_vector_store = VectorStoreService(db=fake_db, user_id=user_id)
+        real_vector_store.embedding_service = mock_embedding_service  # Swap with mock
+
+        sync_service = SyncService(db=fake_db, user_id=user_id)
+        sync_service.vector_store_service = real_vector_store  # Inject real service
+        sync_service.db_processor = PatchedProcessor.return_value
 
         graph_data = {
             "nodes": [
@@ -171,51 +209,88 @@ def run_benchmark(num_rows=1000, edge_case=False):
             ]
         }
 
-        # 4. Execute Benchmark
-        print("\n⏱️  Running SyncService.sync_knowledge_bases...")
-        print("--------------------------------------------------")
+        # ------------------------------------------------------------
+        # Scenario 1: First Run (Empty DB)
+        # ------------------------------------------------------------
+        print("\n\n🎬 [Scenario 1] Initial Sync (DB Empty)")
+        print("-" * 40)
+
         start_time = time.time()
-
-        try:
-            synced_count = service.sync_knowledge_bases(graph_data)
-        except Exception as e:
-            print(f"❌ CRITICAL ERROR during execution: {e}")
-            sys.exit(1)
-
+        c1 = sync_service.sync_knowledge_bases(graph_data)
         end_time = time.time()
-        total_time = end_time - start_time
 
-        # 5. Report
-        print("\n" + "=" * 50)
-        print(f"📊 BENCHMARK RESULT (Rows: {num_rows}, Edge: {edge_case})")
-        print("=" * 50)
-        print(f"✅ Synced Documents : {synced_count}")
-        print(f"⏱️  Total Processing Time: {total_time:.4f}s")
-        if total_time > 0:
-            tps = num_rows / total_time
-            print(f"🚀 Throughput        : {tps:.1f} rows/sec")
-        print("-" * 50)
-        print(f"📝 Total Tokens      : {total_tokens:,}")
-        print(f"📈 Max Tokens / Row  : {max_tokens_in_row:,}")
+        # Stats
+        embedded_count_1 = (
+            mock_embedding_service.embed_batch.call_count * 50
+        )  # approx (batch size 50)
+        if embedded_count_1 > num_rows:
+            embedded_count_1 = num_rows  # fix overshoot
 
-        cost_small = (total_tokens / 1_000_000) * 0.02
-        print(f"💰 Global Cost (Est.) : ${cost_small:.6f}")
-        print("=" * 50 + "\n")
+        print(f"✅ Synced: {c1}")
+        print(f"⏱️  Time: {end_time - start_time:.4f}s")
+        # In FakeDB, we can see chunks_store
+        print(f"📦 Stored Chunks in DB: {len(fake_db.chunks_store)}")
+        print("💡 Expected: All rows should be embedded.")
+
+        # ------------------------------------------------------------
+        # Scenario 2: Second Run (No Changes)
+        # ------------------------------------------------------------
+        print("\n\n🎬 [Scenario 2] Re-run Sync (No Data Changes)")
+        print("-" * 40)
+
+        # Reset counters
+        mock_embedding_service.embed_batch.reset_mock()
+
+        start_time = time.time()
+        c2 = sync_service.sync_knowledge_bases(graph_data)
+        end_time = time.time()
+
+        embedded_count_2 = mock_embedding_service.embed_batch.call_count
+
+        print(f"✅ Synced: {c2}")
+        print(f"⏱️  Time: {end_time - start_time:.4f}s")
+        print(f"📦 Stored Chunks in DB: {len(fake_db.chunks_store)}")
+        print(f"🔥 API Calls (Embed Batch): {embedded_count_2}")
+
+        if embedded_count_2 == 0:
+            print("🎉 SUCCESS: 0 Embedding Calls! Full Reuse Achieved. (Cost: $0)")
+        else:
+            print(f"⚠️  FAIL: Still called embedding API {embedded_count_2} times.")
+
+        # ------------------------------------------------------------
+        # Scenario 3: Partial Change
+        # ------------------------------------------------------------
+        print("\n\n🎬 [Scenario 3] Partial Update (5 rows changed)")
+        print("-" * 40)
+
+        # Modify mock data in DbProcessor
+        # Change content of first 5 rows
+        for k in range(5):
+            mock_process_result.chunks[k]["content"] += " (UPDATED)"
+
+        mock_embedding_service.embed_batch.reset_mock()
+
+        start_time = time.time()
+        c3 = sync_service.sync_knowledge_bases(graph_data)
+        end_time = time.time()
+
+        # Note: embed_batch is called with batches.
+        # modified 5 rows -> likely 1 batch call with 5 texts.
+        api_calls = mock_embedding_service.embed_batch.call_count
+
+        print(f"✅ Synced: {c3}")
+        print(f"⏱️  Time: {end_time - start_time:.4f}s")
+        print(f"🔥 API Calls (Embed Batch): {api_calls}")
+
+        if api_calls > 0:
+            print("🎉 SUCCESS: Detected changes and called API.")
+        else:
+            print("⚠️  FAIL: No API calls detected even though data changed.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--rows", type=int, default=1000)
-    parser.add_argument(
-        "--edge",
-        action="store_true",
-        help="Generate edge case data (long text, special chars)",
-    )
     args = parser.parse_args()
 
-    if not tiktoken:
-        print(
-            "⚠️  Warning: 'tiktoken' library not found. Token counts will be inaccurate."
-        )
-
-    run_benchmark(args.rows, args.edge)
+    run_phase2_benchmark(args.rows, False)

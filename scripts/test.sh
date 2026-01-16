@@ -49,11 +49,12 @@ echo -e "\n${YELLOW}📍 Workflow Engine Service 테스트 실행${NC}"
 )
 WORKFLOW_EXIT_CODE=$?
 
-echo -e "\n${YELLOW}📍 Shared/Unit Logic 테스트 실행 (with Workflow Venv)${NC}"
+echo -e "\n${YELLOW}📍 Shared Library & Unit 테스트 실행 (with Workflow Venv)${NC}"
 (
     source apps/workflow_engine/.venv/bin/activate
     export PYTHONPATH="$PROJECT_ROOT"
-    pytest tests/unit
+    # 기존 unit 테스트 + shared 모듈 테스트 함께 실행
+    pytest tests/unit apps/shared/tests
 )
 UNIT_EXIT_CODE=$?
 
