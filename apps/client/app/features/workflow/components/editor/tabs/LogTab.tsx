@@ -14,6 +14,7 @@ import {
 import { LogDetailComparisonModal } from '@/app/features/workflow/components/logs/ab-test/LogDetailComparisonModal';
 import { LogCompareSelectionModal } from '@/app/features/workflow/components/logs/ab-test/LogCompareSelectionModal';
 import { LogABTestBar } from '@/app/features/workflow/components/logs/ab-test/LogABTestBar';
+import { LogSelectionOverlay } from '@/app/features/workflow/components/logs/ab-test/LogSelectionOverlay';
 import { useABTestComparison } from '@/app/features/workflow/hooks/useABTestComparison';
 
 interface LogTabProps {
@@ -306,15 +307,7 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
             {/* 로그 목록 컨테이너 */}
             <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm relative min-h-[400px]">
               {/* 선택 오버레이 */}
-              {selectionTarget && (
-                <div className="sticky top-0 bg-blue-600 text-white text-xs font-bold text-center py-2 z-20 opacity-95 shadow-md flex items-center justify-center gap-2 animate-in slide-in-from-top-2">
-                  <span>👇 목록에서 </span>
-                  <span className="bg-white text-blue-600 px-2 py-0.5 rounded-full">
-                    Run {selectionTarget}
-                  </span>
-                  <span> 로 사용할 실행 기록을 클릭하세요</span>
-                </div>
-              )}
+              <LogSelectionOverlay selectionTarget={selectionTarget} />
 
               {renderLogListContent()}
             </div>

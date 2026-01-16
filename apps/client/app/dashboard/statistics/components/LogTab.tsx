@@ -6,6 +6,8 @@ import {
 } from '@/app/features/workflow/components/logs/LogFilterBar';
 import { LogList } from '@/app/features/workflow/components/logs/LogList';
 import { LogDetail } from '@/app/features/workflow/components/logs/LogDetail';
+import { workflowApi } from '@/app/features/workflow/api/workflowApi';
+import { WorkflowRun } from '@/app/features/workflow/types/Api';
 import { ArrowLeft } from 'lucide-react';
 
 export const LogTab = () => {
@@ -18,6 +20,22 @@ export const LogTab = () => {
   const handleFilterChange = (filters: LogFilters) => {
     applyFilters(filters);
     setSelectedLog(null); // Reset selection on filter change
+  };
+
+  // 로그 선택 시 상세 API 호출하여 node_runs 포함 데이터 가져오기
+  const handleLogSelect = async (log: WorkflowRun) => {
+    const globalLog = log as GlobalWorkflowRun;
+    try {
+      const detailedRun = await workflowApi.getWorkflowRun(log.workflow_id, log.id);
+      setSelectedLog({
+        ...detailedRun,
+        workflow_name: globalLog.workflow_name
+      } as GlobalWorkflowRun);
+    } catch (error) {
+      console.error('Failed to fetch run details:', error);
+      // 실패 시 기존 데이터로 fallback
+      setSelectedLog(globalLog);
+    }
   };
 
   if (loading && logs.length === 0) {
@@ -69,7 +87,7 @@ export const LogTab = () => {
           {logs.length > 0 ? (
             <LogList
               logs={logs}
-              onSelect={(log) => setSelectedLog(log as GlobalWorkflowRun)}
+              onSelect={handleLogSelect}
               selectedLogId={selectedLogId}
             />
           ) : (

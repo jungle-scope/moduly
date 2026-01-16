@@ -1,6 +1,6 @@
 import { WorkflowRun } from '@/app/features/workflow/types/Api';
 import { BarChart, Coins, Zap } from 'lucide-react';
-import { getNodeDisplayInfo } from '@/app/features/workflow/utils/nodeDisplayUtils';
+import { getNodeDisplayInfo } from '../shared/nodeDisplayInfo';
 
 interface LogTokenAnalysisProps {
   run: WorkflowRun;

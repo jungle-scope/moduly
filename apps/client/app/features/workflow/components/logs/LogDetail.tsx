@@ -186,7 +186,7 @@ export const LogDetail = ({
       </div>
 
       {/* 2. Token Analysis Sections */}
-      <LogTokenAnalysis run={run} />
+      <LogTokenAnalysis run={run} onNodeSelect={setSelectedNodeId} />
 
       {/* 3. Visual Execution Path */}
       <div className="mb-6">
@@ -201,106 +201,169 @@ export const LogDetail = ({
         />
       </div>
 
-      {/* 3. 상세 내용 (좌우 분할) */}
-      <div className="flex gap-6 items-start">
-        <div className="w-1/3 border-r border-gray-100 pr-6 sticky top-0 self-start max-h-[calc(100vh-200px)] overflow-y-auto">
-          <h3 className="font-bold text-gray-800 mb-4 sticky top-0 bg-white py-2 z-10">
-            노드 실행 경로
-          </h3>
-          <div className="space-y-3">
-            {run.node_runs?.map((node, idx) => {
-              const displayInfo = getNodeDisplayInfo(node.node_type);
-              const duration = getNodeDuration(node);
-
-              return (
-                <button
-                  key={`${node.node_id}-${idx}`}
-                  ref={(el) => {
-                    if (el) {
-                      nodeRefs.current.set(node.node_id, el);
-                    } else {
-                      nodeRefs.current.delete(node.node_id);
-                    }
-                  }}
-                  onClick={() => setSelectedNodeId(node.node_id)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
-                    selectedNode?.node_id === node.node_id
-                      ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100'
-                      : 'bg-white border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  <div
-                    className={`flex ${compactMode ? 'flex-col items-start gap-1' : 'justify-between items-center'} mb-1`}
+      {/* 3. 상세 내용 */}
+      {compactMode ? (
+        // Compact Mode: 반응형 좌우 분할 (lg 이상에서 좌측 목록 표시)
+        <div className="flex gap-4 items-start">
+          {/* 좌측 패널: lg 이상에서만 표시 */}
+          <div className="hidden lg:block w-1/3 border-r border-gray-100 pr-4 sticky top-0 self-start max-h-[calc(100vh-300px)] overflow-y-auto">
+            <h3 className="font-bold text-gray-700 mb-3 text-sm sticky top-0 bg-white py-1 z-10">
+              노드 목록
+            </h3>
+            <div className="space-y-2">
+              {run.node_runs?.map((node, idx) => {
+                const displayInfo = getNodeDisplayInfo(node.node_type);
+                const duration = getNodeDuration(node);
+                return (
+                  <button
+                    key={`${node.node_id}-${idx}`}
+                    onClick={() => setSelectedNodeId(node.node_id)}
+                    className={`w-full text-left p-2 rounded-lg border transition-all text-xs ${
+                      selectedNode?.node_id === node.node_id
+                        ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100'
+                        : 'bg-white border-gray-200 hover:bg-gray-50'
+                    }`}
                   >
-                    <span
-                      className={`font-semibold text-sm flex items-center gap-2 px-2 py-1 rounded ${displayInfo.color}`}
-                    >
-                      {displayInfo.icon}
-                      {displayInfo.label}
-                    </span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${
-                        node.status === 'success'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}
-                    >
-                      {node.status === 'success' ? '성공' : '실패'}
-                    </span>
-                  </div>
-                  {duration && (
-                    <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                      <Clock className="w-3 h-3" />
-                      소요: {duration}초
+                    <div className="flex justify-between items-center">
+                      <span className={`font-semibold flex items-center gap-1.5 ${displayInfo.color}`}>
+                        {displayInfo.icon}
+                        {displayInfo.label}
+                      </span>
+                      <span className={`text-[9px] px-1 py-0.5 rounded ${
+                        node.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {node.status === 'success' ? '✓' : '✗'}
+                      </span>
                     </div>
-                  )}
-                </button>
-              );
-            })}
+                    {duration && (
+                      <div className="text-[10px] text-gray-400 mt-0.5">{duration}초</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 우측: 상세 정보 */}
+          <div className="flex-1 min-w-0">
+            {selectedNode ? (
+              <div className="space-y-4">
+                {selectedNode.process_data?.node_options && (
+                  <NodeOptionsSection
+                    nodeType={selectedNode.node_type}
+                    options={selectedNode.process_data.node_options}
+                  />
+                )}
+                <InputDataSection data={selectedNode.inputs} />
+                <OutputDataSection data={selectedNode.outputs} />
+                {selectedNode.error_message && (
+                  <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                    <h4 className="font-bold text-red-700 flex items-center gap-2 mb-1 text-sm">
+                      <AlertCircle className="w-4 h-4" /> 에러
+                    </h4>
+                    <p className="text-xs text-red-600">{selectedNode.error_message}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center text-gray-400 py-8">
+                <p className="text-sm">실행 흐름에서 노드를 선택하세요</p>
+              </div>
+            )}
           </div>
         </div>
+      ) : (
+        // Normal Mode: 좌우 분할 레이아웃
+        <div className="flex gap-6 items-start">
+          <div className="w-1/3 border-r border-gray-100 pr-6 sticky top-0 self-start max-h-[calc(100vh-200px)] overflow-y-auto">
+            <h3 className="font-bold text-gray-800 mb-4 sticky top-0 bg-white py-2 z-10">
+              노드 실행 경로
+            </h3>
+            <div className="space-y-3">
+              {run.node_runs?.map((node, idx) => {
+                const displayInfo = getNodeDisplayInfo(node.node_type);
+                const duration = getNodeDuration(node);
 
-        <div className="flex-1 pl-2">
-          <h3 className="font-bold text-gray-800 mb-4 sticky top-0 bg-white py-2 z-10">
-            노드 상세 정보
-          </h3>
-          {selectedNode ? (
-            <div className="space-y-6">
-              {/* 실행 시점 노드 설정 (맨 위) */}
-              {selectedNode.process_data?.node_options && (
-                <NodeOptionsSection
-                  nodeType={selectedNode.node_type}
-                  options={selectedNode.process_data.node_options}
-                />
-              )}
-
-              {/* 입력 데이터 */}
-              <InputDataSection data={selectedNode.inputs} />
-
-              {/* 출력 데이터 */}
-              <OutputDataSection data={selectedNode.outputs} />
-
-              {selectedNode.error_message && (
-                <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                  <h4 className="font-bold text-red-700 flex items-center gap-2 mb-1">
-                    <AlertCircle className="w-4 h-4" /> 에러 발생
-                  </h4>
-                  <p className="text-sm text-red-600">
-                    {selectedNode.error_message}
-                  </p>
-                </div>
-              )}
+                return (
+                  <button
+                    key={`${node.node_id}-${idx}`}
+                    ref={(el) => {
+                      if (el) {
+                        nodeRefs.current.set(node.node_id, el);
+                      } else {
+                        nodeRefs.current.delete(node.node_id);
+                      }
+                    }}
+                    onClick={() => setSelectedNodeId(node.node_id)}
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${
+                      selectedNode?.node_id === node.node_id
+                        ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100'
+                        : 'bg-white border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <span
+                        className={`font-semibold text-sm flex items-center gap-2 px-2 py-1 rounded ${displayInfo.color}`}
+                      >
+                        {displayInfo.icon}
+                        {displayInfo.label}
+                      </span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${
+                          node.status === 'success'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                      >
+                        {node.status === 'success' ? '성공' : '실패'}
+                      </span>
+                    </div>
+                    {duration && (
+                      <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Clock className="w-3 h-3" />
+                        소요: {duration}초
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400">
-              <BrainCircuit className="w-12 h-12 mb-3 opacity-20" />
-              <p>왼쪽에서 노드를 선택하여 상세 정보를 확인하세요.</p>
-            </div>
-          )}
+          <div className="flex-1 pl-2">
+            <h3 className="font-bold text-gray-800 mb-4 sticky top-0 bg-white py-2 z-10">
+              노드 상세 정보
+            </h3>
+            {selectedNode ? (
+              <div className="space-y-6">
+                {selectedNode.process_data?.node_options && (
+                  <NodeOptionsSection
+                    nodeType={selectedNode.node_type}
+                    options={selectedNode.process_data.node_options}
+                  />
+                )}
+                <InputDataSection data={selectedNode.inputs} />
+                <OutputDataSection data={selectedNode.outputs} />
+                {selectedNode.error_message && (
+                  <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                    <h4 className="font-bold text-red-700 flex items-center gap-2 mb-1">
+                      <AlertCircle className="w-4 h-4" /> 에러 발생
+                    </h4>
+                    <p className="text-sm text-red-600">
+                      {selectedNode.error_message}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                <BrainCircuit className="w-12 h-12 mb-3 opacity-20" />
+                <p>왼쪽에서 노드를 선택하여 상세 정보를 확인하세요.</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

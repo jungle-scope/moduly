@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { LogDetail } from '../LogDetail';
 import { WorkflowRun } from '@/app/features/workflow/types/Api';
 import { ArrowLeft, ArrowRight, X, Minus, Plus, TrendingDown, TrendingUp, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
-import { getNodeDisplayInfo } from '@/app/features/workflow/utils/nodeDisplayUtils';
+import { getNodeDisplayInfo } from '../shared/nodeDisplayInfo';
 
 interface LogDetailComparisonModalProps {
     runA: WorkflowRun;
@@ -162,7 +162,7 @@ export const LogDetailComparisonModal = ({ runA, runB, onBack }: LogDetailCompar
                 {/* Run A Panel */}
                 <div className="flex-1 border-r border-gray-200 flex flex-col min-w-0 bg-white">
                     <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 font-bold text-gray-500 text-xs uppercase tracking-wider text-center sticky top-0">
-                        실행 A ({runA.trigger_mode})
+                        실행 A
                     </div>
                     <div className="flex-1 overflow-hidden relative">
                          <div className="absolute inset-0 overflow-y-auto">
@@ -174,7 +174,7 @@ export const LogDetailComparisonModal = ({ runA, runB, onBack }: LogDetailCompar
                 {/* Run B Panel */}
                 <div className="flex-1 flex flex-col min-w-0 bg-white">
                     <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 font-bold text-blue-600 text-xs uppercase tracking-wider text-center sticky top-0">
-                        실행 B ({runB.trigger_mode})
+                        실행 B
                     </div>
                      <div className="flex-1 overflow-hidden relative">
                          <div className="absolute inset-0 overflow-y-auto">
