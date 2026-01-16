@@ -85,6 +85,33 @@ class WorkflowEngine:
         # [VALIDATION] 그래프 구조 검증 (순환, 시작 노드 등)
         self.validate_graph()
 
+    def cleanup(self):
+        """
+        실행 완료 후 메모리 정리
+
+        [FIX] 메모리 누수 방지를 위해 모든 참조를 명시적으로 정리합니다.
+        Celery 태스크에서 finally 블록에서 호출되어야 합니다.
+        """
+        # 노드 관련 정리
+        self.node_instances.clear()
+        self.node_schemas.clear()
+
+        # 그래프 구조 정리
+        self.adjacency_list.clear()
+        self.reverse_graph.clear()
+        self.edge_handles.clear()
+        self.nodes_by_type.clear()
+
+        # 컨텍스트 정리
+        self.execution_context.clear()
+        self.user_input = None
+
+        # 로거 정리
+        self.logger = None
+
+        # 엣지 정리
+        self.edges = None
+
     async def execute(self) -> Dict[str, Any]:
         """
         워크플로우 전체 실행 (Wrapper)
@@ -663,7 +690,9 @@ class WorkflowEngine:
         # [PERF] 분기가 있는 경우 (O(1))
         if selected_handle is not None:
             key = (node_id, selected_handle)
-            return self.edge_handles.get(key, [])
+            next_nodes = self.edge_handles.get(key, [])
+
+            return next_nodes
 
         # [PERF] 분기가 없는 경우 (O(1))
         return self.adjacency_list.get(node_id, [])

@@ -3,9 +3,16 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict
 
-from apps.gateway.services.ingestion.chunkers.adaptive_db_chunker import AdaptiveDbChunker
-from apps.gateway.services.ingestion.processors.base import BaseProcessor, ProcessingResult
-from apps.gateway.services.ingestion.transformers.db_nl_transformer import DbNlTransformer
+from apps.gateway.services.ingestion.chunkers.adaptive_db_chunker import (
+    AdaptiveDbChunker,
+)
+from apps.gateway.services.ingestion.processors.base import (
+    BaseProcessor,
+    ProcessingResult,
+)
+from apps.gateway.services.ingestion.transformers.db_nl_transformer import (
+    DbNlTransformer,
+)
 from apps.gateway.utils.encryption import encryption_manager
 
 logger = logging.getLogger(__name__)
@@ -225,7 +232,7 @@ class DbProcessor(BaseProcessor):
 
     def _get_connector(self, db_type: str):
         if db_type == "postgres":
-            from connectors.postgres import PostgresConnector
+            from apps.shared.connectors.postgres import PostgresConnector
 
             return PostgresConnector()
         # 추후 mysql, oracle 등 추가
@@ -260,8 +267,8 @@ class DbProcessor(BaseProcessor):
         def transform_strategy(row_dict):
             return transformer.transform(
                 row_dict,
-                template_str=selection.get("template"),
-                aliases=selection.get("aliases"),
+                template_str=source_config.get("template") or selection.get("template"),
+                aliases=source_config.get("aliases") or selection.get("aliases"),
             )
 
         def encryption_key_strategy(table, col):
@@ -293,7 +300,6 @@ class DbProcessor(BaseProcessor):
     ):
         """2테이블 JOIN 모드 처리"""
         from jinja2 import Template
-
         from utils.join_query_utils import convert_to_namespace, generate_join_query
 
         limit = source_config.get("limit", 1000)
@@ -315,13 +321,23 @@ class DbProcessor(BaseProcessor):
             render_context = namespaced_data.copy()
 
             # Alias 적용
-            for sel in selections:
-                table = sel["table_name"]
-                table_aliases = sel.get("aliases", {})
-                if table in namespaced_data:
-                    for col, val in namespaced_data[table].items():
-                        if col in table_aliases:
-                            render_context[table_aliases[col]] = val
+            global_aliases = source_config.get("aliases")
+            if global_aliases:
+                for table, col_map in global_aliases.items():
+                    if table in namespaced_data:
+                        for col, val in namespaced_data[table].items():
+                            if col in col_map:
+                                render_context[col_map[col]] = val
+            
+            # 개별 selection Alias (Legacy)
+            else:
+                for sel in selections:
+                    table = sel["table_name"]
+                    table_aliases = sel.get("aliases", {})
+                    if table in namespaced_data:
+                        for col, val in namespaced_data[table].items():
+                            if col in table_aliases:
+                                render_context[table_aliases[col]] = val
 
             if template_str:
                 try:

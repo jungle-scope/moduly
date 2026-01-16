@@ -662,7 +662,7 @@ class LLMService:
 
         if not cred:
             raise ValueError(
-                f"No credential mapped to model {model_id} for user {user_id}"
+                f"유효한 API 키를 찾을 수 없습니다. [설정 > 모델 키 관리]에서 '{model_id}' 모델을 지원하는 API Key를 등록해주세요."
             )
 
         # 설정 로드

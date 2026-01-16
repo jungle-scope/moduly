@@ -21,6 +21,15 @@ import {
   getNodeDefinition,
 } from '../../config/nodeRegistry';
 import { NoteNode, AppNode } from '../../types/Nodes';
+import {
+  findFirstAvailableHandle,
+  createNewCaseForConnection,
+} from '../../utils/conditionNodeHelpers';
+import { calculateAutoLayout } from '../../utils/layoutHelpers';
+import { useDeployment } from '../../hooks/useDeployment';
+import { arrangeConditionNodeChildren } from '../../utils/arrangeConditionNodes';
+import { useContextMenu } from '../../hooks/useContextMenu';
+import { useNodeCreation } from '../../hooks/useNodeCreation';
 
 import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -33,7 +42,6 @@ import {
   type NodeTypes,
   type Edge,
 } from '@xyflow/react';
-import dagre from 'dagre';
 
 import '@xyflow/react/dist/style.css';
 
@@ -76,7 +84,6 @@ import { SettingsSidebar } from './SettingsSidebar';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
 import { TestSidebar } from './TestSidebar';
 import { DeploymentFlowModal } from '../deployment/DeploymentFlowModal';
-import type { DeploymentResult } from '../deployment/types';
 
 export default function NodeCanvas() {
   const {
@@ -106,7 +113,7 @@ export default function NodeCanvas() {
     selectedInnerNode,
   } = useWorkflowStore();
 
-  const { fitView, setViewport, getViewport, screenToFlowPosition } =
+  const { fitView, setViewport, getViewport, screenToFlowPosition, deleteElements } =
     useReactFlow();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
@@ -123,7 +130,7 @@ export default function NodeCanvas() {
     previewState,
     onDragOver: handleDragOver,
     resetPreview,
-  } = useDragConnectionPreview(nodes);
+  } = useDragConnectionPreview(nodes, edges);
 
   // Memory mode controls
   const router = useRouter();
@@ -137,106 +144,77 @@ export default function NodeCanvas() {
 
   // Publish state
   const canPublish = useWorkflowStore((state) => state.canPublish());
-  const [showDeployFlowModal, setShowDeployFlowModal] = useState(false);
-  const [showDeployDropdown, setShowDeployDropdown] = useState(false);
-  const [deploymentType, setDeploymentType] = useState<
-    'api' | 'webapp' | 'widget' | 'workflow_node'
-  >('api');
 
-  // 배포 드롭다운 토글 시 다른 패널 닫기
-  const toggleDeployDropdown = useCallback(() => {
-    if (!showDeployDropdown) {
-      // 열릴 때 다른거 다 닫기
-      if (isSettingsOpen) toggleSettings();
-      if (isVersionHistoryOpen) toggleVersionHistory();
-      if (isTestPanelOpen) toggleTestPanel();
-      setSelectedNodeId(null);
-      setSelectedNodeType(null);
-    }
-    setShowDeployDropdown((prev) => !prev);
-  }, [
+  // Deployment logic (extracted to hook)
+  const {
+    showDeployFlowModal,
+    setShowDeployFlowModal,
     showDeployDropdown,
+    setShowDeployDropdown,
+    deploymentType,
+    toggleDeployDropdown,
+    handlePublishAsRestAPI,
+    handlePublishAsWebApp,
+    handlePublishAsWidget,
+    handlePublishAsWorkflowNode,
+    handlePublishAsSchedule,
+    handleDeploy,
+  } = useDeployment({
+    nodes,
     isSettingsOpen,
     toggleSettings,
     isVersionHistoryOpen,
     toggleVersionHistory,
     isTestPanelOpen,
     toggleTestPanel,
-  ]);
+    setSelectedNodeId,
+    setSelectedNodeType,
+  });
 
-  // Handle deployments
-  const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
+  // Start node detection for deployment options
+  const startNode = useMemo(() => {
+    return nodes.find(
+      (n) =>
+        n.type === 'startNode' ||
+        n.type === 'webhookTrigger' ||
+        n.type === 'scheduleTrigger',
+    );
+  }, [nodes]);
 
-  const handlePublishAsRestAPI = useCallback(() => {
-    setDeploymentType('api');
-    setShowDeployFlowModal(true);
-    setShowDeployDropdown(false);
-  }, []);
+  // Context menu hook
+  const {
+    contextMenu,
+    nodeContextMenu,
+    edgeContextMenu,
+    isContextNodeSelectorOpen,
+    contextMenuPos,
+    setContextMenu,
+    setNodeContextMenu,
+    setEdgeContextMenu,
+    setIsContextNodeSelectorOpen,
+    onPaneContextMenu,
+    handleCloseContextMenu,
+    handleAddNodeFromContext,
+    handleAddMemoFromContext,
+    handleTestRunFromContext,
+    handleSelectNodeFromContext,
+  } = useContextMenu({
+    nodes,
+    setNodes,
+    triggerWorkflowRun: useWorkflowStore.getState().triggerWorkflowRun,
+    setSearchModalContext,
+  });
 
-  const handlePublishAsWebApp = useCallback(() => {
-    setDeploymentType('webapp');
-    setShowDeployFlowModal(true);
-    setShowDeployDropdown(false);
-  }, []);
-
-  const handlePublishAsWidget = useCallback(() => {
-    setDeploymentType('widget');
-    setShowDeployFlowModal(true);
-    setShowDeployDropdown(false);
-  }, []);
-
-  const handlePublishAsWorkflowNode = useCallback(() => {
-    setDeploymentType('workflow_node');
-    setShowDeployFlowModal(true);
-    setShowDeployDropdown(false);
-  }, []);
-
-  const handleDeploy = useCallback(
-    async (description: string): Promise<DeploymentResult> => {
-      try {
-        if (!activeWorkflow?.appId) {
-          throw new Error('App ID를 찾을 수 없습니다.');
-        }
-
-        const response = await workflowApi.createDeployment({
-          app_id: activeWorkflow.appId,
-          description,
-          type: deploymentType,
-          is_active: true,
-        });
-
-        useWorkflowStore.getState().notifyDeploymentComplete();
-
-        const result: DeploymentResult = {
-          success: true,
-          url_slug: response.url_slug ?? null,
-          auth_secret: response.auth_secret ?? null,
-          version: response.version,
-          input_schema: response.input_schema ?? null,
-          output_schema: response.output_schema ?? null,
-        };
-
-        if (deploymentType === 'webapp') {
-          result.webAppUrl = `${window.location.origin}/shared/${response.url_slug}`;
-        } else if (deploymentType === 'widget') {
-          result.embedUrl = `${window.location.origin}/embed/chat/${response.url_slug}`;
-        } else if (deploymentType === 'workflow_node') {
-          result.isWorkflowNode = true;
-          result.auth_secret = null;
-        }
-
-        return result;
-      } catch (error: any) {
-        console.error(`[${deploymentType} 배포 실패]:`, error);
-        return {
-          success: false,
-          message:
-            error.response?.data?.detail || '배포 중 오류가 발생했습니다.',
-        };
-      }
-    },
-    [deploymentType, activeWorkflow?.appId],
-  );
+  // Node creation hook
+  const { onDrop, handleAddNodeFromLibrary } = useNodeCreation({
+    nodes,
+    setNodes,
+    edges,
+    setEdges,
+    previewState,
+    resetPreview,
+    setSearchModalContext,
+  });
 
   // 전체화면 모드 변경 시 사이드바 자동 토글
   useEffect(() => {
@@ -318,8 +296,8 @@ export default function NodeCanvas() {
               (o: { variable: string }) => o.variable,
             ) || [];
           updateNodeData(newNode.id, { outputs: outputKeys });
-        } catch (err) {
-          console.error('Failed to load workflow outputs:', err);
+        } catch {
+          // Failed to load workflow outputs
         }
       }
     },
@@ -468,203 +446,8 @@ export default function NodeCanvas() {
   }, [interactiveMode]);
 
   const handleAutoLayout = useCallback(() => {
-    // 1. 노드 초기화 및 DAGRE 그래프 생성
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-    // [MODIFIED] 간격을 넓혀서 엣지가 더 잘 보이도록 설정
-    dagreGraph.setGraph({ rankdir: 'LR', ranksep: 100, nodesep: 80 });
-
-    const nodeWidth = 300;
-    const nodeHeight = 150;
-
-    // 2. 연결된 노드와 고립된 노드 분류
-    const connectedNodeIds = new Set<string>();
-    edges.forEach((edge) => {
-      connectedNodeIds.add(edge.source);
-      connectedNodeIds.add(edge.target);
-    });
-
-    const connectedNodes: AppNode[] = [];
-    nodes.forEach((node) => {
-      if (node.type === 'note') return;
-
-      if (connectedNodeIds.has(node.id)) {
-        connectedNodes.push(node);
-
-        let width = nodeWidth;
-        let height = nodeHeight;
-
-        // 서브모듈 노드가 펼쳐져 있는 경우 동적 크기 계산
-        if (
-          node.type === 'workflowNode' &&
-          (node.data as any).expanded &&
-          (node.data as any).graph_snapshot
-        ) {
-          try {
-            const snapshot = (node.data as any).graph_snapshot;
-            const subNodes = (snapshot.nodes as any[]) || [];
-            const subEdges = (snapshot.edges as any[]) || [];
-
-            // 시작 노드 찾기
-            const startNode = subNodes.find(
-              (n) => n.type === 'start' || n.type === 'startNode',
-            );
-
-            let validNodes = subNodes;
-
-            // 시작 노드가 있으면 도달 가능한 노드만 필터링 (WorkflowNode와 동일 로직)
-            if (startNode) {
-              const reachableIds = new Set<string>([startNode.id]);
-              const queue = [startNode.id];
-
-              while (queue.length > 0) {
-                const curr = queue.shift()!;
-                const outgoing = subEdges.filter((e) => e.source === curr);
-                for (const e of outgoing) {
-                  if (!reachableIds.has(e.target)) {
-                    reachableIds.add(e.target);
-                    queue.push(e.target);
-                  }
-                }
-              }
-              validNodes = subNodes.filter((n) => reachableIds.has(n.id));
-            }
-
-            if (validNodes.length > 0) {
-              const bounds = validNodes.reduce(
-                (acc, n) => {
-                  const x = n.position.x;
-                  const y = n.position.y;
-                  const w =
-                    (n.measured?.width as number) || (n.width as number) || 300;
-                  const h =
-                    (n.measured?.height as number) ||
-                    (n.height as number) ||
-                    150;
-                  return {
-                    minX: Math.min(acc.minX, x),
-                    maxX: Math.max(acc.maxX, x + w),
-                    minY: Math.min(acc.minY, y),
-                    maxY: Math.max(acc.maxY, y + h),
-                  };
-                },
-                {
-                  minX: Infinity,
-                  maxX: -Infinity,
-                  minY: Infinity,
-                  maxY: -Infinity,
-                },
-              );
-
-              const PADDING = 60;
-              let calcWidth =
-                bounds.minX === Infinity
-                  ? 600
-                  : bounds.maxX - bounds.minX + PADDING * 2;
-
-              // 최소 너비 보정
-              const minWidthByCount = validNodes.length * 100;
-              calcWidth = Math.max(calcWidth, minWidthByCount);
-
-              const calcHeight =
-                bounds.minY === Infinity
-                  ? 300
-                  : bounds.maxY - bounds.minY + PADDING * 2;
-
-              // 제한 적용
-              const containerWidth = Math.min(Math.max(calcWidth, 600), 1800);
-              const containerHeight = Math.min(Math.max(calcHeight, 300), 1200);
-
-              // 80% 축소 적용
-              width = Math.round(containerWidth * 0.8);
-              height = containerHeight;
-            }
-          } catch (e) {
-            console.error('Failed to calculate submodule size for layout', e);
-          }
-        }
-
-        dagreGraph.setNode(node.id, { width, height });
-      }
-    });
-
-    edges.forEach((edge) => {
-      if (
-        connectedNodeIds.has(edge.source) &&
-        connectedNodeIds.has(edge.target)
-      ) {
-        dagreGraph.setEdge(edge.source, edge.target);
-      }
-    });
-
-    // 3. Dagre 레이아웃 계산 (연결된 노드)
-    dagre.layout(dagreGraph);
-
-    // 4. 새 위치 적용 및 고립된 노드 배치 준비
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let maxY = 0;
-
-    const layoutedNodes = nodes.map((node) => {
-      if (node.type === 'note') return node;
-
-      if (connectedNodeIds.has(node.id)) {
-        const nodeWithPosition = dagreGraph.node(node.id);
-        const x = nodeWithPosition.x - nodeWithPosition.width / 2;
-        const y = nodeWithPosition.y - nodeWithPosition.height / 2;
-
-        // Bounding Box 계산
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x + nodeWithPosition.width);
-        if (y + nodeWithPosition.height > maxY) {
-          maxY = y + nodeWithPosition.height;
-        }
-
-        return {
-          ...node,
-          position: { x, y },
-        };
-      }
-      return node;
-    });
-
-    // 만약 연결된 노드가 하나도 없으면 기본값 설정
-    if (minX === Infinity) minX = 0;
-    if (maxX === -Infinity) maxX = 1000; // 기본 너비
-
-    // [MODIFIED] 고립된 노드(Orphan Nodes) 그리드 배치
-    const orphanStartY = maxY + 150; // 연결된 그래프와 충분한 간격
-    let currentX = minX;
-    let currentY = orphanStartY;
-    const gapX = 50;
-    const gapY = 50;
-
-    // 연결된 그래프의 너비를 기준으로 줄바꿈 (최소 1000px 보장)
-    const maxWidth = Math.max(maxX - minX, 1000);
-
-    const finalNodes = layoutedNodes.map((node) => {
-      if (connectedNodeIds.has(node.id) || node.type === 'note') return node;
-
-      // 위치 할당
-      const newNode = {
-        ...node,
-        position: { x: currentX, y: currentY },
-      };
-
-      // 다음 위치 계산
-      currentX += nodeWidth + gapX;
-
-      // 줄바꿈 체크 (시작점으로부터의 거리가 최대 너비를 넘으면)
-      if (currentX - minX > maxWidth) {
-        currentX = minX;
-        currentY += nodeHeight + gapY;
-      }
-
-      return newNode;
-    });
-
-    setNodes(finalNodes);
+    const layoutedNodes = calculateAutoLayout(nodes, edges);
+    setNodes(layoutedNodes);
 
     setTimeout(() => {
       fitView({ padding: 0.2, duration: 300 });
@@ -685,29 +468,6 @@ export default function NodeCanvas() {
     const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId);
     return activeWorkflow?.appId;
   }, [workflows, activeWorkflowId]);
-
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    isOpen: boolean;
-  } | null>(null);
-
-  // 노드/Edge 우클릭 삭제 메뉴용 state
-  const [nodeContextMenu, setNodeContextMenu] = useState<{
-    x: number;
-    y: number;
-    nodeId: string;
-  } | null>(null);
-
-  const [edgeContextMenu, setEdgeContextMenu] = useState<{
-    x: number;
-    y: number;
-    edgeId: string;
-  } | null>(null);
-
-  const [isContextNodeSelectorOpen, setIsContextNodeSelectorOpen] =
-    useState(false);
-  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
 
   // 노드 우클릭 핸들러
   const onNodeContextMenu = useCallback(
@@ -741,21 +501,21 @@ export default function NodeCanvas() {
     [],
   );
 
-  // 노드 삭제 핸들러
+  // 노드 삭제 핸들러 (React Flow 내부 로직 사용)
   const handleDeleteNode = useCallback(() => {
     if (!nodeContextMenu) return;
-    setNodes(nodes.filter((n) => n.id !== nodeContextMenu.nodeId));
+    deleteElements({ nodes: [{ id: nodeContextMenu.nodeId }] });
     setNodeContextMenu(null);
-  }, [nodeContextMenu, nodes, setNodes]);
+  }, [nodeContextMenu, deleteElements]);
 
-  // Edge 삭제 핸들러
+  // Edge 삭제 핸들러 (React Flow 내부 로직 사용)
   const handleDeleteEdge = useCallback(() => {
     if (!edgeContextMenu) return;
-    setEdges(edges.filter((e) => e.id !== edgeContextMenu.edgeId));
+    deleteElements({ edges: [{ id: edgeContextMenu.edgeId }] });
     setEdgeContextMenu(null);
-  }, [edgeContextMenu, edges, setEdges]);
+  }, [edgeContextMenu, deleteElements]);
 
-  // Delete 키 핸들러
+  // Delete 키 핸들러 (React Flow 내부 로직 사용)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // input/textarea에서는 무시
@@ -767,198 +527,29 @@ export default function NodeCanvas() {
       }
 
       if (event.key === 'Delete') {
-        // 선택된 노드가 있으면 삭제
+        // 선택된 노드/엣지가 있으면 삭제
         const selectedNodes = nodes.filter((n) => n.selected);
         const selectedEdges = edges.filter((e) => e.selected);
 
         if (selectedNodes.length > 0 || selectedEdges.length > 0) {
           event.preventDefault();
-          setNodes(nodes.filter((n) => !n.selected));
-          setEdges(edges.filter((e) => !e.selected));
+          deleteElements({
+            nodes: selectedNodes.map((n) => ({ id: n.id })),
+            edges: selectedEdges.map((e) => ({ id: e.id })),
+          });
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nodes, edges, setNodes, setEdges]);
-
-  const onPaneContextMenu = useCallback(
-    (event: React.MouseEvent | MouseEvent) => {
-      event.preventDefault();
-      const x = event.clientX;
-      const y = event.clientY;
-
-      setContextMenu({ x, y, isOpen: true });
-      setContextMenuPos({ x, y });
-      setNodeContextMenu(null);
-      setEdgeContextMenu(null);
-    },
-    [],
-  );
-
-  const handleCloseContextMenu = useCallback(() => {
-    setContextMenu(null);
-    setNodeContextMenu(null);
-    setEdgeContextMenu(null);
-  }, []);
-
-  const handleAddNodeFromContext = useCallback(() => {
-    setContextMenu(null);
-    setIsContextNodeSelectorOpen(true);
-  }, []);
-
-  const handleAddMemoFromContext = useCallback(() => {
-    if (!contextMenuPos) return;
-
-    const position = screenToFlowPosition({
-      x: contextMenuPos.x,
-      y: contextMenuPos.y,
-    });
-
-    const newNote: NoteNode = {
-      id: `note-${Date.now()}`,
-      type: 'note',
-      data: { content: '', title: '메모' },
-      position,
-      style: { width: 300, height: 100 },
-    };
-
-    setNodes([...nodes, newNote]);
-    setContextMenu(null);
-  }, [contextMenuPos, screenToFlowPosition, setNodes, nodes]);
-
-  const { triggerWorkflowRun } = useWorkflowStore();
-
-  const handleTestRunFromContext = useCallback(() => {
-    triggerWorkflowRun();
-    setContextMenu(null);
-  }, [triggerWorkflowRun]);
-
-  const handleSelectNodeFromContext = useCallback(
-    (nodeDefId: string) => {
-      const nodeDef = getNodeDefinition(nodeDefId);
-      if (!nodeDef) return;
-
-      const position = screenToFlowPosition({
-        x: contextMenuPos.x,
-        y: contextMenuPos.y,
-      });
-
-      // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
-      if (nodeDef.type === 'workflowNode') {
-        setSearchModalContext({ isOpen: true, position });
-        setIsContextNodeSelectorOpen(false);
-        return;
-      }
-
-      const newNode: AppNode = {
-        id: `${nodeDef.id}-${Date.now()}`,
-        type: nodeDef.type as any,
-        data: nodeDef.defaultData() as any,
-        position,
-      };
-
-      setNodes([...nodes, newNode]);
-      setIsContextNodeSelectorOpen(false);
-    },
-    [contextMenuPos, screenToFlowPosition, setNodes, nodes],
-  );
+  }, [nodes, edges, deleteElements]);
 
   useEffect(() => {
     const handleClick = () => handleCloseContextMenu();
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, [handleCloseContextMenu]);
-
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-
-      const nodeDefId = event.dataTransfer.getData('application/reactflow');
-      if (!nodeDefId) return;
-
-      const nodeDef = getNodeDefinition(nodeDefId);
-      if (!nodeDef) return;
-
-      // Use preview position if available, otherwise use mouse position
-      const position =
-        previewState.draggedNodePosition ||
-        screenToFlowPosition({
-          x: event.clientX,
-          y: event.clientY,
-        });
-
-      // [MODIFIED] 워크플로우 노드(모듈)인 경우, 바로 추가하지 않고 검색 모달을 엽니다.
-      if (nodeDef.type === 'workflowNode') {
-        setSearchModalContext({ isOpen: true, position });
-        return;
-      }
-
-      // Remove ghost node and create real node
-      const filteredNodes = nodes.filter((n) => n.id !== 'GHOST');
-
-      const newNode: AppNode = {
-        id: `${nodeDef.id}-${Date.now()}`,
-        type: nodeDef.type as any,
-        data: nodeDef.defaultData() as any,
-        position,
-      };
-
-      setNodes([...filteredNodes, newNode]);
-
-      // Auto-connect if there's a nearest node
-      if (previewState.nearestNode) {
-        const newEdge = {
-          id: `e-${Date.now()}`,
-          source: previewState.isRight
-            ? previewState.nearestNode.id
-            : newNode.id,
-          target: previewState.isRight
-            ? newNode.id
-            : previewState.nearestNode.id,
-          type: 'puzzle',
-        };
-        setEdges([...edges, newEdge]);
-      }
-
-      // Clean up preview
-      resetPreview();
-    },
-    [
-      screenToFlowPosition,
-      setNodes,
-      nodes,
-      resetPreview,
-      previewState,
-      setEdges,
-      edges,
-    ],
-  );
-
-  // onDragOver is now handled by useDragPreview hook
-
-  const handleAddNodeFromLibrary = useCallback(
-    (nodeDefId: string) => {
-      const nodeDef = getNodeDefinition(nodeDefId);
-      if (!nodeDef) return;
-
-      const centerPos = screenToFlowPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      });
-
-      const newNode: AppNode = {
-        id: `${nodeDef.id}-${Date.now()}`,
-        type: nodeDef.type as any,
-        data: nodeDef.defaultData() as any,
-        position: centerPos,
-      };
-
-      setNodes([...nodes, newNode]);
-    },
-    [screenToFlowPosition, setNodes, nodes],
-  );
 
   // [NEW] 탭 상태
   const [activeTab, setActiveTab] = useState<'editor' | 'logs' | 'monitoring'>(
@@ -1193,53 +784,88 @@ export default function NodeCanvas() {
                           onClick={() => setShowDeployDropdown(false)}
                         />
                         <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
-                          <button
-                            onClick={handlePublishAsRestAPI}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">
-                              REST API로 배포
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              API 키로 접근
-                            </div>
-                          </button>
-                          <div className="border-t border-gray-100 my-1" />
-                          <button
-                            onClick={handlePublishAsWebApp}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">
-                              웹 앱으로 배포
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              링크 공유로 누구나 사용
-                            </div>
-                          </button>
-                          <div className="border-t border-gray-100 my-1" />
-                          <button
-                            onClick={handlePublishAsWidget}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">
-                              웹사이트에 챗봇 추가하기
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              복사 한 번으로 위젯 연동 완료
-                            </div>
-                          </button>
-                          <div className="border-t border-gray-100 my-1" />
-                          <button
-                            onClick={handlePublishAsWorkflowNode}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">
-                              서브 모듈로 배포
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              다른 워크플로우에서 재사용
-                            </div>
-                          </button>
+                          {/* Webhook Trigger Deployment */}
+                          {startNode?.type === 'webhookTrigger' && (
+                            <button
+                              onClick={handlePublishAsRestAPI}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900">
+                                웹훅으로 개시하기
+                              </div>
+                              <div className="text-sm text-gray-500 mt-1">
+                                URL 호출로 실행
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Schedule Trigger Deployment */}
+                          {startNode?.type === 'scheduleTrigger' && (
+                            <button
+                              onClick={handlePublishAsSchedule}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900">
+                                스케줄로 개시하기
+                              </div>
+                              <div className="text-sm text-gray-500 mt-1">
+                                설정된 주기에 따라 실행
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Standard Start Node Deployment Options */}
+                          {(startNode?.type === 'startNode' || !startNode) && (
+                            <>
+                              <button
+                                onClick={handlePublishAsRestAPI}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  REST API로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  API 키로 접근
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWebApp}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  웹 앱으로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  링크 공유로 누구나 사용
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWidget}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  웹사이트에 챗봇 추가하기
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  복사 한 번으로 위젯 연동 완료
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWorkflowNode}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  서브 모듈로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  다른 워크플로우에서 재사용
+                                </div>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </>
                     )}

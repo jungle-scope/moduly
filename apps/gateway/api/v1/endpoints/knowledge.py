@@ -26,6 +26,9 @@ from sqlalchemy.orm import Session
 
 from apps.gateway.api.deps import get_db
 from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.services.ingestion.service import (
+    IngestionOrchestrator as IngestionService,
+)
 from apps.shared.db.models.knowledge import Document, KnowledgeBase
 from apps.shared.db.models.user import User
 from apps.shared.schemas.rag import (
@@ -37,7 +40,6 @@ from apps.shared.schemas.rag import (
     KnowledgeBaseResponse,
     KnowledgeUpdate,
 )
-from apps.gateway.services.ingestion.service import IngestionOrchestrator as IngestionService
 
 router = APIRouter()
 
@@ -610,6 +612,8 @@ def preview_document_chunking(
             chunk_range=request.chunk_range,
             keyword_filter=request.keyword_filter,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import traceback
 

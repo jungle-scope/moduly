@@ -65,6 +65,7 @@ export interface DocumentResponse {
   chunk_size?: number;
 
   chunk_overlap?: number;
+  parsing_strategy?: 'general' | 'llamaparse';
   source_type?: SourceType;
   meta_info?: {
     cost_estimate?: {
