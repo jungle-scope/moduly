@@ -17,6 +17,10 @@ export const LLMNode = memo(
     const hasNoModel = !data.model_id;
     const hasValidationIssue = hasNoPrompts || hasNoModel;
     
+    const displayModelId = data.model_id
+      ? data.model_id.replace(/^models\//, '')
+      : '';
+
     return (
       <BaseNode
         id={id}
@@ -27,7 +31,7 @@ export const LLMNode = memo(
       >
         <div className="flex flex-col gap-1">
           <div className="text-sm font-semibold text-gray-800 truncate">
-            {data.model_id || '모델 미지정'}
+            {displayModelId || '모델 미지정'}
           </div>
           
           {/* 검증 실패 시 전체 너비 경고 배지 */}

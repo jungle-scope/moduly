@@ -271,6 +271,13 @@ class LLMService:
                 # 네트워크/타임아웃 오류 처리
                 raise ValueError(f"Network error verifying {provider} key: {str(e)}")
 
+            if provider == "google" and remote_models:
+                remote_models = LLMService._filter_google_models(
+                    base_url=base_url,
+                    api_key=api_key,
+                    remote_models=remote_models,
+                )
+
         # Anthropic (앤트로픽)
         elif provider == "anthropic":
             url = base_url.rstrip("/") + "/models"
@@ -332,6 +339,61 @@ class LLMService:
             pass
 
         return remote_models
+
+    @staticmethod
+    def _filter_google_models(
+        base_url: str, api_key: str, remote_models: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Google ListModels 결과를 기반으로 접근 가능한 모델만 남깁니다.
+        - generateContent/embedContent 지원 여부를 확인합니다.
+        - 실패 시 원본 목록을 그대로 반환합니다.
+        """
+        if not remote_models:
+            return remote_models
+
+        native_base = base_url.rstrip("/")
+        if native_base.endswith("/openai"):
+            native_base = native_base[: -len("/openai")]
+        native_url = native_base.rstrip("/") + "/models"
+
+        try:
+            resp = requests.get(
+                native_url,
+                headers={"x-goog-api-key": api_key},
+                timeout=10,
+            )
+        except Exception:
+            return remote_models
+
+        if resp.status_code != 200:
+            return remote_models
+
+        try:
+            payload = resp.json()
+        except ValueError:
+            return remote_models
+
+        allowed_ids = set()
+        for model in payload.get("models", []):
+            name = model.get("name") or ""
+            if not name:
+                continue
+            methods = model.get("supportedGenerationMethods") or []
+            if "generateContent" in methods or "embedContent" in methods:
+                allowed_ids.add(name.replace("models/", ""))
+
+        if not allowed_ids:
+            return remote_models
+
+        filtered = []
+        for rm in remote_models:
+            mid = rm.get("id") or ""
+            clean_id = mid.replace("models/", "")
+            if clean_id in allowed_ids:
+                filtered.append(rm)
+
+        return filtered
 
     @staticmethod
     def _sync_models_to_db(
