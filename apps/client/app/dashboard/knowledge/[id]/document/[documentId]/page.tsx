@@ -34,6 +34,7 @@ import ChunkPreviewList from '@/app/features/knowledge/components/preview/ChunkP
 import DBConnectionForm from '@/app/features/knowledge/components/create-knowledge-modal/DBConnectionForm';
 import { DBConfig } from '@/app/features/knowledge/types/DB';
 import { connectorApi } from '@/app/features/knowledge/api/connectorApi';
+import ColumnAutocomplete from '@/app/features/knowledge/components/document-settings/ColumnAutocomplete';
 
 // UUID prefix가 있으면 제거, API URL이면 도메인만 추출
 const getDisplayFilename = (filename: string): string => {
@@ -106,6 +107,21 @@ export default function DocumentSettingsPage() {
   >('all');
   const [chunkRange, setChunkRange] = useState<string>(''); // "1-100, 500-600" 형식
   const [keywordFilter, setKeywordFilter] = useState<string>('');
+
+  // Alias 자동 생성 핸들러
+  const handleAliasGenerate = (
+    table: string,
+    column: string,
+    alias: string,
+  ) => {
+    setAliases((prev) => ({
+      ...prev,
+      [table]: {
+        ...(prev[table] || {}),
+        [column]: alias,
+      },
+    }));
+  };
 
   // SSE 연결 (Indexing 상태일 때)
   useEffect(() => {
@@ -186,6 +202,12 @@ export default function DocumentSettingsPage() {
                 setSensitiveColumns(
                   targetDoc.meta_info.db_config.sensitive_columns,
                 );
+              }
+              if (targetDoc.meta_info.db_config.aliases) {
+                setAliases(targetDoc.meta_info.db_config.aliases);
+              }
+              if (targetDoc.meta_info.db_config.template) {
+                setTemplate(targetDoc.meta_info.db_config.template);
               }
               if (targetDoc.meta_info.db_config.connection_id) {
                 setConnectionId(targetDoc.meta_info.db_config.connection_id);
@@ -391,7 +413,7 @@ export default function DocumentSettingsPage() {
 
   // 벡터화 템플릿 입력 UI 렌더러 (우측 패널용)
   const renderTemplateSection = () => (
-    <div className="flex-none h-[30%] border-b border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+    <div className="flex-none h-[35%] border-b border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
       {/* 템플릿 헤더 (프리뷰 헤더와 통일) */}
       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center flex-none">
         <h4 className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
@@ -409,32 +431,12 @@ export default function DocumentSettingsPage() {
       </div>
 
       <div className="p-4 bg-white dark:bg-gray-800 h-full flex flex-col overflow-y-auto">
-        {/* 사용 가능한 Alias 목록 */}
-        <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 flex-none">
-          <div className="text-xs leading-relaxed">
-            <span className="font-medium text-blue-900 dark:text-blue-300 mr-2 inline-block">
-              사용 가능한 Alias:
-            </span>
-            <span className="text-blue-700 dark:text-blue-400 break-all">
-              {Object.keys(aliases).length > 0 ? (
-                Object.values(aliases)
-                  .flatMap((tableAliases) => Object.values(tableAliases))
-                  .filter((alias) => alias)
-                  .map((alias) => `{{ ${alias} }}`)
-                  .join(', ')
-              ) : (
-                <span className="text-gray-400 dark:text-gray-500 italic">
-                  선택된 컬럼의 Alias가 여기에 표시됩니다.
-                </span>
-              )}
-            </span>
-          </div>
-        </div>
-
-        <textarea
+        <ColumnAutocomplete
+          selectedColumns={selectedDbItems}
           value={template}
-          onChange={(e) => setTemplate(e.target.value)}
-          placeholder="예: {{name}} 상품은 현재 {{quantity}}개의 재고가 남아 있으며, 정상가는 {{price}}원입니다."
+          onChange={setTemplate}
+          onAliasGenerate={handleAliasGenerate}
+          placeholder="예: {{mock_inventory.name}} 상품은 현재 {{mock_inventory.quantity}}개 남아있으며, 정상가는 {{mock_inventory.price}}원입니다."
           className="w-full flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono overflow-y-auto"
         />
       </div>
