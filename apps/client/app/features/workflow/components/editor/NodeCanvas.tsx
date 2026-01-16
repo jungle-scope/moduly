@@ -157,8 +157,10 @@ export default function NodeCanvas() {
     handlePublishAsWebApp,
     handlePublishAsWidget,
     handlePublishAsWorkflowNode,
+    handlePublishAsSchedule,
     handleDeploy,
   } = useDeployment({
+    nodes,
     isSettingsOpen,
     toggleSettings,
     isVersionHistoryOpen,
@@ -168,6 +170,16 @@ export default function NodeCanvas() {
     setSelectedNodeId,
     setSelectedNodeType,
   });
+
+  // Start node detection for deployment options
+  const startNode = useMemo(() => {
+    return nodes.find(
+      (n) =>
+        n.type === 'startNode' ||
+        n.type === 'webhookTrigger' ||
+        n.type === 'scheduleTrigger',
+    );
+  }, [nodes]);
 
   // Context menu hook
   const {
@@ -770,53 +782,88 @@ export default function NodeCanvas() {
                           onClick={() => setShowDeployDropdown(false)}
                         />
                         <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
-                          <button
-                            onClick={handlePublishAsRestAPI}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">
-                              REST API로 배포
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              API 키로 접근
-                            </div>
-                          </button>
-                          <div className="border-t border-gray-100 my-1" />
-                          <button
-                            onClick={handlePublishAsWebApp}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">
-                              웹 앱으로 배포
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              링크 공유로 누구나 사용
-                            </div>
-                          </button>
-                          <div className="border-t border-gray-100 my-1" />
-                          <button
-                            onClick={handlePublishAsWidget}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">
-                              웹사이트에 챗봇 추가하기
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              복사 한 번으로 위젯 연동 완료
-                            </div>
-                          </button>
-                          <div className="border-t border-gray-100 my-1" />
-                          <button
-                            onClick={handlePublishAsWorkflowNode}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">
-                              서브 모듈로 배포
-                            </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              다른 워크플로우에서 재사용
-                            </div>
-                          </button>
+                          {/* Webhook Trigger Deployment */}
+                          {startNode?.type === 'webhookTrigger' && (
+                            <button
+                              onClick={handlePublishAsRestAPI}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900">
+                                웹훅으로 개시하기
+                              </div>
+                              <div className="text-sm text-gray-500 mt-1">
+                                URL 호출로 실행
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Schedule Trigger Deployment */}
+                          {startNode?.type === 'scheduleTrigger' && (
+                            <button
+                              onClick={handlePublishAsSchedule}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900">
+                                스케줄로 개시하기
+                              </div>
+                              <div className="text-sm text-gray-500 mt-1">
+                                설정된 주기에 따라 실행
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Standard Start Node Deployment Options */}
+                          {(startNode?.type === 'startNode' || !startNode) && (
+                            <>
+                              <button
+                                onClick={handlePublishAsRestAPI}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  REST API로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  API 키로 접근
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWebApp}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  웹 앱으로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  링크 공유로 누구나 사용
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWidget}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  웹사이트에 챗봇 추가하기
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  복사 한 번으로 위젯 연동 완료
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWorkflowNode}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  서브 모듈로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  다른 워크플로우에서 재사용
+                                </div>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </>
                     )}
