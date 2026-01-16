@@ -29,6 +29,10 @@ gateway:
   service:
     type: ClusterIP
     port: 8000
+    annotations: {}
+      # Example: AWS NLB annotations
+      # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      # service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
   
   resources:
     requests:
@@ -165,6 +169,7 @@ frontend:
   service:
     type: ClusterIP
     port: 3000
+    annotations: {}
   
   resources:
     requests:
@@ -207,6 +212,7 @@ sandbox:
   service:
     type: ClusterIP
     port: 8194
+    annotations: {}
   
   resources:
     requests:

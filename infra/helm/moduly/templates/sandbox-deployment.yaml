@@ -1,0 +1,95 @@
+{{- if .Values.sandbox.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moduly.fullname" . }}-sandbox
+  labels:
+    {{- include "moduly.componentLabels" (dict "component" "sandbox" "context" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.sandbox.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "moduly.componentSelectorLabels" (dict "component" "sandbox" "context" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "moduly.componentSelectorLabels" (dict "component" "sandbox" "context" .) | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+    spec:
+      containers:
+      # Main Container: Sandbox (Code Execution)
+      - name: sandbox
+        image: "{{ .Values.sandbox.image.repository }}:{{ .Values.sandbox.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.sandbox.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.sandbox.service.port }}
+          protocol: TCP
+        env:
+        # Proxy configuration (all HTTP/HTTPS traffic goes through proxy)
+        - name: HTTP_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: HTTP_PROXY
+        - name: HTTPS_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: HTTPS_PROXY
+        - name: NO_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: NO_PROXY
+        
+        # Sandbox API key
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: SANDBOX_API_KEY
+        
+        # Timezone
+        - name: TZ
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: TZ
+        
+        resources:
+          {{- toYaml .Values.sandbox.resources | nindent 10 }}
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      
+      # Sidecar Container: Squid Proxy (SSRF Protection)
+      - name: proxy
+        image: "{{ .Values.sandbox.proxy.image.repository }}:{{ .Values.sandbox.proxy.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.sandbox.proxy.image.pullPolicy | default .Values.global.imagePullPolicy }}
+        ports:
+        - name: proxy
+          containerPort: 3128
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.sandbox.proxy.resources | nindent 10 }}
+        
+        livenessProbe:
+          tcpSocket:
+            port: 3128
+          initialDelaySeconds: 10
+          periodSeconds: 10
+{{- end }}

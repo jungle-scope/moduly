@@ -1,0 +1,180 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moduly.fullname" . }}-gateway
+  labels:
+    {{- include "moduly.componentLabels" (dict "component" "gateway" "context" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.gateway.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "moduly.componentSelectorLabels" (dict "component" "gateway" "context" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "moduly.componentSelectorLabels" (dict "component" "gateway" "context" .) | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+    spec:
+      {{- if .Values.gateway.serviceAccount.create }}
+      serviceAccountName: {{ include "moduly.serviceAccountName" . }}
+      {{- end }}
+      containers:
+      - name: gateway
+        image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.gateway.service.port }}
+          protocol: TCP
+        env:
+        # Database configuration (from ConfigMap)
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: DB_PASSWORD
+        
+        # Redis configuration
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: REDIS_PORT
+        - name: REDIS_DB
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: REDIS_DB
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: REDIS_PASSWORD
+        
+        # CORS and Security
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: CORS_ORIGINS
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: SECRET_KEY
+        
+        # Sandbox configuration
+        - name: SANDBOX_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: SANDBOX_URL
+        - name: SANDBOX_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: SANDBOX_API_KEY
+        
+        # Encryption keys (optional)
+        {{- if .Values.secrets.masterKey }}
+        - name: MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: MASTER_KEY
+        {{- end }}
+        {{- if .Values.secrets.encryptionKey }}
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: ENCRYPTION_KEY
+        {{- end }}
+        
+        # Storage configuration
+        - name: STORAGE_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: STORAGE_TYPE
+        {{- if .Values.gateway.env.S3_BUCKET_NAME }}
+        - name: S3_BUCKET_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: S3_BUCKET_NAME
+        {{- end }}
+        - name: AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: AWS_REGION
+        
+        # Google OAuth (optional)
+        {{- if .Values.secrets.googleClientId }}
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: GOOGLE_CLIENT_ID
+        {{- end }}
+        {{- if .Values.secrets.googleClientSecret }}
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: GOOGLE_CLIENT_SECRET
+        {{- end }}
+        
+        # Node environment
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: NODE_ENV
+        
+        resources:
+          {{- toYaml .Values.gateway.resources | nindent 10 }}
+        
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+{{- end }}

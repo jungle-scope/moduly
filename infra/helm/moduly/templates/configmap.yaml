@@ -16,6 +16,10 @@ data:
   REDIS_PORT: {{ .Values.redis.master.service.ports.redis | default "6379" | quote }}
   REDIS_DB: "0"
   
+  # Celery-specific Redis DB configuration (I/O 경합 방지)
+  REDIS_BROKER_DB: "0"     # Celery message queue
+  REDIS_BACKEND_DB: "1"    # Celery result backend
+  
   # Storage configuration
   STORAGE_TYPE: {{ .Values.gateway.env.STORAGE_TYPE | default "LOCAL" | quote }}
   {{- if .Values.gateway.env.S3_BUCKET_NAME }}
