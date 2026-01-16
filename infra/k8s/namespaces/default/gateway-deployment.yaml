@@ -22,7 +22,7 @@ spec:
         - containerPort: 8000
         env:
         - name: DB_HOST
-          value: postgresql.default.svc.cluster.local
+          value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME
@@ -95,13 +95,13 @@ spec:
             memory: 512Mi
         livenessProbe:
           httpGet:
-            path: /health
+            path: /api/v1/health
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
-            path: /health
+            path: /api/v1/health
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 5

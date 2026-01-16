@@ -26,7 +26,7 @@ spec:
         env:
         # DB 설정 (default namespace의 PostgreSQL 공유)
         - name: DB_HOST
-          value: postgresql.default.svc.cluster.local
+          value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME
