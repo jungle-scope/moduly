@@ -385,8 +385,11 @@ class DeploymentService:
                 kwargs={"is_deployed": True},
             )
 
-            # 결과 대기 (타임아웃 10분)
-            result = task.get(timeout=600)
+            # [FIX] 비동기 이벤트 루프 차단 방지를 위해 스레드 풀에서 대기
+            import asyncio
+
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(None, lambda: task.get(timeout=600))
 
             if result.get("status") == "success":
                 return {"status": "success", "results": result.get("result", {})}

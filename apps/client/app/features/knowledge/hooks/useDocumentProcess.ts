@@ -72,13 +72,10 @@ export function useDocumentProcess({
       ([table, cols]) => {
         const sensitiveColumnsForTable =
           settings.sensitiveColumns?.[table] || [];
-        const aliasesForTable = settings.aliases?.[table] || {};
         return {
           table_name: table,
           columns: cols,
           sensitive_columns: sensitiveColumnsForTable,
-          aliases: aliasesForTable,
-          template: settings.template || '',
         };
       },
     );
@@ -93,7 +90,11 @@ export function useDocumentProcess({
       source_type: document?.source_type || 'FILE',
       db_config: {
         selections,
-        join_config: settings.joinConfig || undefined, // Use passed joinConfig directly
+        selected_items: settings.selectedDbItems,
+        sensitive_columns: settings.sensitiveColumns,
+        aliases: settings.aliases,
+        template: settings.template,
+        join_config: settings.joinConfig || undefined,
         ...(connectionIdOverride
           ? { connection_id: connectionIdOverride }
           : {}),
