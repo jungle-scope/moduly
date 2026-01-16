@@ -1,0 +1,38 @@
+apiVersion: v2
+name: moduly
+description: AI workflow builder with visual interface - Deploy complex LLM applications without code
+type: application
+
+# Chart version (follows SemVer 2)
+version: 0.1.0
+
+# Application version
+appVersion: "1.0.0"
+
+keywords:
+  - ai
+  - workflow
+  - llm
+  - low-code
+  - no-code
+  - rag
+  - automation
+
+home: https://github.com/jungle-scope/moduly
+sources:
+  - https://github.com/jungle-scope/moduly
+
+maintainers:
+  - name: Moduly Team
+    email: team@moduly.io
+
+# Using Bitnami charts for production-ready PostgreSQL and Redis
+dependencies:
+  - name: postgresql
+    version: 15.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 19.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

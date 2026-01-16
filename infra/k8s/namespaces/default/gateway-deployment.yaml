@@ -21,6 +21,7 @@ spec:
         ports:
         - containerPort: 8000
         env:
+        # DB 설정
         - name: DB_HOST
           value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
         - name: DB_PORT
@@ -34,6 +35,7 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DB_PASSWORD
+        # Redis 설정
         - name: REDIS_HOST
           value: redis-master.default.svc.cluster.local
         - name: REDIS_PORT
@@ -45,6 +47,7 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: REDIS_PASSWORD
+        # CORS 설정 & JWT secret key
         - name: CORS_ORIGINS
           value: "https://moduly-ai.cloud,https://www.moduly-ai.cloud,http://localhost:3000,http://127.0.0.1:3000"
         - name: SECRET_KEY
