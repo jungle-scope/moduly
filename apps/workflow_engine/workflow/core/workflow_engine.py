@@ -50,14 +50,18 @@ class WorkflowEngine:
         self.node_instances = {}  # Node 인스턴스 저장
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
-        # 외부에서 전달된 dict를 직접 수정하지 않도록 복사본 사용
-        self.execution_context = dict(execution_context or {})
+        # [FIX] execution_context를 새 복사본으로 생성하여 중첩 서브 워크플로우에서 참조 문제 방지
+        self.execution_context = dict(execution_context) if execution_context else {}
         self.workflow_timeout = workflow_timeout  # [NEW] 전체 타임아웃 설정
         self.start_time = 0.0  # [NEW] 실행 시작 시간
 
         # [FIX] DB 세션을 execution_context에 주입 (WorkflowNode 등에서 사용)
+        # db 파라미터가 전달되면 사용, 아니면 기존 execution_context의 db 유지
         if db is not None:
             self.execution_context["db"] = db
+        elif "db" not in self.execution_context:
+            # execution_context에 db가 없으면 경고 (옵션)
+            pass
 
         # [PERF] 그래프 구조 사전 계산
         self.adjacency_list = {}  # source -> [targets]

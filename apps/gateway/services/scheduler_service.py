@@ -1,14 +1,18 @@
 """Scheduler Service - APScheduler를 사용한 워크플로우 스케줄 관리"""
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from apps.shared.db.models.schedule import Schedule
-from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
+
+from apps.shared.db.models.schedule import Schedule
+from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+
+logger = logging.getLogger(__name__)
 
 
 class SchedulerService:
@@ -26,7 +30,7 @@ class SchedulerService:
         """BackgroundScheduler 초기화"""
         self.scheduler = BackgroundScheduler(timezone="UTC")
         self.scheduler.start()
-        print("[SchedulerService] APScheduler 시작됨")
+        logger.info("APScheduler 시작됨")
 
     def load_schedules_from_db(self, db: Session):
         """
@@ -48,9 +52,9 @@ class SchedulerService:
             try:
                 self.add_schedule(schedule, db)
             except Exception as e:
-                print(f"  ✗ 스케줄 로드 실패 ({schedule.id}): {e}")
+                logger.error(f"스케줄 로드 실패 ({schedule.id}): {e}")
 
-        print("[SchedulerService] 스케줄 로드 완료")
+        logger.info("스케줄 로드 완료")
 
     def add_schedule(self, schedule: Schedule, db: Session):
         """
@@ -87,9 +91,7 @@ class SchedulerService:
             schedule.next_run_at = job.next_run_time
             db.commit()
 
-        print(
-            f"[SchedulerService] Job 등록: {job_id} | 다음 실행: {schedule.next_run_at}"
-        )
+        logger.info(f"Job 등록: {job_id} | 다음 실행: {schedule.next_run_at}")
 
     def remove_schedule(self, schedule_id: uuid.UUID):
         """
@@ -102,9 +104,9 @@ class SchedulerService:
 
         try:
             self.scheduler.remove_job(job_id)
-            print(f"[SchedulerService] Job 제거: {job_id}")
+            logger.info(f"Job 제거: {job_id}")
         except Exception as e:
-            print(f"[SchedulerService] Job 제거 실패 ({job_id}): {e}")
+            logger.error(f"Job 제거 실패 ({job_id}): {e}")
 
     def update_schedule(
         self,
@@ -145,9 +147,7 @@ class SchedulerService:
         db = SessionLocal()
         triggered_at = datetime.now(timezone.utc).isoformat()
 
-        print(
-            f"[SchedulerService] 워크플로우 실행 시작: {deployment_id} (스케줄: {schedule_id})"
-        )
+        logger.info(f"워크플로우 실행 시작: {deployment_id} (스케줄: {schedule_id})")
 
         try:
             # Deployment 조회
@@ -158,13 +158,11 @@ class SchedulerService:
             )
 
             if not deployment:
-                print(f"[SchedulerService] 에러: Deployment 없음: {deployment_id}")
+                logger.error(f"Deployment 없음: {deployment_id}")
                 return
 
             if not deployment.is_active:
-                print(
-                    f"[SchedulerService] 에러: Deployment 비활성화됨: {deployment_id}"
-                )
+                logger.error(f"Deployment 비활성화됨: {deployment_id}")
                 return
 
             # user_input에 스케줄 메타데이터 포함
@@ -188,7 +186,7 @@ class SchedulerService:
                 kwargs={"is_deployed": True},
             )
 
-            print(f"[SchedulerService] Celery 태스크 전송 완료: {deployment_id}")
+            logger.info(f"Celery 태스크 전송 완료: {deployment_id}")
 
             # Schedule 업데이트: last_run_at, next_run_at
             schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
@@ -203,7 +201,7 @@ class SchedulerService:
                 db.commit()
 
         except Exception as e:
-            print(f"[SchedulerService] 에러: 워크플로우 실행 실패: {e}")
+            logger.error(f"워크플로우 실행 실패: {e}")
             import traceback
 
             traceback.print_exc()
@@ -217,7 +215,7 @@ class SchedulerService:
     def shutdown(self):
         """Scheduler 종료 (서버 종료 시 호출)"""
         self.scheduler.shutdown()
-        print("[SchedulerService] APScheduler 종료됨")
+        logger.info("APScheduler 종료됨")
 
 
 # 글로벌 SchedulerService 인스턴스 (서버 시작 시 초기화)
