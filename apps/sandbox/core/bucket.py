@@ -28,10 +28,11 @@ class PriorityBucket:
     def __init__(self, priority: Priority):
         self.priority = priority
         self._queues: Dict[str, deque[Job]] = defaultdict(deque)  # tenant_id -> deque of jobs
-        self._tenant_order: List[str] = []  # Round-Robin 순서
+        self._tenant_order: List[str] = []
         self._current_index = 0
         self._last_activity: Dict[str, float] = {}  # tenant_id -> last activity time
         self._lock = asyncio.Lock()
+
     
     async def add(self, job: Job):
         """작업 추가"""
@@ -45,6 +46,7 @@ class PriorityBucket:
             
             self._queues[tenant_id].append(job)
             self._last_activity[tenant_id] = time.time()
+
     
     async def pop(self, tenant_id: str) -> Optional[Job]:
         """특정 테넌트의 작업 가져오기"""
@@ -61,17 +63,55 @@ class PriorityBucket:
                             self._current_index = 0
                 
                 return job
-            return None
+            return None    
+
     
-    async def next_tenant(self) -> Optional[str]:
-        """Round-Robin으로 다음 테넌트 선택"""
+    async def pop_next_round_robin(self, is_tenant_allowed: callable) -> Optional[Job]:
+        """
+        Round-Robin으로 다음 작업을 원자적으로 선택 및 반환
+        
+        Args:
+            is_tenant_allowed: tenant_id를 받아서 실행 가능 여부를 반환하는 콜백 함수
+                              (테넌트당 동시 실행 제한 체크용)
+        
+        Returns:
+            실행 가능한 작업이 있으면 Job, 없으면 None
+        """
         async with self._lock:
             if not self._tenant_order:
                 return None
             
-            tenant = self._tenant_order[self._current_index]
-            self._current_index = (self._current_index + 1) % len(self._tenant_order)
-            return tenant
+            # 모든 활성 테넌트를 한 바퀴 순회
+            checked = 0
+            total_tenants = len(self._tenant_order)
+            
+            while checked < total_tenants:
+                if not self._tenant_order:
+                    return None
+                
+                tenant_id = self._tenant_order[self._current_index]
+                self._current_index = (self._current_index + 1) % len(self._tenant_order)
+                checked += 1
+                
+                # 테넌트 실행 제한 체크
+                if not is_tenant_allowed(tenant_id):
+                    continue
+                
+                # 작업 꺼내기
+                if tenant_id in self._queues and self._queues[tenant_id]:
+                    job = self._queues[tenant_id].popleft()
+                    self._last_activity[tenant_id] = time.time()
+                    
+                    # 큐가 비었으면 순서에서 제거
+                    if not self._queues[tenant_id]:
+                        self._tenant_order.remove(tenant_id)
+                        if self._current_index >= len(self._tenant_order):
+                            self._current_index = 0
+                    
+                    return job
+            
+            return None
+            
     
     async def get_all_jobs(self) -> List[Job]:
         """모든 작업 목록 반환 (Aging용)"""

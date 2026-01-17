@@ -199,7 +199,11 @@ class FairScheduler:
                 await asyncio.sleep(0.5)
     
     async def _get_next_job(self) -> Optional[Job]:
-        """MLFQ + Round-Robin으로 다음 작업 선택"""
+        """MLFQ + Round-Robin으로 다음 작업 선택 (원자적 연산)"""
+        # 테넌트 실행 제한 체크 콜백
+        def is_tenant_allowed(tenant_id: str) -> bool:
+            return self._tenant_running[tenant_id] < settings.MAX_PER_TENANT
+        
         # 우선순위 순서대로 버킷 순회
         for priority in [Priority.HIGH, Priority.NORMAL, Priority.LOW]:
             bucket = self._buckets[priority]
@@ -207,21 +211,10 @@ class FairScheduler:
             if bucket.is_empty:
                 continue
             
-            # Round-Robin: 모든 활성 테넌트 순회
-            for _ in range(bucket.active_tenants):
-                tenant_id = await bucket.next_tenant()
-                
-                if tenant_id is None:
-                    break
-                
-                # 테넌트 실행 제한 체크
-                if self._tenant_running[tenant_id] >= settings.MAX_PER_TENANT:
-                    continue
-                
-                # 작업 가져오기
-                job = await bucket.pop(tenant_id)
-                if job:
-                    return job
+            # 원자적 Round-Robin pop (Race Condition 방지)
+            job = await bucket.pop_next_round_robin(is_tenant_allowed)
+            if job:
+                return job
         
         return None
     
