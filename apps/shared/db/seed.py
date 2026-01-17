@@ -103,10 +103,8 @@ def seed_default_llm_models(db: Session) -> None:
     """
     from apps.gateway.services.llm_service import LLMService
     from apps.shared.db.models.llm import (
-        LLMCredential,
         LLMModel,
         LLMProvider,
-        LLMRelCredentialModel,
     )
 
     # 1. 모든 Provider 조회 후 맵핑 생성
@@ -179,30 +177,6 @@ def seed_default_llm_models(db: Session) -> None:
 
         if not model:
             continue
-
-        # Provider의 기존 Credential에 연결 (선택사항 - 조회 로직 변경으로 인해 필수는 아니지만 안전장치로 유지)
-        # 1. 해당 Provider의 모든 Credential 조회
-        creds = (
-            db.query(LLMCredential)
-            .filter(LLMCredential.provider_id == provider.id)
-            .all()
-        )
-
-        # 2. 이미 연결된 내역 확인
-        existing_links = (
-            db.query(LLMRelCredentialModel)
-            .filter(LLMRelCredentialModel.model_id == model.id)
-            .all()
-        )
-        linked_cred_ids = {link.credential_id for link in existing_links}
-
-        # 3. 누락된 연결 추가
-        for cred in creds:
-            if cred.id not in linked_cred_ids:
-                rel = LLMRelCredentialModel(
-                    credential_id=cred.id, model_id=model.id, is_verified=True
-                )
-                db.add(rel)
 
     if models_seeded_count > 0 or models_updated_count > 0:
         if models_seeded_count > 0:
