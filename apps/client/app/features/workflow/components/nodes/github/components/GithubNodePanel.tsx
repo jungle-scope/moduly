@@ -5,7 +5,6 @@ import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
-import { AlertTriangle } from 'lucide-react';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 import { ValidationAlert } from '../../../ui/ValidationAlert';
 
@@ -104,30 +103,25 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
     [data.referenced_variables, handleUpdateData],
   );
 
-
   const tokenMissing = useMemo(() => {
     return !data.api_token?.trim();
   }, [data.api_token]);
-
 
   const ownerMissing = useMemo(() => {
     return !data.repo_owner?.trim();
   }, [data.repo_owner]);
 
-
   const repoMissing = useMemo(() => {
     return !data.repo_name?.trim();
   }, [data.repo_name]);
 
-
   const prMissing = useMemo(() => {
-    return !data.pr_number || data.pr_number <= 0;
+    return !data.pr_number;
   }, [data.pr_number]);
-
 
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
-    [data.referenced_variables]
+    [data.referenced_variables],
   );
 
   // 자동완성 핸들러
@@ -231,7 +225,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
           title="" // 내부 타이틀 숨김
           description="이 섹션에서 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
-        
+
         <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 
@@ -251,9 +245,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             )}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">
-              저장소
-            </label>
+            <label className="text-xs font-medium text-gray-700">저장소</label>
             <input
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
               placeholder="예) react"
@@ -265,17 +257,13 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             )}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">
-              PR 번호
-            </label>
+            <label className="text-xs font-medium text-gray-700">PR 번호</label>
             <input
-              type="number"
+              type="text"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
               placeholder="예) 123"
               value={data.pr_number || ''}
-              onChange={(e) =>
-                handleUpdateData('pr_number', parseInt(e.target.value) || 0)
-              }
+              onChange={(e) => handleUpdateData('pr_number', e.target.value)}
             />
             <p className="text-[10px] text-gray-400">
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능

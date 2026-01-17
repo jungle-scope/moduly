@@ -56,8 +56,8 @@ celery_app.conf.update(
     task_time_limit=600,  # 태스크 최대 실행 시간 (10분)
     task_soft_time_limit=540,  # 소프트 타임아웃 (9분)
     # 워커 설정
-    worker_prefetch_multiplier=4,  # [FIX] 프리페치 증가 (1 → 4)
-    worker_concurrency=16,  # [FIX] 동시 실행 워커 수 증가 (4 → 16)
+    worker_prefetch_multiplier=1,  # [FIX] 공정한 작업 분배를 위해 1로 설정 (Long-running task 최적화)
+    worker_concurrency=4,  # [FIX] 메모리 안정성을 위해 동시성 감소 (16 → 4)
     # 결과 설정
     result_expires=3600,  # 결과 만료 시간 (1시간)
     # [NEW] 메모리 누수 방지 설정 (워커 재시작)
