@@ -98,11 +98,43 @@ class NSJailWrapper:
             # 5. 임시 파일 정리
             self._cleanup_temp_script(script_path)
     
+    def _auto_convert(self, value):
+        """문자열을 적절한 타입으로 자동 변환"""
+        if not isinstance(value, str):
+            return value
+        v = value.strip()
+        if not v:
+            return value
+        if v.lower() == 'true':
+            return True
+        if v.lower() == 'false':
+            return False
+        if v.lower() in ('none', 'null'):
+            return None
+        try:
+            return int(v)
+        except ValueError:
+            pass
+        try:
+            return float(v)
+        except ValueError:
+            pass
+        return value
+
+    def _preprocess_inputs(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """모든 입력 값을 자동 변환"""
+        if isinstance(inputs, dict):
+            return {k: self._auto_convert(v) for k, v in inputs.items()}
+        return inputs
+    
     def _create_wrapper_script(self, user_code: str, inputs: Dict[str, Any]) -> str:
         """
         사용자 코드를 래핑하는 실행 스크립트 생성
+        입력 값은 미리 타입 변환 후 repr()로 직접 삽입
         """
-        inputs_json = json.dumps(inputs, ensure_ascii=False)
+        # 타입 변환 (문자열 "34" → int 34 등)
+        converted_inputs = self._preprocess_inputs(inputs)
+        inputs_repr = repr(converted_inputs)
         
         return f'''
 import json
@@ -113,16 +145,13 @@ import sys
 
 # 실행 로직
 try:
-    inputs = json.loads('{inputs_json}')
+    inputs = {inputs_repr}
     result = main(inputs)
     
     if not isinstance(result, dict):
         raise TypeError("main() must return a dict")
     
-    # JSON 직렬화 가능한지 확인
     json.dumps(result)
-    
-    # 결과 출력 (stdout)
     print(json.dumps({{"success": True, "result": result}}, ensure_ascii=False))
     
 except Exception as e:
@@ -170,9 +199,6 @@ except Exception as e:
         cmd.extend([
             "--bindmount_ro", f"{script_path}:/app/run.py",
         ])
-        
-        # exec_bin은 config 파일에서 정의됨 (/usr/local/bin/python3 /app/run.py)
-        # 별도의 -- 인자 불필요
         
         return cmd
     
