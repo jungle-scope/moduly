@@ -103,6 +103,7 @@ class FairScheduler:
         """스케줄러 중지"""
         self._running = False
         
+        # 1. 백그라운드 태스크 중지
         for task in [self._worker_task, self._scaling_task, self._aging_task, self._cleanup_task]:
             if task:
                 task.cancel()
@@ -111,6 +112,20 @@ class FairScheduler:
                 except asyncio.CancelledError:
                     pass
         
+        # 2. 대기 중인 모든 작업에 "서버 종료" 에러 반환
+        pending_count = 0
+        for bucket in self._buckets.values():
+            for job in await bucket.get_all_jobs():
+                if job.future and not job.future.done():
+                    job.future.set_result(
+                        ExecutionResult.sandbox_error("Server shutting down", job.job_id)
+                    )
+                    pending_count += 1
+        
+        if pending_count > 0:
+            logger.warning(f"Graceful shutdown: {pending_count} pending jobs cancelled")
+        
+        # 3. 워커 풀 종료
         if self._executor:
             self._executor.shutdown(wait=True)
             self._executor = None
@@ -199,7 +214,7 @@ class FairScheduler:
                 await asyncio.sleep(0.5)
     
     async def _get_next_job(self) -> Optional[Job]:
-        """MLFQ + Round-Robin으로 다음 작업 선택 (원자적 연산)"""
+        """MLFQ + Round-Robin으로 다음 작업 선택 """
         # 테넌트 실행 제한 체크 콜백
         def is_tenant_allowed(tenant_id: str) -> bool:
             return self._tenant_running[tenant_id] < settings.MAX_PER_TENANT
@@ -211,7 +226,7 @@ class FairScheduler:
             if bucket.is_empty:
                 continue
             
-            # 원자적 Round-Robin pop (Race Condition 방지)
+            # 원자적 Round-Robin pop
             job = await bucket.pop_next_round_robin(is_tenant_allowed)
             if job:
                 return job
