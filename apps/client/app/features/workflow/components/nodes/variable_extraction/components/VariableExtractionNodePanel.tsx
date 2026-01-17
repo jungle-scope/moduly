@@ -6,6 +6,7 @@ import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { RoundedSelect } from '../../../ui/RoundedSelect';
+import { JsonExtractionMappingControl } from './JsonExtractionMappingControl';
 
 interface VariableExtractionNodePanelProps {
   nodeId: string;
@@ -116,64 +117,16 @@ export function VariableExtractionNodePanel({
 
       <CollapsibleSection
         title="추출 변수"
-        icon={
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddMapping();
-            }}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="Add Mapping"
-          >
-            <Plus className="w-4 h-4 text-gray-600" />
-          </button>
-        }
+        showDivider
       >
-        <div className="space-y-2">
-          <p className="text-xs text-gray-500">
-            키가 없으면 <span className="font-medium">null</span>로 반환됩니다.
-          </p>
-          {data.mappings?.length ? (
-            data.mappings.map((mapping, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-2 p-3 border rounded bg-gray-50"
-              >
-                <div className="flex-1 space-y-2">
-                  <input
-                    type="text"
-                    value={mapping.name}
-                    onChange={(e) =>
-                      handleUpdateMapping(index, 'name', e.target.value)
-                    }
-                    placeholder="변수명 (예: discount_revenue)"
-                    className="w-full px-2 py-1 text-sm border rounded"
-                  />
-                  <input
-                    type="text"
-                    value={mapping.json_path}
-                    onChange={(e) =>
-                      handleUpdateMapping(index, 'json_path', e.target.value)
-                    }
-                    placeholder="JSON 경로 (예: data.discount_revenue)"
-                    className="w-full px-2 py-1 text-sm border rounded"
-                  />
-                </div>
-                <button
-                  onClick={() => handleRemoveMapping(index)}
-                  className="p-1 hover:bg-red-100 rounded transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-gray-500 text-center py-4">
-              추출 변수가 없습니다. + 버튼을 눌러 추가하세요.
-            </p>
-          )}
-        </div>
+        <JsonExtractionMappingControl
+          mappings={data.mappings || []}
+          onUpdate={handleUpdateMapping}
+          onAdd={handleAddMapping}
+          onRemove={handleRemoveMapping}
+          title=""
+          description="추출할 데이터의 JSON 경로와 저장할 변수명을 지정하세요."
+        />
       </CollapsibleSection>
     </div>
   );
