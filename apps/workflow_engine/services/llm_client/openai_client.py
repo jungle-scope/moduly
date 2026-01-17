@@ -35,6 +35,8 @@ class OpenAIClient(BaseLLMClient):
         self.responses_url = self.base_url.rstrip("/") + "/responses"
         self.embedding_url = self.base_url.rstrip("/") + "/embeddings"
         self._clean_model_id = self.model_id.replace("models/", "").lower()
+        # 토큰 계산용 인코더를 인스턴스에 캐시
+        self._token_encoder = None
 
     _STRICT_MAX_COMPLETION_MODELS = {
         "gpt-5.2-pro",
@@ -620,10 +622,13 @@ class OpenAIClient(BaseLLMClient):
         - messages는 role/content 키를 포함한 dict 리스트여야 함
         - 반환값은 최소 1
         """
-        try:
-            enc = tiktoken.encoding_for_model(self.model_id)
-        except Exception:
-            enc = tiktoken.get_encoding("cl100k_base")
+        if self._token_encoder is None:
+            try:
+                self._token_encoder = tiktoken.encoding_for_model(self.model_id)
+            except Exception:
+                self._token_encoder = tiktoken.get_encoding("cl100k_base")
+
+        enc = self._token_encoder
 
         total_tokens = 0
         for msg in messages:
