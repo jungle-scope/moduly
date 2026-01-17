@@ -31,7 +31,7 @@ def execute_workflow(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
@@ -94,9 +94,8 @@ def execute_deployed_workflow(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
-
     from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
@@ -176,9 +175,8 @@ def execute_by_deployment(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
-
     from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
