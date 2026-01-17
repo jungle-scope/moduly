@@ -27,16 +27,16 @@ jobs:
             dockerfile: docker/workflow_engine/Dockerfile
             image: moduly-workflow-engine
           - name: logger
-            dockerfile: docker/logger/Dockerfile
+            dockerfile: docker/log_system/Dockerfile
             image: moduly-logger
           - name: client
             dockerfile: docker/client/Dockerfile
             image: moduly-client
           - name: sandbox
-            dockerfile: docker/code_execution/Dockerfile
+            dockerfile: docker/sandbox/Dockerfile
             image: moduly-sandbox
           - name: ssrf-proxy
-            dockerfile: docker/ssrf_proxy/Dockerfile
+            dockerfile: docker/proxy/Dockerfile
             image: moduly-ssrf-proxy
     
     steps:
