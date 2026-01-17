@@ -94,7 +94,7 @@ export const JsonExtractionMappingControl: React.FC<
               <input
                 type="text"
                 className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 placeholder:text-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                placeholder="JSON 경로 (예: data.result)"
+                placeholder="추출할 키"
                 value={mapping.json_path}
                 onChange={(e) => onUpdate(index, 'json_path', e.target.value)}
               />
@@ -112,7 +112,7 @@ export const JsonExtractionMappingControl: React.FC<
               <input
                 type="text"
                 className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-blue-600 placeholder:font-normal placeholder:text-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                placeholder="변수명"
+                placeholder="사용할 변수명"
                 value={mapping.name}
                 onChange={(e) => onUpdate(index, 'name', e.target.value)}
               />

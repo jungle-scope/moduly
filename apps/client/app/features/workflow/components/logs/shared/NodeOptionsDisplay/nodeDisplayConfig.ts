@@ -253,6 +253,18 @@ export const nodeDisplayConfigs: Record<string, NodeDisplayConfig> = {
       [{ key: 'timeout', label: '타임아웃 (ms)' }],
     ],
   },
+
+  // ========================
+  // Variable Extraction Node (변수 추출)
+  // 패널 순서: 입력 데이터 → 데이터 필터 설정 (매핑)
+  // ========================
+  variableExtractionNode: {
+    label: '변수 추출 설정',
+    rows: [
+      [{ key: 'source_selector', label: '입력 데이터 소스', type: 'list' }],
+      [{ key: 'mappings', label: '데이터 필터 매핑', type: 'input-mapping-table' }],
+    ],
+  },
 };
 
 /**

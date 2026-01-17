@@ -116,7 +116,7 @@ export function VariableExtractionNodePanel({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="추출 변수"
+        title="데이터 필터 설정"
         showDivider
       >
         <JsonExtractionMappingControl
@@ -125,7 +125,7 @@ export function VariableExtractionNodePanel({
           onAdd={handleAddMapping}
           onRemove={handleRemoveMapping}
           title=""
-          description="추출할 데이터의 JSON 경로와 저장할 변수명을 지정하세요."
+          description="💡 입력 데이터에서 필요한 값만 골라냅니다. 가져올 데이터의 키(Key)를 입력하세요. (예: result, user.name) 추출된 값은 이 변수명으로 다른 노드에서 사용할 수 있습니다."
         />
       </CollapsibleSection>
     </div>
