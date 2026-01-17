@@ -328,6 +328,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [nodeId, updateNodeData],
   );
 
+  // Claude 계열 여부 판별 (모델 옵션 우선, 실패 시 이름 프리픽스 판단)
   const isAnthropicModelId = useCallback(
     (modelId: string) => {
       const candidate = modelOptions.find(
@@ -340,6 +341,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [modelOptions],
   );
 
+  // Claude 모델에서 top_p를 제거해 파라미터 충돌을 방지
   const stripTopP = (parameters?: Record<string, unknown>) => {
     if (!parameters || !Object.prototype.hasOwnProperty.call(parameters, 'top_p')) {
       return parameters;
@@ -348,6 +350,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     return rest;
   };
 
+  // 모델 변경 시 Claude면 top_p 제거, 폴백 모델 중복 선택도 정리
   const handleModelChange = useCallback(
     (nextModelId: string) => {
       const updates: Partial<LLMNodeData> = { model_id: nextModelId };
@@ -365,6 +368,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [data.fallback_model_id, data.parameters, isAnthropicModelId, nodeId, updateNodeData],
   );
 
+  // 외부 갱신/새로고침 등으로 top_p가 다시 들어오는 상황을 정리
   useEffect(() => {
     if (!data.model_id) return;
     if (!isAnthropicModelId(data.model_id)) return;
