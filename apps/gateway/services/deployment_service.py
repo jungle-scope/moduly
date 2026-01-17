@@ -1,5 +1,6 @@
 """Deployment Service - 배포 관련 비즈니스 로직"""
 
+import logging
 import secrets
 import uuid
 from typing import Any, Dict, List, Optional
@@ -15,6 +16,8 @@ from apps.shared.db.models.schedule import Schedule
 from apps.shared.db.models.workflow import Workflow
 from apps.shared.db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from apps.shared.schemas.deployment import DeploymentCreate
+
+logger = logging.getLogger(__name__)
 
 
 class DeploymentService:
@@ -145,11 +148,8 @@ class DeploymentService:
                 try:
                     scheduler_service = get_scheduler_service()
                     scheduler_service.add_schedule(schedule, db)
-                    print(
-                        f"[Deployment] ✓ 스케줄 생성 완료: {schedule.id} | {schedule.cron_expression}"
-                    )
                 except Exception as e:
-                    print(f"[Deployment] ✗ 스케줄 등록 실패: {e}")
+                    logger.warning(f"[Deployment] ✗ 스케줄 등록 실패: {e}")
                     # 스케줄 등록 실패해도 배포는 성공으로 처리
                     # (나중에 수동으로 재등록 가능)
 
@@ -575,7 +575,7 @@ class DeploymentService:
                 try:
                     scheduler_service.remove_schedule(other_schedule.id)
                 except Exception as e:
-                    print(f"[Deployment] ✗ 스케줄 제거 실패: {e}")
+                    logger.error(f"[Deployment] ✗ 스케줄 제거 실패: {e}")
 
     @staticmethod
     def toggle_deployment(
