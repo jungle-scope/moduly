@@ -35,7 +35,7 @@ class GithubNodeData(BaseNodeData):
     api_token: str = Field(..., description="GitHub Personal Access Token")
     repo_owner: str = Field(..., description="저장소 소유자 (예: facebook)")
     repo_name: str = Field(..., description="저장소 이름 (예: react)")
-    pr_number: int = Field(..., description="Pull Request 번호")
+    pr_number: str = Field(..., description="Pull Request 번호")
     comment_body: Optional[str] = Field(
         None, description="댓글 내용 (comment_pr 액션일 때 사용)"
     )

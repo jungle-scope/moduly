@@ -121,6 +121,9 @@ class IngestionOrchestrator:
 
         with lock.lock() as acquired:
             if not acquired:
+                print(
+                    f"[IngestionOrchestrator] Document {document_id} is already being processed by another worker"
+                )
                 return
 
             session = SessionLocal()
@@ -137,6 +140,9 @@ class IngestionOrchestrator:
 
                 # 이미 처리 완료된 문서 건너뛰기
                 if doc.status == "completed":
+                    print(
+                        f"[INFO] Document {document_id} already completed, skipping..."
+                    )
                     return
 
                 self._update_progress_redis(document_id, 0)
@@ -329,6 +335,32 @@ class IngestionOrchestrator:
         source_config = {}
         if source_type == SourceType.FILE:
             source_config = {"file_path": file_path, "strategy": strategy}
+            # LlamaParse 미리보기 속도 개선을 위해 일부 페이지만 파싱
+            if strategy == "llamaparse":
+                target_pages = "0-4"  # Default (1-5p)
+
+                # 사용자가 청크 범위를 지정한 경우, 해당 범위가 포함된 페이지를 파싱하도록 조정
+                # 예: chunk_range="6-10" -> 대략 1페이지당 3~5개 청크 가정 -> 2~3페이지부터 시작
+                # 정확한 매핑은 불가능하므로, "시작 청크 번호"를 기준으로 페이지를 추정
+                if selection_mode == "range" and chunk_range:
+                    try:
+                        # "5-35", "5", "5, 10" 등 다양한 형식에서 첫 번째 숫자 추출
+                        first_chunk_idx = int(re.split(r"[,-]", chunk_range)[0].strip())
+
+                        # 대략적인 페이지 추정 (1페이지 = 1000자, 청크=500자 가정 시 페이지당 2~3개 청크)
+                        # 보수적으로 1페이지당 2개 청크로 계산하여 페이지를 추정
+                        est_page_start = max(0, (first_chunk_idx - 1) // 2)
+                        est_page_end = est_page_start + 4
+                        target_pages = f"{est_page_start}-{est_page_end}"
+                        print(
+                            f"[Preview] Adjusted target_pages to {target_pages} based on chunk_range {chunk_range}"
+                        )
+                    except Exception as e:
+                        print(
+                            f"[Preview] Failed to parse chunk_range for page targeting: {e}"
+                        )
+
+                source_config["target_pages"] = target_pages
         elif source_type == SourceType.API:
             api_config = meta_info.get("api_config", {})
             # api_config가 JSON string일 수 있으므로 파싱

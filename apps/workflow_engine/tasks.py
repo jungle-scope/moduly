@@ -41,6 +41,7 @@ def execute_workflow(
     # [FIX] 명시적 이벤트 루프 관리 (메모리 누수 방지)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    sync_result = {}
     try:
         # [NEW] DB Knowledge Base 동기화 (Sync Hook)
         try:
@@ -50,7 +51,7 @@ def execute_workflow(
 
                 user_id = uuid.UUID(user_id_str)
                 syncer = SyncService(db=session, user_id=user_id)
-                syncer.sync_knowledge_bases(graph)
+                sync_result = syncer.sync_knowledge_bases(graph)
         except Exception as e:
             logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
@@ -64,7 +65,7 @@ def execute_workflow(
 
         # 워크플로우 실행 (async → sync 변환 )
         result = loop.run_until_complete(engine.execute())
-        return {"status": "success", "result": result}
+        return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
         logger.error(f"[Workflow-Engine] execute_workflow 실패: {e}")
@@ -123,6 +124,7 @@ def execute_deployed_workflow(
         # execution_context에 workflow_id 추가
         execution_context["workflow_id"] = workflow_id
 
+        sync_result = {}
         # [NEW] DB Knowledge Base 동기화 (Sync Hook)
         try:
             user_id_str = execution_context.get("user_id")
@@ -131,7 +133,7 @@ def execute_deployed_workflow(
 
                 user_id = uuid.UUID(user_id_str)
                 syncer = SyncService(db=session, user_id=user_id)
-                syncer.sync_knowledge_bases(graph)
+                sync_result = syncer.sync_knowledge_bases(graph)
         except Exception as e:
             logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
@@ -145,7 +147,7 @@ def execute_deployed_workflow(
 
         # 워크플로우 실행 (async → sync 변환)
         result = loop.run_until_complete(engine.execute())
-        return {"status": "success", "result": result}
+        return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
         logger.error(f"[Workflow-Engine] execute_deployed_workflow 실패: {e}")
@@ -201,6 +203,7 @@ def execute_by_deployment(
             raise ValueError(f"배포 그래프 데이터가 없습니다: {deployment_id}")
 
         # [NEW] DB Knowledge Base 동기화 (Sync Hook)
+        sync_result = {}
         try:
             user_id_str = execution_context.get("user_id")
             if user_id_str:
@@ -208,7 +211,7 @@ def execute_by_deployment(
 
                 user_id = uuid.UUID(user_id_str)
                 syncer = SyncService(db=session, user_id=user_id)
-                syncer.sync_knowledge_bases(deployment.graph_snapshot)
+                sync_result = syncer.sync_knowledge_bases(deployment.graph_snapshot)
         except Exception as e:
             logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
@@ -222,7 +225,7 @@ def execute_by_deployment(
 
         # 워크플로우 실행 (async → sync 변환)
         result = loop.run_until_complete(engine.execute())
-        return {"status": "success", "result": result}
+        return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
         logger.error(f"[Workflow-Engine] execute_by_deployment 실패: {e}")
@@ -272,6 +275,7 @@ def stream_workflow(
         execution_context["workflow_run_id"] = external_run_id
 
         # [NEW] DB Knowledge Base 동기화 (Sync Hook)
+        sync_result = {}
         try:
             user_id_str = execution_context.get("user_id")
             if user_id_str:
@@ -279,7 +283,14 @@ def stream_workflow(
 
                 user_id = uuid.UUID(user_id_str)
                 syncer = SyncService(db=session, user_id=user_id)
-                syncer.sync_knowledge_bases(graph)
+                sync_result = syncer.sync_knowledge_bases(graph)
+
+                # 실패 내역이 있으면 이벤트 발행
+                if sync_result.get("failed"):
+                    from apps.shared.pubsub import publish_workflow_event
+
+                    publish_workflow_event(external_run_id, "sync_warning", sync_result)
+
         except Exception as e:
             logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
@@ -305,7 +316,7 @@ def stream_workflow(
             return final_result
 
         result = loop.run_until_complete(run_stream())
-        return {"status": "success", "result": result}
+        return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
         logger.error(f"[Workflow-Engine] stream_workflow 실패: {e}")

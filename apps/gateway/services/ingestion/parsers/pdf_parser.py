@@ -36,17 +36,19 @@ class PdfParser(BaseParser):
             kwargs:
                 - strategy (str): 'general' (기본값) 또는 'llamaparse'
                 - api_key (str): LlamaParse API Key (llamaparse 전략 사용 시 필수)
+                - target_pages (str): 파싱할 페이지 범위 (예: "0-4", llamaparse 전용)
 
         Returns:
             [{"text": "...", "page": 1}, ...]
         """
         strategy = kwargs.get("strategy", "general")
+        target_pages = kwargs.get("target_pages")
 
         if strategy == "llamaparse":
             api_key = kwargs.get("api_key")
             if not api_key:
                 raise ValueError("LlamaParse strategy requires 'api_key'")
-            return self._parse_with_llamaparse(source_path, api_key)
+            return self._parse_with_llamaparse(source_path, api_key, target_pages)
         else:
             return self._parse_with_pymupdf(source_path)
 
@@ -139,7 +141,7 @@ class PdfParser(BaseParser):
             return []
 
     def _parse_with_llamaparse(
-        self, file_path: str, api_key: str
+        self, file_path: str, api_key: str, target_pages: str = None
     ) -> List[Dict[str, Any]]:
         """LlamaParse API를 사용하여 고품질 파싱 (OCR 수행)"""
         try:
@@ -163,6 +165,7 @@ class PdfParser(BaseParser):
                 # result_type="markdown",
                 language="ko",
                 fast_mode=False,
+                target_pages=target_pages,
                 verbose=True,
             )
 

@@ -65,6 +65,9 @@ class FileProcessor(BaseProcessor):
             if isinstance(parser, PdfParser) and strategy == "llamaparse":
                 parse_kwargs["strategy"] = "llamaparse"
                 parse_kwargs["api_key"] = self._get_llamaparse_key()
+                # Preview 시에는 일부 페이지만 파싱하여 사용자 경험 개선
+                if "target_pages" in source_config:
+                    parse_kwargs["target_pages"] = source_config["target_pages"]
 
             try:
                 parsed_blocks = parser.parse(target_path, **parse_kwargs)
