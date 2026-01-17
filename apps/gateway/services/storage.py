@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import uuid
@@ -7,6 +8,8 @@ import boto3
 from fastapi import UploadFile
 
 from apps.gateway.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService(ABC):
@@ -77,7 +80,7 @@ class S3StorageService(StorageService):
                 },
             )
         except Exception as e:
-            print(f"[ERROR] S3 Upload failed: {e}")
+            logger.error(f"S3 Upload failed: {e}")
             raise e
         finally:
             # 포인터 초기화
@@ -135,7 +138,7 @@ class S3StorageService(StorageService):
                 "method": "PUT",
             }
         except Exception as e:
-            print(f"[ERROR] Presigned URL generation failed: {e}")
+            logger.error(f"Presigned URL generation failed: {e}")
             raise e
 
     def delete(self, file_path: str):
@@ -164,7 +167,7 @@ class S3StorageService(StorageService):
         try:
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=key)
         except Exception as e:
-            print(f"[ERROR] S3 Delete failed: {e}")
+            logger.error(f"S3 Delete failed: {e}")
 
 
 def get_storage_service() -> StorageService:
@@ -172,12 +175,10 @@ def get_storage_service() -> StorageService:
     mode = (settings.STORAGE_TYPE or "LOCAL").upper()
 
     if mode == "LOCAL":
-        print("[Storage] Initializing Local Storage (uploads/)")
         return LocalStorageService()
     elif mode == "CLOUD":
-        print(f"[Storage] Initializing S3 Storage ({settings.S3_BUCKET_NAME})")
         return S3StorageService()
     else:
         # 지원되지 않는 모드인 경우 경고 후 기본값(LOCAL) 사용
-        print(f"[Warning] Unknown STORAGE_TYPE '{mode}', falling back to LOCAL")
+        logger.warning(f"Unknown STORAGE_TYPE '{mode}', falling back to LOCAL")
         return LocalStorageService()
