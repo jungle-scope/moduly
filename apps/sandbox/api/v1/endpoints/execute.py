@@ -42,6 +42,8 @@ class MetricsResponse(BaseModel):
     total_completed: int
     total_failed: int
     current_workers: int
+    min_workers: int
+    max_workers: int
 
 
 @router.post("/execute", response_model=ExecuteResponse)

@@ -1,5 +1,5 @@
 """
-Sandbox Scheduler - Priority Queue + Worker Pool Manager
+Sandbox Scheduler - Priority Queue + Dynamic Worker Pool Manager
 """
 import asyncio
 import heapq
@@ -25,8 +25,9 @@ class SandboxScheduler:
     주요 기능:
     1. Priority Queue: 우선순위 기반 작업 관리
     2. Worker Pool: ProcessPoolExecutor로 동시 실행 관리
-    3. Backpressure: 과부하 시 요청 거부
-    4. Metrics: 실행 통계 수집
+    3. Dynamic Scaling: 부하에 따른 워커 수 자동 조절
+    4. Backpressure: 과부하 시 요청 거부
+    5. Metrics: 실행 통계 수집
     """
     
     _instance: Optional["SandboxScheduler"] = None
@@ -36,7 +37,7 @@ class SandboxScheduler:
         self._queue: list[Job] = []
         self._queue_lock = asyncio.Lock()
         
-        # Worker Pool
+        # Worker Pool (MAX_WORKERS로 생성, 논리적으로 제한)
         self._executor: Optional[ProcessPoolExecutor] = None
         self._current_workers = settings.MIN_WORKERS
         
@@ -52,6 +53,10 @@ class SandboxScheduler:
         self._total_submitted = 0
         self._total_completed = 0
         self._total_failed = 0
+        
+        # 동적 스케일링 상태
+        self._last_busy_time = time.time()  # 마지막으로 바쁜 상태였던 시간
+        self._scaling_task: Optional[asyncio.Task] = None
         
         # 상태
         self._running = False
@@ -70,9 +75,11 @@ class SandboxScheduler:
             return
         
         self._running = True
-        self._executor = ProcessPoolExecutor(max_workers=self._current_workers)
+        # MAX_WORKERS로 풀을 생성하되, 논리적으로 _current_workers만큼만 사용
+        self._executor = ProcessPoolExecutor(max_workers=settings.MAX_WORKERS)
         self._worker_task = asyncio.create_task(self._worker_loop())
-        logger.info(f"Sandbox Scheduler started with {self._current_workers} workers")
+        self._scaling_task = asyncio.create_task(self._scaling_loop())
+        logger.info(f"Sandbox Scheduler started with {self._current_workers}/{settings.MAX_WORKERS} workers")
     
     async def stop(self):
         """스케줄러 중지"""
@@ -82,6 +89,13 @@ class SandboxScheduler:
             self._worker_task.cancel()
             try:
                 await self._worker_task
+            except asyncio.CancelledError:
+                pass
+        
+        if self._scaling_task:
+            self._scaling_task.cancel()
+            try:
+                await self._scaling_task
             except asyncio.CancelledError:
                 pass
         
@@ -170,7 +184,7 @@ class SandboxScheduler:
                     await asyncio.sleep(0.1)
                     continue
                 
-                # 워커 제한 체크
+                # 워커 제한 체크 (동적으로 조절되는 _current_workers 사용)
                 if self._running_count >= self._current_workers:
                     # 워커가 모두 바쁘면 다시 큐에 넣고 대기
                     async with self._queue_lock:
@@ -180,6 +194,8 @@ class SandboxScheduler:
                 
                 # 비동기로 실행
                 self._running_count += 1
+                self._last_busy_time = time.time()  # 바쁜 상태 갱신
+                
                 if job.tenant_id:
                     self._tenant_running[job.tenant_id] = \
                         self._tenant_running.get(job.tenant_id, 0) + 1
@@ -191,6 +207,44 @@ class SandboxScheduler:
             except Exception as e:
                 logger.error(f"Worker loop error: {e}")
                 await asyncio.sleep(0.5)
+    
+    async def _scaling_loop(self):
+        """
+        동적 워커 스케일링 루프
+        
+        주기적으로 부하를 체크하고 워커 수를 조절합니다.
+        """
+        while self._running:
+            try:
+                await asyncio.sleep(settings.SCALING_INTERVAL)
+                
+                queue_size = len(self._queue)
+                running = self._running_count
+                current = self._current_workers
+                
+                # Scale Up 조건: 대기열이 많고 워커가 꽉 찬 상태
+                if queue_size > 0 and running >= current:
+                    # 현재 워커 수 대비 대기열 비율
+                    load_ratio = queue_size / max(current, 1)
+                    
+                    if load_ratio >= settings.SCALE_UP_THRESHOLD and current < settings.MAX_WORKERS:
+                        new_workers = min(current + 1, settings.MAX_WORKERS)
+                        self._current_workers = new_workers
+                        logger.info(f"Scale UP: {current} → {new_workers} workers (queue={queue_size}, running={running})")
+                
+                # Scale Down 조건: 일정 시간 동안 유휴 상태
+                elif queue_size == 0 and running == 0:
+                    idle_time = time.time() - self._last_busy_time
+                    
+                    if idle_time >= settings.SCALE_DOWN_IDLE_TIME and current > settings.MIN_WORKERS:
+                        new_workers = max(current - 1, settings.MIN_WORKERS)
+                        self._current_workers = new_workers
+                        logger.info(f"Scale DOWN: {current} → {new_workers} workers (idle for {idle_time:.1f}s)")
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Scaling loop error: {e}")
     
     async def _get_next_job(self) -> Optional[Job]:
         """우선순위에 따라 다음 작업 가져오기"""
@@ -267,4 +321,6 @@ class SandboxScheduler:
             "total_completed": self._total_completed,
             "total_failed": self._total_failed,
             "current_workers": self._current_workers,
+            "min_workers": settings.MIN_WORKERS,
+            "max_workers": settings.MAX_WORKERS,
         }

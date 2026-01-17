@@ -21,6 +21,11 @@ class SandboxSettings:
     # Queue 설정
     MAX_QUEUE_SIZE: int = int(os.getenv("SANDBOX_MAX_QUEUE_SIZE", "100"))
     
+    # 동적 워커 스케일링
+    SCALING_INTERVAL: int = int(os.getenv("SANDBOX_SCALING_INTERVAL", "5"))  # 스케일링 체크 주기 (초)
+    SCALE_UP_THRESHOLD: float = float(os.getenv("SANDBOX_SCALE_UP_THRESHOLD", "0.8"))  # 큐/워커 비율이 이 이상이면 Scale Up
+    SCALE_DOWN_IDLE_TIME: int = int(os.getenv("SANDBOX_SCALE_DOWN_IDLE_TIME", "30"))  # 이 시간(초) 동안 유휴 상태면 Scale Down
+    
     # NSJail 설정
     NSJAIL_PATH: str = os.getenv("SANDBOX_NSJAIL_PATH", "/usr/bin/nsjail")
     NSJAIL_CONFIG_PATH: str = os.getenv("SANDBOX_NSJAIL_CONFIG_PATH", "/app/nsjail/sandbox.cfg")
