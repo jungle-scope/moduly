@@ -84,7 +84,7 @@ Get PostgreSQL host
 */}}
 {{- define "moduly.postgresql.host" -}}
 {{- if .Values.postgresql.enabled }}
-{{- printf "%s-postgresql" (include "moduly.fullname" .) }}
+{{- printf "%s-postgresql" .Release.Name }}
 {{- else }}
 {{- required "External PostgreSQL host must be specified when postgresql.enabled is false" .Values.postgresql.externalHost }}
 {{- end }}
@@ -95,7 +95,7 @@ Get Redis host
 */}}
 {{- define "moduly.redis.host" -}}
 {{- if .Values.redis.enabled }}
-{{- printf "%s-redis-master" (include "moduly.fullname" .) }}
+{{- printf "%s-redis-master" .Release.Name }}
 {{- else }}
 {{- required "External Redis host must be specified when redis.enabled is false" .Values.redis.externalHost }}
 {{- end }}

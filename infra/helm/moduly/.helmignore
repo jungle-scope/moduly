@@ -54,8 +54,8 @@ Thumbs.db
 desktop.ini
 
 # Helm chart dependencies (these are fetched during install)
-charts/*.tgz
-charts/*/
+# charts/*.tgz
+# charts/*/
 
 # Lock files
 requirements.lock
@@ -104,7 +104,7 @@ id_rsa.pub
 # values.yaml은 필수지만, 운영용/비밀용 파일은 제외
 values-prod.yaml
 values-secret.yaml
-secrets.yaml
+# secrets.yaml
 
 # Logs
 *.log

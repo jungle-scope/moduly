@@ -364,6 +364,43 @@ ingress:
   #      - moduly.local
 
 # =============================================================================
+# Secrets Configuration
+# =============================================================================
+# IMPORTANT: These are placeholder values for local development.
+# For production, set these via --set flags or a separate values file.
+# DO NOT commit real secrets to version control!
+
+secrets:
+  # Database password (required)
+  dbPassword: "moduly123"
+  
+  # Redis password (required)
+  redisPassword: "redis123"
+  
+  # JWT secret key (required)
+  # Generate with: openssl rand -base64 32
+  secretKey: "your-super-secret-jwt-key-change-in-production"
+  
+  # Master encryption key (optional)
+  # Generate with: openssl rand -base64 32
+  masterKey: ""
+  
+  # Encryption key (optional)
+  # Generate with: openssl rand -base64 32
+  encryptionKey: ""
+  
+  # Sandbox API key (required)
+  sandboxApiKey: "Modulycallsandbox306"
+  
+  # Google OAuth credentials (optional)
+  googleClientId: ""
+  googleClientSecret: ""
+  
+  # Llama Cloud API key (optional)
+  llamaCloudApiKey: ""
+
+
+# =============================================================================
 # Service Account
 # =============================================================================
 serviceAccount:

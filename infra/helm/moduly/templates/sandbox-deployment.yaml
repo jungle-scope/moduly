@@ -15,8 +15,8 @@ spec:
       labels:
         {{- include "moduly.componentSelectorLabels" (dict "component" "sandbox" "context" .) | nindent 8 }}
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+        checksum/config: {{ toYaml .Values | sha256sum }}
+        checksum/secret: {{ toYaml .Values.secrets | sha256sum }}
     spec:
       containers:
       # Main Container: Sandbox (Code Execution)

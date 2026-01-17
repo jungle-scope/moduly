@@ -29,10 +29,10 @@ maintainers:
 # Using Bitnami charts for production-ready PostgreSQL and Redis
 dependencies:
   - name: postgresql
-    version: 15.x.x
+    version: "~15.5.0"
     repository: https://charts.bitnami.com/bitnami
     condition: postgresql.enabled
   - name: redis
-    version: 19.x.x
+    version: "~19.6.0"
     repository: https://charts.bitnami.com/bitnami
     condition: redis.enabled

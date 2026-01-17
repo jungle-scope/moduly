@@ -15,7 +15,7 @@ spec:
       labels:
         {{- include "moduly.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 8 }}
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/config: {{ toYaml .Values | sha256sum }}
     spec:
       containers:
       - name: frontend

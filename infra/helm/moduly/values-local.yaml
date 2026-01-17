@@ -1,0 +1,124 @@
+# Local Development Values for Moduly Helm Chart
+# This file contains configurations optimized for local Kubernetes testing
+# (Docker Desktop, Minikube, etc.)
+
+# =============================================================================
+# Secrets (Local Development Values)
+# =============================================================================
+secrets:
+  # Database password
+  dbPassword: "moduly123"
+  
+  # Redis password
+  redisPassword: "redis123"
+  
+  # JWT secret key (for development only!)
+  secretKey: "local-dev-jwt-secret-key-DO-NOT-USE-IN-PRODUCTION"
+  
+  # Master encryption key (optional)
+  masterKey: ""
+  
+  # Encryption key (optional)
+  encryptionKey: ""
+  
+  # Sandbox API key
+  sandboxApiKey: "Modulycallsandbox306"
+  
+  # Google OAuth credentials (optional - leave empty for local)
+  googleClientId: ""
+  googleClientSecret: ""
+  
+  # Llama Cloud API key (optional)
+  llamaCloudApiKey: ""
+
+# =============================================================================
+# PostgreSQL Configuration (Use embedded chart for local)
+# =============================================================================
+postgresql:
+  enabled: true
+  auth:
+    username: moduly
+    password: moduly123
+    database: moduly
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi  # Smaller for local testing
+
+# =============================================================================
+# Redis Configuration (Use embedded chart for local)
+# =============================================================================
+redis:
+  enabled: true
+  auth:
+    password: redis123
+  master:
+    persistence:
+      enabled: true
+      size: 500Mi  # Smaller for local testing
+
+# =============================================================================
+# Resource Limits (Reduced for local environments)
+# =============================================================================
+gateway:
+  replicas: 1  # Single replica for local
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+worker:
+  replicas: 1  # Single replica for local
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+logger:
+  replicas: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+frontend:
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+sandbox:
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# =============================================================================
+# Ingress (Disabled for local - use port-forward instead)
+# =============================================================================
+ingress:
+  enabled: false
+
+# =============================================================================
+# CORS Configuration (Allow localhost)
+# =============================================================================
+gateway:
+  env:
+    CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
