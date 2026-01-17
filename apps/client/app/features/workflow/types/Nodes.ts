@@ -259,7 +259,7 @@ export interface GithubNodeData extends BaseNodeData {
   api_token: string;
   repo_owner: string;
   repo_name: string;
-  pr_number: number;
+  pr_number: string;
   comment_body?: string;
   referenced_variables: GithubVariable[];
 }

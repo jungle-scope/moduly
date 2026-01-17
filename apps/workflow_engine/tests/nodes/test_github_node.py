@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.workflow_engine.workflow.nodes.github.entities import GithubAction, GithubNodeData, GithubVariable
+from apps.workflow_engine.workflow.nodes.github.entities import (
+    GithubAction,
+    GithubNodeData,
+    GithubVariable,
+)
 from apps.workflow_engine.workflow.nodes.github.github_node import GithubNode
 
 
@@ -50,7 +54,7 @@ def test_get_pr_success(mock_github_client):
         api_token="ghp_test_token",
         repo_owner="facebook",
         repo_name="react",
-        pr_number=123,
+        pr_number="123",
     )
     node = GithubNode(id="github-1", data=node_data)
 
@@ -95,7 +99,7 @@ def test_comment_pr_success(mock_github_client):
         api_token="ghp_test_token",
         repo_owner="facebook",
         repo_name="react",
-        pr_number=123,
+        pr_number="123",
         comment_body="Great work!",
     )
     node = GithubNode(id="github-1", data=node_data)
@@ -137,7 +141,7 @@ def test_variable_substitution_simple(mock_github_client):
         api_token="ghp_test_token",
         repo_owner="facebook",
         repo_name="react",
-        pr_number=123,
+        pr_number="123",
         comment_body="Review result: {{ review }}",
         referenced_variables=[
             GithubVariable(name="review", value_selector=["llm-1", "text"])
@@ -174,7 +178,7 @@ def test_invalid_token_error(mock_github_client):
         api_token="invalid_token",
         repo_owner="facebook",
         repo_name="react",
-        pr_number=123,
+        pr_number="123",
     )
     node = GithubNode(id="github-1", data=node_data)
 
@@ -203,7 +207,7 @@ def test_invalid_pr_number_error(mock_github_client):
         api_token="ghp_test_token",
         repo_owner="facebook",
         repo_name="react",
-        pr_number=999999,
+        pr_number="999999",
     )
     node = GithubNode(id="github-1", data=node_data)
 
@@ -225,7 +229,7 @@ def test_invalid_repo_error(mock_github_client):
         api_token="ghp_test_token",
         repo_owner="nonexistent",
         repo_name="repo",
-        pr_number=123,
+        pr_number="123",
     )
     node = GithubNode(id="github-1", data=node_data)
 
