@@ -241,16 +241,14 @@ class IngestionOrchestrator:
                 try:
                     current_progress = int(current_val)
                     if progress < current_progress:
-                        # print(f"[DEBUG] Progress retrograde ignored: {current_progress}% -> {progress}%")
                         return
                 except ValueError:
                     pass
 
             # 진행률 저장
             redis_client.set(key, str(progress), ex=600)
-            # print(f"[DEBUG] Redis Progress Update: {key} -> {progress}%")
         except Exception as e:
-            print(f"[WARNING] Failed to update progress in Redis: {e}")
+            logger.warning(f"Failed to update progress in Redis: {e}")
 
     def resume_processing(self, document_id: UUID, strategy: str):
         """

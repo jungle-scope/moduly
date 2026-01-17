@@ -4,11 +4,14 @@ Workflow-Engine Celery 태스크 정의
 """
 
 import asyncio
+import logging
 import uuid
 from typing import Any, Dict
 
 from apps.shared.celery_app import celery_app
 from apps.shared.db.session import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="workflow.execute", bind=True, max_retries=3)
@@ -49,7 +52,7 @@ def execute_workflow(
                 syncer = SyncService(db=session, user_id=user_id)
                 syncer.sync_knowledge_bases(graph)
         except Exception as e:
-            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+            logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
@@ -64,7 +67,7 @@ def execute_workflow(
         return {"status": "success", "result": result}
 
     except Exception as e:
-        print(f"[Workflow-Engine] execute_workflow 실패: {e}")
+        logger.error(f"[Workflow-Engine] execute_workflow 실패: {e}")
         # Session 객체 참조를 제거하기 위해 예외를 새로 생성
         raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
@@ -130,7 +133,7 @@ def execute_deployed_workflow(
                 syncer = SyncService(db=session, user_id=user_id)
                 syncer.sync_knowledge_bases(graph)
         except Exception as e:
-            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+            logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
@@ -145,7 +148,7 @@ def execute_deployed_workflow(
         return {"status": "success", "result": result}
 
     except Exception as e:
-        print(f"[Workflow-Engine] execute_deployed_workflow 실패: {e}")
+        logger.error(f"[Workflow-Engine] execute_deployed_workflow 실패: {e}")
         # Session 객체 참조를 제거하기 위해 예외를 새로 생성
         raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
@@ -207,7 +210,7 @@ def execute_by_deployment(
                 syncer = SyncService(db=session, user_id=user_id)
                 syncer.sync_knowledge_bases(deployment.graph_snapshot)
         except Exception as e:
-            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+            logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=deployment.graph_snapshot,
@@ -222,7 +225,7 @@ def execute_by_deployment(
         return {"status": "success", "result": result}
 
     except Exception as e:
-        print(f"[Workflow-Engine] execute_by_deployment 실패: {e}")
+        logger.error(f"[Workflow-Engine] execute_by_deployment 실패: {e}")
         # Session 객체 참조를 제거하기 위해 예외를 새로 생성
         raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
@@ -278,7 +281,7 @@ def stream_workflow(
                 syncer = SyncService(db=session, user_id=user_id)
                 syncer.sync_knowledge_bases(graph)
         except Exception as e:
-            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+            logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
@@ -305,7 +308,7 @@ def stream_workflow(
         return {"status": "success", "result": result}
 
     except Exception as e:
-        print(f"[Workflow-Engine] stream_workflow 실패: {e}")
+        logger.error(f"[Workflow-Engine] stream_workflow 실패: {e}")
         # 에러 이벤트도 Pub/Sub으로 발행
         from apps.shared.pubsub import publish_workflow_event
 

@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +20,8 @@ from apps.shared.schemas.llm import (
     LLMModelResponse,
     LLMProviderResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class LLMService:
@@ -765,9 +768,6 @@ class LLMService:
         ):
             input_price = float(model.input_price_1k)
             output_price = float(model.output_price_1k)
-            print(
-                f"[calculate_cost] DB pricing found for '{model_id}': in={input_price}, out={output_price}"
-            )
         else:
             # 2. KNOWN_MODEL_PRICES로 폴백 (정규화된 ID로 시도)
             clean_id = model_id.replace("models/", "")  # Google 접두사 제거
@@ -777,22 +777,10 @@ class LLMService:
             if not pricing:
                 normalized_id = LLMService._normalize_model_id(model_id)
                 pricing = LLMService.KNOWN_MODEL_PRICES.get(normalized_id)
-                if pricing:
-                    print(
-                        f"[calculate_cost] Normalized fallback for '{model_id}' -> '{normalized_id}': in={pricing['input']}, out={pricing['output']}"
-                    )
 
             if pricing:
                 input_price = pricing["input"]
                 output_price = pricing["output"]
-                if clean_id in LLMService.KNOWN_MODEL_PRICES:
-                    print(
-                        f"[calculate_cost] Fallback pricing for '{model_id}' (clean: '{clean_id}'): in={input_price}, out={output_price}"
-                    )
-            else:
-                print(
-                    f"[calculate_cost] NO PRICING FOUND for '{model_id}'. Tried: '{clean_id}', '{LLMService._normalize_model_id(model_id)}'"
-                )
 
         # 3. 가격이 없으면 0 반환
         if input_price is None or output_price is None:
@@ -835,7 +823,9 @@ class LLMService:
                 .first()
             )
         if not model:
-            print(f"[LLMService] Usage log skipped: model '{model_id}' not found.")
+            logger.error(
+                f"[LLMService] Usage log skipped: model '{model_id}' not found."
+            )
             return None
 
         credential = LLMService._get_valid_credential_for_user(
@@ -846,7 +836,9 @@ class LLMService:
                 db, LLMService.PLACEHOLDER_USER_ID, model.provider_id
             )
         if not credential:
-            print(f"[LLMService] Usage log skipped: no credential for user {user_id}.")
+            logger.error(
+                f"[LLMService] Usage log skipped: no credential for user {user_id}."
+            )
             return None
 
         log = LLMUsageLog(

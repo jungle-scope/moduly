@@ -5,10 +5,9 @@ Log System Celery 태스크
 기존 LogWorkerPool의 역할을 Celery 태스크로 대체합니다.
 """
 
+import logging
 import uuid
 from typing import Any, Dict
-
-from sqlalchemy import func
 
 from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App  # noqa: F401
@@ -40,6 +39,9 @@ from apps.shared.db.models.workflow_run import (
     WorkflowRun,
 )
 from apps.shared.db.session import SessionLocal
+from sqlalchemy import func
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize_uuid(obj):
@@ -128,7 +130,7 @@ def create_run_log(self, data: Dict[str, Any]):
 
     except Exception as e:
         session.rollback()
-        print(f"[Log-System] create_run_log 실패: {e}")
+        logger.error(f"[Log-System] create_run_log 실패: {e}")
         raise self.retry(exc=e, countdown=2**self.request.retries)
     finally:
         session.close()
@@ -177,7 +179,7 @@ def update_run_log_finish(self, data: Dict[str, Any]):
 
     except Exception as e:
         session.rollback()
-        print(f"[Log-System] update_run_log_finish 실패: {e}")
+        logger.error(f"[Log-System] update_run_log_finish 실패: {e}")
         raise self.retry(exc=e, countdown=2**self.request.retries)
     finally:
         session.close()
@@ -209,7 +211,7 @@ def update_run_log_error(self, data: Dict[str, Any]):
 
     except Exception as e:
         session.rollback()
-        print(f"[Log-System] update_run_log_error 실패: {e}")
+        logger.error(f"[Log-System] update_run_log_error 실패: {e}")
         raise self.retry(exc=e, countdown=2**self.request.retries)
     finally:
         session.close()
@@ -248,7 +250,7 @@ def create_node_log(self, data: Dict[str, Any]):
 
     except Exception as e:
         session.rollback()
-        print(f"[Log-System] create_node_log 실패: {e}")
+        logger.error(f"[Log-System] create_node_log 실패: {e}")
         raise self.retry(exc=e, countdown=2**self.request.retries)
     finally:
         session.close()
@@ -288,7 +290,7 @@ def update_node_log_finish(self, data: Dict[str, Any]):
 
     except Exception as e:
         session.rollback()
-        print(f"[Log-System] update_node_log_finish 실패: {e}")
+        logger.error(f"[Log-System] update_node_log_finish 실패: {e}")
         raise self.retry(exc=e, countdown=2**self.request.retries)
     finally:
         session.close()
@@ -323,7 +325,7 @@ def update_node_log_error(self, data: Dict[str, Any]):
 
     except Exception as e:
         session.rollback()
-        print(f"[Log-System] update_node_log_error 실패: {e}")
+        logger.error(f"[Log-System] update_node_log_error 실패: {e}")
         raise self.retry(exc=e, countdown=2**self.request.retries)
     finally:
         session.close()

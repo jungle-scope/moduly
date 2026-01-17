@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +14,8 @@ from apps.workflow_engine.services.retrieval import RetrievalService
 
 from ..base.node import Node
 from .entities import LLMNodeData
+
+logger = logging.getLogger(__name__)
 
 _jinja_env = Environment(autoescape=False)
 MEMORY_RUN_LIMIT = 5  # 최근 실행 몇 건을 기억 컨텍스트에 반영할지 결정
@@ -85,7 +88,7 @@ class LLMNode(Node[LLMNodeData]):
                             db_session, user_id=user_id, model_id=self.data.model_id
                         )
                     except Exception as e:
-                        print(
+                        logger.warning(
                             f"[LLMNode] User context found but failed to get client: {e}. Fallback to legacy."
                         )
 
@@ -103,7 +106,7 @@ class LLMNode(Node[LLMNodeData]):
             memory_summary = self._build_memory_summary()
         except Exception as e:
             # 기억 모드 실패는 실행을 막지 않음 (비용만 스킵)
-            print(f"[LLMNode] memory summary skipped: {e}")
+            logger.warning(f"[LLMNode] memory summary skipped: {e}")
 
         # STEP 2.5 Knowledge 검색 (RAG) ---------------------------------------
         knowledge_context = ""
@@ -121,7 +124,7 @@ class LLMNode(Node[LLMNodeData]):
                         )
                     )
             except Exception as e:
-                print(f"[LLMNode] Knowledge search failed: {e}")
+                logger.error(f"[LLMNode] Knowledge search failed: {e}")
 
         # STEP 3. 프롬프트 빌드 ------------------------------------------------
         system_content = self._render_prompt(self.data.system_prompt, inputs)
@@ -176,7 +179,7 @@ class LLMNode(Node[LLMNodeData]):
             fallback_model_id = self.data.fallback_model_id
             if not fallback_model_id:
                 raise
-            print(
+            logger.error(
                 f"[LLMNode] Primary model failed: {primary_error}. "
                 f"Trying fallback model: {fallback_model_id}"
             )
@@ -200,7 +203,7 @@ class LLMNode(Node[LLMNodeData]):
                                 model_id=fallback_model_id,
                             )
                         except Exception as e:
-                            print(
+                            logger.error(
                                 f"[LLMNode] Fallback client load failed: {e}. "
                                 "Fallback to legacy."
                             )
@@ -264,10 +267,12 @@ class LLMNode(Node[LLMNodeData]):
                                 node_id=self.id,
                             )
                         except Exception as log_err:
-                            print(f"[LLMNode] Failed to save usage log: {log_err}")
+                            logger.error(
+                                f"[LLMNode] Failed to save usage log: {log_err}"
+                            )
 
             except Exception as e:
-                print(f"[LLMNode] Cost calculation/logging failed: {e}")
+                logger.error(f"[LLMNode] Cost calculation/logging failed: {e}")
 
         return {
             "text": text,

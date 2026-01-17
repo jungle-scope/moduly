@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import tempfile
 from typing import Any, Dict
@@ -9,7 +10,12 @@ from apps.gateway.services.ingestion.parsers.docx_parser import DocxParser
 from apps.gateway.services.ingestion.parsers.excel_csv_parser import ExcelCsvParser
 from apps.gateway.services.ingestion.parsers.pdf_parser import PdfParser
 from apps.gateway.services.ingestion.parsers.txt_parser import TxtParser
-from apps.gateway.services.ingestion.processors.base import BaseProcessor, ProcessingResult
+from apps.gateway.services.ingestion.processors.base import (
+    BaseProcessor,
+    ProcessingResult,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class FileProcessor(BaseProcessor):
@@ -48,7 +54,7 @@ class FileProcessor(BaseProcessor):
             parser = self._get_parser(ext)
 
             if not parser:
-                print(f"[FileProcessor] Unsupported file extension: {ext}")
+                logger.error(f"[FileProcessor] Unsupported file extension: {ext}")
                 return ProcessingResult(
                     chunks=[], metadata={"error": "Unsupported extension"}
                 )
@@ -63,7 +69,7 @@ class FileProcessor(BaseProcessor):
             try:
                 parsed_blocks = parser.parse(target_path, **parse_kwargs)
             except Exception as e:
-                print(f"[FileProcessor] Parsing error: {e}")
+                logger.error(f"[FileProcessor] Parsing error: {e}")
                 return ProcessingResult(chunks=[], metadata={"error": str(e)})
 
             chunks = []
@@ -90,7 +96,7 @@ class FileProcessor(BaseProcessor):
                 try:
                     os.remove(temp_file_path)
                 except Exception as e:
-                    print(f"[Warning] Failed to remove temp file: {e}")
+                    logger.warning(f"Failed to remove temp file: {e}")
 
     def _download_file(self, url: str) -> str:
         """
@@ -162,7 +168,7 @@ class FileProcessor(BaseProcessor):
                 try:
                     os.remove(temp_file_path)
                 except Exception as e:
-                    print(f"[Warning] Failed to remove temp file: {e}")
+                    logger.warning(f"Failed to remove temp file: {e}")
 
     def _get_parser(self, ext: str):
         if ext == ".pdf":
