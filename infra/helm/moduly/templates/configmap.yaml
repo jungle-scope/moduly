@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "moduly.configMapName" . }}
+  labels:
+    {{- include "moduly.labels" . | nindent 4 }}
+data:
+  # Database configuration (non-sensitive)
+  DB_HOST: {{ include "moduly.postgresql.host" . | quote }}
+  DB_PORT: {{ .Values.postgresql.auth.port | default "5432" | quote }}
+  DB_NAME: {{ .Values.postgresql.auth.database | default "moduly" | quote }}
+  DB_USER: {{ .Values.postgresql.auth.username | default "moduly" | quote }}
+  
+  # Redis configuration (non-sensitive)
+  REDIS_HOST: {{ include "moduly.redis.host" . | quote }}
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  
+  # Celery-specific Redis DB configuration (I/O 경합 방지)
+  REDIS_BROKER_DB: "0"     # Celery message queue
+  REDIS_BACKEND_DB: "1"    # Celery result backend
+  
+  # Storage configuration
+  STORAGE_TYPE: {{ .Values.gateway.env.STORAGE_TYPE | default "LOCAL" | quote }}
+  {{- if .Values.gateway.env.S3_BUCKET_NAME }}
+  S3_BUCKET_NAME: {{ .Values.gateway.env.S3_BUCKET_NAME | quote }}
+  {{- end }}
+  AWS_REGION: {{ .Values.gateway.env.AWS_REGION | default "ap-northeast-2" | quote }}
+  
+  # CORS configuration
+  CORS_ORIGINS: {{ .Values.gateway.env.CORS_ORIGINS | default "http://localhost:3000,http://127.0.0.1:3000" | quote }}
+  
+  # Sandbox configuration
+  SANDBOX_URL: {{ printf "http://%s-sandbox:%d" (include "moduly.fullname" .) (.Values.sandbox.service.port | int) | quote }}
+  
+  # Node environment
+  NODE_ENV: {{ .Values.gateway.env.NODE_ENV | default "production" | quote }}
+  
+  # Next.js API URL (for frontend)
+  NEXT_PUBLIC_API_URL: {{ printf "http://%s-gateway:%d" (include "moduly.fullname" .) (.Values.gateway.service.port | int) | quote }}
+  API_URL: {{ printf "http://%s-gateway:%d" (include "moduly.fullname" .) (.Values.gateway.service.port | int) | quote }}
+  
+  # Sandbox proxy configuration
+  HTTP_PROXY: {{ .Values.sandbox.env.HTTP_PROXY | default "http://localhost:3128" | quote }}
+  HTTPS_PROXY: {{ .Values.sandbox.env.HTTPS_PROXY | default "http://localhost:3128" | quote }}
+  NO_PROXY: {{ .Values.sandbox.env.NO_PROXY | default "localhost,127.0.0.1,.svc,.cluster.local" | quote }}
+  
+  # Timezone
+  TZ: {{ .Values.sandbox.env.TZ | default "Asia/Seoul" | quote }}
