@@ -72,7 +72,6 @@ class AppService:
 
         db.commit()
         db.refresh(app)
-        print(f"✅ App created: {app.name} (ID: {app.id})")
 
         AppService._populate_owner_name(db, app)
         return app
@@ -235,7 +234,6 @@ class AppService:
         if request.is_market is not None:
             # 복제된 앱은 마켓에 공개 불가
             if request.is_market and app.forked_from:
-                print(f"❌ Cannot publish cloned app {app_id} to market")
                 raise ValueError("Cannot publish cloned app to market")
             app.is_market = request.is_market
 

@@ -4,6 +4,7 @@
 사용자의 자연어 설명을 기반으로 Code Node에서 실행 가능한 Python 코드를 생성합니다.
 """
 
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,12 +17,11 @@ from apps.shared.db.models.llm import LLMCredential, LLMProvider
 from apps.shared.db.models.user import User
 from apps.shared.db.session import get_db
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 # === Request/Response Schemas ===
-
-
 class CodeGenerateRequest(BaseModel):
     """코드 생성 요청"""
 
@@ -252,7 +252,7 @@ def generate_code(
             generated_code = response
 
         if not generated_code:
-            print(f"[code_wizard] Unknown response format: {response}")
+            logger.error(f"Unknown response format: {response}")
             raise HTTPException(status_code=500, detail="AI 응답을 파싱할 수 없습니다.")
 
         # 8. 코드 정제 (마크다운 코드 블록 제거)
@@ -266,17 +266,17 @@ def generate_code(
             warnings = validation_result["warnings"]
             if warnings:
                 # 경고가 있지만 코드는 반환 (프론트에서 표시 가능)
-                print(f"[code_wizard] Code warnings: {warnings}")
+                logger.warning(f"Code warnings: {warnings}")
         else:
             generated_code = validation_result["code"]
 
         return {"generated_code": generated_code}
 
     except ValueError as e:
-        print(f"[code_wizard] ValueError: {e}")
+        logger.error(f"ValueError: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"[code_wizard] Error: {type(e).__name__}: {e}")
+        logger.error(f"Error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=f"코드 생성 중 오류 발생: {str(e)}")
 
 
