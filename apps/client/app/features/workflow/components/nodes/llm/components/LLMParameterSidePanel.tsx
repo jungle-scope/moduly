@@ -168,7 +168,7 @@ export function LLMParameterSidePanel({
 
   return (
     <div
-      className="absolute right-[400px] top-0 bottom-0 w-[320px] bg-white shadow-xl z-40 flex flex-col border-l border-gray-200"
+      className="absolute right-[400px] top-14 bottom-0 w-[320px] bg-white shadow-xl z-40 flex flex-col border-l border-gray-200"
       style={{
         transition: 'transform 0.3s ease-in-out',
       }}
