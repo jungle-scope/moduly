@@ -57,7 +57,8 @@ trap cleanup SIGINT SIGTERM
 
 # 1. Docker Compose (PostgreSQL + Redis + Sandbox) - detached 모드로 시작
 echo -e "${GREEN}📦 인프라 시작 (PostgreSQL + Redis + Sandbox)...${NC}"
-docker compose up -d postgres redis pgadmin sandbox
+docker compose up -d postgres redis pgadmin
+docker compose up -d --build sandbox # 최신 코드를 반영하기 위해 빌드
 
 # PostgreSQL이 준비될 때까지 대기 (최대 30초)
 echo "⏳ PostgreSQL 준비 대기 중..."
