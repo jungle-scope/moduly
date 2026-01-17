@@ -225,6 +225,7 @@ class IngestionOrchestrator:
     def _update_progress_redis(self, document_id: UUID, progress: int, expire: bool = False):
         """
         진행률을 Redis에 저장 (DB 과부하 방지)
+        이전 값보다 작으면 업데이트하지 않음
         """
         from apps.shared.pubsub import get_redis_client
 
@@ -235,6 +236,16 @@ class IngestionOrchestrator:
             if expire:
                 redis_client.delete(key)
                 return
+
+            current_val = redis_client.get(key)
+            if current_val:
+                try:
+                    current_progress = int(current_val)
+                    if progress < current_progress:
+                        # print(f"[DEBUG] Progress retrograde ignored: {current_progress}% -> {progress}%")
+                        return
+                except ValueError:
+                    pass
 
             # 진행률 저장
             redis_client.set(key, str(progress), ex=600)
