@@ -327,7 +327,16 @@ class DbProcessor(BaseProcessor):
             namespaced_data = convert_to_namespace(row_dict)
             render_context = namespaced_data.copy()
 
-            # Alias 적용
+            # 플랫 컬럼 추가 (템플릿에서 {{product_name}} 형식으로 접근 가능하게)
+            # 네임스페이스: {'products': {'product_name': '...'}} -> 플랫: {'product_name': '...'}
+            for table, columns in namespaced_data.items():
+                if isinstance(columns, dict):
+                    for col, val in columns.items():
+                        # 충돌 방지: 이미 있는 키는 덮어쓰지 않음
+                        if col not in render_context:
+                            render_context[col] = val
+
+            # Alias 적용 (우선순위 높음: 플랫 컬럼을 덮어씀)
             for sel in selections:
                 table = sel["table_name"]
                 table_aliases = sel.get("aliases", {})

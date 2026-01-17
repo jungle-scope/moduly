@@ -157,17 +157,26 @@ class VectorStoreService:
 
             metadata = chunk.get("metadata", {})
 
-            # 암호화
-            try:
-                encrypted_content = encryption_manager.encrypt(content)
-            except Exception:
-                encrypted_content = content
+            # DB 소스 타입은 이미 DbProcessor에서 민감 컬럼만 부분 암호화 처리됨
+            # 추가 암호화 시 벡터 검색이 불가능해지므로 스킵
+            source = metadata.get("source", "")
+            is_db_source = source.startswith("DB:")
+
+            if is_db_source:
+                # DB 소스: 이미 처리됨, 원본 유지
+                final_content = content
+            else:
+                # 그 외 소스: 전체 암호화
+                try:
+                    final_content = encryption_manager.encrypt(content)
+                except Exception:
+                    final_content = content
 
             new_document_chunks.append(
                 DocumentChunk(
                     document_id=doc.id,
                     knowledge_base_id=doc.knowledge_base_id,
-                    content=encrypted_content,
+                    content=final_content,
                     chunk_index=i,
                     token_count=chunk.get("token_count", 0),
                     metadata_=metadata,
