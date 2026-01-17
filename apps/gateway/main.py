@@ -1,7 +1,23 @@
 # .env 파일을 기본값으로 로드 ( 개발 환경 )
+import logging
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+# ===================================================
+# 로깅 설정 (FastAPI 시작 전)
+# ===================================================
+# Python 표준 logger (logger.info, logger.error 등)가
+# stdout으로 출력되도록 설정 → Promtail이 수집 → Loki로 전송
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent.parent  # moduly/
@@ -9,88 +25,20 @@ ROOT_DIR = BASE_DIR.parent.parent  # moduly/
 # moduly/.env 로드
 ENV_PATH = ROOT_DIR / ".env"
 if ENV_PATH.exists():
-    print(f"Loading .env from {ENV_PATH}")
+    logger.info(f"Loading .env from {ENV_PATH}")
     load_dotenv(dotenv_path=ENV_PATH, override=False)
 else:
-    print(f"Warning: .env file not found at {ENV_PATH}")
+    logger.warning(f".env file not found at {ENV_PATH}")
 
 import os
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from apps.gateway.api.api import api_router
-from apps.shared.db.models.schedule import Schedule  # noqa: F401
-from apps.shared.db.seed import (
-    seed_default_llm_models,
-    seed_default_llm_providers,
-    seed_placeholder_user,
-)
-from apps.shared.db.session import engine
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 1. 시작 로직
-
-    # pgvector 확장 활성화
-    with engine.begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-
-    # 2. 기본 LLM 프로바이더 시드 (멱등성 보장)
-
-    from apps.shared.db.session import SessionLocal
-
-    db = SessionLocal()
-    try:
-        # 2.1 플레이스홀더 사용자 시드 (개발 환경 필수)
-        seed_placeholder_user(db)
-
-        # 2.2 프로바이더 시드
-        seed_default_llm_providers(db)
-
-        # 2.3 기본 모델 시드
-        seed_default_llm_models(db)
-
-        # 2.4 기존 모델 가격 동기화 (KNOWN_MODEL_PRICES 기반)
-        from apps.gateway.services.llm_service import LLMService
-
-        result = LLMService.sync_system_prices(db)
-        if result["updated_models"] > 0:
-            print(f"기존 모델 {result['updated_models']}개의 가격 정보 업데이트 완료")
-
-        # 2.5 SchedulerService 초기화 (스케줄러 시작)
-        from apps.gateway.services.scheduler_service import init_scheduler_service
-
-        print("SchedulerService 초기화 중...")
-        init_scheduler_service(db)
-        print("SchedulerService 초기화 완료")
-
-    except Exception as e:
-        print(f"시드 데이터 생성 실패: {e}")
-        import traceback
-
-        traceback.print_exc()
-    finally:
-        db.close()
-
-    yield
-
-    # 종료 로직
-
-    # SchedulerService 종료
-    from apps.gateway.services.scheduler_service import get_scheduler_service
-
-    try:
-        scheduler = get_scheduler_service()
-        scheduler.shutdown()
-    except Exception as e:
-        print(f"SchedulerService 종료 실패: {e}")
-
+from apps.gateway.lifespan import lifespan  # Import lifespan from module
 
 app = FastAPI(title="Moduly Gateway API", lifespan=lifespan)
 

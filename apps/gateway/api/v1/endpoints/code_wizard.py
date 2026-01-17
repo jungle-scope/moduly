@@ -11,10 +11,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.services.llm_service import LLMService
 from apps.shared.db.models.llm import LLMCredential, LLMProvider
 from apps.shared.db.models.user import User
 from apps.shared.db.session import get_db
-from apps.gateway.services.llm_service import LLMService
 
 router = APIRouter()
 
@@ -151,9 +151,7 @@ def check_credentials(
     """
     credential = (
         db.query(LLMCredential)
-        .filter(
-            LLMCredential.user_id == current_user.id, LLMCredential.is_valid == True
-        )
+        .filter(LLMCredential.user_id == current_user.id, LLMCredential.is_valid)
         .first()
     )
 
@@ -175,9 +173,7 @@ def generate_code(
     # 1. 유효한 credential 확인
     credential = (
         db.query(LLMCredential)
-        .filter(
-            LLMCredential.user_id == current_user.id, LLMCredential.is_valid == True
-        )
+        .filter(LLMCredential.user_id == current_user.id, LLMCredential.is_valid)
         .first()
     )
 
@@ -306,12 +302,6 @@ def _clean_code_response(code: str) -> str:
 def _validate_and_fix_code(code: str) -> dict:
     """
     LLM이 생성한 코드를 검증하고, 가능하면 자동 수정합니다.
-
-    자동 수정 항목:
-    1. def main(inputs): 함수 정의 없음 → 전체 코드를 main 함수로 래핑
-    2. 다른 함수명 사용 → main으로 교체
-    3. print() 사용 → return으로 변환
-    4. 단순값 return → dict로 래핑
 
     Returns:
         {

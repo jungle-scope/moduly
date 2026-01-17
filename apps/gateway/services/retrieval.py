@@ -1,13 +1,16 @@
+import logging
 import re
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from apps.gateway.services.llm_service import LLMService
+from apps.gateway.utils.encryption import encryption_manager
 from apps.shared.db.models.knowledge import Document, DocumentChunk, KnowledgeBase
 from apps.shared.db.models.llm import LLMCredential, LLMModel, LLMProvider
 from apps.shared.schemas.rag import ChunkPreview, RAGResponse
-from apps.gateway.services.llm_service import LLMService
-from apps.gateway.utils.encryption import encryption_manager
+
+logger = logging.getLogger(__name__)
 
 
 class RetrievalService:
@@ -26,7 +29,7 @@ class RetrievalService:
                 self.db.query(LLMCredential)
                 .filter(
                     LLMCredential.user_id == self.user_id,
-                    LLMCredential.is_valid == True,
+                    LLMCredential.is_valid,
                 )
                 .all()
             )
@@ -60,7 +63,7 @@ class RetrievalService:
             return "gpt-4o-mini"
 
         except Exception as e:
-            print(f"[Model Selection Error] Using default: {e}")
+            logger.error(f"Model selection error, using default: {e}")
             return "gpt-4o-mini"
 
     def _rewrite_query(self, query: str) -> str:
@@ -94,13 +97,10 @@ class RetrievalService:
             if rewritten_query.startswith('"') and rewritten_query.endswith('"'):
                 rewritten_query = rewritten_query[1:-1]
 
-            print(
-                f"[Query Rewrite] Original: '{query}' -> Rewritten: '{rewritten_query}'"
-            )
             return rewritten_query
 
         except Exception as e:
-            print(f"[Query Rewrite Error] Failed to rewrite query: {e}")
+            logger.error(f"Query rewrite failed: {e}")
             return query
 
     def _generate_multi_queries(self, query: str, num_variations: int = 3) -> list[str]:
@@ -144,11 +144,12 @@ class RetrievalService:
             if len(queries) < num_variations:
                 queries.append(self._rewrite_query(query))
 
-            print(f"[Multi-Query] Generated {len(queries)} queries: {queries[:3]}")
             return queries[:num_variations]
 
         except Exception as e:
-            print(f"[Multi-Query Error] Falling back to single query: {e}")
+            logger.error(
+                f"Multi-query generation failed, falling back to single query: {e}"
+            )
             return [self._rewrite_query(query)]
 
     def _vector_search(self, query_vector: list, knowledge_base_id: str, top_k: int):
@@ -255,14 +256,10 @@ class RetrievalService:
 
             reranked = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
 
-            print(
-                f"[Rerank] Top-3 scores: {[round(x['rerank_score'], 4) for x in reranked[:3]]}"
-            )
-
             return reranked[:top_k]
 
         except Exception as e:
-            print(f"[Rerank Error] Falling back to original order: {e}")
+            logger.error(f"Reranking failed, falling back to original order: {e}")
             return candidates[:top_k]
 
     def search_documents(
@@ -280,7 +277,7 @@ class RetrievalService:
         [Public API] Hybrid Search (Vector + Keyword) with optional Multi-Query and Reranking
         """
         if not knowledge_base_id:
-            print("[Search] Missing knowledge_base_id")
+            logger.warning("Search called without knowledge_base_id")
             return []
 
         if use_multi_query:
@@ -345,7 +342,7 @@ class RetrievalService:
                             all_candidates[chunk_id] = item
 
         except Exception as e:
-            print(f"[Retrieval Error] Search Failed: {e}")
+            logger.error(f"Document search failed: {e}")
             raise e
 
         final_list = []
@@ -444,7 +441,7 @@ class RetrievalService:
             try:
                 return encryption_manager.decrypt(content)
             except Exception as e:
-                print(f"[WARNING] Failed to decrypt full content: {e}")
+                logger.warning(f"Failed to decrypt full content: {e}")
                 return "[ENCRYPTED CONTENT]"
 
         # 부분 암호화 패턴 (key: value 형식)
@@ -457,7 +454,7 @@ class RetrievalService:
                 decrypted = encryption_manager.decrypt(encrypted_value)
                 return f"{key}: {decrypted}"
             except Exception as e:
-                print(f"[WARNING] Failed to decrypt {key}: {e}")
+                logger.warning(f"Failed to decrypt {key}: {e}")
                 return f"{key}: [ENCRYPTED]"
 
         return re.sub(encrypted_pattern, decrypt_match, content)
@@ -498,7 +495,7 @@ class RetrievalService:
                     self.db, self.user_id, model_id
                 )
             except Exception as e:
-                print(f"[Retrieval] Failed to load generation model {model_id}: {e}")
+                logger.error(f"Failed to load generation model {model_id}: {e}")
                 self.llm_client = None
 
         if not self.llm_client:
@@ -522,7 +519,7 @@ class RetrievalService:
             result = self.llm_client.invoke(messages)
             answer = result["choices"][0]["message"]["content"]
         except Exception as e:
-            print(f"LLM Generation Failed: {e}")
+            logger.error(f"LLM generation failed: {e}")
             answer = f"오류가 발생하여 답변을 생성할 수 없습니다. ({str(e)})"
 
         return RAGResponse(answer=answer, references=relevant_chunks)
