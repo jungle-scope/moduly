@@ -52,9 +52,12 @@ RUN nsjail --version || true
 # =====================================
 WORKDIR /app
 
-# Python 의존성 설치
-COPY apps/sandbox/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Python 의존성 설치 (직접 설치)
+RUN pip install --no-cache-dir \
+    "fastapi>=0.115.0" \
+    "uvicorn[standard]>=0.30.0" \
+    "pydantic>=2.0.0" \
+    "pydantic-settings>=2.0.0"
 
 # 애플리케이션 코드 복사 (apps 디렉토리 구조 유지)
 COPY apps/sandbox /app/apps/sandbox
