@@ -1,3 +1,4 @@
+import logging
 import mimetypes
 import os
 import tempfile
@@ -41,6 +42,7 @@ from apps.shared.schemas.rag import (
     KnowledgeUpdate,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -212,9 +214,6 @@ def update_knowledge_base(
         update_data.embedding_model is not None
         and update_data.embedding_model != kb.embedding_model
     ):
-        print(
-            f"Updating embedding model from {kb.embedding_model} to {update_data.embedding_model}"
-        )
         kb.embedding_model = update_data.embedding_model
 
         # 재인덱싱 트리거
@@ -259,11 +258,10 @@ def delete_knowledge_base(
             try:
                 # S3/Local 파일 삭제
                 storage.delete(doc.file_path)
-                print(f"[Info] Deleted file for doc {doc.id}: {doc.file_path}")
             except Exception as e:
                 # 파일 삭제 실패하더라도 DB 삭제는 계속 진행 (로그만 남김)
-                print(
-                    f"[Warning] Failed to delete file {doc.file_path} for doc {doc.id}: {e}"
+                logger.warning(
+                    f"Failed to delete file {doc.file_path} for doc {doc.id}: {e}"
                 )
 
     # DB 삭제 (Cascade로 청크도 같이 삭제됨)
@@ -447,7 +445,7 @@ def get_document_content(
             """
             return HTMLResponse(content=html_content)
         except Exception as e:
-            print(f"Excel conversion failed: {e}")
+            logger.error(f"Excel conversion failed: {e}")
             # 변환 실패 시 다운로드로 fallback
         finally:
             if temp_file_path and os.path.exists(temp_file_path):
@@ -476,7 +474,7 @@ def get_document_content(
                 },
             )
         except Exception as e:
-            print(f"[Error] Failed to proxy S3 file: {e}")
+            logger.error(f"Failed to proxy S3 file: {e}")
             # 실패 시 Fallback (혹은 에러처리)
             return RedirectResponse(url=doc.file_path)
 
@@ -502,7 +500,6 @@ async def process_document(
     """
     문서 설정(청킹 등)을 저장하고 백그라운드 처리를 시작합니다.
     """
-    print(f"[DEBUG] process_document called - kb_id: {kb_id}, doc_id: {document_id}")
 
     # 1. 문서 조회 (권한 확인)
     doc = (
@@ -517,7 +514,6 @@ async def process_document(
     )
 
     if not doc:
-        print("[DEBUG] Document not found!")
         raise HTTPException(status_code=404, detail="Document not found")
 
     # 2. 설정 업데이트
@@ -559,7 +555,6 @@ async def process_document(
         ingestion_service.process_document,
         document_id,
     )
-    print("[DEBUG] Background task added")
 
     return {"status": "processing", "message": "Document processing started"}
 
@@ -615,9 +610,7 @@ def preview_document_chunking(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Preview failed")
         raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
 
     # 3. 응답 반환

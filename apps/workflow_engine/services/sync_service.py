@@ -23,7 +23,7 @@ class SyncService:
         self.db_processor = DbProcessor(db_session=db, user_id=user_id)
         self.vector_store_service = VectorStoreService(db=db, user_id=user_id)
 
-    def sync_knowledge_bases(self, graph_data: Dict[str, Any]) -> int:
+    def sync_knowledge_bases(self, graph_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         워크플로우 그래프에서 DB 타입 지식베이스를 찾아 동기화(Ingestion)를 수행합니다.
         실행 직전에 최신 데이터를 가져오기 위함입니다.
@@ -32,16 +32,19 @@ class SyncService:
             graph_data: 워크플로우 그래프 데이터 {"nodes": [...]}
 
         Returns:
-            int: 동기화에 성공한 문서 수
+            Dict[str, Any]: {
+                "synced_count": int,
+                "failed": List[Dict]  # [{"filename": str, "last_synced": str, "error": str}]
+            }
         """
         kb_ids = self._extract_knowledge_base_ids(graph_data)
         if not kb_ids:
             logger.info("[동기화] 동기화할 지식베이스 없음")
-            return 0
+            return {"synced_count": 0, "failed": []}
 
         logger.info(f"[동기화] {len(kb_ids)}개 지식베이스 동기화 시작")
         synced_count = 0
-        failed_count = 0
+        failed_docs = []
 
         # DB 타입 KnowledgeBase만 필터링 조회
         kbs = (
@@ -106,16 +109,37 @@ class SyncService:
 
                 except Exception as e:
                     logger.error(f"[동기화] 외부 DB {doc.filename} 동기화 실패: {e}")
-                    failed_count += 1
+
+                    last_sync = (
+                        doc.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+                        if doc.updated_at
+                        else "알 수 없음"
+                    )
+                    failed_docs.append(
+                        {
+                            "filename": doc.filename,
+                            "last_synced": last_sync,
+                            "error": str(e),
+                        }
+                    )
                     # 워크플로우 실행 자체를 막지 않고 이전 데이터로 계속 실행
                     continue
 
-        if synced_count > 0 or failed_count > 0:
+        if synced_count > 0 or failed_docs:
             logger.info(
-                f"[동기화] 완료 - 성공: {synced_count}개, 실패: {failed_count}개"
+                f"[동기화] 완료 - 성공: {synced_count}개, 실패: {len(failed_docs)}개"
             )
 
-        return synced_count
+        # 실패한 문서에 대한 상세 경고
+        if failed_docs:
+            for doc_info in failed_docs:
+                logger.warning(
+                    f"[동기화] ⚠️ '{doc_info['filename']}' 동기화 실패 - "
+                    f"이전 데이터 사용 (마지막 동기화: {doc_info['last_synced']}). "
+                    f"원인: {doc_info['error']}"
+                )
+
+        return {"synced_count": synced_count, "failed": failed_docs}
 
     def _extract_knowledge_base_ids(self, graph_data: Dict[str, Any]) -> Set[UUID]:
         """그래프 내 LLM 노드에서 사용된 KB ID 추출"""

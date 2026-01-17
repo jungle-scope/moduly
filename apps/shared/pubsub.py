@@ -55,7 +55,6 @@ def publish_workflow_event(
         }
     )
     client.publish(channel, message)
-    print(f"[Pub/Sub] 이벤트 발행: {channel} - {event_type}")
 
 
 def subscribe_workflow_events(

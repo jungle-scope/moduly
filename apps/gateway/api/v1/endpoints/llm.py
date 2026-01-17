@@ -7,6 +7,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.services.llm_service import LLMService
 from apps.shared.db.models.llm import LLMModel, LLMProvider, LLMUsageLog
 from apps.shared.db.models.user import User
 from apps.shared.db.session import get_db
@@ -17,7 +18,6 @@ from apps.shared.schemas.llm import (
     LLMModelResponse,
     LLMProviderResponse,
 )
-from apps.gateway.services.llm_service import LLMService
 
 router = APIRouter()
 
@@ -186,7 +186,6 @@ def get_top_expensive_models(
         return response
 
     except Exception as exc:
-        print(f"Error fetching top models: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
 
 

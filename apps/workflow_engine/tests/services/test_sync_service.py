@@ -67,8 +67,9 @@ def test_extract_knowledge_base_ids(sync_service):
 def test_sync_knowledge_bases_no_kbs(sync_service):
     """KB가 없는 그래프 데이터의 경우 0을 반환해야 함"""
     graph_data = {"nodes": []}
-    count = sync_service.sync_knowledge_bases(graph_data)
-    assert count == 0
+    result = sync_service.sync_knowledge_bases(graph_data)
+    assert result["synced_count"] == 0
+    assert result["failed"] == []
 
 
 def test_sync_knowledge_bases_success(sync_service, mock_db_session):
@@ -134,10 +135,11 @@ def test_sync_knowledge_bases_success(sync_service, mock_db_session):
     )
 
     # Executing
-    synced_count = sync_service.sync_knowledge_bases(graph_data)
+    result = sync_service.sync_knowledge_bases(graph_data)
 
     # Assertions
-    assert synced_count == 1
+    assert result["synced_count"] == 1
+    assert result["failed"] == []
 
     # 1. DBProcessor가 호출되었는지 확인
     sync_service.db_processor.process.assert_called_once_with(mock_doc.meta_info)
@@ -176,7 +178,7 @@ def test_sync_knowledge_bases_skip_if_no_connection_id(sync_service, mock_db_ses
 
     mock_db_session.query.side_effect = query_side_effect
 
-    count = sync_service.sync_knowledge_bases(graph_data)
+    result = sync_service.sync_knowledge_bases(graph_data)
 
-    assert count == 0
+    assert result["synced_count"] == 0
     sync_service.db_processor.process.assert_not_called()
