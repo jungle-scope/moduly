@@ -346,30 +346,12 @@ class OpenAIClient(BaseLLMClient):
                     f"{self.provider_name} 응답을 JSON으로 파싱할 수 없습니다."
                 ) from exc
             if not (isinstance(responses_data, dict) and "error" in responses_data):
-                payload_summary = self._summarize_responses_payload(responses_payload)
-                response_summary = self._summarize_responses_response(responses_data)
-                print(
-                    "[OpenAIClient] responses fallback summary: "
-                    f"payload={payload_summary} response={response_summary}"
-                )
                 return self._convert_responses_response(responses_data)
-            payload_summary = self._summarize_responses_payload(responses_payload)
-            error_summary = self._summarize_error(responses_data)
-            print(
-                "[OpenAIClient] responses fallback error: "
-                f"payload={payload_summary} error={error_summary}"
-            )
         else:
             try:
                 responses_data = responses_resp.json()
             except ValueError:
                 responses_data = {}
-            error_summary = self._summarize_error(responses_data)
-            if error_summary.get("has_error"):
-                print(
-                    "[OpenAIClient] responses fallback error: "
-                    f"status={responses_resp.status_code} error={error_summary}"
-                )
 
         if "completions" in error_text:
             completion_payload = dict(payload)

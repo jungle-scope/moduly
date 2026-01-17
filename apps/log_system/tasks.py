@@ -139,7 +139,6 @@ def create_run_log(self, data: Dict[str, Any]):
             if existing:
                 # 동일 run_id 재시도 시 중복 insert는 정상으로 간주합니다.
                 return {"status": "success", "run_id": str(run_id)}
-        print(f"[Log-System] create_run_log 실패: {e}")
         raise self.retry(exc=e, countdown=2**self.request.retries)
     except Exception as e:
         session.rollback()
