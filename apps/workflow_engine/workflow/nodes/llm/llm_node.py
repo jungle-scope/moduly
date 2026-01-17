@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +14,8 @@ from apps.workflow_engine.services.retrieval import RetrievalService
 
 from ..base.node import Node
 from .entities import LLMNodeData
+
+logger = logging.getLogger(__name__)
 
 _jinja_env = Environment(autoescape=False)
 MEMORY_RUN_LIMIT = 5  # 최근 실행 몇 건을 기억 컨텍스트에 반영할지 결정
@@ -77,22 +80,28 @@ class LLMNode(Node[LLMNodeData]):
                 db_session = temp_session
             try:
                 user_id_str = self.execution_context.get("user_id")
-                client = None
-                if user_id_str:
-                    try:
-                        user_id = uuid.UUID(user_id_str)
-                        client = LLMService.get_client_for_user(
-                            db_session, user_id=user_id, model_id=self.data.model_id
-                        )
-                    except Exception as e:
-                        print(
-                            f"[LLMNode] User context found but failed to get client: {e}. Fallback to legacy."
-                        )
-
-                if not client:
-                    client = LLMService.get_client_with_any_credential(
-                        db_session, model_id=self.data.model_id
+                if not user_id_str:
+                    raise ValueError(
+                        "LLM 노드 실행에는 user_id가 필요합니다. "
+                        "사용자 컨텍스트를 전달하거나 클라이언트를 주입하세요."
                     )
+
+                try:
+                    user_id = uuid.UUID(user_id_str)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        "LLM 노드 실행에 유효한 user_id가 필요합니다."
+                    ) from exc
+
+                try:
+                    client = LLMService.get_client_for_user(
+                        db_session, user_id=user_id, model_id=self.data.model_id
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"[LLMNode] User context found but failed to get client: {e}."
+                    )
+                    raise
             finally:
                 # 임시 세션은 호출 후 정리
                 if temp_session is not None:
@@ -103,7 +112,7 @@ class LLMNode(Node[LLMNodeData]):
             memory_summary = self._build_memory_summary()
         except Exception as e:
             # 기억 모드 실패는 실행을 막지 않음 (비용만 스킵)
-            print(f"[LLMNode] memory summary skipped: {e}")
+            logger.warning(f"[LLMNode] memory summary skipped: {e}")
 
         # STEP 2.5 Knowledge 검색 (RAG) ---------------------------------------
         knowledge_context = ""
@@ -121,7 +130,7 @@ class LLMNode(Node[LLMNodeData]):
                         )
                     )
             except Exception as e:
-                print(f"[LLMNode] Knowledge search failed: {e}")
+                logger.error(f"[LLMNode] Knowledge search failed: {e}")
 
         # STEP 3. 프롬프트 빌드 ------------------------------------------------
         system_content = self._render_prompt(self.data.system_prompt, inputs)
@@ -176,7 +185,7 @@ class LLMNode(Node[LLMNodeData]):
             fallback_model_id = self.data.fallback_model_id
             if not fallback_model_id:
                 raise
-            print(
+            logger.error(
                 f"[LLMNode] Primary model failed: {primary_error}. "
                 f"Trying fallback model: {fallback_model_id}"
             )
@@ -190,25 +199,31 @@ class LLMNode(Node[LLMNodeData]):
                     if session_for_fallback is None:
                         fallback_session = SessionLocal()
                         session_for_fallback = fallback_session
-                    user_id_str = self.execution_context.get("user_id")
-                    if user_id_str:
-                        try:
-                            user_id = uuid.UUID(user_id_str)
-                            fallback_client = LLMService.get_client_for_user(
-                                session_for_fallback,
-                                user_id=user_id,
-                                model_id=fallback_model_id,
-                            )
-                        except Exception as e:
-                            print(
-                                f"[LLMNode] Fallback client load failed: {e}. "
-                                "Fallback to legacy."
-                            )
 
-                    if not fallback_client:
-                        fallback_client = LLMService.get_client_with_any_credential(
-                            session_for_fallback, model_id=fallback_model_id
+                    user_id_str = self.execution_context.get("user_id")
+                    if not user_id_str:
+                        raise ValueError(
+                            "폴백 모델 실행에는 user_id가 필요합니다. "
+                            "사용자 컨텍스트를 전달하거나 클라이언트를 주입하세요."
                         )
+                    try:
+                        user_id = uuid.UUID(user_id_str)
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError(
+                            "폴백 모델 실행에 유효한 user_id가 필요합니다."
+                        ) from exc
+
+                    try:
+                        fallback_client = LLMService.get_client_for_user(
+                            session_for_fallback,
+                            user_id=user_id,
+                            model_id=fallback_model_id,
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"[LLMNode] Fallback client load failed: {e}."
+                        )
+                        raise
             finally:
                 if fallback_session is not None:
                     fallback_session.close()
@@ -228,7 +243,6 @@ class LLMNode(Node[LLMNodeData]):
         except Exception:
             text = ""
         usage = response.get("usage", {}) if isinstance(response, dict) else {}
-
         # STEP 5. 결과 포맷팅 --------------------------------------------------
         cost = 0.0
         if usage:
@@ -264,10 +278,12 @@ class LLMNode(Node[LLMNodeData]):
                                 node_id=self.id,
                             )
                         except Exception as log_err:
-                            print(f"[LLMNode] Failed to save usage log: {log_err}")
+                            logger.error(
+                                f"[LLMNode] Failed to save usage log: {log_err}"
+                            )
 
             except Exception as e:
-                print(f"[LLMNode] Cost calculation/logging failed: {e}")
+                logger.error(f"[LLMNode] Cost calculation/logging failed: {e}")
 
         return {
             "text": text,

@@ -205,9 +205,6 @@ class WorkflowEngine:
             if self.parent_run_id:
                 self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
                 self.execution_context["workflow_run_id"] = self.parent_run_id
-            print(
-                f"[WorkflowEngine] 서브 워크플로우 실행 - parent_run_id: {self.parent_run_id}"
-            )
         elif external_run_id:
             # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
@@ -220,7 +217,6 @@ class WorkflowEngine:
                 execution_context=self.execution_context,
                 external_run_id=external_run_id,  # [NEW] 외부 run_id 전달
             )
-            print(f"[WorkflowEngine] 외부 run_id 사용: {external_run_id}")
         elif self.parent_run_id:
             # 서브 워크플로우인 경우 부모의 run_id를 재사용 (레거시 지원)
             self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
@@ -802,7 +798,6 @@ class WorkflowEngine:
                 "node_options": data,
                 "node_title": data.get("title", ""),
             }
-        except Exception as e:
+        except Exception:
             # 스냅샷 추출 실패 시에도 워크플로우 실행은 계속
-            print(f"[WorkflowEngine] 노드 옵션 스냅샷 추출 실패: {e}")
             return {}
