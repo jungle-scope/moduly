@@ -1,7 +1,20 @@
 # .env 파일을 기본값으로 로드 ( 개발 환경 )
+import logging
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+# ===================================================
+# 로깅 설정 (FastAPI 시작 전)
+# ===================================================
+# Python 표준 logger (logger.info, logger.error 등)가
+# stdout으로 출력되도록 설정 → Promtail이 수집 → Loki로 전송
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent.parent  # moduly/
