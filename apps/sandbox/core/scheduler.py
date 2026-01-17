@@ -1,16 +1,24 @@
 """
-Sandbox Scheduler - Priority Queue + EMA-Based Dynamic Worker Pool Manager
+Fair Scheduler - MLFQ + Round-Robin + EMA-Based Dynamic Worker Pool Manager
+
+주요 기능:
+1. Multi-Level Feedback Queue (MLFQ): 우선순위별 버킷 (HIGH/NORMAL/LOW)
+2. Round-Robin: 테넌트 간 공정한 스케줄링 (Head-of-Line Blocking 해결)
+3. Aging: 오래 대기한 작업 우선순위 자동 승급 (Starvation 방지)
+4. EMA-Based Dynamic Scaling: 요청 수의 이동평균 기반 워커 수 자동 조절
+5. Tenant Limit: 테넌트당 동시 실행 제한
 """
 import asyncio
-import heapq
 import logging
 import math
 import time
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, Optional
 from uuid import UUID
 
 from apps.sandbox.config import settings
+from apps.sandbox.core.bucket import PriorityBucket
 from apps.sandbox.core.executor import execute_code
 from apps.sandbox.models.job import Job, Priority
 from apps.sandbox.models.result import ExecutionResult
@@ -19,55 +27,57 @@ from apps.sandbox.models.result import ExecutionResult
 logger = logging.getLogger(__name__)
 
 
-class SandboxScheduler:
+class FairScheduler:
     """
-    샌드박스 스케줄러
+    Fair Scheduler - MLFQ + Round-Robin + Aging
     
     주요 기능:
-    1. Priority Queue: 우선순위 기반 작업 관리
-    2. Worker Pool: ProcessPoolExecutor로 동시 실행 관리
-    3. EMA-Based Dynamic Scaling: 요청 수의 이동평균 기반 워커 수 자동 조절
-    4. Backpressure: 과부하 시 요청 거부
-    5. Metrics: 실행 통계 수집
+    1. MLFQ: HIGH → NORMAL → LOW 순서로 작업 선택
+    2. Round-Robin: 각 버킷 내에서 테넌트 간 공정한 순환
+    3. Aging: 오래 대기한 작업 자동 승급
+    4. EMA-Based Scaling: 요청 수 기반 워커 수 조절
+    5. Tenant Limit: 테넌트당 동시 실행 제한
     """
     
-    _instance: Optional["SandboxScheduler"] = None
+    _instance: Optional["FairScheduler"] = None
     
     def __init__(self):
-        # Priority Queue (heapq 사용)
-        self._queue: list[Job] = []
-        self._queue_lock = asyncio.Lock()
+        # MLFQ: 우선순위별 버킷
+        self._buckets = {
+            Priority.HIGH: PriorityBucket(Priority.HIGH),
+            Priority.NORMAL: PriorityBucket(Priority.NORMAL),
+            Priority.LOW: PriorityBucket(Priority.LOW),
+        }
         
         # Worker Pool
         self._executor: Optional[ProcessPoolExecutor] = None
         self._current_workers = settings.MIN_WORKERS
         
         # 실행 중인 작업 추적
-        self._running_jobs: Dict[UUID, asyncio.Task] = {}
         self._running_count = 0
-        
-        # Tenant별 실행 제한
-        self._tenant_running: Dict[str, int] = {}
-        self._max_per_tenant = 3
+        self._tenant_running: Dict[str, int] = defaultdict(int)
         
         # 메트릭
         self._total_submitted = 0
         self._total_completed = 0
         self._total_failed = 0
+        self._total_aged = 0  # Aging으로 승급된 작업 수
         
         # EMA 기반 스케일링 상태
-        self._requests_this_interval = 0  # 현재 인터벌 동안의 요청 수
-        self._ema_rps = 0.0  # 지수 이동 평균 RPS
+        self._requests_this_interval = 0
+        self._ema_rps = 0.0
         self._last_busy_time = time.time()
-        self._last_scale_down_time = 0.0  # Scale Down 쿨다운용
-        self._scaling_task: Optional[asyncio.Task] = None
+        self._last_scale_down_time = 0.0
         
-        # 상태
+        # 백그라운드 태스크
         self._running = False
         self._worker_task: Optional[asyncio.Task] = None
+        self._scaling_task: Optional[asyncio.Task] = None
+        self._aging_task: Optional[asyncio.Task] = None
+        self._cleanup_task: Optional[asyncio.Task] = None
     
     @classmethod
-    def get_instance(cls) -> "SandboxScheduler":
+    def get_instance(cls) -> "FairScheduler":
         """싱글톤 인스턴스 반환"""
         if cls._instance is None:
             cls._instance = cls()
@@ -80,33 +90,32 @@ class SandboxScheduler:
         
         self._running = True
         self._executor = ProcessPoolExecutor(max_workers=settings.MAX_WORKERS)
+        
+        # 백그라운드 태스크 시작
         self._worker_task = asyncio.create_task(self._worker_loop())
         self._scaling_task = asyncio.create_task(self._scaling_loop())
-        logger.info(f"Sandbox Scheduler started with {self._current_workers}/{settings.MAX_WORKERS} workers (EMA-based scaling)")
+        self._aging_task = asyncio.create_task(self._aging_loop())
+        self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+        
+        logger.info(f"Fair Scheduler started with {self._current_workers}/{settings.MAX_WORKERS} workers (MLFQ + Round-Robin + Aging)")
     
     async def stop(self):
         """스케줄러 중지"""
         self._running = False
         
-        if self._worker_task:
-            self._worker_task.cancel()
-            try:
-                await self._worker_task
-            except asyncio.CancelledError:
-                pass
-        
-        if self._scaling_task:
-            self._scaling_task.cancel()
-            try:
-                await self._scaling_task
-            except asyncio.CancelledError:
-                pass
+        for task in [self._worker_task, self._scaling_task, self._aging_task, self._cleanup_task]:
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
         
         if self._executor:
             self._executor.shutdown(wait=True)
             self._executor = None
         
-        logger.info("Sandbox Scheduler stopped")
+        logger.info("Fair Scheduler stopped")
     
     async def submit(
         self,
@@ -117,32 +126,16 @@ class SandboxScheduler:
         enable_network: bool = False,
         tenant_id: str = None,
     ) -> ExecutionResult:
-        """
-        작업 제출 및 결과 대기
-        
-        Args:
-            code: 실행할 Python 코드
-            inputs: 입력 데이터
-            timeout: 타임아웃 (초)
-            priority: 우선순위
-            enable_network: 네트워크 허용 여부
-            tenant_id: 테넌트 ID (공정 스케줄링용)
-        
-        Returns:
-            ExecutionResult: 실행 결과
-        
-        Raises:
-            RuntimeError: 스케줄러가 시작되지 않은 경우
-            ValueError: 큐가 가득 찬 경우
-        """
+        """작업 제출 및 결과 대기"""
         if not self._running:
             raise RuntimeError("Scheduler not running")
         
-        # Backpressure: 큐 사이즈 체크
-        if len(self._queue) >= settings.MAX_QUEUE_SIZE:
+        # Backpressure
+        total_jobs = sum(b.total_jobs for b in self._buckets.values())
+        if total_jobs >= settings.MAX_QUEUE_SIZE:
             raise ValueError("Service overloaded, please retry later")
         
-        # EMA 계산용 요청 카운터 증가
+        # EMA 계산용 카운터
         self._requests_this_interval += 1
         
         # Job 생성
@@ -159,14 +152,12 @@ class SandboxScheduler:
             tenant_id=tenant_id,
         )
         
-        # 큐에 추가
-        async with self._queue_lock:
-            heapq.heappush(self._queue, job)
-            self._total_submitted += 1
+        # 해당 우선순위 버킷에 추가
+        await self._buckets[priority].add(job)
+        self._total_submitted += 1
         
-        logger.debug(f"Job {job.job_id} submitted (priority={priority})")
+        logger.debug(f"Job {job.job_id} submitted (priority={priority.name}, tenant={tenant_id})")
         
-        # 결과 대기
         try:
             result = await future
             return result
@@ -174,11 +165,7 @@ class SandboxScheduler:
             return ExecutionResult.sandbox_error("Job cancelled", job.job_id)
     
     async def _worker_loop(self):
-        """
-        메인 워커 루프
-        
-        큐에서 작업을 가져와 실행합니다.
-        """
+        """메인 워커 루프: MLFQ + Round-Robin으로 작업 선택 및 실행"""
         loop = asyncio.get_event_loop()
         
         while self._running:
@@ -191,18 +178,17 @@ class SandboxScheduler:
                 
                 # 워커 제한 체크
                 if self._running_count >= self._current_workers:
-                    async with self._queue_lock:
-                        heapq.heappush(self._queue, job)
+                    # 다시 버킷에 넣기
+                    await self._buckets[Priority(job.priority)].add(job)
                     await asyncio.sleep(0.05)
                     continue
                 
-                # 비동기로 실행
+                # 실행
                 self._running_count += 1
                 self._last_busy_time = time.time()
                 
-                if job.tenant_id:
-                    self._tenant_running[job.tenant_id] = \
-                        self._tenant_running.get(job.tenant_id, 0) + 1
+                tenant_id = job.tenant_id or "__default__"
+                self._tenant_running[tenant_id] += 1
                 
                 asyncio.create_task(self._execute_job(job, loop))
                 
@@ -212,83 +198,37 @@ class SandboxScheduler:
                 logger.error(f"Worker loop error: {e}")
                 await asyncio.sleep(0.5)
     
-    async def _scaling_loop(self):
-        """
-        EMA 기반 동적 워커 스케일링 루프
-        
-        매 인터벌마다:
-        1. 현재 인터벌의 RPS 계산
-        2. EMA 업데이트
-        3. 필요한 워커 수 계산 및 조정
-        """
-        while self._running:
-            try:
-                await asyncio.sleep(settings.SCALING_INTERVAL)
-                
-                # 1. 현재 인터벌의 RPS 계산
-                current_rps = self._requests_this_interval / settings.SCALING_INTERVAL
-                self._requests_this_interval = 0  # 카운터 리셋
-                
-                # 2. EMA 업데이트: EMA = alpha * current + (1 - alpha) * prev_EMA
-                alpha = settings.EMA_ALPHA
-                self._ema_rps = (alpha * current_rps) + ((1 - alpha) * self._ema_rps)
-                
-                # 3. 필요한 워커 수 계산
-                target_rps = settings.TARGET_RPS_PER_WORKER
-                required_workers = max(
-                    settings.MIN_WORKERS,
-                    min(
-                        settings.MAX_WORKERS,
-                        math.ceil(self._ema_rps / target_rps) if target_rps > 0 else settings.MIN_WORKERS
-                    )
-                )
-                
-                current = self._current_workers
-                now = time.time()
-                
-                # 4. Scale Up (즉시 반응)
-                if required_workers > current:
-                    self._current_workers = required_workers
-                    logger.info(f"Scale UP: {current} → {required_workers} workers (EMA RPS={self._ema_rps:.2f})")
-                
-                # 5. Scale Down (쿨다운 적용 + 유휴 상태 확인)
-                elif required_workers < current:
-                    # 쿨다운 체크
-                    time_since_last_scale_down = now - self._last_scale_down_time
-                    if time_since_last_scale_down < settings.SCALE_DOWN_COOLDOWN:
-                        continue
-                    
-                    # 유휴 상태 체크 (대기열 없고 실행 중 없음)
-                    idle_time = now - self._last_busy_time
-                    if len(self._queue) == 0 and self._running_count == 0 and idle_time >= settings.SCALE_DOWN_IDLE_TIME:
-                        self._current_workers = required_workers
-                        self._last_scale_down_time = now
-                        logger.info(f"Scale DOWN: {current} → {required_workers} workers (EMA RPS={self._ema_rps:.2f}, idle={idle_time:.1f}s)")
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Scaling loop error: {e}")
-    
     async def _get_next_job(self) -> Optional[Job]:
-        """우선순위에 따라 다음 작업 가져오기"""
-        async with self._queue_lock:
-            if not self._queue:
-                return None
+        """MLFQ + Round-Robin으로 다음 작업 선택"""
+        # 우선순위 순서대로 버킷 순회
+        for priority in [Priority.HIGH, Priority.NORMAL, Priority.LOW]:
+            bucket = self._buckets[priority]
             
-            job = heapq.heappop(self._queue)
+            if bucket.is_empty:
+                continue
             
-            # Tenant 제한 체크
-            if job.tenant_id:
-                current = self._tenant_running.get(job.tenant_id, 0)
-                if current >= self._max_per_tenant:
-                    heapq.heappush(self._queue, job)
-                    return None
-            
-            return job
+            # Round-Robin: 모든 활성 테넌트 순회
+            for _ in range(bucket.active_tenants):
+                tenant_id = await bucket.next_tenant()
+                
+                if tenant_id is None:
+                    break
+                
+                # 테넌트 실행 제한 체크
+                if self._tenant_running[tenant_id] >= settings.MAX_PER_TENANT:
+                    continue
+                
+                # 작업 가져오기
+                job = await bucket.pop(tenant_id)
+                if job:
+                    return job
+        
+        return None
     
     async def _execute_job(self, job: Job, loop: asyncio.AbstractEventLoop):
         """작업 실행 및 결과 반환"""
+        tenant_id = job.tenant_id or "__default__"
+        
         try:
             result = await loop.run_in_executor(
                 self._executor,
@@ -320,29 +260,129 @@ class SandboxScheduler:
             
         finally:
             self._running_count -= 1
-            if job.tenant_id and job.tenant_id in self._tenant_running:
-                self._tenant_running[job.tenant_id] -= 1
+            self._tenant_running[tenant_id] -= 1
+    
+    async def _scaling_loop(self):
+        """EMA 기반 동적 워커 스케일링"""
+        while self._running:
+            try:
+                await asyncio.sleep(settings.SCALING_INTERVAL)
+                
+                current_rps = self._requests_this_interval / settings.SCALING_INTERVAL
+                self._requests_this_interval = 0
+                
+                alpha = settings.EMA_ALPHA
+                self._ema_rps = (alpha * current_rps) + ((1 - alpha) * self._ema_rps)
+                
+                target_rps = settings.TARGET_RPS_PER_WORKER
+                required_workers = max(
+                    settings.MIN_WORKERS,
+                    min(
+                        settings.MAX_WORKERS,
+                        math.ceil(self._ema_rps / target_rps) if target_rps > 0 else settings.MIN_WORKERS
+                    )
+                )
+                
+                current = self._current_workers
+                now = time.time()
+                
+                if required_workers > current:
+                    self._current_workers = required_workers
+                    logger.info(f"Scale UP: {current} → {required_workers} workers (EMA RPS={self._ema_rps:.2f})")
+                
+                elif required_workers < current:
+                    time_since_last_scale_down = now - self._last_scale_down_time
+                    if time_since_last_scale_down < settings.SCALE_DOWN_COOLDOWN:
+                        continue
+                    
+                    total_jobs = sum(b.total_jobs for b in self._buckets.values())
+                    idle_time = now - self._last_busy_time
+                    
+                    if total_jobs == 0 and self._running_count == 0 and idle_time >= settings.SCALE_DOWN_IDLE_TIME:
+                        self._current_workers = required_workers
+                        self._last_scale_down_time = now
+                        logger.info(f"Scale DOWN: {current} → {required_workers} workers (EMA RPS={self._ema_rps:.2f}, idle={idle_time:.1f}s)")
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Scaling loop error: {e}")
+    
+    async def _aging_loop(self):
+        """Aging: 오래 대기한 작업 우선순위 승급"""
+        while self._running:
+            try:
+                await asyncio.sleep(settings.AGING_INTERVAL)
+                
+                now = time.time()
+                
+                # LOW → NORMAL 승급
+                low_bucket = self._buckets[Priority.LOW]
+                for job in await low_bucket.get_all_jobs():
+                    wait_time = now - job.created_at
+                    if wait_time >= settings.AGING_THRESHOLD_LOW:
+                        if await low_bucket.remove_job(job):
+                            job.priority = Priority.NORMAL
+                            await self._buckets[Priority.NORMAL].add(job)
+                            self._total_aged += 1
+                            logger.debug(f"Job {job.job_id} aged: LOW → NORMAL (waited {wait_time:.1f}s)")
+                
+                # NORMAL → HIGH 승급
+                normal_bucket = self._buckets[Priority.NORMAL]
+                for job in await normal_bucket.get_all_jobs():
+                    wait_time = now - job.created_at
+                    if wait_time >= settings.AGING_THRESHOLD_NORMAL:
+                        if await normal_bucket.remove_job(job):
+                            job.priority = Priority.HIGH
+                            await self._buckets[Priority.HIGH].add(job)
+                            self._total_aged += 1
+                            logger.debug(f"Job {job.job_id} aged: NORMAL → HIGH (waited {wait_time:.1f}s)")
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Aging loop error: {e}")
+    
+    async def _cleanup_loop(self):
+        """빈 테넌트 큐 정리"""
+        while self._running:
+            try:
+                await asyncio.sleep(settings.QUEUE_CLEANUP_INTERVAL)
+                
+                for bucket in self._buckets.values():
+                    await bucket.cleanup_idle_queues(settings.QUEUE_IDLE_TIMEOUT)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Cleanup loop error: {e}")
     
     @property
     def queue_size(self) -> int:
-        """현재 큐 사이즈"""
-        return len(self._queue)
+        return sum(b.total_jobs for b in self._buckets.values())
     
     @property
     def running_count(self) -> int:
-        """실행 중인 작업 수"""
         return self._running_count
     
     def get_metrics(self) -> dict:
-        """메트릭 반환"""
         return {
             "queue_size": self.queue_size,
+            "queue_high": self._buckets[Priority.HIGH].total_jobs,
+            "queue_normal": self._buckets[Priority.NORMAL].total_jobs,
+            "queue_low": self._buckets[Priority.LOW].total_jobs,
             "running_count": self.running_count,
             "total_submitted": self._total_submitted,
             "total_completed": self._total_completed,
             "total_failed": self._total_failed,
+            "total_aged": self._total_aged,
             "current_workers": self._current_workers,
             "min_workers": settings.MIN_WORKERS,
             "max_workers": settings.MAX_WORKERS,
             "ema_rps": round(self._ema_rps, 2),
+            "active_tenants": sum(b.active_tenants for b in self._buckets.values()),
         }
+
+
+# 기존 SandboxScheduler와의 호환성을 위한 별칭
+SandboxScheduler = FairScheduler

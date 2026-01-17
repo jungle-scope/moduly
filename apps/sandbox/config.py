@@ -28,6 +28,14 @@ class SandboxSettings:
     SCALE_DOWN_COOLDOWN: int = int(os.getenv("SANDBOX_SCALE_DOWN_COOLDOWN", "30"))  # Scale Down 후 쿨다운 (초)
     SCALE_DOWN_IDLE_TIME: int = int(os.getenv("SANDBOX_SCALE_DOWN_IDLE_TIME", "30"))  # 유휴 시간 (Scale Down 기준)
     
+    # Fair Scheduler 설정
+    MAX_PER_TENANT: int = int(os.getenv("SANDBOX_MAX_PER_TENANT", "3"))  # 테넌트당 최대 동시 실행
+    AGING_INTERVAL: int = int(os.getenv("SANDBOX_AGING_INTERVAL", "5"))  # Aging 체크 주기 (초)
+    AGING_THRESHOLD_LOW: int = int(os.getenv("SANDBOX_AGING_THRESHOLD_LOW", "30"))  # LOW→NORMAL 승급 (초)
+    AGING_THRESHOLD_NORMAL: int = int(os.getenv("SANDBOX_AGING_THRESHOLD_NORMAL", "60"))  # NORMAL→HIGH 승급 (초)
+    QUEUE_CLEANUP_INTERVAL: int = int(os.getenv("SANDBOX_QUEUE_CLEANUP_INTERVAL", "300"))  # 빈 큐 정리 주기 (초)
+    QUEUE_IDLE_TIMEOUT: int = int(os.getenv("SANDBOX_QUEUE_IDLE_TIMEOUT", "600"))  # 빈 큐 삭제 기준 (초)
+    
     # NSJail 설정
     NSJAIL_PATH: str = os.getenv("SANDBOX_NSJAIL_PATH", "/usr/bin/nsjail")
     NSJAIL_CONFIG_PATH: str = os.getenv("SANDBOX_NSJAIL_CONFIG_PATH", "/app/nsjail/sandbox.cfg")

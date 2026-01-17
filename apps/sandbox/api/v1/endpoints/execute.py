@@ -37,14 +37,19 @@ class ExecuteResponse(BaseModel):
 class MetricsResponse(BaseModel):
     """스케줄러 메트릭"""
     queue_size: int
+    queue_high: int
+    queue_normal: int
+    queue_low: int
     running_count: int
     total_submitted: int
     total_completed: int
     total_failed: int
+    total_aged: int
     current_workers: int
     min_workers: int
     max_workers: int
     ema_rps: float
+    active_tenants: int
 
 
 @router.post("/execute", response_model=ExecuteResponse)
