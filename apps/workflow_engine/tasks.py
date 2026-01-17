@@ -31,7 +31,7 @@ def execute_workflow(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
@@ -60,13 +60,14 @@ def execute_workflow(
             db=session,
         )
 
-        # 워크플로우 실행 (async → sync 변환)
+        # 워크플로우 실행 (async → sync 변환 )
         result = loop.run_until_complete(engine.execute())
         return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
         print(f"[Workflow-Engine] execute_workflow 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        # Session 객체 참조를 제거하기 위해 예외를 새로 생성
+        raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
         # [FIX] 명시적 리소스 정리 (메모리 누수 방지)
         if engine is not None:
@@ -94,9 +95,8 @@ def execute_deployed_workflow(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
-
     from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
@@ -148,7 +148,8 @@ def execute_deployed_workflow(
 
     except Exception as e:
         print(f"[Workflow-Engine] execute_deployed_workflow 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        # Session 객체 참조를 제거하기 위해 예외를 새로 생성
+        raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
         # [FIX] 명시적 리소스 정리 (메모리 누수 방지)
         if engine is not None:
@@ -176,9 +177,8 @@ def execute_by_deployment(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
-
     from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
@@ -226,7 +226,8 @@ def execute_by_deployment(
 
     except Exception as e:
         print(f"[Workflow-Engine] execute_by_deployment 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        # Session 객체 참조를 제거하기 위해 예외를 새로 생성
+        raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
         # [FIX] 명시적 리소스 정리 (메모리 누수 방지)
         if engine is not None:
@@ -320,7 +321,8 @@ def stream_workflow(
         from apps.shared.pubsub import publish_workflow_event
 
         publish_workflow_event(external_run_id, "error", {"message": str(e)})
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        # Session 객체 참조를 제거하기 위해 예외를 새로 생성
+        raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
         # [FIX] 명시적 리소스 정리 (메모리 누수 방지)
         if engine is not None:

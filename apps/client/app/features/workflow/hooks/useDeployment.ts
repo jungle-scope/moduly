@@ -9,7 +9,8 @@ type DeploymentType =
   | 'webapp'
   | 'widget'
   | 'workflow_node'
-  | 'SCHEDULE';
+  | 'schedule'
+  | 'webhook';
 
 interface UseDeploymentProps {
   nodes: AppNode[]; // 시작 노드 타입 확인 및 graph_snapshot용
@@ -89,7 +90,13 @@ export function useDeployment({
   }, []);
 
   const handlePublishAsSchedule = useCallback(() => {
-    setDeploymentType('SCHEDULE');
+    setDeploymentType('schedule');
+    setShowDeployFlowModal(true);
+    setShowDeployDropdown(false);
+  }, []);
+
+  const handlePublishAsWebhook = useCallback(() => {
+    setDeploymentType('webhook');
     setShowDeployFlowModal(true);
     setShowDeployDropdown(false);
   }, []);
@@ -127,7 +134,7 @@ export function useDeployment({
         } else if (deploymentType === 'workflow_node') {
           result.isWorkflowNode = true;
           result.auth_secret = null;
-        } else if (deploymentType === 'SCHEDULE') {
+        } else if (deploymentType === 'schedule') {
           // schedule 노드에서 cron expression, timezone 추출
           const scheduleNode = nodes.find((n) => n.type === 'scheduleTrigger');
           if (scheduleNode) {
@@ -161,6 +168,7 @@ export function useDeployment({
     handlePublishAsWidget,
     handlePublishAsWorkflowNode,
     handlePublishAsSchedule,
+    handlePublishAsWebhook,
     handleDeploy,
   };
 }
