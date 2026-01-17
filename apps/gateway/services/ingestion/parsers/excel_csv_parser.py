@@ -48,6 +48,5 @@ class ExcelCsvParser(BaseParser):
 
             return chunks
 
-        except Exception as e:
-            print(f"[ExcelCsvParser] Pandas parsing failed: {e}")
+        except Exception:
             return []

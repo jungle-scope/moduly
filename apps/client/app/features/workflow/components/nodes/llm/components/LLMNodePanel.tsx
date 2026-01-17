@@ -28,7 +28,6 @@ interface LLMNodePanelProps {
   data: LLMNodeData;
 }
 
-
 // 노드 실행 필수 요건 체크
 // 1. 시스템 프롬프트 또는 사용자 프롬프트 중 하나 이상 입력되어야 함
 // 2. 모델이 선택되어야 함
@@ -71,6 +70,135 @@ const getCaretCoordinates = (
 
   document.body.removeChild(div);
   return coordinates;
+};
+
+const isChatModelOption = (model: ModelOption) => {
+  const id = model.model_id_for_api_call.toLowerCase();
+  const name = model.name.toLowerCase();
+
+  // provider_name이 있으면 사용, 없으면 model_id로 추론
+  let provider = (model.provider_name || '').toLowerCase();
+  if (!provider) {
+    if (
+      id.startsWith('gpt-') ||
+      id.startsWith('o1') ||
+      id.startsWith('o3') ||
+      id.startsWith('o4') ||
+      id.startsWith('chatgpt')
+    ) {
+      provider = 'openai';
+    } else if (
+      id.startsWith('gemini') ||
+      id.startsWith('gemma') ||
+      id.startsWith('models/gemini')
+    ) {
+      provider = 'google';
+    } else if (id.startsWith('claude')) {
+      provider = 'anthropic';
+    } else if (id.startsWith('grok')) {
+      provider = 'xai';
+    } else if (id.startsWith('deepseek')) {
+      provider = 'deepseek';
+    }
+  }
+
+  // Embedding 모델 제외
+  if (id.includes('embedding') || model.type === 'embedding') return false;
+  if (name.includes('embedding') || name.includes('임베딩')) return false;
+
+  // ========== OpenAI 화이트리스트 (16개) - 정확히 일치만 허용 ==========
+  if (
+    provider.includes('openai') ||
+    id.startsWith('gpt-') ||
+    id.startsWith('o1') ||
+    id.startsWith('o3') ||
+    id.startsWith('o4') ||
+    id.startsWith('chatgpt')
+  ) {
+    const allowedOpenAI = new Set([
+      'gpt-5.2', // 범용 플래그십
+      'gpt-5.1', // 코딩/명령 이행 강화
+      'gpt-5', // GPT-5 시리즈 시작
+      'o3-pro', // 초고도 추론
+      'o3', // 논리 특화
+      'o1', // 추론 전용
+      'gpt-4.1', // 100만 토큰 컨텍스트
+      'gpt-4o', // 멀티모달 표준
+      'gpt-4-turbo-preview', // 최적화된 GPT-4
+      'chatgpt-4o-latest', // 동적 업데이트
+      'gpt-5-mini', // 효율 모델
+      'gpt-5-nano', // 초경량
+      'gpt-4.1-mini', // 경량 GPT-4급
+      'gpt-4o-mini', // 저렴한 멀티모달
+      'o3-mini', // 실시간 추론
+      'o4-mini', // 차세대 에이전트용
+    ]);
+    const cleanId = id.replace('models/', '');
+    const isAllowed = allowedOpenAI.has(cleanId);
+    if (!isAllowed) return false;
+  }
+
+  // ========== Anthropic 화이트리스트 (10개) - 정확히 일치만 허용 ==========
+  if (provider.includes('anthropic') || id.startsWith('claude')) {
+    const allowedAnthropic = new Set([
+      'claude-opus-4-5-20251101', // 최신 최상위
+      'claude-sonnet-4-5-20250929', // 에이전트/컴퓨터 제어
+      'claude-haiku-4-5-20251001', // 최신 경량
+      'claude-3-5-sonnet-latest', // 안정된 3.5
+      'claude-3-5-opus-latest', // 깊은 분석
+      'claude-3-5-haiku-latest', // 3.5 경량
+      'claude-opus-4-1-20250805', // 고성능 안정화
+      'claude-sonnet-4-20250514', // 2025 상반기 주력
+      'claude-3-5-sonnet-20241022', // 선호도 높은 구버전
+      'claude-3-opus-20240229', // 레거시 플래그십
+    ]);
+    const cleanId = id.replace('models/', '');
+    const isAllowed = allowedAnthropic.has(cleanId);
+    if (!isAllowed) return false;
+  }
+
+  // ========== Google 화이트리스트 (8개) - 정확히 일치만 허용 ==========
+  if (
+    provider.includes('google') ||
+    id.includes('gemini') ||
+    id.includes('gemma')
+  ) {
+    const allowedGoogle = new Set([
+      'gemini-3-pro', // 2026 주력
+      'gemini-3-flash', // 초고속
+      'gemini-2.5-pro', // 대형 컨텍스트
+      'gemini-2.5-flash', // 범용 속도형
+      'gemini-2.0-flash', // 안정된 표준
+      'gemini-2.0-flash-lite', // 초경량
+      'gemini-robotics-er-1.5-preview', // 로보틱스 특화
+      'gemma-3-27b-it', // 오픈 가중치
+    ]);
+    const cleanId = id.replace('models/', '');
+    const isAllowed = allowedGoogle.has(cleanId);
+    if (!isAllowed) return false;
+  }
+
+  return true;
+};
+
+const groupModelsByProvider = (models: ModelOption[]) => {
+  const sorted = [...models].sort((a, b) => a.name.localeCompare(b.name));
+  const grouped = sorted.reduce(
+    (acc, model) => {
+      const provider = model.provider_name || 'Unknown';
+      if (!acc[provider]) acc[provider] = [];
+      acc[provider].push(model);
+      return acc;
+    },
+    {} as Record<string, ModelOption[]>,
+  );
+
+  return Object.entries(grouped)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([provider, providerModels]) => ({
+      provider,
+      models: providerModels,
+    }));
 };
 
 export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
@@ -160,7 +288,6 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [nodeId, nodes, edges],
   );
 
-
   const validationErrors = useMemo(() => {
     const allPrompts =
       (data.system_prompt || '') +
@@ -192,12 +319,10 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     data.referenced_variables,
   ]);
 
-
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
-    [data.referenced_variables]
+    [data.referenced_variables],
   );
-
 
   const allPromptsEmpty = useMemo(() => {
     return (
@@ -215,16 +340,70 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [nodeId, updateNodeData],
   );
 
+  // Claude 계열 여부 판별 (모델 옵션 우선, 실패 시 이름 프리픽스 판단)
+  const isAnthropicModelId = useCallback(
+    (modelId: string) => {
+      const candidate = modelOptions.find(
+        (model) => model.model_id_for_api_call === modelId,
+      );
+      const provider = (candidate?.provider_name || '').toLowerCase();
+      if (provider) return provider.includes('anthropic');
+      return modelId.toLowerCase().startsWith('claude');
+    },
+    [modelOptions],
+  );
+
+  // Claude 모델에서 top_p를 제거해 파라미터 충돌을 방지
+  const stripTopP = (parameters?: Record<string, unknown>) => {
+    if (
+      !parameters ||
+      !Object.prototype.hasOwnProperty.call(parameters, 'top_p')
+    ) {
+      return parameters;
+    }
+    const { top_p, ...rest } = parameters;
+    return rest;
+  };
+
+  // 모델 변경 시 Claude면 top_p 제거, 폴백 모델 중복 선택도 정리
   const handleModelChange = useCallback(
     (nextModelId: string) => {
       const updates: Partial<LLMNodeData> = { model_id: nextModelId };
       if (data.fallback_model_id && data.fallback_model_id === nextModelId) {
         updates.fallback_model_id = '';
       }
+      if (isAnthropicModelId(nextModelId)) {
+        const nextParams = stripTopP(data.parameters);
+        if (nextParams !== data.parameters) {
+          updates.parameters = nextParams || {};
+        }
+      }
       updateNodeData(nodeId, updates);
     },
-    [data.fallback_model_id, nodeId, updateNodeData],
+    [
+      data.fallback_model_id,
+      data.parameters,
+      isAnthropicModelId,
+      nodeId,
+      updateNodeData,
+    ],
   );
+
+  // 외부 갱신/새로고침 등으로 top_p가 다시 들어오는 상황을 정리
+  useEffect(() => {
+    if (!data.model_id) return;
+    if (!isAnthropicModelId(data.model_id)) return;
+    const nextParams = stripTopP(data.parameters);
+    if (nextParams !== data.parameters) {
+      updateNodeData(nodeId, { parameters: nextParams || {} });
+    }
+  }, [
+    data.model_id,
+    data.parameters,
+    isAnthropicModelId,
+    nodeId,
+    updateNodeData,
+  ]);
 
   const handleFieldChange = useCallback(
     (field: keyof LLMNodeData, value: any) => {
@@ -403,11 +582,17 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
                 <div className="relative group">
                   <ModelSelectDropdown
                     value={data.fallback_model_id || ''}
-                    onChange={(val) => handleUpdateData('fallback_model_id', val)}
+                    onChange={(val) =>
+                      handleUpdateData('fallback_model_id', val)
+                    }
                     models={fallbackCandidates}
                     groupedModels={groupedFallbackOptions}
                     disabled={fallbackDisabled}
-                    placeholder={fallbackDisabled ? '먼저 모델을 선택하세요' : '대체 모델을 선택하세요'}
+                    placeholder={
+                      fallbackDisabled
+                        ? '먼저 모델을 선택하세요'
+                        : '대체 모델을 선택하세요'
+                    }
                   />
                   {fallbackDisabled && (
                     <div className="pointer-events-none absolute left-0 top-full z-10 mt-1 w-56 rounded border border-gray-200 bg-white p-2 text-[11px] text-gray-600 shadow-lg opacity-0 transition-opacity group-hover:opacity-100">
@@ -456,7 +641,6 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           title="" // CollapsibleSection 내부에 타이틀이 있으므로 숨김
           description="프롬프트에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
-        
 
         {incompleteVariables.length > 0 && (
           <IncompleteVariablesAlert variables={incompleteVariables} />
@@ -531,9 +715,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           </p>
 
           {allPromptsEmpty && (
-            <ValidationAlert
-              message="⚠️ 최소 1개의 프롬프트를 입력해야 실행할 수 있습니다."
-            />
+            <ValidationAlert message="⚠️ 최소 1개의 프롬프트를 입력해야 실행할 수 있습니다." />
           )}
 
           <div>
@@ -688,8 +870,6 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
               )}
             </div>
           )}
-
-
 
           {validationErrors.length > 0 && (
             <UnregisteredVariablesAlert variables={validationErrors} />

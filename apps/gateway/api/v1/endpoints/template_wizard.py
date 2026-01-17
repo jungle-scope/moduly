@@ -12,9 +12,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.dependencies import get_current_user
-from apps.shared.db.models.llm import LLMCredential, LLMProvider
-from apps.shared.db.models.user import User
-from apps.shared.db.session import get_db
 from apps.gateway.services.llm_service import LLMService
 from apps.gateway.utils.template_utils import (
     extract_jinja_variables,
@@ -22,6 +19,9 @@ from apps.gateway.utils.template_utils import (
     format_jinja_variable_list,
     strip_unregistered_jinja_variables,
 )
+from apps.shared.db.models.llm import LLMCredential, LLMProvider
+from apps.shared.db.models.user import User
+from apps.shared.db.session import get_db
 
 router = APIRouter()
 
@@ -117,7 +117,9 @@ def _build_variable_guardrail(allowed_vars: Set[str]) -> str:
             "- 위 목록 외 변수는 {{}}로 추가하지 마세요.\n"
             "- 허용 변수의 이름/형식을 변경하지 마세요."
         )
-    return "[변수 규칙]\n- 원본 템플릿에 {{}} 변수가 없으므로 새 변수를 추가하지 마세요."
+    return (
+        "[변수 규칙]\n- 원본 템플릿에 {{}} 변수가 없으므로 새 변수를 추가하지 마세요."
+    )
 
 
 def _build_retry_message(
@@ -241,7 +243,9 @@ def improve_template(
             )
 
         provider_name = provider.name
-        model_id = _resolve_model_id(db, current_user.id, request.model_id, provider_name)
+        model_id = _resolve_model_id(
+            db, current_user.id, request.model_id, provider_name
+        )
 
         client = LLMService.get_client_for_user(db, current_user.id, model_id)
 
@@ -309,9 +313,7 @@ def improve_template(
             retry_messages = messages + [{"role": "user", "content": retry_message}]
             response = client.invoke(retry_messages, temperature=0.2, max_tokens=2000)
             improved_template = (
-                response.get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "")
+                response.get("choices", [{}])[0].get("message", {}).get("content", "")
             )
             if not improved_template:
                 raise HTTPException(
@@ -343,7 +345,6 @@ def improve_template(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"[template_wizard] Error: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=500, detail=f"템플릿 개선 중 오류 발생: {str(e)}"
         )

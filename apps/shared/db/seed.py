@@ -5,6 +5,7 @@ Database seed helpers for startup.
 - Seeds system LLM providers (idempotent)
 """
 
+import logging
 import uuid
 from typing import Iterable
 
@@ -13,6 +14,8 @@ from apps.shared.db.models.user import User
 from sqlalchemy.orm import Session
 
 PLACEHOLDER_USER_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
+
+logger = logging.getLogger(__name__)
 
 
 def seed_placeholder_user(db: Session) -> None:
@@ -32,7 +35,9 @@ def seed_placeholder_user(db: Session) -> None:
     )
     db.add(dev_user)
     db.commit()
-    print("✅ 기본 user유저 (id: dev@moduly.app / password: dev-password ) 생성완료!")
+    logger.info(
+        "✅ 기본 user유저 (id: dev@moduly.app / password: dev-password ) 생성완료!"
+    )
 
 
 def _default_providers() -> Iterable[LLMProvider]:
@@ -80,15 +85,14 @@ def seed_default_llm_providers(db: Session) -> None:
 
     providers_to_add = [p for p in _default_providers() if p.name not in existing_names]
     if not providers_to_add:
-        print(
+        logger.warning(
             f"ℹ️ LLM providers already exist ({len(existing_providers)}). Skipping seed."
         )
         return
 
-    print(f"🌱 Seeding default LLM providers ({len(providers_to_add)} new)...")
     db.add_all(providers_to_add)
     db.commit()
-    print("✅ Default LLM providers seeded!")
+    logger.info("✅ Default LLM providers seeded!")
 
 
 def seed_default_llm_models(db: Session) -> None:
@@ -99,10 +103,8 @@ def seed_default_llm_models(db: Session) -> None:
     """
     from apps.gateway.services.llm_service import LLMService
     from apps.shared.db.models.llm import (
-        LLMCredential,
         LLMModel,
         LLMProvider,
-        LLMRelCredentialModel,
     )
 
     # 1. 모든 Provider 조회 후 맵핑 생성
@@ -133,7 +135,6 @@ def seed_default_llm_models(db: Session) -> None:
         provider = provider_map.get(provider_name)
 
         if not provider:
-            # print(f"⚠️ Provider '{provider_name}' not found for model '{model_id}'. Skipping.")
             continue
 
         # 모델 찾기 또는 생성
@@ -177,37 +178,14 @@ def seed_default_llm_models(db: Session) -> None:
         if not model:
             continue
 
-        # Provider의 기존 Credential에 연결 (선택사항 - 조회 로직 변경으로 인해 필수는 아니지만 안전장치로 유지)
-        # 1. 해당 Provider의 모든 Credential 조회
-        creds = (
-            db.query(LLMCredential)
-            .filter(LLMCredential.provider_id == provider.id)
-            .all()
-        )
-
-        # 2. 이미 연결된 내역 확인
-        existing_links = (
-            db.query(LLMRelCredentialModel)
-            .filter(LLMRelCredentialModel.model_id == model.id)
-            .all()
-        )
-        linked_cred_ids = {link.credential_id for link in existing_links}
-
-        # 3. 누락된 연결 추가
-        for cred in creds:
-            if cred.id not in linked_cred_ids:
-                rel = LLMRelCredentialModel(
-                    credential_id=cred.id, model_id=model.id, is_verified=True
-                )
-                db.add(rel)
-                # print(f"   Configs: Linked {model_id} to Credential {cred.credential_name}")
-
     if models_seeded_count > 0 or models_updated_count > 0:
         if models_seeded_count > 0:
-            print(f"🌱 Seeded {models_seeded_count} new LLM models.")
+            logger.info(f"🌱 Seeded {models_seeded_count} new LLM models.")
         if models_updated_count > 0:
-            print(f"💰 Updated pricing for {models_updated_count} existing models.")
+            logger.info(
+                f"💰 Updated pricing for {models_updated_count} existing models."
+            )
         db.commit()
-        print("✅ LLM models sync complete!")
+        logger.info("✅ LLM models sync complete!")
     else:
-        print("ℹ️ LLM models up to date.")
+        logger.warning("ℹ️ LLM models up to date.")

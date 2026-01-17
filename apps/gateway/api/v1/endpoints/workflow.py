@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -30,6 +31,7 @@ from apps.shared.schemas.workflow import (
     WorkflowResponse,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -335,7 +337,7 @@ def get_workflow_stats(
             recentFailures=recent_failures,
         )
     except Exception as e:
-        print(f"[ERROR] Stats API Failed:\n{traceback.format_exc()}")
+        logger.error(f"[ERROR] Stats API Failed:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -526,7 +528,6 @@ async def execute_workflow(
         raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
         # 그 외 서버 에러
-        print(f"Workflow execution failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -595,7 +596,6 @@ async def stream_workflow(
 
     # 4. [NEW] Gateway에서 run_id 생성 (Celery 태스크에 전달)
     external_run_id = str(uuid.uuid4())
-    print(f"[Gateway] 스트리밍 시작 - run_id: {external_run_id}")
 
     # 5. 실행 컨텍스트 준비
     execution_context = {
@@ -617,14 +617,13 @@ async def stream_workflow(
         try:
             # 1. 먼저 Redis 채널 구독
             pubsub.subscribe(channel)
-            print(f"[Gateway] Redis 채널 구독 완료: {channel}")
 
             # 2. 구독 완료 후 Celery 태스크 시작 (중요!)
             celery_app.send_task(
                 "workflow.stream",
                 args=[graph, user_input, execution_context, external_run_id],
             )
-            print("[Gateway] Celery 태스크 시작됨")
+            logger.info("[Gateway] Celery 태스크 시작됨")
 
             # 3. 이벤트 수신 및 SSE 전송
             for message in pubsub.listen():
@@ -635,7 +634,9 @@ async def stream_workflow(
 
                     # workflow_finish 또는 error 시 종료
                     if event.get("type") in ("workflow_finish", "error"):
-                        print(f"[Gateway] 스트리밍 종료 - type: {event.get('type')}")
+                        logger.info(
+                            f"[Gateway] 스트리밍 종료 - type: {event.get('type')}"
+                        )
                         break
         except Exception as e:
             # 구독 중 에러 발생 시 에러 이벤트 전송

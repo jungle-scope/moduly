@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import List
 from uuid import UUID
 
@@ -6,6 +7,8 @@ import openai
 from apps.shared.db.models.llm import LLMCredential, LLMProvider
 from apps.shared.utils.encryption import encryption_manager
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
@@ -86,7 +89,7 @@ class EmbeddingService:
             embeddings = [data.embedding for data in response.data]
             return embeddings
         except Exception as e:
-            print(f"[EmbeddingService] Failed: {e}")
+            logger.error(f"[EmbeddingService] Failed: {e}")
             # 실패 시 더미 벡터 (0.0) 반환 or Raise
             # 여기서는 Workflow가 멈추지 않도록 Raise하되 상위에서 처리
             raise e

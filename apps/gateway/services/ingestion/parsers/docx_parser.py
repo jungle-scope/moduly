@@ -35,7 +35,6 @@ class DocxParser(BaseParser):
             # Word 문서는 페이지 구분이 명확하지 않으므로 전체를 1페이지로 취급
             return [{"text": combined_text, "page": 1}]
 
-        except Exception as e:
-            print(f"[DocxParser] Parsing failed: {e}")
+        except Exception:
             # 에러 발생 시 빈 리스트 반환 (Processor에서 처리)
             return []
