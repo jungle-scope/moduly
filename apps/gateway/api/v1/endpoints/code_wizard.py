@@ -4,7 +4,9 @@
 사용자의 자연어 설명을 기반으로 Code Node에서 실행 가능한 Python 코드를 생성합니다.
 """
 
-from typing import List
+import ast
+import re
+from typing import List, Optional, Set, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -141,6 +143,211 @@ PROVIDER_EFFICIENT_MODELS = {
 # === Endpoints ===
 
 
+def _build_input_guardrail(allowed_vars: Set[str]) -> str:
+    if allowed_vars:
+        allowed_list = ", ".join(sorted(allowed_vars))
+        return (
+            "[입력 변수 규칙]\n"
+            f"- 허용 키: {allowed_list}\n"
+            "- inputs['key'] 또는 inputs.get('key')는 위 키만 사용\n"
+            "- 키는 반드시 문자열 리터럴로 작성 (동적 키 접근 금지)\n"
+            "- 허용 목록 외 키는 사용하지 마세요."
+        )
+    return (
+        "[입력 변수 규칙]\n"
+        "- 입력 변수가 없으므로 inputs['key'] 또는 inputs.get('key')를 사용하지 마세요."
+    )
+
+
+def _build_retry_message(
+    allowed_vars: Set[str],
+    invalid_vars: Set[str],
+    has_dynamic: bool,
+    candidate_text: str,
+) -> str:
+    allowed_list = ", ".join(sorted(allowed_vars)) if allowed_vars else "(없음)"
+    invalid_list = ", ".join(sorted(invalid_vars)) if invalid_vars else "(없음)"
+    dynamic_note = (
+        "- 동적 키 접근이 발견되었습니다. 문자열 리터럴로만 접근하세요.\n"
+        if has_dynamic
+        else ""
+    )
+    return (
+        "아래 코드에 허용되지 않은 inputs 키 접근이 포함되어 있습니다.\n"
+        f"- 허용 키: {allowed_list}\n"
+        f"- 발견된 키: {invalid_list}\n"
+        f"{dynamic_note}"
+        "허용 키만 사용해서 아래 코드를 수정한 뒤 코드만 출력하세요.\n\n"
+        f"[기존 코드]\n{candidate_text}"
+    )
+
+
+_INPUT_SUBSCRIPT_PATTERN = re.compile(r"inputs\s*\[\s*(['\"])(.*?)\1\s*\]")
+_INPUT_GET_PATTERN = re.compile(r"inputs\s*\.\s*get\s*\(\s*(['\"])(.*?)\1")
+_DYNAMIC_SUBSCRIPT_PATTERN = re.compile(r"inputs\s*\[\s*[^'\"\s]")
+_DYNAMIC_GET_PATTERN = re.compile(r"inputs\s*\.\s*get\s*\(\s*[^'\"\s]")
+
+
+def _get_literal_str(node: ast.AST) -> Optional[str]:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Str):
+        return node.s
+    if isinstance(node, ast.Index):
+        return _get_literal_str(node.value)
+    return None
+
+
+class _InputKeyVisitor(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.literal_keys: Set[str] = set()
+        self.has_dynamic = False
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if isinstance(node.value, ast.Name) and node.value.id == "inputs":
+            key = _get_literal_str(node.slice)
+            if key is not None:
+                self.literal_keys.add(key)
+            else:
+                self.has_dynamic = True
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "inputs"
+        ):
+            key_node = None
+            if node.args:
+                key_node = node.args[0]
+            else:
+                for kw in node.keywords:
+                    if kw.arg == "key":
+                        key_node = kw.value
+                        break
+            key = _get_literal_str(key_node) if key_node is not None else None
+            if key is not None:
+                self.literal_keys.add(key)
+            else:
+                self.has_dynamic = True
+        self.generic_visit(node)
+
+
+class _InputAccessSanitizer(ast.NodeTransformer):
+    def __init__(self, allowed_keys: Set[str]) -> None:
+        self.allowed_keys = allowed_keys
+        self.changed = False
+
+    def visit_Subscript(self, node: ast.Subscript) -> ast.AST:
+        node = self.generic_visit(node)
+        if isinstance(node.value, ast.Name) and node.value.id == "inputs":
+            key = _get_literal_str(node.slice)
+            if key is None or key not in self.allowed_keys:
+                self.changed = True
+                return ast.copy_location(ast.Constant(value=None), node)
+        return node
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        node = self.generic_visit(node)
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "inputs"
+        ):
+            key_node = None
+            if node.args:
+                key_node = node.args[0]
+            else:
+                for kw in node.keywords:
+                    if kw.arg == "key":
+                        key_node = kw.value
+                        break
+            key = _get_literal_str(key_node) if key_node is not None else None
+            if key is None or key not in self.allowed_keys:
+                self.changed = True
+                return ast.copy_location(ast.Constant(value=None), node)
+        return node
+
+
+def _extract_input_keys_from_regex(code: str) -> Tuple[Set[str], bool]:
+    literal_keys = {match.group(2) for match in _INPUT_SUBSCRIPT_PATTERN.finditer(code)}
+    literal_keys.update(match.group(2) for match in _INPUT_GET_PATTERN.finditer(code))
+    has_dynamic = bool(
+        _DYNAMIC_SUBSCRIPT_PATTERN.search(code) or _DYNAMIC_GET_PATTERN.search(code)
+    )
+    return literal_keys, has_dynamic
+
+
+def _extract_input_keys(code: str) -> Tuple[Set[str], bool]:
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return _extract_input_keys_from_regex(code)
+    visitor = _InputKeyVisitor()
+    visitor.visit(tree)
+    return visitor.literal_keys, visitor.has_dynamic
+
+
+def _find_invalid_input_keys(
+    code: str, allowed_vars: Set[str]
+) -> Tuple[Set[str], bool]:
+    used_keys, has_dynamic = _extract_input_keys(code)
+    invalid_keys = {key for key in used_keys if key not in allowed_vars}
+    return invalid_keys, has_dynamic
+
+
+def _sanitize_input_accesses_regex(code: str, allowed_vars: Set[str]) -> str:
+    used_keys, has_dynamic = _extract_input_keys_from_regex(code)
+    invalid_keys = {key for key in used_keys if key not in allowed_vars}
+    cleaned = code
+    for key in invalid_keys:
+        key_pattern = re.escape(key)
+        cleaned = re.sub(
+            rf"inputs\s*\[\s*(['\"]){key_pattern}\1\s*\]", "None", cleaned
+        )
+        cleaned = re.sub(
+            rf"inputs\s*\.\s*get\s*\(\s*(['\"]){key_pattern}\1[^)]*\)",
+            "None",
+            cleaned,
+        )
+    if has_dynamic:
+        cleaned = re.sub(r"inputs\s*\[\s*[^'\"\s][^\]]*\]", "None", cleaned)
+        cleaned = re.sub(
+            r"inputs\s*\.\s*get\s*\(\s*[^'\"\s][^\)]*\)", "None", cleaned
+        )
+    return cleaned
+
+
+def _sanitize_input_accesses(code: str, allowed_vars: Set[str]) -> str:
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return _sanitize_input_accesses_regex(code, allowed_vars)
+    sanitizer = _InputAccessSanitizer(allowed_vars)
+    new_tree = sanitizer.visit(tree)
+    if sanitizer.changed:
+        ast.fix_missing_locations(new_tree)
+        return ast.unparse(new_tree)
+    return code
+
+
+def _parse_code_response(response) -> str:
+    """
+    LLM 응답에서 코드 텍스트를 추출합니다.
+    """
+    if isinstance(response, str):
+        return response
+    if isinstance(response, dict):
+        if "choices" in response and response["choices"]:
+            return response["choices"][0].get("message", {}).get("content", "")
+        if "content" in response:
+            return response["content"]
+    return ""
+
+
 @router.get("/check-credentials", response_model=CredentialCheckResponse)
 def check_credentials(
     db: Session = Depends(get_db),
@@ -223,7 +430,9 @@ def generate_code(
             input_vars_str = "(입력 변수 없음 - inputs 딕셔너리가 비어있을 수 있음)"
 
         # 5. 시스템 프롬프트 구성
+        allowed_vars = {v.strip() for v in request.input_variables if v and v.strip()}
         system_prompt = CODE_WIZARD_SYSTEM_PROMPT.format(input_variables=input_vars_str)
+        system_prompt = f"{system_prompt}\n\n{_build_input_guardrail(allowed_vars)}"
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -237,19 +446,7 @@ def generate_code(
         response = client.invoke(messages, temperature=0.3, max_tokens=2000)
 
         # 7. 응답 파싱 (여러 형식 지원)
-        generated_code = ""
-
-        # OpenAI 형식: {"choices": [{"message": {"content": "..."}}]}
-        if "choices" in response and response["choices"]:
-            generated_code = (
-                response["choices"][0].get("message", {}).get("content", "")
-            )
-        # 단순 content 형식
-        elif "content" in response:
-            generated_code = response["content"]
-        # 직접 텍스트 형식
-        elif isinstance(response, str):
-            generated_code = response
+        generated_code = _parse_code_response(response)
 
         if not generated_code:
             print(f"[code_wizard] Unknown response format: {response}")
@@ -257,6 +454,29 @@ def generate_code(
 
         # 8. 코드 정제 (마크다운 코드 블록 제거)
         generated_code = _clean_code_response(generated_code)
+
+        invalid_keys, has_dynamic = _find_invalid_input_keys(
+            generated_code, allowed_vars
+        )
+        if invalid_keys or has_dynamic:
+            retry_message = _build_retry_message(
+                allowed_vars, invalid_keys, has_dynamic, generated_code
+            )
+            retry_messages = messages + [{"role": "user", "content": retry_message}]
+            response = client.invoke(retry_messages, temperature=0.2, max_tokens=2000)
+            generated_code = _parse_code_response(response)
+            if not generated_code:
+                print(f"[code_wizard] Unknown response format: {response}")
+                raise HTTPException(
+                    status_code=500, detail="AI 응답을 파싱할 수 없습니다."
+                )
+            generated_code = _clean_code_response(generated_code)
+            invalid_keys, has_dynamic = _find_invalid_input_keys(
+                generated_code, allowed_vars
+            )
+
+        if invalid_keys or has_dynamic:
+            generated_code = _sanitize_input_accesses(generated_code, allowed_vars)
 
         # 9. 코드 검증 및 자동 수정
         validation_result = _validate_and_fix_code(generated_code)
@@ -272,6 +492,8 @@ def generate_code(
 
         return {"generated_code": generated_code}
 
+    except HTTPException:
+        raise
     except ValueError as e:
         print(f"[code_wizard] ValueError: {e}")
         raise HTTPException(status_code=400, detail=str(e))

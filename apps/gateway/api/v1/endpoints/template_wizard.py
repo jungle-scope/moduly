@@ -5,7 +5,7 @@
 핵심: 기존 변수({{ ... }})를 보존하면서 템플릿 품질을 향상시킵니다.
 """
 
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -16,6 +16,12 @@ from apps.shared.db.models.llm import LLMCredential, LLMProvider
 from apps.shared.db.models.user import User
 from apps.shared.db.session import get_db
 from apps.gateway.services.llm_service import LLMService
+from apps.gateway.utils.template_utils import (
+    extract_jinja_variables,
+    find_unregistered_jinja_variables,
+    format_jinja_variable_list,
+    strip_unregistered_jinja_variables,
+)
 
 router = APIRouter()
 
@@ -51,7 +57,8 @@ COMMON_RULES = """[핵심 규칙 - 반드시 준수]
 1. 기존 Jinja2 변수({{{{ ... }}}})의 이름과 형식을 절대 수정하거나 삭제하지 마세요
 2. 등록된 변수만 사용하세요: {variables}
 3. 새로운 변수를 임의로 추가하지 마세요
-4. 변수 형식은 반드시 {{{{ variable_name }}}} 형태를 유지하세요. (주의: 중괄호 '{{'와 '{{' 사이에는 절대 공백을 넣지 마세요. 예: {{ {{ x }} }} -> 금지)"""
+4. 변수 형식은 반드시 {{{{ variable_name }}}} 형태를 유지하세요. (주의: 중괄호 '{{'와 '{{' 사이에는 절대 공백을 넣지 마세요. 예: {{ {{ x }} }} -> 금지)
+5. 위 목록 외 변수가 포함되면 실패로 간주됩니다."""
 
 # 타입별 개선 지침
 TYPE_SPECIFIC_PROMPTS = {
@@ -98,6 +105,32 @@ PROVIDER_EFFICIENT_MODELS = {
 
 
 # === Endpoints ===
+
+
+def _build_variable_guardrail(allowed_vars: Set[str]) -> str:
+    if allowed_vars:
+        allowed_list = format_jinja_variable_list(allowed_vars)
+        return (
+            "[변수 규칙]\n"
+            f"- 허용 변수: {allowed_list}\n"
+            "- 위 목록 외 변수는 {{}}로 추가하지 마세요.\n"
+            "- 허용 변수의 이름/형식을 변경하지 마세요."
+        )
+    return "[변수 규칙]\n- 원본 템플릿에 {{}} 변수가 없으므로 새 변수를 추가하지 마세요."
+
+
+def _build_retry_message(
+    allowed_vars: Set[str], invalid_vars: Set[str], candidate_text: str
+) -> str:
+    allowed_list = format_jinja_variable_list(allowed_vars)
+    invalid_list = format_jinja_variable_list(invalid_vars)
+    return (
+        "아래 결과에 등록되지 않은 변수가 포함되어 있습니다.\n"
+        f"- 허용 변수: {allowed_list}\n"
+        f"- 발견된 변수: {invalid_list}\n"
+        "허용 변수만 사용해서 아래 결과를 수정한 뒤 템플릿만 출력하세요.\n\n"
+        f"[기존 결과]\n{candidate_text}"
+    )
 
 
 @router.get("/check-credentials", response_model=CredentialCheckResponse)
@@ -178,11 +211,10 @@ def improve_template(
         client = LLMService.get_client_for_user(db, current_user.id, model_id)
 
         # 4. 변수 목록 포맷팅
-        if request.registered_variables:
-            variables_str = ", ".join(
-                [f"{{{{ {v} }}}}" for v in request.registered_variables]
-            )
-        else:
+        allowed_vars = set(request.registered_variables)
+        allowed_vars.update(extract_jinja_variables(request.original_template))
+        variables_str = format_jinja_variable_list(allowed_vars)
+        if not allowed_vars:
             variables_str = "(등록된 변수 없음)"
 
         # 5. 시스템 프롬프트 구성
@@ -200,6 +232,7 @@ def improve_template(
         system_prompt = WIZARD_SYSTEM_PROMPT_TEMPLATE.format(
             common_rules=common_rules, type_specific=type_specific
         )
+        system_prompt = f"{system_prompt}\n\n{_build_variable_guardrail(allowed_vars)}"
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -229,8 +262,49 @@ def improve_template(
         # 2. 닫는 중괄호 수정: '} }' -> '}}'
         improved_template = re.sub(r"\}\s+\}", "}}", improved_template)
 
-        return {"improved_template": improved_template.strip()}
+        improved_template = improved_template.strip()
+        invalid_vars = find_unregistered_jinja_variables(
+            improved_template, allowed_vars
+        )
 
+        if invalid_vars:
+            retry_message = _build_retry_message(
+                allowed_vars, invalid_vars, improved_template
+            )
+            retry_messages = messages + [{"role": "user", "content": retry_message}]
+            response = client.invoke(retry_messages, temperature=0.2, max_tokens=2000)
+            improved_template = (
+                response.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+            )
+            if not improved_template:
+                raise HTTPException(
+                    status_code=500, detail="AI 응답을 파싱할 수 없습니다."
+                )
+            improved_template = re.sub(r"\{\s+\{", "{{", improved_template)
+            improved_template = re.sub(r"\}\s+\}", "}}", improved_template)
+            improved_template = improved_template.strip()
+            invalid_vars = find_unregistered_jinja_variables(
+                improved_template, allowed_vars
+            )
+
+        if invalid_vars:
+            improved_template = strip_unregistered_jinja_variables(
+                improved_template, invalid_vars
+            ).strip()
+            invalid_vars = find_unregistered_jinja_variables(
+                improved_template, allowed_vars
+            )
+            if invalid_vars:
+                improved_template = strip_unregistered_jinja_variables(
+                    improved_template, invalid_vars
+                ).strip()
+
+        return {"improved_template": improved_template}
+
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
