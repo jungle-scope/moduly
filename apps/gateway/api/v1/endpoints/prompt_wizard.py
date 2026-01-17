@@ -4,7 +4,7 @@
 사용자의 프롬프트를 AI가 개선해주는 기능을 제공합니다.
 """
 
-from typing import Literal, Set
+from typing import Literal, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -33,6 +33,7 @@ class PromptImproveRequest(BaseModel):
 
     prompt_type: Literal["system", "user", "assistant"]
     original_prompt: str
+    model_id: Optional[str] = None
 
 
 class PromptImproveResponse(BaseModel):
@@ -130,6 +131,46 @@ def _build_retry_message(
     )
 
 
+def _resolve_model_id(
+    db: Session, user_id: str, requested_model_id: Optional[str], provider_name: str
+) -> str:
+    available_models = LLMService.get_my_available_models(db, user_id)
+    allowed_ids = {
+        model.model_id_for_api_call
+        for model in available_models
+        if model.type != "embedding"
+    }
+    requested = (requested_model_id or "").strip()
+    if requested:
+        if requested not in allowed_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="선택한 모델을 사용할 수 없습니다. 모델 목록에서 다시 선택해주세요.",
+            )
+        return requested
+
+    preferred_ids = list(LLMService.EFFICIENT_MODELS.values())
+    for preferred_id in preferred_ids:
+        if preferred_id in allowed_ids:
+            return preferred_id
+        prefixed = (
+            preferred_id
+            if preferred_id.startswith("models/")
+            else f"models/{preferred_id}"
+        )
+        if prefixed in allowed_ids:
+            return prefixed
+
+    normalized_provider = provider_name.lower()
+    model_id = LLMService.EFFICIENT_MODELS.get(normalized_provider)
+    if not model_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"현재 '{provider_name}'에서는 프롬프트 마법사 기능을 사용할 수 없습니다. OpenAI, Google, Anthropic Provider를 이용해주세요.",
+        )
+    return model_id
+
+
 @router.get("/check-credentials", response_model=CredentialCheckResponse)
 def check_credentials(
     db: Session = Depends(get_db),
@@ -197,14 +238,8 @@ def improve_prompt(
                 status_code=400, detail="Provider 정보를 찾을 수 없습니다."
             )
 
-        provider_name = provider.name.lower()
-        model_id = LLMService.EFFICIENT_MODELS.get(provider_name)
-
-        if not model_id:
-            raise HTTPException(
-                status_code=400,
-                detail=f"현재 '{provider.name}'에서는 프롬프트 마법사 기능을 사용할 수 없습니다. OpenAI, Google, Anthropic Provider를 이용해주세요.",
-            )
+        provider_name = provider.name
+        model_id = _resolve_model_id(db, current_user.id, request.model_id, provider_name)
 
         client = LLMService.get_client_for_user(db, current_user.id, model_id)
 

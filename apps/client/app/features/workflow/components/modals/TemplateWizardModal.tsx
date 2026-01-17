@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { X, Sparkles, Copy, Check, Loader2, ArrowRight, Info, ChevronDown, Code } from 'lucide-react';
+import { WizardModelSelect } from './WizardModelSelect';
+import { useWizardCredentials } from '@/app/features/workflow/hooks/useWizardCredentials';
+import { useWizardModels } from '@/app/features/workflow/hooks/useWizardModels';
 
 
 // 템플릿 타입 정의
@@ -22,6 +25,12 @@ const TEMPLATE_TYPE_OPTIONS: { value: TemplateType; label: string; description: 
   { value: 'custom', label: '직접 설명', description: '원하는 개선 방향을 직접 설명' },
 ];
 
+const DEFAULT_MODEL_IDS = [
+  'gpt-4o-mini',
+  'gemini-1.5-flash',
+  'claude-3-haiku-20240307',
+];
+
 export function TemplateWizardModal({
   isOpen,
   onClose,
@@ -38,9 +47,19 @@ export function TemplateWizardModal({
   const [customInstructions, setCustomInstructions] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasCredentials, setHasCredentials] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const { hasCredentials } = useWizardCredentials(
+    isOpen,
+    '/api/v1/template-wizard/check-credentials',
+  );
+  const {
+    loadingModels,
+    selectedModelId,
+    setSelectedModelId,
+    chatModelOptions,
+    groupedModelOptions,
+  } = useWizardModels(isOpen, DEFAULT_MODEL_IDS);
 
   // 모달 열릴 때 상태 초기화
   useEffect(() => {
@@ -51,25 +70,9 @@ export function TemplateWizardModal({
       setCopied(false);
       setTemplateType('email');
       setCustomInstructions('');
-      checkCredentials();
     }
   }, [isOpen, originalTemplate]);
 
-  // Credential 확인
-  const checkCredentials = async () => {
-    try {
-      const res = await fetch('/api/v1/template-wizard/check-credentials', {
-        method: 'GET',
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setHasCredentials(data.has_credentials);
-      }
-    } catch {
-      setHasCredentials(false);
-    }
-  };
 
   // 템플릿 개선 요청
   const handleImprove = async () => {
@@ -92,6 +95,7 @@ export function TemplateWizardModal({
           original_template: currentTemplate,
           registered_variables: registeredVariables,
           custom_instructions: templateType === 'custom' ? customInstructions : null,
+          model_id: selectedModelId || null,
         }),
       });
 
@@ -134,6 +138,10 @@ export function TemplateWizardModal({
   };
 
   if (!isOpen) return null;
+  const disableImprove =
+    isLoading ||
+    !currentTemplate.trim() ||
+    (!loadingModels && chatModelOptions.length === 0);
 
   const selectedType = TEMPLATE_TYPE_OPTIONS.find(t => t.value === templateType);
 
@@ -178,37 +186,49 @@ export function TemplateWizardModal({
 
         {/* 템플릿 타입 선택 */}
         <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">템플릿 유형:</span>
-            <div className="relative">
-              <button
-                onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors min-w-[160px]"
-              >
-                <span className="text-sm font-medium text-gray-800">{selectedType?.label}</span>
-                <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
-              </button>
-              
-              {showTypeDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                  {TEMPLATE_TYPE_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setTemplateType(option.value);
-                        setShowTypeDropdown(false);
-                      }}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                        templateType === option.value ? 'bg-pink-50' : ''
-                      }`}
-                    >
-                      <div className="font-medium text-sm text-gray-800">{option.label}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{option.description}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-sm font-medium text-gray-700">템플릿 유형:</span>
+              <div className="relative">
+                <button
+                  onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+                  className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors min-w-[160px]"
+                >
+                  <span className="text-sm font-medium text-gray-800">{selectedType?.label}</span>
+                  <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
+                </button>
+                
+                {showTypeDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                    {TEMPLATE_TYPE_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          setTemplateType(option.value);
+                          setShowTypeDropdown(false);
+                        }}
+                        className={`w-full px-4 py-3 text-left hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
+                          templateType === option.value ? 'bg-pink-50' : ''
+                        }`}
+                      >
+                        <div className="font-medium text-sm text-gray-800">{option.label}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{option.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+            <WizardModelSelect
+              layout="inline"
+              containerClassName="flex-1 min-w-0"
+              value={selectedModelId}
+              onChange={setSelectedModelId}
+              models={chatModelOptions}
+              groupedModels={groupedModelOptions}
+              loading={loadingModels}
+              disabled={hasCredentials === false}
+            />
           </div>
           
           {/* custom 타입일 때 추가 설명 입력 */}
@@ -272,7 +292,7 @@ export function TemplateWizardModal({
               ) : (
                 <button
                   onClick={handleImprove}
-                  disabled={isLoading || !currentTemplate.trim()}
+                  disabled={disableImprove}
                   className="w-full py-3 px-4 bg-pink-600 hover:bg-pink-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                 >
                   {isLoading ? (

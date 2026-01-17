@@ -29,6 +29,7 @@ class CodeGenerateRequest(BaseModel):
 
     description: str  # 사용자의 자연어 설명 (예: "두 숫자를 더해서 반환하는 코드")
     input_variables: List[str] = []  # 사용 가능한 입력 변수명 (예: ["num1", "num2"])
+    model_id: Optional[str] = None
 
 
 class CodeGenerateResponse(BaseModel):
@@ -180,6 +181,46 @@ def _build_retry_message(
         "허용 키만 사용해서 아래 코드를 수정한 뒤 코드만 출력하세요.\n\n"
         f"[기존 코드]\n{candidate_text}"
     )
+
+
+def _resolve_model_id(
+    db: Session, user_id: str, requested_model_id: Optional[str], provider_name: str
+) -> str:
+    available_models = LLMService.get_my_available_models(db, user_id)
+    allowed_ids = {
+        model.model_id_for_api_call
+        for model in available_models
+        if model.type != "embedding"
+    }
+    requested = (requested_model_id or "").strip()
+    if requested:
+        if requested not in allowed_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="선택한 모델을 사용할 수 없습니다. 모델 목록에서 다시 선택해주세요.",
+            )
+        return requested
+
+    preferred_ids = list(PROVIDER_EFFICIENT_MODELS.values())
+    for preferred_id in preferred_ids:
+        if preferred_id in allowed_ids:
+            return preferred_id
+        prefixed = (
+            preferred_id
+            if preferred_id.startswith("models/")
+            else f"models/{preferred_id}"
+        )
+        if prefixed in allowed_ids:
+            return prefixed
+
+    normalized_provider = provider_name.lower()
+    model_id = PROVIDER_EFFICIENT_MODELS.get(normalized_provider)
+    if not model_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"현재 '{provider_name}'에서는 코드 마법사 기능을 사용할 수 없습니다. OpenAI, Google, Anthropic Provider를 이용해주세요.",
+        )
+    return model_id
 
 
 _INPUT_SUBSCRIPT_PATTERN = re.compile(r"inputs\s*\[\s*(['\"])(.*?)\1\s*\]")
@@ -412,14 +453,8 @@ def generate_code(
                 status_code=400, detail="Provider 정보를 찾을 수 없습니다."
             )
 
-        provider_name = provider.name.lower()
-        model_id = PROVIDER_EFFICIENT_MODELS.get(provider_name)
-
-        if not model_id:
-            raise HTTPException(
-                status_code=400,
-                detail=f"현재 '{provider.name}'에서는 코드 마법사 기능을 사용할 수 없습니다. OpenAI, Google, Anthropic Provider를 이용해주세요.",
-            )
+        provider_name = provider.name
+        model_id = _resolve_model_id(db, current_user.id, request.model_id, provider_name)
 
         client = LLMService.get_client_for_user(db, current_user.id, model_id)
 

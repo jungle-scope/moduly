@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { X, Sparkles, Copy, Check, Loader2, ArrowRight, Info } from 'lucide-react';
+import { WizardModelSelect } from './WizardModelSelect';
+import { useWizardCredentials } from '@/app/features/workflow/hooks/useWizardCredentials';
+import { useWizardModels } from '@/app/features/workflow/hooks/useWizardModels';
 
 interface PromptWizardModalProps {
   isOpen: boolean;
@@ -17,6 +20,12 @@ const PROMPT_TYPE_LABELS = {
   assistant: 'Assistant Prompt',
 };
 
+const DEFAULT_MODEL_IDS = [
+  'gpt-4o-mini',
+  'gemini-1.5-flash',
+  'claude-3-haiku-20240307',
+];
+
 export function PromptWizardModal({
   isOpen,
   onClose,
@@ -29,8 +38,18 @@ export function PromptWizardModal({
   const [improvedPrompt, setImprovedPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasCredentials, setHasCredentials] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
+  const { hasCredentials } = useWizardCredentials(
+    isOpen,
+    '/api/v1/prompt-wizard/check-credentials',
+  );
+  const {
+    loadingModels,
+    selectedModelId,
+    setSelectedModelId,
+    chatModelOptions,
+    groupedModelOptions,
+  } = useWizardModels(isOpen, DEFAULT_MODEL_IDS);
 
   // 모달 열릴 때 credential 확인 및 상태 초기화
   useEffect(() => {
@@ -39,24 +58,8 @@ export function PromptWizardModal({
       setImprovedPrompt('');
       setError(null);
       setCopied(false);
-      checkCredentials();
     }
   }, [isOpen, originalPrompt]);
-
-  const checkCredentials = async () => {
-    try {
-      const res = await fetch('/api/v1/prompt-wizard/check-credentials', {
-        method: 'GET',
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setHasCredentials(data.has_credentials);
-      }
-    } catch {
-      setHasCredentials(false);
-    }
-  };
 
   const handleImprove = async () => {
     if (!currentPrompt.trim()) {
@@ -76,6 +79,7 @@ export function PromptWizardModal({
         body: JSON.stringify({
           prompt_type: promptType,
           original_prompt: currentPrompt,
+          model_id: selectedModelId || null,
         }),
       });
 
@@ -116,6 +120,10 @@ export function PromptWizardModal({
   };
 
   if (!isOpen) return null;
+  const disableImprove =
+    isLoading ||
+    !currentPrompt.trim() ||
+    (!loadingModels && chatModelOptions.length === 0);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
@@ -155,6 +163,15 @@ export function PromptWizardModal({
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽: 원본 프롬프트 */}
           <div className="w-1/2 p-5 border-r border-gray-200 flex flex-col">
+            <WizardModelSelect
+              containerClassName="mb-3"
+              value={selectedModelId}
+              onChange={setSelectedModelId}
+              models={chatModelOptions}
+              groupedModels={groupedModelOptions}
+              loading={loadingModels}
+              disabled={hasCredentials === false}
+            />
             <label className="text-sm font-semibold text-gray-700 mb-2">
               원본 프롬프트
             </label>
@@ -178,7 +195,7 @@ export function PromptWizardModal({
               ) : (
                 <button
                   onClick={handleImprove}
-                  disabled={isLoading || !currentPrompt.trim()}
+                  disabled={disableImprove}
                   className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                 >
                   {isLoading ? (

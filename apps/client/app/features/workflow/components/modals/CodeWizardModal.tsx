@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { X, Wand2, Copy, Check, Loader2, ArrowRight, Info, Code } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { WizardModelSelect } from './WizardModelSelect';
+import { useWizardCredentials } from '@/app/features/workflow/hooks/useWizardCredentials';
+import { useWizardModels } from '@/app/features/workflow/hooks/useWizardModels';
 
 // 서버 에러 응답 타입 정의 (개선점 1: 에러 스키마 명확화)
 interface ApiErrorResponse {
@@ -30,20 +32,34 @@ interface CodeWizardModalProps {
   onApply: (generatedCode: string) => void;
 }
 
+const DEFAULT_MODEL_IDS = [
+  'gpt-4o-mini',
+  'gemini-1.5-flash',
+  'claude-3-5-sonnet-20240620',
+];
+
 export function CodeWizardModal({
   isOpen,
   onClose,
   inputVariables,
   onApply,
 }: CodeWizardModalProps) {
-  const router = useRouter();
-  
   const [description, setDescription] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasCredentials, setHasCredentials] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
+  const { hasCredentials } = useWizardCredentials(
+    isOpen,
+    '/api/v1/code-wizard/check-credentials',
+  );
+  const {
+    loadingModels,
+    selectedModelId,
+    setSelectedModelId,
+    chatModelOptions,
+    groupedModelOptions,
+  } = useWizardModels(isOpen, DEFAULT_MODEL_IDS);
 
   // 모달 열릴 때 credential 확인 및 상태 초기화
   useEffect(() => {
@@ -52,24 +68,8 @@ export function CodeWizardModal({
       setGeneratedCode('');
       setError(null);
       setCopied(false);
-      checkCredentials();
     }
   }, [isOpen]);
-
-  const checkCredentials = async () => {
-    try {
-      const res = await fetch('/api/v1/code-wizard/check-credentials', {
-        method: 'GET',
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setHasCredentials(data.has_credentials);
-      }
-    } catch {
-      setHasCredentials(false);
-    }
-  };
 
   const handleGenerate = async () => {
     if (!description.trim()) {
@@ -89,6 +89,7 @@ export function CodeWizardModal({
         body: JSON.stringify({
           description: description,
           input_variables: inputVariables,
+          model_id: selectedModelId || null,
         }),
       });
 
@@ -126,6 +127,10 @@ export function CodeWizardModal({
   };
 
   if (!isOpen) return null;
+  const disableGenerate =
+    isLoading ||
+    !description.trim() ||
+    (!loadingModels && chatModelOptions.length === 0);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
@@ -165,6 +170,15 @@ export function CodeWizardModal({
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽: 설명 입력 */}
           <div className="w-1/2 p-5 border-r border-gray-200 flex flex-col">
+            <WizardModelSelect
+              containerClassName="mb-3"
+              value={selectedModelId}
+              onChange={setSelectedModelId}
+              models={chatModelOptions}
+              groupedModels={groupedModelOptions}
+              loading={loadingModels}
+              disabled={hasCredentials === false}
+            />
             <label className="text-sm font-semibold text-gray-700 mb-2">
               원하는 기능 설명
             </label>
@@ -205,7 +219,7 @@ export function CodeWizardModal({
               ) : (
                 <button
                   onClick={handleGenerate}
-                  disabled={isLoading || !description.trim()}
+                  disabled={disableGenerate}
                   className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                 >
                   {isLoading ? (
