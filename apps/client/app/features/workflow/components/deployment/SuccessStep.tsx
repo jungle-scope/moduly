@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Copy, Eye, EyeOff, Clock, Globe } from 'lucide-react';
-import { DeploymentResult, DeploymentType } from './types';
+import { DeploymentResult } from './types';
+import { DeploymentType } from '../../types/Deployment';
 import { formatCronExpression } from './utils';
 
 interface SuccessStepProps {
@@ -109,9 +110,7 @@ ${authHeader}  -d '{
   };
 
   // Webhook trigger detection
-  const isWebhookTrigger =
-    deploymentType === 'api' &&
-    result.graph_snapshot?.nodes?.some((n: any) => n.type === 'webhookTrigger');
+  const isWebhookTrigger = deploymentType === 'webhook';
 
   return (
     <>
@@ -235,7 +234,7 @@ ${authHeader}  -d '{
         )}
 
         {/* Schedule Trigger Deployment */}
-        {deploymentType === 'SCHEDULE' && (
+        {deploymentType === 'schedule' && (
           <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
             {/* Header */}
             <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
@@ -454,7 +453,7 @@ ${authHeader}  -d '{
         {!result.webAppUrl &&
           !result.embedUrl &&
           !result.isWorkflowNode &&
-          deploymentType !== 'SCHEDULE' &&
+          deploymentType !== 'schedule' &&
           !isWebhookTrigger && (
             <div className="grid grid-cols-2 gap-6">
               {/* Left Column - API Information */}

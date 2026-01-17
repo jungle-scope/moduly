@@ -92,6 +92,15 @@ class WorkflowEngine:
         [FIX] 메모리 누수 방지를 위해 모든 참조를 명시적으로 정리합니다.
         Celery 태스크에서 finally 블록에서 호출되어야 합니다.
         """
+        # [FIX] 노드 인스턴스 내부의 서브그래프 엔진도 정리 (LoopNode 등)
+        for node_instance in self.node_instances.values():
+            if (
+                hasattr(node_instance, "_subgraph_engine")
+                and node_instance._subgraph_engine
+            ):
+                node_instance._subgraph_engine.cleanup()
+                node_instance._subgraph_engine = None
+
         # 노드 관련 정리
         self.node_instances.clear()
         self.node_schemas.clear()
@@ -128,39 +137,6 @@ class WorkflowEngine:
                 raise ValueError(event["data"]["message"])
 
         return final_context
-
-    async def execute_subgraph(
-        self,
-        nodes: List[Dict],
-        edges: List[Dict],
-        initial_inputs: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """
-        서브그래프를 독립적인 워크플로우로 실행
-        Loop 노드나 Workflow 노드에서 사용
-
-        Args:
-            nodes: 서브그래프의 노드 리스트
-            edges: 서브그래프의 엣지 리스트
-            initial_inputs: 서브그래프 시작 시 입력 변수
-
-        Returns:
-            서브그래프 실행 결과
-        """
-        # 새로운 WorkflowEngine 인스턴스 생성 (독립적인 실행 컨텍스트)
-        subgraph_engine = WorkflowEngine(
-            graph={"nodes": nodes, "edges": edges},
-            user_input=initial_inputs,
-            execution_context=self.execution_context.copy(),
-            is_deployed=self.is_deployed,
-            db=self.execution_context.get("db"),
-            parent_run_id=self.execution_context.get("workflow_run_id"),
-            workflow_timeout=self.workflow_timeout,
-        )
-
-        # 서브그래프 실행
-        result = await subgraph_engine.execute()
-        return result
 
     async def execute_stream(self):
         """
@@ -438,7 +414,14 @@ class WorkflowEngine:
         # [실시간 스트리밍] node_start 이벤트를 Task 생성 시점(실행 시작 전)에 즉시 전송
         # [FIX] 서브 워크플로우에서는 노드 로깅도 스킵 (UI 간섭 방지)
         if not self.is_subworkflow:
-            self.logger.create_node_log(node_id, node_schema.type, inputs)
+            # [NEW] 노드 옵션 스냅샷 추출 (실행 시점 설정 기록용)
+            node_options_snapshot = self._extract_node_options(node_schema)
+            self.logger.create_node_log(
+                node_id,
+                node_schema.type,
+                inputs,
+                process_data=node_options_snapshot,
+            )
 
         # [FIX] Redis Pub/Sub으로 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
         run_id = self.execution_context.get("workflow_run_id")
@@ -795,3 +778,27 @@ class WorkflowEngine:
         #     "배포된 워크플로우에는 실행된 AnswerNode가 필요합니다. "
         #     "조건 분기로 인해 AnswerNode가 실행되지 않았거나, AnswerNode가 워크플로우에 없습니다."
         # )
+
+    def _extract_node_options(self, node_schema) -> Dict[str, Any]:
+        """
+        노드 설정을 process_data용 스냅샷으로 추출합니다.
+        실행 시점의 노드 옵션을 로그에 저장하여 디버깅/분석에 활용합니다.
+
+        Args:
+            node_schema: 노드 스키마 (NodeSchema)
+
+        Returns:
+            노드 옵션 스냅샷 딕셔너리
+        """
+        try:
+            # node_schema.data를 그대로 복사
+            data = dict(node_schema.data) if node_schema.data else {}
+
+            return {
+                "node_options": data,
+                "node_title": data.get("title", ""),
+            }
+        except Exception as e:
+            # 스냅샷 추출 실패 시에도 워크플로우 실행은 계속
+            print(f"[WorkflowEngine] 노드 옵션 스냅샷 추출 실패: {e}")
+            return {}

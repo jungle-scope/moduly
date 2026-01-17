@@ -109,7 +109,11 @@ class WorkflowNode(Node[WorkflowNodeData]):
             is_subworkflow=True,  # [FIX] 서브 워크플로우 표시 - Redis 이벤트 발행 스킵
         )
 
-        result = asyncio.run(engine.execute())
+        # [FIX] 메모리 누수 방지: 서브 워크플로우 실행 후 명시적 cleanup
+        try:
+            result = asyncio.run(engine.execute())
+        finally:
+            engine.cleanup()
 
         # 출력 통일: 항상 'result' 키로 반환
         # 서브 워크플로우의 출력값 구조와 관계없이 일관된 출력 제공
