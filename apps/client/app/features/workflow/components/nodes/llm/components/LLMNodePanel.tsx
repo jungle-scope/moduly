@@ -17,11 +17,7 @@ import {
   sanitizeSelectedKnowledgeBases,
   isSameKnowledgeSelection,
 } from '@/app/features/workflow/utils/llmKnowledgeBaseSelection';
-import {
-  groupModelsByProvider,
-  isChatModelOption,
-  type ModelOption,
-} from '@/app/features/workflow/utils/llmModelUtils';
+import type { ModelOption } from '@/app/features/workflow/utils/llmModelUtils';
 
 interface LLMNodePanelProps {
   nodeId: string;
