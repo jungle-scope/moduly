@@ -21,6 +21,7 @@ class ExecuteRequest(BaseModel):
     timeout: int = Field(default=10, ge=1, le=60, description="타임아웃 (초)")
     priority: str = Field(default="normal", description="우선순위 (high, normal, low)")
     enable_network: bool = Field(default=False, description="네트워크 허용 여부")
+    tenant_id: Optional[str] = Field(default=None, description="테넌트 ID, 지금은 user_id (공정 스케줄링용)")
 
 
 class ExecuteResponse(BaseModel):
@@ -75,6 +76,7 @@ async def execute_code(request: ExecuteRequest):
             timeout=request.timeout,
             priority=priority,
             enable_network=request.enable_network,
+            tenant_id=request.tenant_id,
         )
         
         return ExecuteResponse(

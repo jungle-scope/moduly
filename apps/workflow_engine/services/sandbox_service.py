@@ -54,6 +54,7 @@ class SandboxService:
         cpu_quota: int = 50000,   # 호환성 유지 (미사용)
         priority: str = "normal",
         enable_network: bool = False,
+        tenant_id: str = None,
     ) -> Dict[str, Any]:
         """
         파이썬 코드를 Moduly Sandbox API에서 안전하게 실행
@@ -66,6 +67,7 @@ class SandboxService:
             cpu_quota: CPU 할당량 (미사용, 호환성 유지)
             priority: 우선순위 ("high", "normal", "low")
             enable_network: 네트워크 허용 여부
+            tenant_id: 테넌트 ID (공정 스케줄링용)
 
         Returns:
             실행 결과 딕셔너리 또는 에러 딕셔너리
@@ -80,6 +82,7 @@ class SandboxService:
             "timeout": timeout,
             "priority": priority,
             "enable_network": enable_network,
+            "tenant_id": tenant_id,
         }
 
         # 타임아웃 설정

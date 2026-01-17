@@ -55,8 +55,13 @@ class CodeNode(Node[CodeNodeData]):
                 return {"error": f"Invalid variable source format: {inp.source}"}
 
         # 2. 샌드박스에서 코드 실행
+        tenant_id = self.execution_context.get("user_id") if self.execution_context else None
+        
         result = self.sandbox_service.execute_python_code(
-            code=self.data.code, inputs=code_inputs, timeout=self.data.timeout
+            code=self.data.code,
+            inputs=code_inputs,
+            timeout=self.data.timeout,
+            tenant_id=tenant_id,
         )
 
         return result
