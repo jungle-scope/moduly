@@ -42,7 +42,7 @@ class DockerSandboxService:
             sandbox_url: Sandbox API URL (기본값: 환경변수 SANDBOX_URL)
         """
         self.sandbox_url = sandbox_url or os.getenv(
-            "SANDBOX_URL", "http://sandbox-service:8194"
+            "SANDBOX_URL", "http://localhost:8194"
         )
 
     def execute_python_code(
