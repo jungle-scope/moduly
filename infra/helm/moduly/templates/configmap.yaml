@@ -37,8 +37,16 @@ data:
   NODE_ENV: {{ .Values.gateway.env.NODE_ENV | default "production" | quote }}
   
   # Next.js API URL (for frontend)
+  {{- if .Values.frontend.env.NEXT_PUBLIC_API_URL }}
+  NEXT_PUBLIC_API_URL: {{ .Values.frontend.env.NEXT_PUBLIC_API_URL | quote }}
+  {{- else }}
   NEXT_PUBLIC_API_URL: {{ printf "http://%s-gateway:%d" (include "moduly.fullname" .) (.Values.gateway.service.port | int) | quote }}
+  {{- end }}
+  {{- if .Values.frontend.env.API_URL }}
+  API_URL: {{ .Values.frontend.env.API_URL | quote }}
+  {{- else }}
   API_URL: {{ printf "http://%s-gateway:%d" (include "moduly.fullname" .) (.Values.gateway.service.port | int) | quote }}
+  {{- end }}
   
   # Sandbox proxy configuration
   HTTP_PROXY: {{ .Values.sandbox.env.HTTP_PROXY | default "http://localhost:3128" | quote }}

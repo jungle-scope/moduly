@@ -44,6 +44,9 @@ postgresql:
     persistence:
       enabled: true
       size: 2Gi  # Smaller for local testing
+    # Fix: Allow writable filesystem for lock files
+    containerSecurityContext:
+      readOnlyRootFilesystem: false
 
 # =============================================================================
 # Redis Configuration (Use embedded chart for local)
@@ -52,10 +55,18 @@ redis:
   enabled: true
   auth:
     password: redis123
+  # Override image to use existing version
+  image:
+    registry: docker.io
+    repository: bitnami/redis
+    tag: latest  # Use latest for local testing
   master:
     persistence:
       enabled: true
       size: 500Mi  # Smaller for local testing
+    # Fix: Allow writable filesystem for lock files
+    containerSecurityContext:
+      readOnlyRootFilesystem: false
 
 # =============================================================================
 # Resource Limits (Reduced for local environments)
@@ -69,6 +80,10 @@ gateway:
     requests:
       cpu: 100m
       memory: 128Mi
+  # Override environment for localhost port-forward testing
+  env:
+    CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+    SANDBOX_URL: "http://localhost:8194"  # Port-forward sandbox
 
 worker:
   replicas: 1  # Single replica for local
@@ -79,6 +94,9 @@ worker:
     requests:
       cpu: 100m
       memory: 128Mi
+  # Override environment for localhost
+  env:
+    SANDBOX_URL: "http://localhost:8194"
 
 logger:
   replicas: 1
@@ -99,6 +117,12 @@ frontend:
     requests:
       cpu: 100m
       memory: 128Mi
+  # Override API URL for local port-forward testing
+  env:
+    # Client-side (browser) API URL
+    NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    # Server-side (SSR) API URL - uses Kubernetes service
+    API_URL: "http://my-moduly-gateway:8000"
 
 sandbox:
   replicas: 1
@@ -115,10 +139,3 @@ sandbox:
 # =============================================================================
 ingress:
   enabled: false
-
-# =============================================================================
-# CORS Configuration (Allow localhost)
-# =============================================================================
-gateway:
-  env:
-    CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
