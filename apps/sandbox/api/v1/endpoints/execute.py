@@ -44,6 +44,7 @@ class MetricsResponse(BaseModel):
     current_workers: int
     min_workers: int
     max_workers: int
+    ema_rps: float
 
 
 @router.post("/execute", response_model=ExecuteResponse)

@@ -21,10 +21,12 @@ class SandboxSettings:
     # Queue 설정
     MAX_QUEUE_SIZE: int = int(os.getenv("SANDBOX_MAX_QUEUE_SIZE", "100"))
     
-    # 동적 워커 스케일링
-    SCALING_INTERVAL: int = int(os.getenv("SANDBOX_SCALING_INTERVAL", "5"))  # 스케일링 체크 주기 (초)
-    SCALE_UP_THRESHOLD: float = float(os.getenv("SANDBOX_SCALE_UP_THRESHOLD", "0.8"))  # 큐/워커 비율이 이 이상이면 Scale Up
-    SCALE_DOWN_IDLE_TIME: int = int(os.getenv("SANDBOX_SCALE_DOWN_IDLE_TIME", "30"))  # 이 시간(초) 동안 유휴 상태면 Scale Down
+    # 동적 워커 스케일링 (EMA 기반)
+    SCALING_INTERVAL: int = int(os.getenv("SANDBOX_SCALING_INTERVAL", "1"))  # EMA 계산 주기 (초)
+    EMA_ALPHA: float = float(os.getenv("SANDBOX_EMA_ALPHA", "0.2"))  # EMA 가중치 (0~1, 높을수록 최근값 반영)
+    TARGET_RPS_PER_WORKER: float = float(os.getenv("SANDBOX_TARGET_RPS_PER_WORKER", "2.0"))  # 워커당 목표 RPS
+    SCALE_DOWN_COOLDOWN: int = int(os.getenv("SANDBOX_SCALE_DOWN_COOLDOWN", "30"))  # Scale Down 후 쿨다운 (초)
+    SCALE_DOWN_IDLE_TIME: int = int(os.getenv("SANDBOX_SCALE_DOWN_IDLE_TIME", "30"))  # 유휴 시간 (Scale Down 기준)
     
     # NSJail 설정
     NSJAIL_PATH: str = os.getenv("SANDBOX_NSJAIL_PATH", "/usr/bin/nsjail")

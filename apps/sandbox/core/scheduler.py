@@ -1,9 +1,10 @@
 """
-Sandbox Scheduler - Priority Queue + Dynamic Worker Pool Manager
+Sandbox Scheduler - Priority Queue + EMA-Based Dynamic Worker Pool Manager
 """
 import asyncio
 import heapq
 import logging
+import math
 import time
 from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, Optional
@@ -25,7 +26,7 @@ class SandboxScheduler:
     주요 기능:
     1. Priority Queue: 우선순위 기반 작업 관리
     2. Worker Pool: ProcessPoolExecutor로 동시 실행 관리
-    3. Dynamic Scaling: 부하에 따른 워커 수 자동 조절
+    3. EMA-Based Dynamic Scaling: 요청 수의 이동평균 기반 워커 수 자동 조절
     4. Backpressure: 과부하 시 요청 거부
     5. Metrics: 실행 통계 수집
     """
@@ -37,7 +38,7 @@ class SandboxScheduler:
         self._queue: list[Job] = []
         self._queue_lock = asyncio.Lock()
         
-        # Worker Pool (MAX_WORKERS로 생성, 논리적으로 제한)
+        # Worker Pool
         self._executor: Optional[ProcessPoolExecutor] = None
         self._current_workers = settings.MIN_WORKERS
         
@@ -54,8 +55,11 @@ class SandboxScheduler:
         self._total_completed = 0
         self._total_failed = 0
         
-        # 동적 스케일링 상태
-        self._last_busy_time = time.time()  # 마지막으로 바쁜 상태였던 시간
+        # EMA 기반 스케일링 상태
+        self._requests_this_interval = 0  # 현재 인터벌 동안의 요청 수
+        self._ema_rps = 0.0  # 지수 이동 평균 RPS
+        self._last_busy_time = time.time()
+        self._last_scale_down_time = 0.0  # Scale Down 쿨다운용
         self._scaling_task: Optional[asyncio.Task] = None
         
         # 상태
@@ -75,11 +79,10 @@ class SandboxScheduler:
             return
         
         self._running = True
-        # MAX_WORKERS로 풀을 생성하되, 논리적으로 _current_workers만큼만 사용
         self._executor = ProcessPoolExecutor(max_workers=settings.MAX_WORKERS)
         self._worker_task = asyncio.create_task(self._worker_loop())
         self._scaling_task = asyncio.create_task(self._scaling_loop())
-        logger.info(f"Sandbox Scheduler started with {self._current_workers}/{settings.MAX_WORKERS} workers")
+        logger.info(f"Sandbox Scheduler started with {self._current_workers}/{settings.MAX_WORKERS} workers (EMA-based scaling)")
     
     async def stop(self):
         """스케줄러 중지"""
@@ -139,6 +142,9 @@ class SandboxScheduler:
         if len(self._queue) >= settings.MAX_QUEUE_SIZE:
             raise ValueError("Service overloaded, please retry later")
         
+        # EMA 계산용 요청 카운터 증가
+        self._requests_this_interval += 1
+        
         # Job 생성
         loop = asyncio.get_event_loop()
         future = loop.create_future()
@@ -180,13 +186,11 @@ class SandboxScheduler:
                 job = await self._get_next_job()
                 
                 if job is None:
-                    # 큐가 비었으면 잠시 대기
                     await asyncio.sleep(0.1)
                     continue
                 
-                # 워커 제한 체크 (동적으로 조절되는 _current_workers 사용)
+                # 워커 제한 체크
                 if self._running_count >= self._current_workers:
-                    # 워커가 모두 바쁘면 다시 큐에 넣고 대기
                     async with self._queue_lock:
                         heapq.heappush(self._queue, job)
                     await asyncio.sleep(0.05)
@@ -194,7 +198,7 @@ class SandboxScheduler:
                 
                 # 비동기로 실행
                 self._running_count += 1
-                self._last_busy_time = time.time()  # 바쁜 상태 갱신
+                self._last_busy_time = time.time()
                 
                 if job.tenant_id:
                     self._tenant_running[job.tenant_id] = \
@@ -210,36 +214,56 @@ class SandboxScheduler:
     
     async def _scaling_loop(self):
         """
-        동적 워커 스케일링 루프
+        EMA 기반 동적 워커 스케일링 루프
         
-        주기적으로 부하를 체크하고 워커 수를 조절합니다.
+        매 인터벌마다:
+        1. 현재 인터벌의 RPS 계산
+        2. EMA 업데이트
+        3. 필요한 워커 수 계산 및 조정
         """
         while self._running:
             try:
                 await asyncio.sleep(settings.SCALING_INTERVAL)
                 
-                queue_size = len(self._queue)
-                running = self._running_count
+                # 1. 현재 인터벌의 RPS 계산
+                current_rps = self._requests_this_interval / settings.SCALING_INTERVAL
+                self._requests_this_interval = 0  # 카운터 리셋
+                
+                # 2. EMA 업데이트: EMA = alpha * current + (1 - alpha) * prev_EMA
+                alpha = settings.EMA_ALPHA
+                self._ema_rps = (alpha * current_rps) + ((1 - alpha) * self._ema_rps)
+                
+                # 3. 필요한 워커 수 계산
+                target_rps = settings.TARGET_RPS_PER_WORKER
+                required_workers = max(
+                    settings.MIN_WORKERS,
+                    min(
+                        settings.MAX_WORKERS,
+                        math.ceil(self._ema_rps / target_rps) if target_rps > 0 else settings.MIN_WORKERS
+                    )
+                )
+                
                 current = self._current_workers
+                now = time.time()
                 
-                # Scale Up 조건: 대기열이 많고 워커가 꽉 찬 상태
-                if queue_size > 0 and running >= current:
-                    # 현재 워커 수 대비 대기열 비율
-                    load_ratio = queue_size / max(current, 1)
-                    
-                    if load_ratio >= settings.SCALE_UP_THRESHOLD and current < settings.MAX_WORKERS:
-                        new_workers = min(current + 1, settings.MAX_WORKERS)
-                        self._current_workers = new_workers
-                        logger.info(f"Scale UP: {current} → {new_workers} workers (queue={queue_size}, running={running})")
+                # 4. Scale Up (즉시 반응)
+                if required_workers > current:
+                    self._current_workers = required_workers
+                    logger.info(f"Scale UP: {current} → {required_workers} workers (EMA RPS={self._ema_rps:.2f})")
                 
-                # Scale Down 조건: 일정 시간 동안 유휴 상태
-                elif queue_size == 0 and running == 0:
-                    idle_time = time.time() - self._last_busy_time
+                # 5. Scale Down (쿨다운 적용 + 유휴 상태 확인)
+                elif required_workers < current:
+                    # 쿨다운 체크
+                    time_since_last_scale_down = now - self._last_scale_down_time
+                    if time_since_last_scale_down < settings.SCALE_DOWN_COOLDOWN:
+                        continue
                     
-                    if idle_time >= settings.SCALE_DOWN_IDLE_TIME and current > settings.MIN_WORKERS:
-                        new_workers = max(current - 1, settings.MIN_WORKERS)
-                        self._current_workers = new_workers
-                        logger.info(f"Scale DOWN: {current} → {new_workers} workers (idle for {idle_time:.1f}s)")
+                    # 유휴 상태 체크 (대기열 없고 실행 중 없음)
+                    idle_time = now - self._last_busy_time
+                    if len(self._queue) == 0 and self._running_count == 0 and idle_time >= settings.SCALE_DOWN_IDLE_TIME:
+                        self._current_workers = required_workers
+                        self._last_scale_down_time = now
+                        logger.info(f"Scale DOWN: {current} → {required_workers} workers (EMA RPS={self._ema_rps:.2f}, idle={idle_time:.1f}s)")
                 
             except asyncio.CancelledError:
                 break
@@ -258,7 +282,6 @@ class SandboxScheduler:
             if job.tenant_id:
                 current = self._tenant_running.get(job.tenant_id, 0)
                 if current >= self._max_per_tenant:
-                    # 다시 큐에 넣고 None 반환
                     heapq.heappush(self._queue, job)
                     return None
             
@@ -267,7 +290,6 @@ class SandboxScheduler:
     async def _execute_job(self, job: Job, loop: asyncio.AbstractEventLoop):
         """작업 실행 및 결과 반환"""
         try:
-            # ProcessPoolExecutor에서 실행
             result = await loop.run_in_executor(
                 self._executor,
                 execute_code,
@@ -278,7 +300,6 @@ class SandboxScheduler:
                 job.job_id,
             )
             
-            # 결과 전달
             if not job.future.done():
                 job.future.set_result(result)
             
@@ -323,4 +344,5 @@ class SandboxScheduler:
             "current_workers": self._current_workers,
             "min_workers": settings.MIN_WORKERS,
             "max_workers": settings.MAX_WORKERS,
+            "ema_rps": round(self._ema_rps, 2),
         }
