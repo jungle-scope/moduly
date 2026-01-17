@@ -60,6 +60,9 @@ celery_app.conf.update(
     worker_concurrency=16,  # [FIX] 동시 실행 워커 수 증가 (4 → 16)
     # 결과 설정
     result_expires=3600,  # 결과 만료 시간 (1시간)
+    # [NEW] 메모리 누수 방지 설정 (워커 재시작)
+    worker_max_tasks_per_child=100,  # 100개 태스크 처리 후 워커 재시작
+    worker_max_memory_per_child=300000,  # 300MB 초과 시 재시작 (KB 단위)
     # Heartbeat 설정 (LLM/Code 노드 실행 시 안정성 향상)
     broker_heartbeat=120,  # 브로커 heartbeat 간격 (기본 60초 → 120초)
     worker_send_task_events=True,  # 워커 이벤트 전송

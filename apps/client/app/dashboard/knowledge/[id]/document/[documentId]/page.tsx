@@ -384,7 +384,8 @@ export default function DocumentSettingsPage() {
             }
           }
 
-          if (doc.meta_info) {
+          // SSE가 연결된 상태(indexing)에서는 Polling으로 진행률을 덮어쓰지 않음
+          if (doc.status !== 'indexing' && doc.meta_info) {
             if (typeof doc.meta_info.processing_progress === 'number') {
               setProgress(doc.meta_info.processing_progress);
             }

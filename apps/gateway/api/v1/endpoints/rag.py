@@ -380,6 +380,7 @@ async def get_document_progress(
     import json
 
     from fastapi.responses import StreamingResponse
+    from apps.shared.pubsub import get_redis_client
 
     async def event_generator():
         while True:
@@ -390,13 +391,27 @@ async def get_document_progress(
                 yield 'data: {"error": "Document not found"}\n\n'
                 break
 
-            # 2. meta_info에서 진행 정보 가져오기
+            # 2. Redis에서 실시간 진행률 조회
+            redis_client = get_redis_client()
+            redis_key = f"knowledge_progress:{document_id}"
+            
+            redis_progress = redis_client.get(redis_key)
+            
+            # 3. 진행률 결정 (Redis 값)
+            if redis_progress:
+                try:
+                    progress = int(redis_progress)
+                except ValueError:
+                    progress = 9
+            else:
+                 progress = 10
+
+            # 메타 정보에서는 메시지만 가져옴
             meta = doc.meta_info or {}
-            progress = meta.get("processing_progress", 0)
-            step_message = meta.get("processing_current_step", "대기 중...")
+            step_message = meta.get("processing_current_step", "처리 중...")
             status = doc.status
 
-            # 3. 데이터 전송 포맷 (SSE 표준: "data: ...\n\n")
+            # 4. 데이터 전송 포맷 (SSE 표준: "data: ...\n\n")
             data = json.dumps(
                 {
                     "progress": progress,
@@ -558,7 +573,7 @@ def _prepare_api_source(
 
     import json
 
-    from core.security import security_service
+    from apps.shared.utils.encryption import encryption_manager as security_service
 
     # 헤더 처리 (JSON 파싱 및 암호화)
     encrypted_headers = None

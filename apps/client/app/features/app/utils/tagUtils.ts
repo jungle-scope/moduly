@@ -1,8 +1,9 @@
 import { App } from '../api/appApi';
+import { DeploymentType } from '../../workflow/types/Deployment';
 
 export interface ModuleTag {
   label: string;
-  type: 'api' | 'webapp' | 'widget' | 'workflow_node' | 'undeployed';
+  type: DeploymentType | 'undeployed';
 }
 
 export function getModuleTags(app: App): ModuleTag[] {
@@ -18,7 +19,8 @@ export function getModuleTags(app: App): ModuleTag[] {
       webapp: { label: '웹 앱', type: 'webapp' },
       widget: { label: '챗봇', type: 'widget' },
       workflow_node: { label: '서브 모듈', type: 'workflow_node' },
-      // mcp는 현재 태그로 표시하지 않음
+      webhook: { label: '웹훅', type: 'webhook' },
+      schedule: { label: '알람', type: 'schedule' },
     };
 
     const tag = deploymentTagMap[app.active_deployment_type];

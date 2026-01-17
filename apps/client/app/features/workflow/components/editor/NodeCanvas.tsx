@@ -113,8 +113,13 @@ export default function NodeCanvas() {
     selectedInnerNode,
   } = useWorkflowStore();
 
-  const { fitView, setViewport, getViewport, screenToFlowPosition, deleteElements } =
-    useReactFlow();
+  const {
+    fitView,
+    setViewport,
+    getViewport,
+    screenToFlowPosition,
+    deleteElements,
+  } = useReactFlow();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
   const [searchModalContext, setSearchModalContext] = useState<{
@@ -139,6 +144,7 @@ export default function NodeCanvas() {
     hasProviderKey,
     memoryModeDescription,
     toggleMemoryMode,
+    appendMemoryFlag,
     modals: memoryModeModals,
   } = useMemoryMode(router, toast);
 
@@ -158,6 +164,7 @@ export default function NodeCanvas() {
     handlePublishAsWidget,
     handlePublishAsWorkflowNode,
     handlePublishAsSchedule,
+    handlePublishAsWebhook,
     handleDeploy,
   } = useDeployment({
     nodes,
@@ -787,7 +794,7 @@ export default function NodeCanvas() {
                           {/* Webhook Trigger Deployment */}
                           {startNode?.type === 'webhookTrigger' && (
                             <button
-                              onClick={handlePublishAsRestAPI}
+                              onClick={handlePublishAsWebhook}
                               className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                             >
                               <div className="font-medium text-gray-900">
@@ -806,7 +813,7 @@ export default function NodeCanvas() {
                               className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                             >
                               <div className="font-medium text-gray-900">
-                                스케줄로 개시하기
+                                알람으로 개시하기
                               </div>
                               <div className="text-sm text-gray-500 mt-1">
                                 설정된 주기에 따라 실행
@@ -1150,7 +1157,7 @@ export default function NodeCanvas() {
       {/* Sidebars */}
       <SettingsSidebar />
       <VersionHistorySidebar />
-      <TestSidebar />
+      <TestSidebar appendMemoryFlag={appendMemoryFlag} />
 
       {/* Deployment Flow Modal */}
       <DeploymentFlowModal

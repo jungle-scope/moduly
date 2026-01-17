@@ -180,7 +180,7 @@ class LoopNode(Node[LoopNodeData]):
         스코프 기반 서브그래프 실행
         매번 새 엔진을 생성하지 않고 변수 컨텍스트만 변경
         """
-        from workflow.core.workflow_engine import WorkflowEngine
+        from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
         # 첫 실행 시에만 엔진 생성
         if self._subgraph_engine is None:
