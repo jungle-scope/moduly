@@ -870,10 +870,30 @@ export default function DocumentSettingsPage() {
               </div>
             </div>
           ) : (
-            <ChunkPreviewList
-              previewSegments={previewSegments}
-              isLoading={isPreviewLoading}
-            />
+            <div className="flex flex-col h-full">
+              {parsingStrategy === 'llamaparse' && (
+                <div className="flex-none px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-start gap-3">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="text-xs text-amber-800 leading-relaxed">
+                    <p className="font-semibold mb-0.5">미리보기 제한 안내</p>
+                    <p>
+                      빠른 속도를 위해{' '}
+                      <span className="font-bold underline">첫 5페이지</span>만
+                      분석하여 보여줍니다.
+                      <br />
+                      실제 처리(저장) 시에는 전체 문서가 정상적으로
+                      인덱싱됩니다.
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="flex-1 min-h-0">
+                <ChunkPreviewList
+                  previewSegments={previewSegments}
+                  isLoading={isPreviewLoading}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>
