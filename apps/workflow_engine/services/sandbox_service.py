@@ -26,7 +26,7 @@ class CodeExecutionError(Exception):
     pass
 
 
-class DockerSandboxService:
+class SandboxService:
     """
     Moduly Sandbox API를 통해 파이썬 코드를 안전하게 실행하는 서비스
     
