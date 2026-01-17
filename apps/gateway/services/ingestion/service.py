@@ -139,6 +139,7 @@ class IngestionOrchestrator:
                 if doc.status == "completed":
                     return
 
+                self._update_progress_redis(document_id, 0)
                 self._update_status(document_id, "indexing")
 
                 # 문서 소스 타입에 맞는 Processor 생성
@@ -200,6 +201,9 @@ class IngestionOrchestrator:
 
                 self._save_to_vector_db(doc, filtered_chunks)
                 self._update_status(document_id, "completed")
+                self._update_progress_redis(
+                    document_id, 100, expire=True
+                )  # 완료 시 키 만료 또는 100 유지 후 만료
 
             except Exception as e:
                 logger.error(
@@ -207,10 +211,35 @@ class IngestionOrchestrator:
                 )
                 self.db.rollback()
                 self._update_status(document_id, "failed", str(e))
+                self._update_progress_redis(
+                    document_id, 0, expire=True
+                )  # 실패 시 진행률 키 즉시 만료
 
             finally:
                 if session:
                     session.close()
+
+    def _update_progress_redis(
+        self, document_id: UUID, progress: int, expire: bool = False
+    ):
+        """
+        진행률을 Redis에 저장 (DB 과부하 방지)
+        """
+        from apps.shared.pubsub import get_redis_client
+
+        try:
+            redis_client = get_redis_client()
+            key = f"knowledge_progress:{document_id}"
+
+            if expire:
+                redis_client.delete(key)
+                return
+
+            # 진행률 저장
+            redis_client.set(key, str(progress), ex=600)
+            # print(f"[DEBUG] Redis Progress Update: {key} -> {progress}%")
+        except Exception as e:
+            print(f"[WARNING] Failed to update progress in Redis: {e}")
 
     def resume_processing(self, document_id: UUID, strategy: str):
         """
@@ -503,11 +532,9 @@ class IngestionOrchestrator:
             # 진행률 업데이트 (임베딩 80% 비중)
             current_processed = sum(len(b) for b in batches[: batch_idx + 1])
             progress = int((current_processed / len(chunks)) * 80)
-            # processing_progress 필드로 통일
-            new_meta = dict(doc.meta_info or {})
-            new_meta["processing_progress"] = progress
-            doc.meta_info = new_meta
-            self.db.commit()
+
+            # Redis에 진행률 저장
+            self._update_progress_redis(doc.id, progress)
 
             if llm_client:
                 # 배치 임베딩 호출 - 실패 시 즉시 에러 발생 (Raise)
@@ -527,10 +554,8 @@ class IngestionOrchestrator:
             # 10개마다 진행률 업데이트 (나머지 20% 비중)
             if (i + 1) % 10 == 0 or (i + 1) == len(chunks):
                 progress = 80 + int(((i + 1) / len(chunks)) * 20)
-                new_meta = dict(doc.meta_info or {})
-                new_meta["processing_progress"] = progress
-                doc.meta_info = new_meta
-                self.db.commit()
+                # Redis에 진행률 저장
+                self._update_progress_redis(doc.id, progress)
 
             content = chunk["content"]
             embedding = all_embeddings.get(i)
