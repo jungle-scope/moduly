@@ -1,13 +1,13 @@
 import os
 
-from apps.shared.db.session import get_db
-from apps.shared.schemas.auth import LoginRequest, LoginResponse, SignupRequest
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.oauth import oauth
 from apps.gateway.services.auth_service import AuthService
+from apps.shared.db.session import get_db
+from apps.shared.schemas.auth import LoginRequest, LoginResponse, SignupRequest
 
 router = APIRouter()
 
@@ -199,7 +199,6 @@ async def auth_google_callback(
         token = await oauth.google.authorize_access_token(request)
     except Exception as e:
         # 인증 실패 시 로그인 페이지로 리디렉션 (에러 파라미터 포함 등)
-        print(f"OAuth Error: {e}")
         return Response(status_code=400, content=f"OAuth Authentication Failed: {e}")
 
     # 사용자 정보 추출
