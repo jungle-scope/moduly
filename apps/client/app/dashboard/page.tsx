@@ -86,10 +86,10 @@ export default function DashboardHomePage() {
               <BookOpen className="w-6 h-6 text-orange-600" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              지식 DB
+              지식 관리
             </h3>
             <p className="text-gray-600 text-sm">
-              지식과 문서를 관리하세요
+              지식을 관리하세요
             </p>
           </button>
         </div>
