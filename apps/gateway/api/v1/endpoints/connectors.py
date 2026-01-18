@@ -1,3 +1,4 @@
+import logging
 from enum import Enum
 from typing import Any
 
@@ -16,6 +17,7 @@ from apps.shared.schemas.connector import (
 )
 from apps.shared.schemas.connector_detail import DBConnectionDetailResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -78,7 +80,7 @@ async def test_db_connection(request: DBConnectionTestRequest) -> Any:
             )
 
     except Exception as e:
-        print(f"DB Connection Test ERror: {str(e)}")
+        logger.error(f"DB Connection Test Error: {str(e)}")
         return DBConnectionTestResponse(success=False, message=f"연결 실패: {str(e)}")
 
 
@@ -278,5 +280,5 @@ async def get_connection_schema(
         tables = connector.get_schema_info(config)
         return {"tables": tables}
     except Exception as e:
-        print(f"Schema Fetch Error: {str(e)}")
+        logger.error(f"Schema Fetch Error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Failed to fetch schema: {str(e)}")

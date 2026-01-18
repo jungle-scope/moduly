@@ -30,9 +30,21 @@ export const GithubNode = memo(
       const tokenMissing = !data.api_token?.trim();
       const ownerMissing = !data.repo_owner?.trim();
       const repoMissing = !data.repo_name?.trim();
-      const prMissing = !data.pr_number || data.pr_number <= 0;
-      return tokenMissing || ownerMissing || repoMissing || prMissing || hasIncompleteVariables(data.referenced_variables);
-    }, [data.api_token, data.repo_owner, data.repo_name, data.pr_number, data.referenced_variables]);
+      const prMissing = !data.pr_number;
+      return (
+        tokenMissing ||
+        ownerMissing ||
+        repoMissing ||
+        prMissing ||
+        hasIncompleteVariables(data.referenced_variables)
+      );
+    }, [
+      data.api_token,
+      data.repo_owner,
+      data.repo_name,
+      data.pr_number,
+      data.referenced_variables,
+    ]);
 
     return (
       <BaseNode
@@ -56,12 +68,12 @@ export const GithubNode = memo(
                 : 'Repo를 설정하세요'}
             </div>
           </div>
-          {Number(data.pr_number) > 0 && (
+          {data.pr_number && (
             <div className="text-[10px] text-gray-500">
               PR #{data.pr_number}
             </div>
           )}
-          
+
           {hasValidationIssue && <ValidationBadge />}
         </div>
       </BaseNode>

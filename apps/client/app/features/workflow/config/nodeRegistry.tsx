@@ -115,7 +115,14 @@ export const nodeRegistry: NodeDefinition[] = [
       assistant_prompt: '',
       referenced_variables: [],
       context_variable: '',
-      parameters: {},
+      parameters: {
+        temperature: 0.7,
+        top_p: 1.0,
+        max_tokens: 4096,
+        presence_penalty: 0.0,
+        frequency_penalty: 0.0,
+        stop: [],
+      },
     }),
   },
 

@@ -1,4 +1,5 @@
 # 실제 Postgres(Supabase) 연결 로직
+import logging
 from io import StringIO
 
 import paramiko
@@ -7,6 +8,8 @@ from sqlalchemy.engine import URL
 from sshtunnel import SSHTunnelForwarder
 
 from .base import BaseConnector
+
+logger = logging.getLogger(__name__)
 
 
 class PostgresConnector(BaseConnector):
@@ -65,7 +68,7 @@ class PostgresConnector(BaseConnector):
                 conn.execute(text("SELECT 1"))
             return True
         except Exception as e:
-            print(f"Postgres Connection failed: {e}")
+            logger.error(f"Postgres Connection failed: {e}")
             raise e
         finally:
             if engine:

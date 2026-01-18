@@ -118,7 +118,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
   }, [data.repo_name]);
 
   const prMissing = useMemo(() => {
-    return !data.pr_number || data.pr_number <= 0;
+    return !data.pr_number;
   }, [data.pr_number]);
 
   const incompleteVariables = useMemo(
@@ -270,13 +270,11 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-700">PR 번호</label>
             <input
-              type="number"
+              type="text"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
               placeholder="예) 123"
               value={data.pr_number || ''}
-              onChange={(e) =>
-                handleUpdateData('pr_number', parseInt(e.target.value) || 0)
-              }
+              onChange={(e) => handleUpdateData('pr_number', e.target.value)}
             />
             <p className="text-[10px] text-gray-400">
               💡 <code>{'{{variable}}'}</code> 문법 사용 가능

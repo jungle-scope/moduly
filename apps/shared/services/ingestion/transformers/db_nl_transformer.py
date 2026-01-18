@@ -1,7 +1,10 @@
+import logging
 from typing import Any, Dict, Optional
 
 from apps.shared.services.ingestion.transformers.base import BaseTransformer
 from jinja2 import Template, TemplateSyntaxError, UndefinedError
+
+logger = logging.getLogger(__name__)
 
 
 class DbNlTransformer(BaseTransformer):
@@ -53,7 +56,7 @@ class DbNlTransformer(BaseTransformer):
                 return result.strip()
 
             except (TemplateSyntaxError, UndefinedError) as e:
-                print(f"[ERROR] Template rendering failed: {e}")
+                logger.error(f"Template rendering failed: {e}")
                 # Fallback to default format
 
         # Fallback: key: value 형식

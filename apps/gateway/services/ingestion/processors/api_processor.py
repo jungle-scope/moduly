@@ -1,9 +1,15 @@
+import logging
 from typing import Any, Dict
 
 import requests
 
 from apps.gateway.services.ingestion.parsers.json_parser import JsonParser
-from apps.gateway.services.ingestion.processors.base import BaseProcessor, ProcessingResult
+from apps.gateway.services.ingestion.processors.base import (
+    BaseProcessor,
+    ProcessingResult,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class ApiProcessor(BaseProcessor):
@@ -81,5 +87,5 @@ class ApiProcessor(BaseProcessor):
             )
 
         except Exception as e:
-            print(f"[ApiProcessor] Request failed: {e}")
+            logger.error(f"[ApiProcessor] Request failed: {e}")
             return ProcessingResult(chunks=[], metadata={"error": str(e)})
