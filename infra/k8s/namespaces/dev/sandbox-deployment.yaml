@@ -1,26 +1,18 @@
-# Moduly Sandbox Deployment
+# Moduly Sandbox Deployment (Dev Namespace)
 #
-# NSJail 기반 Python 코드 실행 샌드박스
-# - Fair Scheduler (MLFQ + Round-Robin + Aging)
-# - SJF 기반 우선순위 자동 결정
-# - EMA 기반 동적 워커 스케일링
-#
-# 보안:
-# - NSJail을 통한 프로세스 격리 (Linux namespace, cgroups)
-# - 네트워크 기본 차단 (enable_network 옵션으로 제어)
-# - 비root 사용자 실행
-# - 리소스 제한 (CPU, 메모리, 시간)
-#
-# 주의: NSJail은 privileged 모드 또는 특정 capabilities 필요
+# NSJail 기반 Python 코드 실행 샌드박스 (개발 환경)
+# - 리소스 제한 완화
+# - DEV_MODE=true로 NSJail 없이 직접 실행 가능
 #
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sandbox
+  namespace: dev
   labels:
     app: sandbox
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: sandbox
@@ -31,22 +23,22 @@ spec:
     spec:
       containers:
         - name: sandbox
-          image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-sandbox:latest
+          image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-sandbox:dev
           ports:
             - containerPort: 8194
               name: http
           env:
             # ===== 기본 설정 =====
             - name: SANDBOX_DEV_MODE
-              value: "false" # 프로덕션: NSJail 사용
+              value: "false" # 개발: NSJail 사용 (Prod와 동일)
             - name: TZ
               value: "Asia/Seoul"
 
             # ===== 워커 풀 설정 =====
             - name: SANDBOX_MIN_WORKERS
-              value: "2"
+              value: "1"
             - name: SANDBOX_MAX_WORKERS
-              value: "8"
+              value: "4"
             - name: SANDBOX_WORKER_IDLE_TIMEOUT
               value: "30"
 
@@ -64,59 +56,53 @@ spec:
 
             # ===== 실행 제한 =====
             - name: SANDBOX_DEFAULT_TIMEOUT
-              value: "10"
+              value: "30" # 개발: 여유있게
             - name: SANDBOX_MAX_TIMEOUT
               value: "60"
             - name: SANDBOX_MAX_MEMORY_MB
-              value: "128"
+              value: "256" # 개발: 여유있게
 
             # ===== 큐 설정 =====
             - name: SANDBOX_MAX_QUEUE_SIZE
-              value: "1000"
+              value: "100"
 
             # ===== Fair Scheduler =====
             - name: SANDBOX_MAX_PER_TENANT
-              value: "3"
+              value: "5" # 개발: 여유있게
             - name: SANDBOX_AGING_INTERVAL
               value: "5"
             - name: SANDBOX_AGING_THRESHOLD_LOW
-              value: "15" # LOW → NORMAL 승급 기준 (초)
+              value: "15"
             - name: SANDBOX_AGING_THRESHOLD_NORMAL
-              value: "30" # NORMAL → HIGH 승급 기준 (초)
-            - name: SANDBOX_QUEUE_CLEANUP_INTERVAL
-              value: "300" # 빈 큐 정리 주기 (초)
-            - name: SANDBOX_QUEUE_IDLE_TIMEOUT
-              value: "600" # 빈 큐 삭제 기준 (초)
+              value: "30"
 
           resources:
             requests:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 200m
+              memory: 256Mi
             limits:
-              cpu: 2000m
-              memory: 2Gi
-          # NSJail 실행을 위한 보안 설정
+              cpu: 1000m
+              memory: 1Gi
           securityContext:
-            privileged: true # NSJail namespace 생성을 위해 필요
+            privileged: true
           livenessProbe:
             httpGet:
               path: /v1/sandbox/health
               port: 8194
             initialDelaySeconds: 30
             periodSeconds: 10
-            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /v1/sandbox/health
               port: 8194
             initialDelaySeconds: 10
             periodSeconds: 5
-            failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: sandbox-service
+  namespace: dev
 spec:
   selector:
     app: sandbox
@@ -125,28 +111,3 @@ spec:
       targetPort: 8194
       name: http
   type: ClusterIP
----
-# NetworkPolicy: Sandbox Pod의 외부 통신 제한
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: sandbox-network-policy
-spec:
-  podSelector:
-    matchLabels:
-      app: sandbox
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - podSelector: {}
-      ports:
-        - protocol: TCP
-          port: 8194
-  egress:
-    - ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53

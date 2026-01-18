@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Upload,
   Download,
+  BookOpen,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { LogExecutionPath } from './detail-components/LogExecutionPath';

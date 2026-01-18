@@ -55,9 +55,10 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 
-# 1. Docker Compose (PostgreSQL + Redis) - detached 모드로 시작
-echo -e "${GREEN}📦 인프라 시작 (PostgreSQL + Redis)...${NC}"
+# 1. Docker Compose (PostgreSQL + Redis + Sandbox) - detached 모드로 시작
+echo -e "${GREEN}📦 인프라 시작 (PostgreSQL + Redis + Sandbox)...${NC}"
 docker compose up -d postgres redis pgadmin
+docker compose up -d --build sandbox # 최신 코드를 반영하기 위해 빌드
 
 # PostgreSQL이 준비될 때까지 대기 (최대 30초)
 echo "⏳ PostgreSQL 준비 대기 중..."
@@ -87,8 +88,21 @@ for i in {1..10}; do
     sleep 1
 done
 
+# Sandbox가 준비될 때까지 대기 (최대 60초 - 빌드 포함)
+echo "⏳ Sandbox 준비 대기 중..."
+for i in {1..60}; do
+    if curl -s http://localhost:8194/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Sandbox 준비 완료${NC}"
+        break
+    fi
+    if [ $i -eq 60 ]; then
+        echo -e "${YELLOW}⚠️ Sandbox 시작 지연 - 백그라운드에서 계속 시작됩니다${NC}"
+    fi
+    sleep 1
+done
+
 # Docker Compose 로그를 백그라운드에서 표시
-docker compose logs -f postgres redis &
+docker compose logs -f postgres redis sandbox &
 DOCKER_PID=$!
 
 # 2. Celery Worker (Log-System)
@@ -158,6 +172,7 @@ echo "📌 접속 URL:"
 echo "   - API:        http://localhost:8000"
 echo "   - API 문서:   http://localhost:8000/docs"
 echo "   - 프론트엔드: http://localhost:3000"
+echo "   - Sandbox:    http://localhost:8194"
 echo "   - pgAdmin:    http://localhost:5050"
 echo ""
 echo -e "${YELLOW}Ctrl+C를 누르면 모든 서비스가 종료됩니다.${NC}"

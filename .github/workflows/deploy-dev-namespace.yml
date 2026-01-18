@@ -8,10 +8,12 @@ on:
       - "apps/gateway/**"
       - "apps/workflow_engine/**"
       - "apps/log_system/**"
+      - "apps/sandbox/**"
       - "apps/shared/**"
       - "docker/gateway/**"
       - "docker/workflow_engine/**"
       - "docker/log_system/**"
+      - "docker/sandbox/**"
       - "infra/k8s/namespaces/dev/**"
       - ".github/workflows/deploy-dev-namespace.yml"
 
@@ -28,6 +30,7 @@ on:
           - worker
           - logger
           - frontend
+          - sandbox
 
 env:
   AWS_REGION: ap-northeast-2
@@ -130,6 +133,23 @@ jobs:
 
           echo "image=$ECR_REGISTRY/moduly-client:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+      # 8-1. Sandbox 이미지 빌드 & 푸시
+      - name: Build and push Sandbox image
+        if: github.event.inputs.services == 'sandbox' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
+        id: build-sandbox
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: dev-${{ github.sha }}
+        run: |
+          echo "Building Sandbox image..."
+          docker build -t $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG -f docker/sandbox/Dockerfile .
+          docker push $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG
+
+          docker tag $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG $ECR_REGISTRY/moduly-sandbox:dev-latest
+          docker push $ECR_REGISTRY/moduly-sandbox:dev-latest
+
+          echo "image=$ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
       # 9. dev namespace 생성 (없으면)
       - name: Ensure dev namespace exists
         run: |
@@ -173,6 +193,15 @@ jobs:
             kubectl apply -f infra/k8s/namespaces/dev/frontend-deployment.yaml
             if [ -n "${{ steps.build-frontend.outputs.image }}" ]; then
               kubectl set image deployment/frontend frontend=${{ steps.build-frontend.outputs.image }} -n dev
+            fi
+          fi
+
+          # Sandbox
+          if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+            echo "Deploying Sandbox..."
+            kubectl apply -f infra/k8s/namespaces/dev/sandbox-deployment.yaml
+            if [ -n "${{ steps.build-sandbox.outputs.image }}" ]; then
+              kubectl set image deployment/sandbox sandbox=${{ steps.build-sandbox.outputs.image }} -n dev
             fi
           fi
 
@@ -229,6 +258,10 @@ jobs:
             kubectl rollout status deployment/frontend -n dev --timeout=5m || true
           fi
 
+          if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+            kubectl rollout status deployment/sandbox -n dev --timeout=5m || true
+          fi
+
       # 12. 배포 검증
       - name: Verify deployment
         run: |
@@ -267,4 +300,9 @@ jobs:
           if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
             echo "--- Frontend Logs ---"
             kubectl logs -n dev -l app=frontend --tail=30 || echo "No frontend logs available"
+          fi
+
+          if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+            echo "--- Sandbox Logs ---"
+            kubectl logs -n dev -l app=sandbox --tail=30 || echo "No sandbox logs available"
           fi
