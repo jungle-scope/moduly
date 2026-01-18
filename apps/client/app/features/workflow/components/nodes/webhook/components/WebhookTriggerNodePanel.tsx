@@ -5,7 +5,15 @@ import {
   VariableMapping,
 } from '../../../../types/Nodes';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
-import { Plus, Copy, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
+import {
+  Plus,
+  Copy,
+  Trash2,
+  Eye,
+  EyeOff,
+  HelpCircle,
+  ArrowRight,
+} from 'lucide-react';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { appApi } from '@/app/features/app/api/appApi';
 import { webhookApi } from '@/app/features/workflow/api/webhookApi';
@@ -186,27 +194,6 @@ export function WebhookTriggerNodePanel({
     updateNodeData(nodeId, { variable_mappings: updatedMappings });
   };
 
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    toast.success('Webhook URL이 클립보드에 복사되었습니다!', {
-      duration: 2000,
-    });
-  };
-
-  const handleCopySecret = () => {
-    navigator.clipboard.writeText(authSecret);
-    toast.success('Secret Key가 클립보드에 복사되었습니다!', {
-      duration: 2000,
-    });
-  };
-
-  const handleCopyFullUrl = () => {
-    navigator.clipboard.writeText(webhookUrlWithToken);
-    toast.success('통합 URL이 클립보드에 복사되었습니다!', {
-      duration: 2000,
-    });
-  };
-
   const handleStartCapture = async () => {
     if (!urlSlug) {
       console.error('No url_slug available');
@@ -325,71 +312,120 @@ export function WebhookTriggerNodePanel({
             </div>
           }
         >
-          <div className="space-y-0">
+          <div className="space-y-4">
             {/* URL 형식 토글 */}
-            <div className="pb-3">
-              <div className="flex w-full rounded-md border border-gray-300 bg-gray-50 p-0.5">
-                <PortalTooltip
-                  className="flex-1 flex"
-                  content={
-                    <div>
-                      <strong className="text-purple-300">통합 URL:</strong>{' '}
-                      Jira, Slack 등 URL만 입력 가능한 서비스용 (인증키 포함)
-                    </div>
-                  }
+            <div className="flex w-full rounded-md border border-gray-300 bg-gray-50 p-0.5">
+              <PortalTooltip
+                className="flex-1 flex"
+                content={
+                  <div>
+                    <strong className="text-purple-300">통합 URL:</strong> Jira,
+                    Slack 등 URL만 입력 가능한 서비스용 (인증키 포함)
+                  </div>
+                }
+              >
+                <button
+                  onClick={() => setUrlFormat('integrated')}
+                  className={`flex-1 px-4 py-1.5 text-xs font-medium rounded transition-colors ${
+                    urlFormat === 'integrated'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  <button
-                    onClick={() => setUrlFormat('integrated')}
-                    className={`flex-1 px-4 py-1.5 text-xs font-medium rounded transition-colors ${
-                      urlFormat === 'integrated'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    통합 URL
-                  </button>
-                </PortalTooltip>
-                <PortalTooltip
-                  className="flex-1 flex"
-                  content={
-                    <div>
-                      <strong className="text-blue-300">표준 API:</strong> 자체
-                      개발, GitHub 등 보안과 헤더 설정이 필요한 환경용 (권장)
-                    </div>
-                  }
+                  통합 URL
+                </button>
+              </PortalTooltip>
+              <PortalTooltip
+                className="flex-1 flex"
+                content={
+                  <div>
+                    <strong className="text-blue-300">표준 API:</strong> 자체
+                    개발, GitHub 등 보안과 헤더 설정이 필요한 환경용 (권장)
+                  </div>
+                }
+              >
+                <button
+                  onClick={() => setUrlFormat('standard')}
+                  className={`flex-1 px-4 py-1.5 text-xs font-medium rounded transition-colors ${
+                    urlFormat === 'standard'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
+                  표준 API
+                </button>
+              </PortalTooltip>
+            </div>
+
+            {/* URL Display Area - HTTP Request Style */}
+            <div className="pt-2">
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block">
+                Webhook URL
+              </label>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <textarea
+                    readOnly
+                    className="w-full rounded-md border border-gray-300 px-3 py-[7px] text-sm shadow-sm bg-gray-50 font-mono resize-none h-20 leading-[22px] focus:outline-none"
+                    value={
+                      isLoadingUrl
+                        ? 'URL 생성 중...'
+                        : urlFormat === 'integrated'
+                          ? webhookUrlWithToken
+                          : webhookUrl
+                    }
+                  />
                   <button
-                    onClick={() => setUrlFormat('standard')}
-                    className={`flex-1 px-4 py-1.5 text-xs font-medium rounded transition-colors ${
-                      urlFormat === 'standard'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                    onClick={() => {
+                      const text =
+                        urlFormat === 'integrated'
+                          ? webhookUrlWithToken
+                          : webhookUrl;
+                      navigator.clipboard.writeText(text);
+                      toast.success('URL이 복사되었습니다!');
+                    }}
+                    className="absolute top-2 right-2 p-1.5 hover:bg-gray-200 rounded transition-colors bg-white/50 backdrop-blur-sm"
+                    title="URL 복사"
                   >
-                    표준 API
+                    <Copy className="w-3.5 h-3.5 text-gray-600" />
                   </button>
-                </PortalTooltip>
+                </div>
               </div>
             </div>
 
-            {/* 통합 URL 방식 */}
-            {urlFormat === 'integrated' && (
-              <div className="pt-2">
-                <label className="text-xs font-medium text-gray-700 mb-1.5 block">
-                  Webhook URL
+            {/* Secret Key (Standard Only) */}
+            {urlFormat === 'standard' && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-700">
+                  Secret Key
                 </label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="text"
-                    value={isLoadingUrl ? '로딩 중...' : webhookUrlWithToken}
+                    type={showSecret ? 'text' : 'password'}
+                    value={isLoadingUrl ? '로딩 중...' : authSecret}
                     readOnly
-                    className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50"
+                    className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50 font-mono focus:outline-none"
                   />
                   <button
-                    onClick={handleCopyFullUrl}
+                    onClick={() => setShowSecret(!showSecret)}
                     disabled={isLoadingUrl}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                    title="Copy URL"
+                    className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 border border-gray-200"
+                    title={showSecret ? 'Hide' : 'Show'}
+                  >
+                    {showSecret ? (
+                      <EyeOff className="w-4 h-4 text-gray-600" />
+                    ) : (
+                      <Eye className="w-4 h-4 text-gray-600" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(authSecret);
+                      toast.success('Secret Key가 복사되었습니다!');
+                    }}
+                    disabled={isLoadingUrl}
+                    className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 border border-gray-200"
+                    title="Copy Secret"
                   >
                     <Copy className="w-4 h-4 text-gray-600" />
                   </button>
@@ -397,69 +433,8 @@ export function WebhookTriggerNodePanel({
               </div>
             )}
 
-            {/* 표준 API 방식 */}
-            {urlFormat === 'standard' && (
-              <>
-                <div className="pt-4">
-                  <label className="text-xs font-medium text-gray-700 mb-1.5 block">
-                    Webhook URL
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={isLoadingUrl ? '로딩 중...' : webhookUrl}
-                      readOnly
-                      className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50"
-                    />
-                    <button
-                      onClick={handleCopyUrl}
-                      disabled={isLoadingUrl}
-                      className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                      title="Copy URL"
-                    >
-                      <Copy className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <label className="text-xs font-medium text-gray-700 mb-1.5 block">
-                    Secret Key
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type={showSecret ? 'text' : 'password'}
-                      value={isLoadingUrl ? '로딩 중...' : authSecret}
-                      readOnly
-                      className="flex-1 px-3 py-2 text-sm border rounded bg-gray-50 font-mono"
-                    />
-                    <button
-                      onClick={() => setShowSecret(!showSecret)}
-                      disabled={isLoadingUrl}
-                      className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                      title={showSecret ? 'Hide' : 'Show'}
-                    >
-                      {showSecret ? (
-                        <EyeOff className="w-4 h-4 text-gray-600" />
-                      ) : (
-                        <Eye className="w-4 h-4 text-gray-600" />
-                      )}
-                    </button>
-                    <button
-                      onClick={handleCopySecret}
-                      disabled={isLoadingUrl}
-                      className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                      title="Copy Secret"
-                    >
-                      <Copy className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-
             {/* 캡처 버튼 */}
-            <div className="pt-4">
+            <div>
               {!isCaptureMode ? (
                 <button
                   onClick={handleStartCapture}
@@ -486,7 +461,7 @@ export function WebhookTriggerNodePanel({
 
             {/* 캡처된 Payload 상태 표시 */}
             {data.captured_payload && (
-              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700 flex items-center justify-between">
+              <div className="p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700 flex items-center justify-between">
                 <span>
                   ✅ 테스트용 Payload 저장됨 (테스트 버튼으로 즉시 실행 가능)
                 </span>
@@ -520,6 +495,16 @@ export function WebhookTriggerNodePanel({
           }
         >
           <div className="space-y-2">
+            {/* Column Headers */}
+            {data.variable_mappings.length > 0 && (
+              <div className="flex items-center gap-2 px-2 text-xs font-medium text-gray-500">
+                <div className="flex-[4] pl-1">JSON 경로</div>
+                <div className="w-3.5" />
+                <div className="flex-[3] pl-1">변수명</div>
+                <div className="w-6" />
+              </div>
+            )}
+
             {data.variable_mappings.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-4">
                 변수 매핑이 없습니다. + 버튼을 눌러 추가하세요.
@@ -528,38 +513,58 @@ export function WebhookTriggerNodePanel({
               data.variable_mappings.map((mapping, index) => (
                 <div
                   key={index}
-                  className="flex items-start gap-2 p-3 border rounded bg-gray-50"
+                  className="group flex items-center gap-2 p-2 border border-blue-100 rounded bg-blue-50/30"
                 >
-                  <div className="flex-1 space-y-2">
-                    <input
-                      type="text"
-                      value={mapping.variable_name}
-                      onChange={(e) =>
-                        handleUpdateMapping(
-                          index,
-                          'variable_name',
-                          e.target.value,
-                        )
-                      }
-                      placeholder="변수명 (예: issue_key)"
-                      className="w-full px-2 py-1 text-sm border rounded"
-                    />
-                    <input
-                      type="text"
-                      value={mapping.json_path}
-                      onChange={(e) =>
-                        handleUpdateMapping(index, 'json_path', e.target.value)
-                      }
-                      placeholder="JSON 경로 (예: issue.key)"
-                      className="w-full px-2 py-1 text-sm border rounded"
-                    />
+                  {/* Left: JSON Path */}
+                  <div className="flex-[4] flex items-center gap-2 min-w-0">
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={mapping.json_path}
+                        onChange={(e) =>
+                          handleUpdateMapping(
+                            index,
+                            'json_path',
+                            e.target.value,
+                          )
+                        }
+                        placeholder="예: issue.key"
+                        className="w-full h-7 rounded border border-gray-300 px-2 text-xs text-gray-600 bg-white font-mono focus:border-blue-500 focus:outline-none placeholder:text-gray-400"
+                      />
+                    </div>
                   </div>
+
+                  {/* Arrow Icon */}
+                  <div className="flex-none text-gray-400">
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+
+                  {/* Right: Variable Name */}
+                  <div className="flex-[3] flex items-center gap-2 min-w-0">
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={mapping.variable_name}
+                        onChange={(e) =>
+                          handleUpdateMapping(
+                            index,
+                            'variable_name',
+                            e.target.value,
+                          )
+                        }
+                        placeholder="변수명"
+                        className="w-full h-7 rounded border border-gray-300 px-2 text-xs font-medium text-blue-600 bg-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Delete Button */}
                   <button
                     onClick={() => handleDeleteMapping(index)}
-                    className="p-1 hover:bg-red-100 rounded transition-colors"
-                    title="Delete"
+                    className="p-1.5 text-gray-400 bg-white border border-gray-200 rounded hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all opacity-0 group-hover:opacity-100"
+                    title="매핑 삭제"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
               ))

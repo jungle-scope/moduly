@@ -120,7 +120,7 @@ def check_credentials(
 
 
 @router.post("/improve", response_model=TemplateImproveResponse)
-def improve_template(
+async def improve_template(
     request: TemplateImproveRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -210,7 +210,7 @@ def improve_template(
         ]
 
         # 6. LLM 호출
-        response = client.invoke(messages, temperature=0.7, max_tokens=2000)
+        response = await client.invoke(messages, temperature=0.7, max_tokens=2000)
 
         # 7. 응답 파싱
         improved_template = (

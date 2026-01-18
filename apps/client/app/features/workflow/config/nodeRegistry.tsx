@@ -10,7 +10,6 @@ import {
   Globe,
   LayoutTemplate,
   Plug,
-  BookOpen,
   Webhook,
   Github,
   Mail,

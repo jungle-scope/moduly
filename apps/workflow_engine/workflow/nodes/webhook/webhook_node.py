@@ -14,7 +14,7 @@ class WebhookTriggerNode(Node[WebhookTriggerNodeData]):
 
     node_type = "webhookTrigger"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         Webhook Payload를 받아서 변수 매핑에 따라 데이터를 추출합니다.
 

@@ -17,7 +17,7 @@ class AnswerNode(Node[AnswerNodeData]):
 
     node_type = "answerNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         설정된 outputs에 따라 값을 수집하여 반환합니다.
 
