@@ -24,7 +24,7 @@ export const excludeFields = ['title', 'description', 'status'];
 export const nodeDisplayConfigs: Record<string, NodeDisplayConfig> = {
   // ========================
   // LLM Node
-  // 패널 순서: 모델 → 대체모델 → 입력변수 → 참고자료 → 프롬프트 → 파라미터
+  // 패널 순서: 모델 → 대체모델 → 입력변수 → 지식 베이스 → 프롬프트 → 파라미터
   // ========================
   llmNode: {
     label: 'LLM 설정',
@@ -34,7 +34,7 @@ export const nodeDisplayConfigs: Record<string, NodeDisplayConfig> = {
         { key: 'fallback_model_id', label: '대체 모델' },
       ],
       [{ key: 'referenced_variables', label: '입력변수', type: 'input-mapping-table' }],
-      [{ key: 'knowledgeBases', label: '참고 자료 그룹', type: 'list' }],
+      [{ key: 'knowledgeBases', label: '지식 베이스', type: 'list' }],
       [{ key: 'system_prompt', label: '시스템 프롬프트', type: 'text' }],
       [{ key: 'user_prompt', label: '사용자 프롬프트', type: 'text' }],
       [{ key: 'assistant_prompt', label: '어시스턴트 프롬프트', type: 'text' }],

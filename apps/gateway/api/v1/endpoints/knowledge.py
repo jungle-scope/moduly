@@ -80,7 +80,7 @@ def create_knowledge_base(
     )
 
 
-# TODO: is_active column 추가해서 LLM노드와 참고자료 목록에서 모두 사용할 수 있도록 한다
+# TODO: is_active column 추가해서 LLM노드와 지식 베이스 목록에서 모두 사용할 수 있도록 한다
 @router.get("", response_model=List[KnowledgeBaseResponse])
 def list_knowledge_bases(
     db: Session = Depends(get_db),
@@ -88,7 +88,7 @@ def list_knowledge_bases(
 ):
     """
     사용자의 자료 목록을 조회합니다.
-    각 참고자료 그룹에 포함된 문서 개수도 함께 반환합니다.
+    각 지식 베이스 그룹에 포함된 문서 개수도 함께 반환합니다.
     """
     # 완료된 문서만 카운트
     # completed_count = func.sum(
@@ -142,7 +142,7 @@ def get_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    참고자료 그룹의 상세 정보를 조회합니다.
+    지식 베이스의 상세 정보를 조회합니다.
     포함된 자료 목록과 각 자료의 상태를 함께 반환합니다.
     """
     kb = (
@@ -193,7 +193,7 @@ def update_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    참고자료 그룹의 설정을 수정합니다. (이름, 설명, 즐겨찾기 임베딩 모델)
+    지식 베이스의 설정을 수정합니다. (이름, 설명, 즐겨찾기 임베딩 모델)
     """
     kb = (
         db.query(KnowledgeBase)
@@ -235,7 +235,7 @@ def delete_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    참고자료 그룹을 삭제합니다.
+    지식 베이스를 삭제합니다.
     연결된 문서 및 임베딩 데이터는 DB Cascade 설정에 따라 함께 삭제됩니다.
     물리적 파일(S3/Local)도 함께 삭제합니다.
     """

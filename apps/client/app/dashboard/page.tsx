@@ -89,7 +89,7 @@ export default function DashboardHomePage() {
               지식 DB
             </h3>
             <p className="text-gray-600 text-sm">
-              참고 자료와 문서를 관리하세요
+              지식과 문서를 관리하세요
             </p>
           </button>
         </div>

@@ -53,7 +53,7 @@ function DataView() {
     },
     {
       id: 'kb-2',
-      name: 'DB 연동 지식베이스',
+      name: 'DB 연동 지식 베이스',
       description: 'CRM/주문 DB를 RAG로 바로 검색',
       sourceTypes: ['DB', 'API'],
       documentCount: 42,
@@ -101,7 +101,7 @@ function DataView() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="지식베이스 검색"
+              placeholder="지식 베이스 검색"
               className="w-56 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           </div>
@@ -705,7 +705,7 @@ function CommunityView() {
     {
       id: 'm3',
       name: 'RAG 기반 상품 추천',
-      description: '지식베이스를 연결해 추천 응답을 생성합니다.',
+      description: '지식 베이스를 연결해 추천 응답을 생성합니다.',
       rating: 4.7,
       downloads: 956,
       color: 'from-purple-500 to-pink-500',

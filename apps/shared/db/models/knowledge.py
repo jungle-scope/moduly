@@ -3,17 +3,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from apps.shared.db.base import Base
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from apps.shared.db.base import Base
-
 
 class KnowledgeBase(Base):
     """
-    참고자료그룹 모델: 여러 문서를 그룹화하는 최상위 개념
+    지식 베이스 모델: 여러 문서를 그룹화하는 최상위 개념
     """
 
     __tablename__ = "knowledge_bases"

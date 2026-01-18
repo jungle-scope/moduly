@@ -147,7 +147,7 @@ export default function KnowledgeSearchModal({
           <div className="flex items-center justify-between p-4 pb-2">
             <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <Bot className="w-5 h-5 text-blue-600" />
-              참고자료 테스트
+              지식 테스트
             </h3>
             <button
               onClick={onClose}
@@ -250,7 +250,7 @@ export default function KnowledgeSearchModal({
             <div className="flex flex-col items-center justify-center h-full text-blue-600">
               <Loader2 className="w-8 h-8 animate-spin mb-2" />
               <p className="text-sm font-medium">
-                지식베이스 검색 및 답변 생성 중...
+                지식 베이스 검색 및 답변 생성 중...
               </p>
             </div>
           )}
@@ -314,7 +314,7 @@ export default function KnowledgeSearchModal({
               placeholder={
                 activeTab === 'search'
                   ? '검색어를 입력하세요...'
-                  : '지식베이스에 대해 질문해보세요...'
+                  : '지식 베이스에 대해 질문해보세요...'
               }
               className="w-full pr-14 min-h-[60px] max-h-[120px] resize-none p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-black transition-all shadow-inner"
               onKeyDown={(e) => {

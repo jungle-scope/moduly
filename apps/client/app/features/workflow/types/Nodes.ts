@@ -139,7 +139,7 @@ export interface LLMNodeData extends BaseNodeData {
   context_variable?: string;
   parameters: Record<string, unknown>;
 
-  // 참고 자료 (Knowledge) 통합 필드
+  // 지식 (Knowledge) 통합 필드
   knowledgeBases?: { id: string; name: string }[];
   scoreThreshold?: number;
   topK?: number;
