@@ -43,6 +43,15 @@ class GoogleClient(BaseLLMClient):
             "Content-Type": "application/json",
         }
 
+    def _sanitize_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        if not kwargs:
+            return {}
+        filtered = dict(kwargs)
+        # Gemini OpenAI-compat endpoint rejects these fields.
+        filtered.pop("frequency_penalty", None)
+        filtered.pop("presence_penalty", None)
+        return filtered
+
     def embed(self, text: str) -> List[float]:
         """
         Google Gemini Embeddings API 호출.
@@ -89,7 +98,7 @@ class GoogleClient(BaseLLMClient):
             "model": self.model_id,
             "messages": messages,
         }
-        payload.update(kwargs)
+        payload.update(self._sanitize_kwargs(kwargs))
 
         try:
             resp = requests.post(

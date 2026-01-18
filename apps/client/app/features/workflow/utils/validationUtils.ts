@@ -9,7 +9,7 @@ export interface VariableWithSelector {
  * @returns 미완성된 변수가 하나라도 있으면 true
  */
 export const hasIncompleteVariables = (
-  variables?: VariableWithSelector[]
+  variables?: VariableWithSelector[],
 ): boolean => {
   if (!variables || variables.length === 0) {
     return false;
@@ -17,8 +17,8 @@ export const hasIncompleteVariables = (
 
   return variables.some((variable) => {
     const selector = variable.value_selector;
-    // value_selector가 없거나, 배열이 비어있거나, 첫 번째 요소(nodeId)가 없는 경우
-    return !selector || selector.length === 0 || !selector[0];
+    // value_selector가 없거나, 배열이 비어있거나, nodeId나 outputKey가 없는 경우
+    return !selector || selector.length < 2 || !selector[0] || !selector[1];
   });
 };
 
@@ -28,7 +28,7 @@ export const hasIncompleteVariables = (
  * @returns 미완성된 변수 목록
  */
 export const getIncompleteVariables = (
-  variables?: VariableWithSelector[]
+  variables?: VariableWithSelector[],
 ): VariableWithSelector[] => {
   if (!variables || variables.length === 0) {
     return [];
@@ -36,6 +36,6 @@ export const getIncompleteVariables = (
 
   return variables.filter((variable) => {
     const selector = variable.value_selector;
-    return !selector || selector.length === 0 || !selector[0];
+    return !selector || selector.length < 2 || !selector[0] || !selector[1];
   });
 };

@@ -102,16 +102,14 @@ const isChatModelOption = (model: ModelOption) => {
   if (id.includes('embedding') || model.type === 'embedding') return false;
   if (name.includes('embedding') || name.includes('임베딩')) return false;
 
-  // ========== OpenAI 화이트리스트 (20개) - 정확히 일치만 허용 ==========
+  // ========== OpenAI 화이트리스트 (16개) - 정확히 일치만 허용 ==========
   if (provider.includes('openai') || id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4') || id.startsWith('chatgpt')) {
     const allowedOpenAI = new Set([
-      'gpt-5.2-pro',        // 최상위 전문가용
       'gpt-5.2',            // 범용 플래그십
       'gpt-5.1',            // 코딩/명령 이행 강화
       'gpt-5',              // GPT-5 시리즈 시작
       'o3-pro',             // 초고도 추론
       'o3',                 // 논리 특화
-      'o1-pro',             // 전문적 문제 해결
       'o1',                 // 추론 전용
       'gpt-4.1',            // 100만 토큰 컨텍스트
       'gpt-4o',             // 멀티모달 표준
@@ -123,8 +121,6 @@ const isChatModelOption = (model: ModelOption) => {
       'gpt-4o-mini',        // 저렴한 멀티모달
       'o3-mini',            // 실시간 추론
       'o4-mini',            // 차세대 에이전트용
-      'gpt-realtime',       // 실시간 음성/텍스트
-      'gpt-realtime-mini',  // 실시간 경량
     ]);
     const cleanId = id.replace('models/', '');
     const isAllowed = allowedOpenAI.has(cleanId);
@@ -332,16 +328,55 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     [nodeId, updateNodeData],
   );
 
+  // Claude 계열 여부 판별 (모델 옵션 우선, 실패 시 이름 프리픽스 판단)
+  const isAnthropicModelId = useCallback(
+    (modelId: string) => {
+      const candidate = modelOptions.find(
+        (model) => model.model_id_for_api_call === modelId,
+      );
+      const provider = (candidate?.provider_name || '').toLowerCase();
+      if (provider) return provider.includes('anthropic');
+      return modelId.toLowerCase().startsWith('claude');
+    },
+    [modelOptions],
+  );
+
+  // Claude 모델에서 top_p를 제거해 파라미터 충돌을 방지
+  const stripTopP = (parameters?: Record<string, unknown>) => {
+    if (!parameters || !Object.prototype.hasOwnProperty.call(parameters, 'top_p')) {
+      return parameters;
+    }
+    const { top_p, ...rest } = parameters;
+    return rest;
+  };
+
+  // 모델 변경 시 Claude면 top_p 제거, 폴백 모델 중복 선택도 정리
   const handleModelChange = useCallback(
     (nextModelId: string) => {
       const updates: Partial<LLMNodeData> = { model_id: nextModelId };
       if (data.fallback_model_id && data.fallback_model_id === nextModelId) {
         updates.fallback_model_id = '';
       }
+      if (isAnthropicModelId(nextModelId)) {
+        const nextParams = stripTopP(data.parameters);
+        if (nextParams !== data.parameters) {
+          updates.parameters = nextParams || {};
+        }
+      }
       updateNodeData(nodeId, updates);
     },
-    [data.fallback_model_id, nodeId, updateNodeData],
+    [data.fallback_model_id, data.parameters, isAnthropicModelId, nodeId, updateNodeData],
   );
+
+  // 외부 갱신/새로고침 등으로 top_p가 다시 들어오는 상황을 정리
+  useEffect(() => {
+    if (!data.model_id) return;
+    if (!isAnthropicModelId(data.model_id)) return;
+    const nextParams = stripTopP(data.parameters);
+    if (nextParams !== data.parameters) {
+      updateNodeData(nodeId, { parameters: nextParams || {} });
+    }
+  }, [data.model_id, data.parameters, isAnthropicModelId, nodeId, updateNodeData]);
 
   const handleFieldChange = useCallback(
     (field: keyof LLMNodeData, value: any) => {

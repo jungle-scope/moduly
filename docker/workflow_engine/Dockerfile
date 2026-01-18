@@ -17,10 +17,15 @@ RUN apt-get update && apt-get install -y \
 COPY apps/shared /build/apps/shared
 COPY apps/workflow_engine /build/apps/workflow_engine
 
-# pyproject.toml 기반으로 설치
-RUN pip install --no-cache-dir --prefix=/install \
-    /build/apps/shared \
-    /build/apps/workflow_engine
+# [FIX] 의존성만 설치 (코드는 /app/에서 직접 사용, site-packages 중복 방지)
+# 1. pyproject.toml 기반으로 전체 설치 (의존성 해결을 위해)
+# 2. 설치 후 site-packages에서 workflow/services 코드 삭제 (코드 중복 방지)
+RUN pip install --no-cache-dir --prefix=/install /build/apps/shared /build/apps/workflow_engine && \
+    rm -rf /install/lib/python3.11/site-packages/workflow && \
+    rm -rf /install/lib/python3.11/site-packages/services && \
+    rm -rf /install/lib/python3.11/site-packages/utils && \
+    rm -rf /install/lib/python3.11/site-packages/tests && \
+    rm -rf /install/lib/python3.11/site-packages/moduly_workflow_engine*.dist-info
 
 
 # --- 2단계: 실행(Final) 스테이지 ---

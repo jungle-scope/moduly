@@ -165,9 +165,10 @@ def test_full_sync_workflow_integration(
     }
 
     print("\n[Step 1] Initial Sync Start")
-    count = sync_service.sync_knowledge_bases(graph_data)
+    result = sync_service.sync_knowledge_bases(graph_data)
 
-    assert count == 1
+    assert result["synced_count"] == 1
+    assert result["failed"] == []
     assert len(fake_db.store[DocumentChunk]) == 2
     assert mock_embedding_service.embed_batch.called
     print("✅ Initial Sync Passed")
@@ -178,9 +179,9 @@ def test_full_sync_workflow_integration(
     mock_embedding_service.embed_batch.reset_mock()
 
     print("[Step 2] Re-run Sync Start")
-    count = sync_service.sync_knowledge_bases(graph_data)
+    result = sync_service.sync_knowledge_bases(graph_data)
 
-    assert count == 1
+    assert result["synced_count"] == 1
     # DB count should still be 2 (old deleted, new inserted)
     assert len(fake_db.store[DocumentChunk]) == 2
     # CRITICAL: API Calls must be 0
@@ -207,9 +208,9 @@ def test_full_sync_workflow_integration(
     )
 
     print("[Step 3] Partial Update Sync Start")
-    count = sync_service.sync_knowledge_bases(graph_data)
+    result = sync_service.sync_knowledge_bases(graph_data)
 
-    assert count == 1
+    assert result["synced_count"] == 1
     assert len(fake_db.store[DocumentChunk]) == 2
 
     # Needs 1 call for "A-Modified"

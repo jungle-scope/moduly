@@ -70,29 +70,62 @@ export const ReferencedVariablesControl: React.FC<
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
+      {/* 헤더: 타이틀 또는 설명 + 추가 버튼 */}
+      {(title || description || showAddButton) && (
+        <div className="flex flex-col gap-1">
+          {/* 타이틀이 있는 경우: 타이틀 + 버튼 같은 줄 */}
           {title && (
-            <h4 className="text-xs font-semibold text-gray-700">{title}</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-gray-700">{title}</h4>
+              {showAddButton && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAdd();
+                  }}
+                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                  title="입력변수 추가"
+                >
+                  <Plus className="w-4 h-4 text-gray-600" />
+                </button>
+              )}
+            </div>
           )}
+          {/* 설명 + (타이틀 없을 때만 버튼) */}
           {description && (
-            <p className="text-xs text-gray-500">{description}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs text-gray-500 flex-1">{description}</p>
+              {!title && showAddButton && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAdd();
+                  }}
+                  className="p-1 hover:bg-gray-200 rounded transition-colors shrink-0"
+                  title="입력변수 추가"
+                >
+                  <Plus className="w-4 h-4 text-gray-600" />
+                </button>
+              )}
+            </div>
+          )}
+          {/* 타이틀과 설명 모두 없으면 버튼만 표시 */}
+          {!title && !description && showAddButton && (
+            <div className="flex justify-end">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAdd();
+                }}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title="입력변수 추가"
+              >
+                <Plus className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
           )}
         </div>
-
-        {showAddButton && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAdd();
-            }}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="입력변수 추가"
-          >
-            <Plus className="w-4 h-4 text-gray-600" />
-          </button>
-        )}
-      </div>
+      )}
 
       {variables.length === 0 && (
         <div className="text-xs text-gray-400 p-2 text-center border border-dashed border-gray-200 rounded">

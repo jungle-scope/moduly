@@ -5,10 +5,13 @@ Gateway 서비스 Lifespan 관리
 - SchedulerService 초기화
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 from apps.shared.db.base import Base
 from apps.shared.db.models.schedule import Schedule  # noqa: F401
@@ -22,14 +25,11 @@ from apps.shared.db.session import engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. 시작 로직
-
-    # pgvector 확장 활성화
+    # 1. 시작 로직: pgvector 확장 활성화
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     Base.metadata.create_all(bind=engine)
-    print("데이터베이스 테이블 생성 완료")
 
     # 2. 기본 LLM 프로바이더 시드 (멱등성 보장)
     from apps.shared.db.session import SessionLocal
@@ -50,20 +50,20 @@ async def lifespan(app: FastAPI):
 
         result = LLMService.sync_system_prices(db)
         if result["updated_models"] > 0:
-            print(f"기존 모델 {result['updated_models']}개의 가격 정보 업데이트 완료")
+            logger.info(
+                f"기존 모델 {result['updated_models']}개의 가격 정보 업데이트 완료"
+            )
 
         # 2.5 SchedulerService 초기화 (스케줄러 시작)
         from apps.gateway.services.scheduler_service import init_scheduler_service
 
-        print("SchedulerService 초기화 중...")
+        logger.info("SchedulerService 초기화 중...")
         init_scheduler_service(db)
-        print("SchedulerService 초기화 완료")
+        logger.info("SchedulerService 초기화 완료")
 
     except Exception as e:
-        print(f"시드 데이터 생성 실패: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.error(f"시드 데이터 생성 실패: {e}")
+        logger.exception("시드 데이터 생성 실패")
     finally:
         db.close()
 
@@ -78,4 +78,4 @@ async def lifespan(app: FastAPI):
         scheduler = get_scheduler_service()
         scheduler.shutdown()
     except Exception as e:
-        print(f"SchedulerService 종료 실패: {e}")
+        logger.error(f"SchedulerService 종료 실패: {e}")

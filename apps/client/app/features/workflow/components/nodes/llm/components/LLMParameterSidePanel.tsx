@@ -32,6 +32,15 @@ export function LLMParameterSidePanel({
 
   // Extract current parameter values (with defaults)
   const params = data.parameters || {};
+  const modelId = (data.model_id || '').toLowerCase();
+  const provider = (data.provider || '').toLowerCase();
+  // Claude(Anthropic) 계열 여부 판단
+  const isAnthropic = provider.includes('anthropic') || modelId.startsWith('claude');
+  // Google(Gemini) 계열 여부 판단
+  const isGoogle =
+    provider.includes('google') ||
+    modelId.startsWith('gemini') ||
+    modelId.startsWith('models/gemini');
   const temperature = (params.temperature as number) ?? 0.7;
   const topP = (params.top_p as number) ?? 1.0;
   const maxTokens = (params.max_tokens as number) ?? 4096;
@@ -46,11 +55,21 @@ export function LLMParameterSidePanel({
   const recommendPresence = [-0.5, 0.5];
   const recommendFrequency = [-0.5, 0.5];
 
+  // Claude 모델은 top_p/temperature 동시 사용이 제한되어 top_p를 제거
+  const stripTopP = (input: Record<string, unknown>) => {
+    if (!Object.prototype.hasOwnProperty.call(input, 'top_p')) return input;
+    const { top_p, ...rest } = input;
+    return rest;
+  };
+
+  // Claude일 경우 top_p가 빠진 파라미터를 기준으로 업데이트
+  const baseParams = isAnthropic ? stripTopP(params) : params;
+
   // Handler to update a specific parameter
   const handleParamChange = (key: string, value: number) => {
     updateNodeData(nodeId, {
       parameters: {
-        ...params,
+        ...baseParams,
         [key]: value,
       },
     });
@@ -61,7 +80,7 @@ export function LLMParameterSidePanel({
     if (stopSequences.length >= 4) return; // Max 4
     updateNodeData(nodeId, {
       parameters: {
-        ...params,
+        ...baseParams,
         stop: [...stopSequences, ''],
       },
     });
@@ -71,7 +90,7 @@ export function LLMParameterSidePanel({
     const newSeqs = stopSequences.filter((_, i) => i !== index);
     updateNodeData(nodeId, {
       parameters: {
-        ...params,
+        ...baseParams,
         stop: newSeqs.length > 0 ? newSeqs : undefined,
       },
     });
@@ -82,7 +101,7 @@ export function LLMParameterSidePanel({
     newSeqs[index] = value;
     updateNodeData(nodeId, {
       parameters: {
-        ...params,
+        ...baseParams,
         stop: newSeqs,
       },
     });
@@ -149,7 +168,7 @@ export function LLMParameterSidePanel({
 
   return (
     <div
-      className="absolute right-[400px] top-0 bottom-0 w-[320px] bg-white shadow-xl z-40 flex flex-col border-l border-gray-200"
+      className="absolute right-[400px] top-14 bottom-0 w-[320px] bg-white shadow-xl z-40 flex flex-col border-l border-gray-200"
       style={{
         transition: 'transform 0.3s ease-in-out',
       }}
@@ -194,27 +213,29 @@ export function LLMParameterSidePanel({
         </div>
 
         {/* Top P */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">
-                상위 확률 (Top P)
-              </label>
-              <DescTooltip text={PARAM_DESCRIPTIONS.top_p} />
+        {!isAnthropic ? (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <label className="text-xs font-medium text-gray-700">
+                  상위 확률 (Top P)
+                </label>
+                <DescTooltip text={PARAM_DESCRIPTIONS.top_p} />
+              </div>
+              <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                {topP.toFixed(2)}
+              </span>
             </div>
-            <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-              {topP.toFixed(2)}
-            </span>
+            {renderSlider('top_p', topP, 0, 1, 0.05, recommendTopP)}
+            <div className="flex items-center justify-between text-[10px] text-gray-400">
+              <span className="whitespace-nowrap">집중</span>
+              <span className="text-blue-500 font-medium">
+                권장: {recommendTopP[0]}~{recommendTopP[1]}
+              </span>
+              <span className="whitespace-nowrap">다양</span>
+            </div>
           </div>
-          {renderSlider('top_p', topP, 0, 1, 0.05, recommendTopP)}
-          <div className="flex items-center justify-between text-[10px] text-gray-400">
-            <span className="whitespace-nowrap">집중</span>
-            <span className="text-blue-500 font-medium">
-              권장: {recommendTopP[0]}~{recommendTopP[1]}
-            </span>
-            <span className="whitespace-nowrap">다양</span>
-          </div>
-        </div>
+        ) : null}
 
         {/* Max Tokens */}
         <div className="space-y-2">
@@ -247,65 +268,69 @@ export function LLMParameterSidePanel({
           </div>
         </div>
 
-        {/* Presence Penalty */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">
-                주제 전환도
-              </label>
-              <DescTooltip text={PARAM_DESCRIPTIONS.presence_penalty} />
+        {/* Presence Penalty (Gemini 미지원: 숨김) */}
+        {!isGoogle ? (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <label className="text-xs font-medium text-gray-700">
+                  주제 전환도
+                </label>
+                <DescTooltip text={PARAM_DESCRIPTIONS.presence_penalty} />
+              </div>
+              <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                {presencePenalty.toFixed(1)}
+              </span>
             </div>
-            <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-              {presencePenalty.toFixed(1)}
-            </span>
+            {renderSlider(
+              'presence_penalty',
+              presencePenalty,
+              -2,
+              2,
+              0.1,
+              recommendPresence,
+            )}
+            <div className="flex items-center justify-between text-[10px] text-gray-400">
+              <span className="whitespace-nowrap">반복 장려</span>
+              <span className="text-blue-500 font-medium">
+                권장: {recommendPresence[0]} ~ {recommendPresence[1]}
+              </span>
+              <span className="whitespace-nowrap">새 주제</span>
+            </div>
           </div>
-          {renderSlider(
-            'presence_penalty',
-            presencePenalty,
-            -2,
-            2,
-            0.1,
-            recommendPresence,
-          )}
-          <div className="flex items-center justify-between text-[10px] text-gray-400">
-            <span className="whitespace-nowrap">반복 장려</span>
-            <span className="text-blue-500 font-medium">
-              권장: {recommendPresence[0]} ~ {recommendPresence[1]}
-            </span>
-            <span className="whitespace-nowrap">새 주제</span>
-          </div>
-        </div>
+        ) : null}
 
-        {/* Frequency Penalty */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <label className="text-xs font-medium text-gray-700">
-                반복 억제도
-              </label>
-              <DescTooltip text={PARAM_DESCRIPTIONS.frequency_penalty} />
+        {/* Frequency Penalty (Gemini 미지원: 숨김) */}
+        {!isGoogle ? (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <label className="text-xs font-medium text-gray-700">
+                  반복 억제도
+                </label>
+                <DescTooltip text={PARAM_DESCRIPTIONS.frequency_penalty} />
+              </div>
+              <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                {frequencyPenalty.toFixed(1)}
+              </span>
             </div>
-            <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-              {frequencyPenalty.toFixed(1)}
-            </span>
+            {renderSlider(
+              'frequency_penalty',
+              frequencyPenalty,
+              -2,
+              2,
+              0.1,
+              recommendFrequency,
+            )}
+            <div className="flex items-center justify-between text-[10px] text-gray-400">
+              <span className="whitespace-nowrap">반복 장려</span>
+              <span className="text-blue-500 font-medium">
+                권장: {recommendFrequency[0]} ~ {recommendFrequency[1]}
+              </span>
+              <span className="whitespace-nowrap">반복 금지</span>
+            </div>
           </div>
-          {renderSlider(
-            'frequency_penalty',
-            frequencyPenalty,
-            -2,
-            2,
-            0.1,
-            recommendFrequency,
-          )}
-          <div className="flex items-center justify-between text-[10px] text-gray-400">
-            <span className="whitespace-nowrap">반복 장려</span>
-            <span className="text-blue-500 font-medium">
-              권장: {recommendFrequency[0]} ~ {recommendFrequency[1]}
-            </span>
-            <span className="whitespace-nowrap">반복 금지</span>
-          </div>
-        </div>
+        ) : null}
 
         {/* Stop Sequences */}
         <div className="space-y-2 border-t border-gray-100 pt-4">

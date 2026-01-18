@@ -106,9 +106,8 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
 
   // 입력변수 이름 목록 (코드 마법사용)
   const inputVariableNames = useMemo(() => {
-    return (data.inputs || []).map(input => input.name).filter(Boolean);
+    return (data.inputs || []).map((input) => input.name).filter(Boolean);
   }, [data.inputs]);
-
 
   const incompleteVariables = useMemo(() => {
     const incomplete: { name: string; value_selector: string[] }[] = [];
@@ -134,7 +133,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
             onAdd={handleAddVariable}
             onRemove={handleRemoveVariable}
             title=""
-            description="코드에서 사용할 변수를 정의하고, 이전 노드의 출력값과 연결하세요."
+            description="이전 노드의 출력을 코드에서 사용할 변수로 연결하세요."
           />
           {/* 사용 힌트 */}
           <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
@@ -144,7 +143,7 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
             </code>{' '}
             으로 사용
           </div>
-          
+
           <IncompleteVariablesAlert variables={incompleteVariables} />
         </div>
       </CollapsibleSection>
@@ -153,60 +152,77 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
       <CollapsibleSection title="Python 코드" showDivider>
         <div className="flex flex-col gap-2">
           <p className="text-xs text-gray-500">
-             실행할 Python 코드를 작성하세요. 입력변수는 <code>inputs</code> 딕셔너리로 접근할 수 있습니다.
+            실행할 Python 코드를 작성하세요. 입력변수는 <code>inputs</code>{' '}
+            딕셔너리로 접근할 수 있습니다.
           </p>
           <div className="flex flex-col bg-gray-900 border rounded-lg overflow-hidden h-64">
-          <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
-            <h3 className="text-xs font-medium text-gray-400">Editor</h3>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setIsCodeWizardOpen(true)}
-                className="px-2 py-1 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-gray-700 rounded transition-colors flex items-center gap-1"
-                title="코드 마법사"
-              >
-                <Wand2 className="w-3 h-3" />
-                마법사
-              </button>
-              <button
-                onClick={() => setIsExpanded(true)}
-                className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
-                title="크게 보기"
-              >
-                <Maximize2 className="w-3 h-3" />
-              </button>
+            <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="text-xs font-medium text-gray-400">Editor</h3>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setIsCodeWizardOpen(true)}
+                  className="px-2 py-1 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-gray-700 rounded transition-colors flex items-center gap-1"
+                  title="코드 마법사"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  마법사
+                </button>
+                <button
+                  onClick={() => setIsExpanded(true)}
+                  className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                  title="크게 보기"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1">
+              <Editor
+                height="100%"
+                defaultLanguage="python"
+                theme="vs-dark"
+                value={data.code || DEFAULT_CODE}
+                onChange={handleCodeChange}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 12,
+                  tabSize: 4,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  wordWrap: 'on',
+                  padding: { top: 8, bottom: 8 },
+                }}
+              />
             </div>
           </div>
-          <div className="flex-1">
-            <Editor
-              height="100%"
-              defaultLanguage="python"
-              theme="vs-dark"
-              value={data.code || DEFAULT_CODE}
-              onChange={handleCodeChange}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 12,
-                tabSize: 4,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                wordWrap: 'on',
-                padding: { top: 8, bottom: 8 },
-              }}
-            />
-          </div>
         </div>
-      </div>
       </CollapsibleSection>
 
       {/* 고급 설정 */}
-      <CollapsibleSection title="고급 설정" defaultOpen={false} showDivider>
-        <div className="px-2 pb-2 space-y-3">
+      <CollapsibleSection title="설정" defaultOpen={false} showDivider>
+        <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
-            <label className="text-sm text-gray-700">
-              타임아웃
-              <span className="text-xs text-gray-500 ml-1">(초)</span>
-            </label>
+            <div className="flex items-center gap-1">
+              <label className="text-xs font-medium text-gray-700">
+                타임아웃 (초)
+              </label>
+              <div className="group relative inline-block">
+                <svg
+                  className="h-3.5 w-3.5 text-gray-400 cursor-help"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                  <path strokeWidth="2" d="M12 16v-4m0-4h.01" />
+                </svg>
+                <div className="absolute z-50 hidden group-hover:block w-48 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+                  코드 실행 제한 시간입니다. (최대 30초)
+                  <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+                </div>
+              </div>
+            </div>
             <input
               type="number"
               min="1"
@@ -220,12 +236,9 @@ export function CodeNodePanel({ nodeId, data }: CodeNodePanelProps) {
                   ),
                 })
               }
-              className="w-20 px-2.5 py-1.5 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-20 h-8 px-2 text-sm text-right border border-gray-300 rounded focus:outline-none focus:border-blue-500"
             />
           </div>
-          <p className="text-xs text-gray-500">
-            코드 실행 제한 시간 (최대 30초)
-          </p>
         </div>
       </CollapsibleSection>
 

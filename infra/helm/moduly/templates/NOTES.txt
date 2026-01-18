@@ -1,0 +1,141 @@
+🎉 Moduly has been successfully installed!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Moduly - AI Workflow Builder
+   Release: {{ .Release.Name }}
+   Namespace: {{ .Release.Namespace }}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 Deployed Services:
+{{- if .Values.gateway.enabled }}
+  ✓ Gateway (API Server)
+{{- end }}
+{{- if .Values.worker.enabled }}
+  ✓ Worker (Workflow Engine)
+{{- end }}
+{{- if .Values.frontend.enabled }}
+  ✓ Frontend (Web UI)
+{{- end }}
+{{- if .Values.logger.enabled }}
+  ✓ Logger (Logging System)
+{{- end }}
+{{- if .Values.sandbox.enabled }}
+  ✓ Sandbox (Code Execution)
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+  ✓ PostgreSQL (with pgvector)
+{{- end }}
+{{- if .Values.redis.enabled }}
+  ✓ Redis (Message Queue & Cache)
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 Getting Started:
+
+1️⃣  Check deployment status:
+   
+   kubectl get pods -n {{ .Release.Namespace }}
+   kubectl get svc -n {{ .Release.Namespace }}
+
+2️⃣  Wait for all pods to be ready:
+   
+   kubectl wait --for=condition=ready pod \
+     -l app.kubernetes.io/instance={{ .Release.Name }} \
+     -n {{ .Release.Namespace }} \
+     --timeout=300s
+
+{{- if not .Values.ingress.enabled }}
+
+3️⃣  Access the application (Port Forwarding):
+
+   # Frontend (Web UI)
+   kubectl port-forward -n {{ .Release.Namespace }} \
+     svc/{{ include "moduly.fullname" . }}-frontend 3000:3000 &
+   
+   # Backend API
+   kubectl port-forward -n {{ .Release.Namespace }} \
+     svc/{{ include "moduly.fullname" . }}-gateway 8000:8000 &
+
+   Then open:
+   - Web UI:  http://localhost:3000
+   - API Docs: http://localhost:8000/api/docs
+
+{{- else }}
+
+3️⃣  Access the application (Ingress):
+
+   {{- range .Values.ingress.hosts }}
+   - https://{{ .host }}
+   {{- end }}
+
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 Monitoring & Logs:
+
+View API server logs:
+   kubectl logs -n {{ .Release.Namespace }} \
+     -l app.kubernetes.io/component=gateway \
+     -f
+
+View worker logs:
+   kubectl logs -n {{ .Release.Namespace }} \
+     -l app.kubernetes.io/component=worker \
+     -f
+
+View all services:
+   kubectl get all -n {{ .Release.Namespace }} \
+     -l app.kubernetes.io/instance={{ .Release.Name }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 Configuration:
+
+Database connection:
+   Host: {{ include "moduly.postgresql.host" . }}
+   Port: 5432
+   Database: {{ .Values.postgresql.auth.database | default "moduly" }}
+
+Redis connection:
+   Host: {{ include "moduly.redis.host" . }}
+   Port: 6379
+
+Storage mode:
+   Type: {{ .Values.gateway.env.STORAGE_TYPE | default "LOCAL" }}
+{{- if eq (.Values.gateway.env.STORAGE_TYPE | default "LOCAL") "CLOUD" }}
+   S3 Bucket: {{ .Values.gateway.env.S3_BUCKET_NAME }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️  Upgrade & Uninstall:
+
+Upgrade to new version:
+   helm upgrade {{ .Release.Name }} ./infra/helm/moduly
+
+Uninstall:
+   helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+{{- if or .Values.postgresql.enabled .Values.redis.enabled }}
+
+⚠️  Note: Persistent volumes are NOT automatically deleted.
+   To remove data volumes:
+   
+   kubectl delete pvc -n {{ .Release.Namespace }} \
+     -l app.kubernetes.io/instance={{ .Release.Name }}
+
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 Documentation & Support:
+
+• GitHub: https://github.com/jungle-scope/moduly
+• Issues: https://github.com/jungle-scope/moduly/issues
+• Docs: https://github.com/jungle-scope/moduly/tree/main/docs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Happy building with Moduly! 🚀

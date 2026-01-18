@@ -78,7 +78,7 @@ export function HttpRequestNodePanel({
   const { updateNodeData, nodes, edges } = useWorkflowStore();
 
   // 자동완성을 위한 Refs
-  const urlRef = useRef<HTMLInputElement>(null);
+  const urlRef = useRef<HTMLTextAreaElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   // 자동완성 상태
@@ -256,14 +256,15 @@ export function HttpRequestNodePanel({
           />
         </div>
 
-        <input
+        <textarea
           ref={urlRef}
-          className="h-9 flex-1 rounded-md border border-gray-300 px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+          className="flex-1 rounded-md border border-gray-300 px-3 py-[7px] text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono resize-none transition-all duration-200 h-9 focus:h-20 overflow-hidden focus:overflow-auto leading-[22px]"
           placeholder="https://api.example.com/v1/resource"
           value={data.url || ''}
           onChange={(e) => handleUpdateData('url', e.target.value)}
           onKeyUp={(e) => handleKeyUp(e, 'url')}
           autoComplete="off"
+          rows={1}
         />
       </div>
 
@@ -272,7 +273,24 @@ export function HttpRequestNodePanel({
       <div className="border-b border-gray-200" />
 
       {/* 2. 입력변수 */}
-      <CollapsibleSection title="입력변수" defaultOpen={true} showDivider>
+      <CollapsibleSection
+        title="입력변수"
+        defaultOpen={true}
+        showDivider
+        icon={(expand) => (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              expand(); // 섹션 펼치기
+              handleAddVariable();
+            }}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="입력변수 추가"
+          >
+            <Plus className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+        )}
+      >
         <ReferencedVariablesControl
           variables={data.referenced_variables || []}
           upstreamNodes={upstreamNodes}
@@ -280,6 +298,7 @@ export function HttpRequestNodePanel({
           onAdd={handleAddVariable}
           onRemove={handleRemoveVariable}
           title=""
+          showAddButton={false}
         />
 
         {incompleteVariables.length > 0 && (
@@ -364,10 +383,11 @@ export function HttpRequestNodePanel({
       <CollapsibleSection
         title="헤더"
         showDivider
-        icon={
+        icon={(expand) => (
           <button
             onClick={(e) => {
               e.stopPropagation();
+              expand(); // 섹션 펼치기
               handleAddHeader();
             }}
             className="p-1 hover:bg-gray-200 rounded transition-colors"
@@ -375,7 +395,7 @@ export function HttpRequestNodePanel({
           >
             <Plus className="w-3.5 h-3.5 text-gray-600" />
           </button>
-        }
+        )}
       >
         <div className="flex flex-col gap-2">
           {data.headers?.map((header, index) => (
@@ -449,27 +469,29 @@ export function HttpRequestNodePanel({
       {/* 5. 설정 (타임아웃) */}
       <CollapsibleSection title="설정" defaultOpen={false} showDivider>
         <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1">
-            <label className="text-xs font-medium text-gray-700">
-              타임아웃 (ms)
-            </label>
-            <div className="group relative inline-block">
-              <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
-              <div className="absolute z-50 hidden group-hover:block w-56 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
-                요청이 이 시간 내에 끝나지 않으면 자동으로 실패 처리됩니다.
-                <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <label className="text-xs font-medium text-gray-700">
+                타임아웃 (ms)
+              </label>
+              <div className="group relative inline-block">
+                <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                <div className="absolute z-50 hidden group-hover:block w-56 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+                  요청이 이 시간 내에 끝나지 않으면 자동으로 실패 처리됩니다.
+                  <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+                </div>
               </div>
             </div>
+            <input
+              type="number"
+              className="w-24 h-8 px-2 text-sm text-right border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+              placeholder="5000"
+              value={data.timeout || 5000}
+              onChange={(e) =>
+                handleUpdateData('timeout', parseInt(e.target.value) || 0)
+              }
+            />
           </div>
-          <input
-            type="number"
-            className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-blue-500"
-            placeholder="5000"
-            value={data.timeout || 5000}
-            onChange={(e) =>
-              handleUpdateData('timeout', parseInt(e.target.value) || 0)
-            }
-          />
         </div>
       </CollapsibleSection>
 

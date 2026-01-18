@@ -50,13 +50,18 @@ class WorkflowEngine:
         self.node_instances = {}  # Node 인스턴스 저장
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
-        self.execution_context = execution_context or {}
+        # [FIX] execution_context를 새 복사본으로 생성하여 중첩 서브 워크플로우에서 참조 문제 방지
+        self.execution_context = dict(execution_context) if execution_context else {}
         self.workflow_timeout = workflow_timeout  # [NEW] 전체 타임아웃 설정
         self.start_time = 0.0  # [NEW] 실행 시작 시간
 
         # [FIX] DB 세션을 execution_context에 주입 (WorkflowNode 등에서 사용)
+        # db 파라미터가 전달되면 사용, 아니면 기존 execution_context의 db 유지
         if db is not None:
             self.execution_context["db"] = db
+        elif "db" not in self.execution_context:
+            # execution_context에 db가 없으면 경고 (옵션)
+            pass
 
         # [PERF] 그래프 구조 사전 계산
         self.adjacency_list = {}  # source -> [targets]
@@ -200,9 +205,6 @@ class WorkflowEngine:
             if self.parent_run_id:
                 self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
                 self.execution_context["workflow_run_id"] = self.parent_run_id
-            print(
-                f"[WorkflowEngine] 서브 워크플로우 실행 - parent_run_id: {self.parent_run_id}"
-            )
         elif external_run_id:
             # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
@@ -215,7 +217,6 @@ class WorkflowEngine:
                 execution_context=self.execution_context,
                 external_run_id=external_run_id,  # [NEW] 외부 run_id 전달
             )
-            print(f"[WorkflowEngine] 외부 run_id 사용: {external_run_id}")
         elif self.parent_run_id:
             # 서브 워크플로우인 경우 부모의 run_id를 재사용 (레거시 지원)
             self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
@@ -797,7 +798,6 @@ class WorkflowEngine:
                 "node_options": data,
                 "node_title": data.get("title", ""),
             }
-        except Exception as e:
+        except Exception:
             # 스냅샷 추출 실패 시에도 워크플로우 실행은 계속
-            print(f"[WorkflowEngine] 노드 옵션 스냅샷 추출 실패: {e}")
             return {}

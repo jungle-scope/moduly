@@ -92,30 +92,47 @@ class WorkflowNode(Node[WorkflowNodeData]):
             sub_workflow_inputs[target_var] = val
 
         # 3. 서브 워크플로우 실행
-        print(
-            f"[WorkflowNode] Executing sub-workflow {workflow_id} with inputs: {sub_workflow_inputs}"
-        )
 
         # is_deployed=True로 설정하여 AnswerNode의 결과만 반환받도록 함
         # user_id 등 context 전달
         # parent_run_id를 전달하여 서브 워크플로우의 노드 실행 기록이 부모 워크플로우와 연결되도록 함
         parent_run_id = self.execution_context.get("workflow_run_id")
+
+        # [FIX] DB 세션을 명시적으로 전달하여 중첩 서브 워크플로우에서도 DB 접근 가능하도록 함
         engine = WorkflowEngine(
             graph,
             sub_workflow_inputs,
             execution_context=self.execution_context,
             is_deployed=True,
+            db=db,  # [FIX] DB 세션 명시적 전달 (중첩 서브 워크플로우 지원)
             parent_run_id=parent_run_id,
             is_subworkflow=True,  # [FIX] 서브 워크플로우 표시 - Redis 이벤트 발행 스킵
         )
 
-        # [FIX] 메모리 누수 방지: 서브 워크플로우 실행 후 명시적 cleanup
+        # [FIX] 메모리 누수 방지:
+        # - 서브 워크플로우 실행 후 명시적 cleanup
+        # - asyncio.run() 대신 기존 이벤트 루프 재사용 (중첩 호출 시 루프 충돌 방지)
         try:
-            result = asyncio.run(engine.execute())
+            # 기존 이벤트 루프가 있는지 확인
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                # 이미 이벤트 루프가 실행 중인 경우 (Celery Worker 환경)
+                # run_in_executor에서 호출되므로 새 루프 생성 필요
+                new_loop = asyncio.new_event_loop()
+                try:
+                    result = new_loop.run_until_complete(engine.execute())
+                finally:
+                    new_loop.close()
+            else:
+                # 이벤트 루프가 없는 경우 (테스트 환경 등)
+                result = asyncio.run(engine.execute())
         finally:
             engine.cleanup()
 
         # 출력 통일: 항상 'result' 키로 반환
         # 서브 워크플로우의 출력값 구조와 관계없이 일관된 출력 제공
-        print(f"[WorkflowNode] Sub-workflow result: {result}")
         return {"result": result}

@@ -1,6 +1,9 @@
+import logging
 from typing import Any, Dict, List
 
 from apps.gateway.services.ingestion.parsers.base import BaseParser
+
+logger = logging.getLogger(__name__)
 
 
 class TxtParser(BaseParser):
@@ -24,8 +27,8 @@ class TxtParser(BaseParser):
                     content = f.read()
                 return [{"text": content, "page": 1}]
             except Exception as e:
-                print(f"[TxtParser] Encoding fallback failed: {e}")
+                logger.error(f"[TxtParser] Encoding fallback failed: {e}")
                 return []
         except Exception as e:
-            print(f"[TxtParser] Read failed: {e}")
+            logger.error(f"[TxtParser] Read failed: {e}")
             return []

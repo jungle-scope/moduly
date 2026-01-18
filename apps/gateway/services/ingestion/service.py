@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import re
 import unicodedata
 from datetime import datetime, timezone
@@ -15,6 +16,8 @@ from apps.gateway.services.storage import get_storage_service
 from apps.shared.db.models.knowledge import Document, DocumentChunk, SourceType
 from apps.shared.db.session import SessionLocal
 from apps.shared.distributed_lock import DistributedLock
+
+logger = logging.getLogger(__name__)
 
 
 class IngestionOrchestrator:
@@ -99,7 +102,7 @@ class IngestionOrchestrator:
                     else:
                         indices.add(int(part))
             except Exception as e:
-                print(f"[ERROR] Invalid chunk range format: {chunk_range} ({e})")
+                logger.error(f"Invalid chunk range format: {chunk_range} ({e})")
                 raise ValueError(f"잘못된 청크 범위 형식입니다: {chunk_range}") from e
 
             # 인덱스는 1부터 시작한다고 가정 (UI와 통일)
@@ -113,23 +116,23 @@ class IngestionOrchestrator:
         return chunks
 
     def process_document(self, document_id: UUID):
-
         # 락 획득 시도 (2분 TTL)
         lock = DistributedLock(f"doc_processing:{document_id}", ttl=120)
-        
+
         with lock.lock() as acquired:
             if not acquired:
-                print(f"[IngestionOrchestrator] Document {document_id} is already being processed by another worker")
+                print(
+                    f"[IngestionOrchestrator] Document {document_id} is already being processed by another worker"
+                )
                 return
 
             session = SessionLocal()
             self.db = session
 
             try:
-                print(f"[IngestionOrchestrator] Starting process for doc {document_id}")
                 doc = self.db.query(Document).get(document_id)
                 if not doc:
-                    print(f"[DEBUG] Document {document_id} not found.")
+                    logger.warning(f"Document {document_id} not found")
                     return
 
                 # 초기 상태 저장 (업데이트 전)
@@ -137,16 +140,18 @@ class IngestionOrchestrator:
 
                 # 이미 처리 완료된 문서 건너뛰기
                 if doc.status == "completed":
-                    print(f"[INFO] Document {document_id} already completed, skipping...")
+                    print(
+                        f"[INFO] Document {document_id} already completed, skipping..."
+                    )
                     return
 
+                self._update_progress_redis(document_id, 0)
                 self._update_status(document_id, "indexing")
 
                 # 문서 소스 타입에 맞는 Processor 생성
                 processor = IngestionFactory.get_processor(
                     doc.source_type, self.db, self.user_id
                 )
-                print(f"[DEBUG] Processor created: {type(processor).__name__}")
 
                 source_config = self._build_config(doc)
 
@@ -157,7 +162,6 @@ class IngestionOrchestrator:
 
                 raw_blocks = result.chunks
                 if not raw_blocks:
-                    print("No content extracted.")
                     self._update_status(document_id, "completed")
                     return
 
@@ -170,7 +174,6 @@ class IngestionOrchestrator:
                     and doc.embedding_model == self.ai_model
                     and initial_status != "failed"
                 ):
-                    print("Content unchanged. Skipping.")
                     self._update_status(document_id, "completed")
                     return
 
@@ -178,12 +181,18 @@ class IngestionOrchestrator:
                 self.db.commit()
 
                 if doc.source_type == "DB":
-                    final_chunks = self._refine_chunks(raw_blocks, override_chunk_size=8000)
+                    final_chunks = self._refine_chunks(
+                        raw_blocks, override_chunk_size=8000
+                    )
                 else:
                     # 전처리 적용 (FILE, API 타입)
                     full_text = "\n".join([b["content"] for b in raw_blocks])
-                    preprocessed_text = self.preprocess_text(full_text, doc.meta_info or {})
-                    preprocessed_blocks = [{"content": preprocessed_text, "metadata": {}}]
+                    preprocessed_text = self.preprocess_text(
+                        full_text, doc.meta_info or {}
+                    )
+                    preprocessed_blocks = [
+                        {"content": preprocessed_text, "metadata": {}}
+                    ]
                     final_chunks = self._refine_chunks(preprocessed_blocks)
 
                 # 필터링 적용
@@ -196,28 +205,56 @@ class IngestionOrchestrator:
                     final_chunks, selection_mode, chunk_range, keyword_filter
                 )
 
-                print(
-                    f"[DEBUG] Filtering: {len(final_chunks)} -> {len(filtered_chunks)} chunks (Mode: {selection_mode})"
-                )
-
                 self._save_to_vector_db(doc, filtered_chunks)
-                print(
-                    f"[IngestionOrchestrator] Document processing completed successfully: {doc.filename} ({document_id})"
-                )
                 self._update_status(document_id, "completed")
+                self._update_progress_redis(
+                    document_id, 100, expire=True
+                )  # 완료 시 키 만료 또는 100 유지 후 만료
 
             except Exception as e:
-                print(f"\n{'=' * 40}")
-                print("[ERROR] [IngestionOrchestrator] Processing FAILED")
-                print(f"Document ID: {document_id}")
-                print(f"Reason: {e}")
-                print(f"{'=' * 40}\n")
+                logger.error(
+                    f"Document processing failed - ID: {document_id}, Reason: {e}"
+                )
                 self.db.rollback()
                 self._update_status(document_id, "failed", str(e))
+                self._update_progress_redis(
+                    document_id, 0, expire=True
+                )  # 실패 시 진행률 키 즉시 만료
 
             finally:
                 if session:
                     session.close()
+
+    def _update_progress_redis(
+        self, document_id: UUID, progress: int, expire: bool = False
+    ):
+        """
+        진행률을 Redis에 저장 (DB 과부하 방지)
+        이전 값보다 작으면 업데이트하지 않음
+        """
+        from apps.shared.pubsub import get_redis_client
+
+        try:
+            redis_client = get_redis_client()
+            key = f"knowledge_progress:{document_id}"
+
+            if expire:
+                redis_client.delete(key)
+                return
+
+            current_val = redis_client.get(key)
+            if current_val:
+                try:
+                    current_progress = int(current_val)
+                    if progress < current_progress:
+                        return
+                except ValueError:
+                    pass
+
+            # 진행률 저장
+            redis_client.set(key, str(progress), ex=600)
+        except Exception as e:
+            logger.warning(f"Failed to update progress in Redis: {e}")
 
     def resume_processing(self, document_id: UUID, strategy: str):
         """
@@ -298,6 +335,32 @@ class IngestionOrchestrator:
         source_config = {}
         if source_type == SourceType.FILE:
             source_config = {"file_path": file_path, "strategy": strategy}
+            # LlamaParse 미리보기 속도 개선을 위해 일부 페이지만 파싱
+            if strategy == "llamaparse":
+                target_pages = "0-4"  # Default (1-5p)
+
+                # 사용자가 청크 범위를 지정한 경우, 해당 범위가 포함된 페이지를 파싱하도록 조정
+                # 예: chunk_range="6-10" -> 대략 1페이지당 3~5개 청크 가정 -> 2~3페이지부터 시작
+                # 정확한 매핑은 불가능하므로, "시작 청크 번호"를 기준으로 페이지를 추정
+                if selection_mode == "range" and chunk_range:
+                    try:
+                        # "5-35", "5", "5, 10" 등 다양한 형식에서 첫 번째 숫자 추출
+                        first_chunk_idx = int(re.split(r"[,-]", chunk_range)[0].strip())
+
+                        # 대략적인 페이지 추정 (1페이지 = 1000자, 청크=500자 가정 시 페이지당 2~3개 청크)
+                        # 보수적으로 1페이지당 2개 청크로 계산하여 페이지를 추정
+                        est_page_start = max(0, (first_chunk_idx - 1) // 2)
+                        est_page_end = est_page_start + 4
+                        target_pages = f"{est_page_start}-{est_page_end}"
+                        print(
+                            f"[Preview] Adjusted target_pages to {target_pages} based on chunk_range {chunk_range}"
+                        )
+                    except Exception as e:
+                        print(
+                            f"[Preview] Failed to parse chunk_range for page targeting: {e}"
+                        )
+
+                source_config["target_pages"] = target_pages
         elif source_type == SourceType.API:
             api_config = meta_info.get("api_config", {})
             # api_config가 JSON string일 수 있으므로 파싱
@@ -445,7 +508,6 @@ class IngestionOrchestrator:
         from utils.template_utils import count_tokens
 
         new_chunks = []
-        print(f"[DEBUG] 시작 : _save_to_vector_db, 청크수: {len(chunks)} chunks")
 
         # LLM 클라이언트 초기화 (임베딩 생성용)
         # API Key 오류 등 발생 시 즉시 실패 처리 (상위에서 catch)
@@ -456,9 +518,8 @@ class IngestionOrchestrator:
                 user_id=self.user_id,
                 model_id=self.ai_model,  # 예: "text-embedding-3-small"
             )
-            print("[DEBUG] 임베딩 모델이 입력된 llm_client 생성 완료")
         else:
-            print("[WARNING] No user_id provided.")
+            logger.warning("No user_id provided for embedding generation")
             # user_id가 없는 경우도 에러로 처리하거나, 필요하다면 정책 결정.
             # 현재 로직상 user_id 필수.
 
@@ -477,8 +538,8 @@ class IngestionOrchestrator:
 
             # 개별 텍스트 토큰 체크
             if tokens > MAX_TOKENS_PER_TEXT:
-                print(
-                    f"[WARNING] Text too long ({tokens} tokens), truncating to {MAX_TOKENS_PER_TEXT}..."
+                logger.warning(
+                    f"Text too long ({tokens} tokens), truncating to {MAX_TOKENS_PER_TEXT}"
                 )
                 # 토큰 수만큼 자르기
                 try:
@@ -488,7 +549,7 @@ class IngestionOrchestrator:
                     content = encoding.decode(truncated)
                     chunk["content"] = content
                 except Exception as e:
-                    print(f"[ERROR] Failed to truncate: {e}")
+                    logger.error(f"Failed to truncate text: {e}")
 
             # 배치 크기 체크
             if len(current_batch) >= MAX_TEXTS_PER_BATCH:
@@ -500,10 +561,6 @@ class IngestionOrchestrator:
         if current_batch:
             batches.append(current_batch)
 
-        print(
-            f"[INFO] Created {len(batches)} batches (max {MAX_TEXTS_PER_BATCH} texts/batch)"
-        )
-
         # ========================================
         # 배치별 임베딩 생성
         # ========================================
@@ -513,18 +570,12 @@ class IngestionOrchestrator:
             batch_texts = [chunk["content"] for _, chunk in batch]
             batch_indices = [idx for idx, _ in batch]
 
-            print(
-                f"[DEBUG] Processing batch {batch_idx + 1}/{len(batches)} ({len(batch_texts)} texts)..."
-            )
-
             # 진행률 업데이트 (임베딩 80% 비중)
             current_processed = sum(len(b) for b in batches[: batch_idx + 1])
             progress = int((current_processed / len(chunks)) * 80)
-            # processing_progress 필드로 통일
-            new_meta = dict(doc.meta_info or {})
-            new_meta["processing_progress"] = progress
-            doc.meta_info = new_meta
-            self.db.commit()
+
+            # Redis에 진행률 저장
+            self._update_progress_redis(doc.id, progress)
 
             if llm_client:
                 # 배치 임베딩 호출 - 실패 시 즉시 에러 발생 (Raise)
@@ -544,10 +595,8 @@ class IngestionOrchestrator:
             # 10개마다 진행률 업데이트 (나머지 20% 비중)
             if (i + 1) % 10 == 0 or (i + 1) == len(chunks):
                 progress = 80 + int(((i + 1) / len(chunks)) * 20)
-                new_meta = dict(doc.meta_info or {})
-                new_meta["processing_progress"] = progress
-                doc.meta_info = new_meta
-                self.db.commit()
+                # Redis에 진행률 저장
+                self._update_progress_redis(doc.id, progress)
 
             content = chunk["content"]
             embedding = all_embeddings.get(i)
@@ -576,7 +625,7 @@ class IngestionOrchestrator:
                 keywords = r.get_ranked_phrases()[:10]
             except Exception as e:
                 # 키워드 추출 실패는 치명적이지 않음 (로그만 남김)
-                print(f"[WARNING] Keyword extraction failed: {e}")
+                logger.warning(f"Keyword extraction failed: {e}")
 
             # 메타데이터에 키워드 추가
             chunk_metadata = chunk.get("metadata", {}) or {}
@@ -586,7 +635,7 @@ class IngestionOrchestrator:
             try:
                 encrypted_content = encryption_manager.encrypt(content)
             except Exception as e:
-                print(f"[ERROR] Failed to encrypt content for chunk {i}: {e}")
+                logger.error(f"Failed to encrypt content for chunk {i}: {e}")
                 # 암호화 실패는 치명적일 수 있으나, 일단 원문 저장할지? -> 보안상 실패가 나을 수도.
                 # 현재 로직 유지 (원문 저장) 하되, 이번 Fix 범위 밖.
                 encrypted_content = content
@@ -615,7 +664,6 @@ class IngestionOrchestrator:
         self.db.add(doc)
 
         self.db.commit()
-        print(f"Saved {len(new_chunks)} chunks to Vector DB.")
 
     def _update_status(
         self,
@@ -642,10 +690,6 @@ class IngestionOrchestrator:
         """
         KB의 모든 문서를 새 임베딩 모델로 재인덱싱
         """
-        print(
-            f"[IngestionOrchestrator] re-indexing 시작.. KB {kb_id} with model {new_model}"
-        )
-
         self.ai_model = new_model
 
         documents = (
@@ -653,17 +697,15 @@ class IngestionOrchestrator:
         )
 
         if not documents:
-            print(f"[IngestionOrchestrator] No documents found for KB {kb_id}")
+            logger.warning(f"No documents found for KB {kb_id}")
             return
-
-        print(f"[IngestionOrchestrator] Found {len(documents)} documents to re-index")
 
         for doc in documents:
             try:
                 self._update_status(doc.id, "pending")
                 self.process_document(doc.id)
             except Exception as e:
-                print(f"[ERROR] Failed to re-index document {doc.id}: {e}")
+                logger.error(f"Failed to re-index document {doc.id}: {e}")
                 self._update_status(doc.id, "failed", str(e))
 
     def preprocess_text(self, text: str, options: Dict[str, Any]) -> str:
