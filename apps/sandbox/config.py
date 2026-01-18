@@ -49,6 +49,9 @@ class SandboxSettings:
     
     # 개발 모드 (NSJail 없이 실행)
     DEV_MODE: bool = os.getenv("SANDBOX_DEV_MODE", "false").lower() == "true"
+    
+    # FIFO 모드 강제 (A/B 테스트용 - 우선순위 무시하고 순서대로 처리)
+    FORCE_FIFO: bool = os.getenv("SANDBOX_FORCE_FIFO", "false").lower() == "true"
 
 
 settings = SandboxSettings()

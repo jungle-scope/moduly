@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from apps.sandbox.core.scheduler import SandboxScheduler
 from apps.sandbox.models.job import Priority
+from apps.sandbox.config import settings
 
 
 router = APIRouter()
@@ -80,13 +81,20 @@ async def execute_code(request: ExecuteRequest):
     if request.priority:
         priority = priority_map.get(request.priority.lower())
     
+    # FIFO 모드 강제 (A/B 테스트용)
+    if settings.FORCE_FIFO:
+        priority = Priority.NORMAL  # 모든 요청을 NORMAL로 강제
+        trigger_mode = None  # Fallback 로직도 무시
+    else:
+        trigger_mode = request.trigger_type
+    
     try:
         result = await scheduler.submit(
             code=request.code,
             inputs=request.inputs,
             timeout=request.timeout,
             priority=priority,
-            trigger_mode=request.trigger_type,
+            trigger_mode=trigger_mode,
             enable_network=request.enable_network,
             tenant_id=request.tenant_id,
         )
