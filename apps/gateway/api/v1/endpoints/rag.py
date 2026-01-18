@@ -327,7 +327,7 @@ def delete_document(
 
 
 @router.post("/search-test/chat", response_model=RAGResponse)
-def search_test_chat(
+async def search_test_chat(
     query: SearchQuery,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -338,7 +338,7 @@ def search_test_chat(
     """
     retrieval_service = RetrievalService(db, user_id=current_user.id)
     kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
-    response = retrieval_service.generate_answer(
+    response = await retrieval_service.generate_answer(
         query.query,
         knowledge_base_id=kb_id_str,
         model_id=query.generation_model or "gpt-4o",
@@ -347,7 +347,7 @@ def search_test_chat(
 
 
 @router.post("/search-test/pure", response_model=List[ChunkPreview])
-def search_test_pure(
+async def search_test_pure(
     query: SearchQuery,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -359,8 +359,8 @@ def search_test_pure(
     retrieval_service = RetrievalService(db, user_id=current_user.id)
     kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
 
-    # RetrievalService.search_documents 직접 호출
-    results = retrieval_service.search_documents(
+    # RetrievalService.search_documents 직접 호출 (비동기)
+    results = await retrieval_service.search_documents(
         query.query, knowledge_base_id=kb_id_str, top_k=query.top_k or 5
     )
     return results
