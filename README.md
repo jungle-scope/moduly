@@ -59,7 +59,7 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 
 ### 첫 워크플로우 만들기
 
-1. http://localhost:3000 접속
+1. http://localhost 접속
 2. 새 워크플로우 생성
 3. 사이드바에서 노드 추가:
    - **시작 노드** - 입력 변수와 함께 시작점 정의
@@ -88,31 +88,6 @@ curl -X POST http://localhost:8000/api/v1/run/{url_slug} \
 
 ## 🛠️ 개발
 
-### 로컬 개발 환경 설정
-
-활발한 개발을 위해 서비스를 개별적으로 실행할 수 있습니다:
-
-1. **데이터베이스만 시작**
-   ```bash
-   docker compose -f docker-compose.dev.yml up -d
-   ```
-
-2. **백엔드 로컬 실행**
-   ```bash
-   cd apps/server
-   python -m venv .venv
-   source .venv/bin/activate  # Windows: .venv\Scripts\activate
-   pip install -r requirements.txt
-   uvicorn apps.server.main:app --reload --port 8000
-   ```
-
-3. **프론트엔드 로컬 실행**
-   ```bash
-   cd apps/client
-   npm install
-   npm run dev
-   ```
-
 ### 테스트 실행
 
 ```bash
@@ -131,20 +106,6 @@ ruff check .
 cd apps/client
 npm run lint
 ```
-
-## 🔧 환경 설정
-### 1. 환경변수 파일 생성
-\`\`\`bash
-cp apps/server/.env.example apps/server/.env
-cp apps/client/.env.example apps/client/.env.local
-\`\`\`
-### 2. Google OAuth 설정 (선택)
-Google 로그인을 사용하려면:
-1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials)에서 프로젝트 생성
-2. OAuth 2.0 클라이언트 ID 생성
-3. Authorized redirect URIs에 추가:
-   - `http://localhost:8000/api/v1/auth/google/callback`
-4. [.env](cci:7://file:///Users/soyoungan/dev/moduly/apps/.env:0:0-0:0)에 Client ID와 Secret 입력
 
 ## 📚 문서
 
@@ -168,17 +129,10 @@ Google 로그인을 사용하려면:
 
 이 프로젝트는 MIT 라이선스에 따라 라이선스가 부여됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-## 🙏 감사의 말
-
-- [React Flow](https://reactflow.dev/)로 구축
-- [FastAPI](https://fastapi.tiangolo.com/) 기반
-- [Dify Sandbox](https://github.com/langgenius/dify-sandbox)를 통한 코드 실행
-- [LangChain](https://www.langchain.com/)을 통한 RAG 기능
-
 ## 📧 지원
 
-- 이슈: [GitHub Issues](https://github.com/YOUR_USERNAME/moduly/issues)
-- 토론: [GitHub Discussions](https://github.com/YOUR_USERNAME/moduly/discussions)
+- 이슈: [GitHub Issues](https://github.com/jungle-scope/moduly/issues)
+- 토론: [GitHub Discussions](https://github.com/jungle-scope/moduly/discussions)
 
 ---
 
