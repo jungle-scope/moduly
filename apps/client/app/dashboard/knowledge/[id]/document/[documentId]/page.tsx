@@ -547,7 +547,7 @@ export default function DocumentSettingsPage() {
             className="hover:text-blue-600 max-w-[150px] truncate"
             title={kbName}
           >
-            {kbName || '지식베이스'}
+            {kbName || '지식 베이스'}
           </Link>
           <ChevronRight className="w-3 h-3 text-gray-300" />
           <span

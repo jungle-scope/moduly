@@ -58,11 +58,6 @@ spec:
             # Sandbox 설정
             - name: SANDBOX_URL
               value: "http://sandbox-service.default.svc.cluster.local:8194"
-            - name: SANDBOX_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: SANDBOX_API_KEY
             # 외부 DB 연동 설정
             - name: MASTER_KEY
               valueFrom:
