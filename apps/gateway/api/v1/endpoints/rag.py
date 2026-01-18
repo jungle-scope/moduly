@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from uuid import UUID
 
@@ -35,6 +36,7 @@ from apps.shared.schemas.rag import (
     SearchQuery,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -93,7 +95,7 @@ async def generate_presigned_url(
             "method": presigned_data["method"],
         }
     except Exception as e:
-        print(f"[ERROR] Presigned URL generation failed: {e}")
+        logger.error(f"Presigned URL generation failed: {e}")
         raise HTTPException(
             status_code=500, detail=f"Presigned URL 생성 실패: {str(e)}"
         )
@@ -135,7 +137,7 @@ async def upload_document(
     """
     # 0. 환경 변수 확인 (Ingestion Mode)
     ingestion_mode = (settings.STORAGE_TYPE or "LOCAL").upper()
-    print(f"=== [upload_document] Request Received (Mode: {ingestion_mode}) ===")
+    logger.info(f"=== [upload_document] Request Received (Mode: {ingestion_mode}) ===")
 
     # 1. 자료 확인 또는 생성
     target_kb_id, target_ai_model = _get_or_create_knowledge_base(
@@ -204,8 +206,6 @@ async def upload_document(
         source_type=source_enum,
         meta_info=meta_info,
     )
-
-    print(f"=== [upload_document] Document {doc_id} created (Pending). ===")
 
     return IngestionResponse(
         knowledge_base_id=target_kb_id,
@@ -315,9 +315,8 @@ def delete_document(
         storage = get_storage_service()
         try:
             storage.delete(doc.file_path)
-            print(f"[Info] Deleted file: {doc.file_path}")
         except Exception as e:
-            print(f"[Warning] Failed to delete file {doc.file_path}: {e}")
+            logger.warning(f"Failed to delete file {doc.file_path}: {e}")
             # 파일 삭제 실패해도 DB는 삭제 진행
 
     # 3. DB 삭제 (Cascade로 청크도 같이 삭제됨)
@@ -380,6 +379,7 @@ async def get_document_progress(
     import json
 
     from fastapi.responses import StreamingResponse
+
     from apps.shared.pubsub import get_redis_client
 
     async def event_generator():
@@ -394,9 +394,9 @@ async def get_document_progress(
             # 2. Redis에서 실시간 진행률 조회
             redis_client = get_redis_client()
             redis_key = f"knowledge_progress:{document_id}"
-            
+
             redis_progress = redis_client.get(redis_key)
-            
+
             # 3. 진행률 결정 (Redis 값)
             if redis_progress:
                 try:
@@ -404,7 +404,7 @@ async def get_document_progress(
                 except ValueError:
                     progress = 9
             else:
-                 progress = 10
+                progress = 10
 
             # 메타 정보에서는 메시지만 가져옴
             meta = doc.meta_info or {}
@@ -447,9 +447,6 @@ async def proxy_api_preview(
     """
     import httpx
 
-    print(f"[Proxy] URL: {request.url}")
-    print(f"[Proxy] Headers: {request.headers}")
-
     # 기본 헤더가 없으면 추가
     headers = request.headers or {}
     if "User-Agent" not in headers:
@@ -483,7 +480,6 @@ async def proxy_api_preview(
 
     except httpx.HTTPStatusError as e:
         # 외부 API가 에러 응답(4xx, 5xx)을 준 경우
-        print(f"[Proxy Log] 외부 API 에러: {e}")
         status_code = e.response.status_code
         try:
             detail = e.response.json()
@@ -492,17 +488,17 @@ async def proxy_api_preview(
         raise HTTPException(status_code=status_code, detail=detail)
 
     except httpx.TimeoutException:
-        print("[Proxy Log] 타임아웃 발생 (Timeout)")
+        logger.error("[Proxy Log] 타임아웃 발생 (Timeout)")
         raise HTTPException(status_code=504, detail="External API Timeout")
 
     except httpx.RequestError as e:
-        print(f"[Proxy Log] 연결 실패 (RequestError): {e}")
+        logger.error(f"[Proxy Log] 연결 실패 (RequestError): {e}")
         raise HTTPException(
             status_code=502, detail=f"External API Connection Error: {str(e)}"
         )
 
     except Exception as e:
-        print(f"[Proxy Log] 기타 오류 발생: {type(e).__name__} - {str(e)}")
+        logger.error(f"[Proxy Log] 기타 오류 발생: {type(e).__name__} - {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -556,7 +552,6 @@ def _prepare_file_source(local_service: IngestionService, file: Optional[UploadF
         raise HTTPException(status_code=400, detail="File is required for FILE source")
 
     file_path = local_service.save_temp_file(file)
-    print("-------->", file_path)
     filename = file.filename
     return file_path, filename, {}
 
@@ -582,7 +577,7 @@ def _prepare_api_source(
             json.loads(api_headers)  # 유효성 검증
             encrypted_headers = security_service.encrypt(api_headers)
         except Exception as e:
-            print(f"[Warning] Failed to process headers: {e}")
+            logger.warning(f"Failed to process headers: {e}")
             pass
 
     # 바디 처리 (JSON 파싱)
@@ -591,7 +586,7 @@ def _prepare_api_source(
         try:
             body = json.loads(api_body)
         except Exception as e:
-            print(f"[Warning] Failed to parse body: {e}")
+            logger.warning(f"Failed to parse body: {e}")
             pass
 
     meta_info = {

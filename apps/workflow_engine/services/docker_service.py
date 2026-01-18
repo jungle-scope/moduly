@@ -147,9 +147,7 @@ class DockerSandboxService:
 
         except Exception as e:
             error_msg = f"예상치 못한 오류: {str(e)}"
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("예상치 못한 오류")
             return {"error": error_msg}
 
     def _create_wrapper(self, user_code: str, inputs: Dict[str, Any]) -> str:

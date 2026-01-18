@@ -202,9 +202,7 @@ class SchedulerService:
 
         except Exception as e:
             logger.error(f"워크플로우 실행 실패: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("워크플로우 실행 실패")
             # 예외 발생 시 rollback
             db.rollback()
 

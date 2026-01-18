@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from typing import Any, Dict, Optional
@@ -7,6 +8,8 @@ import requests
 
 from ..base.node import Node
 from .entities import FileExtractionNodeData
+
+logger = logging.getLogger(__name__)
 
 
 class FileExtractionNode(Node[FileExtractionNodeData]):
@@ -111,7 +114,7 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                     try:
                         os.remove(temp_file_path)
                     except Exception as e:
-                        print(f"[Warning] Failed to remove temp file: {e}")
+                        logger.warning(f"Failed to remove temp file: {e}")
 
         return results
 

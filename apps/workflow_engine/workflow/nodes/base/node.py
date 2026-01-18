@@ -1,7 +1,10 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, TypeVar, final
 
 from .entities import BaseNodeData, NodeStatus
+
+logger = logging.getLogger(__name__)
 
 # NodeDataT는 BaseNodeData를 상속받는 어떤 클래스든 될 수 있다는 뜻입니다.
 NodeDataT = TypeVar("NodeDataT", bound=BaseNodeData)
@@ -16,7 +19,9 @@ class Node(ABC, Generic[NodeDataT]):
     # 자식 클래스에서 정의해야 할 타입 이름 (예: "start", "llm")
     node_type: str
 
-    def __init__(self, id: str, data: NodeDataT, execution_context: Dict[str, Any] = None):
+    def __init__(
+        self, id: str, data: NodeDataT, execution_context: Dict[str, Any] = None
+    ):
         self.id = id
         self.data = data
         self.execution_context = execution_context or {}
@@ -29,7 +34,7 @@ class Node(ABC, Generic[NodeDataT]):
         실제 실행 흐름을 제어합니다. (로그 남기기, 상태 변경 등)
         하위 클래스는 이 메서드를 override 하지 말고, _run()만 구현하면 됩니다.
         """
-        print(f"[{self.node_type}] 노드 실행 시작: {self.data.title}")
+        logger.info(f"[{self.node_type}] 노드 실행 시작: {self.data.title}")
         self.status = NodeStatus.RUNNING
 
         try:
@@ -37,12 +42,12 @@ class Node(ABC, Generic[NodeDataT]):
             outputs = await self._run(inputs)
 
             self.status = NodeStatus.COMPLETED
-            print(f"[{self.node_type}] 실행 성공!")
+            logger.info(f"[{self.node_type}] 실행 성공!")
             return outputs
 
         except Exception as e:
             self.status = NodeStatus.FAILED
-            print(f"[{self.node_type}] 실행 실패: {str(e)}")
+            logger.info(f"[{self.node_type}] 실행 실패: {str(e)}")
             raise e
 
     @abstractmethod

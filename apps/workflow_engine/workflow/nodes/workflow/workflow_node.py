@@ -92,10 +92,6 @@ class WorkflowNode(Node[WorkflowNodeData]):
             sub_workflow_inputs[target_var] = val
 
         # 3. 서브 워크플로우 실행 (비동기)
-        print(
-            f"[WorkflowNode] Executing sub-workflow {workflow_id} with inputs: {sub_workflow_inputs}"
-        )
-
         # is_deployed=True로 설정하여 AnswerNode의 결과만 반환받도록 함
         # user_id 등 context 전달
         # parent_run_id를 전달하여 서브 워크플로우의 노드 실행 기록이 부모 워크플로우와 연결되도록 함
@@ -120,5 +116,4 @@ class WorkflowNode(Node[WorkflowNodeData]):
 
         # 출력 통일: 항상 'result' 키로 반환
         # 서브 워크플로우의 출력값 구조와 관계없이 일관된 출력 제공
-        print(f"[WorkflowNode] Sub-workflow result: {result}")
         return {"result": result}

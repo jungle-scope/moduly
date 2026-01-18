@@ -63,9 +63,7 @@ async def lifespan(app: FastAPI):
 
     except Exception as e:
         logger.error(f"시드 데이터 생성 실패: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("시드 데이터 생성 실패")
     finally:
         db.close()
 

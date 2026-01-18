@@ -32,21 +32,16 @@ class ConditionNode(Node[ConditionNodeData]):
         """
         cases = self._get_cases()
 
-        print(f"[{self.data.title}] 조건 평가 시작 (케이스 수: {len(cases)})")
-
         for case in cases:
             case_result = self._evaluate_case(case, inputs)
-            print(f"  - 케이스 '{case.case_name or case.id}': {case_result}")
 
             if case_result:
-                print(f"[{self.data.title}] 선택된 핸들: {case.id}")
                 return {
                     "result": True,
                     "matched_case_id": case.id,
                     "selected_handle": case.id,
                 }
 
-        print(f"[{self.data.title}] 매칭된 케이스 없음, 선택된 핸들: default")
         return {
             "result": False,
             "matched_case_id": None,
@@ -95,7 +90,6 @@ class ConditionNode(Node[ConditionNodeData]):
         """단일 조건을 평가합니다."""
         # variable_selector에서 값 추출
         if len(condition.variable_selector) < 1:
-            print("  경고: 빈 variable_selector")
             return False
 
         node_id = condition.variable_selector[0]
@@ -212,9 +206,7 @@ class ConditionNode(Node[ConditionNodeData]):
                 return safe_float(actual) <= safe_float(expected)
 
             else:
-                print(f"  경고: 알 수 없는 연산자 '{operator}'")
                 return False
 
-        except (ValueError, TypeError) as e:
-            print(f"  경고: 비교 중 오류 발생 - {e}")
+        except (ValueError, TypeError):
             return False
