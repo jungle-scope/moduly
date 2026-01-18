@@ -225,9 +225,7 @@ services:
     privileged: true # NSJail에 필요 (Namespace 사용)
     environment:
       TZ: Asia/Seoul
-      # 개발 모드 (NSJail 없이 직접 파이썬 실행하려면 true)
-      SANDBOX_DEV_MODE: "${SANDBOX_DEV_MODE:-false}"
-
+      
       # 네트워크 허용 여부
       SANDBOX_ENABLE_NETWORK: "${SANDBOX_ENABLE_NETWORK:-false}"
 
