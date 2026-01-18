@@ -23,9 +23,10 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
 
     node_type = "fileExtractionNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        문서 파일에서 텍스트를 추출합니다.
+        문서 파일에서 텍스트를 추출합니다 (비동기).
+        pymupdf4llm은 동기 라이브러리이므로 run_in_executor로 실행합니다.
 
         Args:
             inputs: 이전 노드 결과 (변수 풀)
@@ -37,8 +38,14 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                 "user_var2": "전체 텍스트..."
             }
         """
+        import asyncio
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._run_sync, inputs)
 
-        # 필수값 검증
+    def _run_sync(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        문서 텍스트 추출 동기 로직 (run_in_executor에서 호출됨).
+        """
         if not self.data.referenced_variables:
             raise ValueError("파일 경로 변수를 선택해주세요.")
 

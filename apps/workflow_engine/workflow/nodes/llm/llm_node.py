@@ -49,9 +49,9 @@ class LLMNode(Node[LLMNodeData]):
 
     node_type = "llmNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        LLM 노드의 실제 실행 로직 구현
+        LLM 노드의 실제 실행 로직 구현 (비동기)
 
         Args:
             inputs: 이전 노드 결과 합친 dict (변수 풀)
@@ -171,7 +171,7 @@ class LLMNode(Node[LLMNodeData]):
 
         used_model_id = self.data.model_id
         try:
-            response = client.invoke(messages=messages, **llm_params)
+            response = await client.invoke(messages=messages, **llm_params)
         except Exception as primary_error:
             fallback_model_id = self.data.fallback_model_id
             if not fallback_model_id:
@@ -214,7 +214,7 @@ class LLMNode(Node[LLMNodeData]):
                     fallback_session.close()
 
             try:
-                response = fallback_client.invoke(messages=messages, **llm_params)
+                response = await fallback_client.invoke(messages=messages, **llm_params)
             except Exception as fallback_error:
                 raise fallback_error from primary_error
             used_model_id = fallback_model_id

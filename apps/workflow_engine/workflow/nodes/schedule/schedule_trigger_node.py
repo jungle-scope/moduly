@@ -25,7 +25,7 @@ class ScheduleTriggerNode(Node[ScheduleTriggerNodeData]):
 
     node_type = "scheduleTrigger"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         스케줄러가 전달한 입력을 그대로 다음 노드로 전달합니다.
 

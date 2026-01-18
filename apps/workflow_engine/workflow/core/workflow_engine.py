@@ -449,11 +449,8 @@ class WorkflowEngine:
 
         async def _task_wrapper():
             async with semaphore:
-                loop = asyncio.get_running_loop()
-                # 동기 노드 실행을 스레드 풀에서 실행하여 이벤트 루프 블로킹 방지
-                return await loop.run_in_executor(
-                    None,
-                    self._execute_node_task_sync,
+                # 비동기 노드 실행 (run_in_executor 제거)
+                return await self._execute_node_task_async(
                     node_id,
                     node_schema,
                     node_instance,
@@ -506,15 +503,15 @@ class WorkflowEngine:
         task = asyncio.create_task(_task_wrapper_with_event())
         running_tasks[task] = node_id
 
-    def _execute_node_task_sync(self, node_id, node_schema, node_instance, inputs):
+    async def _execute_node_task_async(self, node_id, node_schema, node_instance, inputs):
         """
-        개별 노드를 실행하는 작업 (Worker Thread에서 실행됨)
+        개별 노드를 실행하는 작업 (비동기 실행)
         [실시간 스트리밍] 이벤트는 _submit_node에서 처리하므로 결과만 반환
         반환값: 노드 실행 결과 (Dict)
         """
         try:
-            # 노드 실행 (핵심) - 동기 실행
-            result = node_instance.execute(inputs)
+            # 노드 실행 (핵심) - 비동기 실행
+            result = await node_instance.execute(inputs)
 
             # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
             if not self.is_subworkflow:
