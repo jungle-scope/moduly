@@ -119,3 +119,14 @@ def subscribe_workflow_events(
     finally:
         pubsub.unsubscribe(channel)
         pubsub.close()
+
+
+async def close_async_redis_client() -> None:
+    """
+    비동기 Redis 클라이언트 연결 종료
+    [FIX] Celery 태스크 종료 시 이벤트 루프와 함께 클라이언트를 정리하기 위함
+    """
+    global _async_redis_client
+    if _async_redis_client is not None:
+        await _async_redis_client.close()
+        _async_redis_client = None

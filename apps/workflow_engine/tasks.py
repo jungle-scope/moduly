@@ -10,6 +10,7 @@ from typing import Any, Dict
 
 from apps.shared.celery_app import celery_app
 from apps.shared.db.session import SessionLocal
+from apps.shared.pubsub import close_async_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,8 @@ def execute_workflow(
         if engine is not None:
             engine.cleanup()
         session.close()
+        # [FIX] Redis 클라이언트 정리 (Event Loop Closed 오류 방지)
+        loop.run_until_complete(close_async_redis_client())
         loop.close()
         asyncio.set_event_loop(None)
 
@@ -158,6 +161,8 @@ def execute_deployed_workflow(
         if engine is not None:
             engine.cleanup()
         session.close()
+        # [FIX] Redis 클라이언트 정리 (Event Loop Closed 오류 방지)
+        loop.run_until_complete(close_async_redis_client())
         loop.close()
         asyncio.set_event_loop(None)
 
@@ -236,6 +241,8 @@ def execute_by_deployment(
         if engine is not None:
             engine.cleanup()
         session.close()
+        # [FIX] Redis 클라이언트 정리 (Event Loop Closed 오류 방지)
+        loop.run_until_complete(close_async_redis_client())
         loop.close()
         asyncio.set_event_loop(None)
 
@@ -331,5 +338,7 @@ def stream_workflow(
         if engine is not None:
             engine.cleanup()
         session.close()
+        # [FIX] Redis 클라이언트 정리 (Event Loop Closed 오류 방지)
+        loop.run_until_complete(close_async_redis_client())
         loop.close()
         asyncio.set_event_loop(None)
