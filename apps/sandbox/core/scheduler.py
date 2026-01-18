@@ -7,6 +7,7 @@ Fair Scheduler - MLFQ + Round-Robin + EMA-Based Dynamic Worker Pool Manager
 3. Aging: 오래 대기한 작업 우선순위 자동 승급 (Starvation 방지)
 4. EMA-Based Dynamic Scaling: 요청 수의 이동평균 기반 워커 수 자동 조절
 5. Tenant Limit: 테넌트당 동시 실행 제한
+6. SJF (Shortest Job First): 과거 실행 기록 기반 우선순위 자동 결정
 """
 import asyncio
 import logging
@@ -20,6 +21,7 @@ from uuid import UUID
 from apps.sandbox.config import settings
 from apps.sandbox.core.bucket import PriorityBucket
 from apps.sandbox.core.executor import execute_code
+from apps.sandbox.core.history import ExecutionHistory
 from apps.sandbox.models.job import Job, Priority
 from apps.sandbox.models.result import ExecutionResult
 
@@ -75,6 +77,9 @@ class FairScheduler:
         self._scaling_task: Optional[asyncio.Task] = None
         self._aging_task: Optional[asyncio.Task] = None
         self._cleanup_task: Optional[asyncio.Task] = None
+        
+        # SJF: 실행 기록 기반 우선순위 결정
+        self._execution_history = ExecutionHistory()
     
     @classmethod
     def get_instance(cls) -> "FairScheduler":
@@ -137,7 +142,7 @@ class FairScheduler:
         code: str,
         inputs: dict,
         timeout: int = None,
-        priority: Priority = Priority.NORMAL,
+        priority: Priority = None,  # None이면 자동 결정
         enable_network: bool = False,
         tenant_id: str = None,
     ) -> ExecutionResult:
@@ -152,6 +157,10 @@ class FairScheduler:
         
         # EMA 계산용 카운터
         self._requests_this_interval += 1
+        
+        # SJF: 우선순위 자동 결정 (명시적으로 주어지지 않으면)
+        if priority is None:
+            priority = self._execution_history.suggest_priority(code, fallback=Priority.NORMAL)
         
         # Job 생성
         loop = asyncio.get_event_loop()
@@ -236,6 +245,7 @@ class FairScheduler:
     async def _execute_job(self, job: Job, loop: asyncio.AbstractEventLoop):
         """작업 실행 및 결과 반환"""
         tenant_id = job.tenant_id or "__default__"
+        start_time = time.time()
         
         try:
             result = await loop.run_in_executor(
@@ -247,6 +257,11 @@ class FairScheduler:
                 job.enable_network,
                 job.job_id,
             )
+            
+            # SJF: 실행 시간 기록 (성공한 경우만)
+            if result.success:
+                execution_time = time.time() - start_time
+                self._execution_history.record(job.code, execution_time)
             
             if not job.future.done():
                 job.future.set_result(result)
