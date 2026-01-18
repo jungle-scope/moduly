@@ -226,14 +226,36 @@ services:
     environment:
       TZ: Asia/Seoul
       # 개발 모드 (NSJail 없이 직접 파이썬 실행하려면 true)
-      SANDBOX_DEV_MODE: "false"
+      SANDBOX_DEV_MODE: "${SANDBOX_DEV_MODE:-false}"
+
+      # 네트워크 허용 여부
+      SANDBOX_ENABLE_NETWORK: "${SANDBOX_ENABLE_NETWORK:-false}"
+
       # 워커 설정
-      SANDBOX_MIN_WORKERS: 2
-      SANDBOX_MAX_WORKERS: 8
+      SANDBOX_MIN_WORKERS: "${SANDBOX_MIN_WORKERS:-2}"
+      SANDBOX_MAX_WORKERS: "${SANDBOX_MAX_WORKERS:-8}"
+      SANDBOX_WORKER_IDLE_TIMEOUT: 30
+
+      # 동적 스케일링 (EMA)
+      SANDBOX_SCALING_INTERVAL: 1
+      SANDBOX_EMA_ALPHA: 0.2
+      SANDBOX_TARGET_RPS_PER_WORKER: 2.0
+      SANDBOX_SCALE_DOWN_COOLDOWN: 30
+      SANDBOX_SCALE_DOWN_IDLE_TIME: 30
+
       # 실행 제한
-      SANDBOX_DEFAULT_TIMEOUT: 10
+      SANDBOX_DEFAULT_TIMEOUT: "${SANDBOX_DEFAULT_TIMEOUT:-10}"
       SANDBOX_MAX_TIMEOUT: 60
-      SANDBOX_MAX_MEMORY_MB: 128
+      SANDBOX_MAX_MEMORY_MB: 256
+
+      # 큐 설정
+      SANDBOX_MAX_QUEUE_SIZE: 100
+
+      # Fair Scheduler
+      SANDBOX_MAX_PER_TENANT: "${SANDBOX_MAX_PER_TENANT:-3}"
+      SANDBOX_AGING_INTERVAL: 5
+      SANDBOX_AGING_THRESHOLD_LOW: 15
+      SANDBOX_AGING_THRESHOLD_NORMAL: 30
     ports:
       - "8194:8194"
     networks:
@@ -241,7 +263,7 @@ services:
     mem_limit: 512m
     cpus: 0.5
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8194/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8194/v1/sandbox/health"]
       interval: 30s
       timeout: 5s
       retries: 3
