@@ -154,42 +154,6 @@ class DbProcessor(BaseProcessor):
             # 사용자가 선택한 테이블/컬럼 정보(selections)를 기반으로 데이터 조회
             selections = source_config.get("selections", [])
 
-            # 모든 선택된 테이블의 스키마를 하나의 chunk로 생성
-            try:
-                schema_info = connector.get_schema_info(config_dict)
-                if inspect.iscoroutine(schema_info):
-                    schema_info = asyncio.run(schema_info)
-
-                if schema_info and selections:
-                    combined_schema_text = ""
-                    for selection in selections:
-                        table_name = selection["table_name"]
-                        table_schema = next(
-                            (s for s in schema_info if s["table_name"] == table_name),
-                            None,
-                        )
-                        if table_schema:
-                            combined_schema_text += f"Table: {table_name}\nColumns:\n"
-                            for col in table_schema.get("columns", []):
-                                combined_schema_text += (
-                                    f"- {col['name']} ({col['type']})\n"
-                                )
-                            combined_schema_text += "\n"
-
-                    # 스키마를 첫 번째 chunk로 추가
-                    if combined_schema_text:
-                        chunks.append(
-                            {
-                                "content": combined_schema_text.strip(),
-                                "metadata": {
-                                    "source": f"DB:{conn_record.name}:schema",
-                                    "type": "schema",
-                                },
-                            }
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to fetch schema info: {e}")
-
             transformer = DbNlTransformer()
 
             # 자동 Chunker 초기화
