@@ -42,6 +42,27 @@ services:
     depends_on:
       - postgres
 
+  # Code Execution Sandbox (NSJail-based)
+  sandbox:
+    build:
+      context: .
+      dockerfile: docker/sandbox/Dockerfile
+    container_name: moduly-dev-sandbox
+    privileged: true # NSJail에 필요 (Namespace 사용)
+    environment:
+      TZ: Asia/Seoul
+      SANDBOX_DEV_MODE: "false"
+      SANDBOX_MIN_WORKERS: 2
+      SANDBOX_MAX_WORKERS: 8
+      SANDBOX_DEFAULT_TIMEOUT: 10
+    ports:
+      - "8194:8194"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8194/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   postgres_data:
   redis_data:

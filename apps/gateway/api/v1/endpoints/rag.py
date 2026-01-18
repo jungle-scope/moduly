@@ -93,6 +93,7 @@ async def generate_presigned_url(
             "upload_url": presigned_data["url"],
             "s3_key": presigned_data["key"],
             "method": presigned_data["method"],
+            "use_backend_proxy": presigned_data.get("use_backend_proxy"),
         }
     except Exception as e:
         logger.error(f"Presigned URL generation failed: {e}")

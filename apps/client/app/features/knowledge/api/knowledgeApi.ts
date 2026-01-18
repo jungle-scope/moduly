@@ -97,6 +97,7 @@ export const knowledgeApi = {
     upload_url: string;
     s3_key: string;
     method: string;
+    use_backend_proxy?: boolean;
   }> => {
     const response = await api.post('/rag/upload/presigned-url', {
       filename,
