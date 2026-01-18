@@ -29,9 +29,9 @@ class CodeNode(Node[CodeNodeData]):
         super().__init__(id, data, execution_context)
         self.docker_service = DockerSandboxService()
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Docker 샌드박스에서 Python 코드 실행
+        Docker 샌드박스에서 Python 코드 실행 (비동기)
 
         Args:
             inputs: 이전 노드들의 컨텍스트 (예: {"Start": {"query": "hello"}})
@@ -55,8 +55,8 @@ class CodeNode(Node[CodeNodeData]):
             except ValueError:
                 return {"error": f"Invalid variable source format: {inp.source}"}
 
-        # 2. Docker에서 코드 실행
-        result = self.docker_service.execute_python_code(
+        # 2. Docker에서 코드 실행 (비동기)
+        result = await self.docker_service.execute_python_code(
             code=self.data.code, inputs=code_inputs, timeout=self.data.timeout
         )
 

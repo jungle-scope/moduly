@@ -32,9 +32,18 @@ class MailNode(Node[MailNodeData]):
 
     node_type = "mailNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        이메일 검색을 실행하고 결과를 반환합니다.
+        이메일 검색을 실행하고 결과를 반환합니다 (비동기).
+        IMAP 라이브러리는 동기식이므로 run_in_executor로 실행합니다.
+        """
+        import asyncio
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._run_sync, inputs)
+
+    def _run_sync(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        이메일 검색 동기 로직 (run_in_executor에서 호출됨).
         """
         data = self.data
 

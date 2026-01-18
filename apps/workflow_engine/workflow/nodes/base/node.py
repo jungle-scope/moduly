@@ -28,7 +28,7 @@ class Node(ABC, Generic[NodeDataT]):
         self.status = NodeStatus.IDLE
 
     @final
-    def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         [Template Method Pattern]
         실제 실행 흐름을 제어합니다. (로그 남기기, 상태 변경 등)
@@ -39,7 +39,7 @@ class Node(ABC, Generic[NodeDataT]):
 
         try:
             # 실제 비즈니스 로직 실행 (하위 클래스에 위임)
-            outputs = self._run(inputs)
+            outputs = await self._run(inputs)
 
             self.status = NodeStatus.COMPLETED
             logger.info(f"[{self.node_type}] 실행 성공!")
@@ -51,7 +51,7 @@ class Node(ABC, Generic[NodeDataT]):
             raise e
 
     @abstractmethod
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         [Abstract Method]
         각 노드가 실제로 수행해야 할 로직을 여기에 구현합니다.

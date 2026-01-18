@@ -84,7 +84,8 @@ def test_factory_uses_default_values():
     assert node.data.trigger_type == "manual"  # 기본값 확인
 
 
-def test_factory_node_is_executable():
+@pytest.mark.asyncio
+async def test_factory_node_is_executable():
     """Factory로 생성된 노드가 실행 가능한지 테스트"""
     # Given
     schema = NodeSchema(
@@ -105,12 +106,13 @@ def test_factory_node_is_executable():
     test_inputs = {"user_query": "Hello"}
 
     # When
-    outputs = node.execute(test_inputs)
+    outputs = await node.execute(test_inputs)
 
     # Then
     assert outputs["user_query"] == test_inputs["user_query"]
     assert outputs["var-1"] == test_inputs["user_query"]
     assert node.status == NodeStatus.COMPLETED
+
 
 
 def test_factory_registry_contains_start_node():

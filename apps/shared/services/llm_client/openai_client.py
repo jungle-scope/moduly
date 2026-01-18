@@ -4,9 +4,9 @@ OpenAI용 LLM 클라이언트.
 실제 SDK 대신 HTTP 호출로 동작하며, 응답/에러를 단순 래핑합니다.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-import requests
+import httpx
 import tiktoken
 
 from .base import BaseLLMClient
@@ -308,12 +308,13 @@ class OpenAIClient(BaseLLMClient):
             "code": error_info.get("code"),
         }
 
-    def _handle_not_chat_model(
+    async def _handle_not_chat_model(
         self,
+        client: httpx.AsyncClient,
         payload: Dict[str, Any],
         messages: List[Dict[str, Any]],
-        timeout_seconds: int,
         error_text: str,
+        timeout_seconds: int = 60,
     ) -> Dict[str, Any] | None:
         responses_payload = dict(payload)
         responses_payload.pop("messages", None)
@@ -329,13 +330,13 @@ class OpenAIClient(BaseLLMClient):
         responses_payload.pop("max_tokens", None)
 
         try:
-            responses_resp = requests.post(
+            responses_resp = await client.post(
                 self.responses_url,
                 headers=self._build_headers(),
                 json=responses_payload,
                 timeout=timeout_seconds,
             )
-        except requests.RequestException as exc:
+        except httpx.RequestError as exc:
             raise ValueError(f"{self.provider_name} 호출 실패: {exc}") from exc
 
         if responses_resp.status_code < 400:
@@ -363,13 +364,13 @@ class OpenAIClient(BaseLLMClient):
                 )
                 completion_payload.pop("max_completion_tokens", None)
             try:
-                completion_resp = requests.post(
+                completion_resp = await client.post(
                     self.completions_url,
                     headers=self._build_headers(),
                     json=completion_payload,
                     timeout=timeout_seconds,
                 )
-            except requests.RequestException as exc:
+            except httpx.RequestError as exc:
                 raise ValueError(f"{self.provider_name} 호출 실패: {exc}") from exc
 
             if completion_resp.status_code >= 400:
@@ -406,21 +407,21 @@ class OpenAIClient(BaseLLMClient):
             "Content-Type": "application/json",
         }
 
-    def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> List[float]:
         """
-        Embeddings API 호출.
+        Embeddings API 호출 (비동기).
         """
         payload = {"model": self.model_id, "input": text}
 
-        try:
-            resp = requests.post(
-                self.embedding_url,
-                headers=self._build_headers(),
-                json=payload,
-                timeout=30,
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"{self.provider_name} 임베딩 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=30) as client:
+            try:
+                resp = await client.post(
+                    self.embedding_url,
+                    headers=self._build_headers(),
+                    json=payload,
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"{self.provider_name} 임베딩 호출 실패: {exc}") from exc
 
         if resp.status_code >= 400:
             raise ValueError(
@@ -434,9 +435,9 @@ class OpenAIClient(BaseLLMClient):
         except (ValueError, KeyError, IndexError) as exc:
             raise ValueError(f"{self.provider_name} 임베딩 응답 파싱 실패") from exc
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
-        OpenAI Embeddings API 배치 호출 (최대 2,048개)
+        OpenAI Embeddings API 배치 호출 (최대 2,048개, 비동기)
 
         Args:
             texts: 임베딩할 텍스트 리스트
@@ -452,15 +453,15 @@ class OpenAIClient(BaseLLMClient):
 
         payload = {"model": self.model_id, "input": texts}
 
-        try:
-            resp = requests.post(
-                self.embedding_url,
-                headers=self._build_headers(),
-                json=payload,
-                timeout=60,
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"OpenAI 배치 임베딩 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                resp = await client.post(
+                    self.embedding_url,
+                    headers=self._build_headers(),
+                    json=payload,
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"OpenAI 배치 임베딩 호출 실패: {exc}") from exc
 
         if resp.status_code >= 400:
             raise ValueError(
@@ -476,9 +477,9 @@ class OpenAIClient(BaseLLMClient):
         except (ValueError, KeyError, IndexError) as exc:
             raise ValueError("OpenAI 배치 임베딩 응답 파싱 실패") from exc
 
-    def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+    async def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
-        Chat Completions 엔드포인트 호출.
+        Chat Completions 엔드포인트 호출 (비동기).
 
         Args:
             messages: role/content 형식의 메시지 리스트
@@ -497,103 +498,107 @@ class OpenAIClient(BaseLLMClient):
         payload.update(self._normalize_params(kwargs))
         timeout_seconds = self._get_chat_timeout()
 
-        try:
-            resp = requests.post(
-                self.chat_url,
-                headers=self._build_headers(),
-                json=payload,
-                timeout=timeout_seconds,
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"{self.provider_name} 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                resp = await client.post(
+                    self.chat_url,
+                    headers=self._build_headers(),
+                    json=payload,
+                    timeout=timeout_seconds,
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"{self.provider_name} 호출 실패: {exc}") from exc
 
-        if resp.status_code >= 400:
-            if resp.status_code == 400:
-                error_text = (resp.text or "").lower()
-                retry_payload = None
-                needs_retry = False
+            if resp.status_code >= 400:
+                if resp.status_code == 400:
+                    error_text = (resp.text or "").lower()
+                    retry_payload = None
+                    needs_retry = False
 
-                if "max_tokens" in error_text and "max_completion_tokens" in error_text:
-                    retry_payload = dict(payload) if retry_payload is None else retry_payload
-                    retry_payload["max_completion_tokens"] = retry_payload.get(
-                        "max_tokens"
-                    )
-                    retry_payload.pop("max_tokens", None)
-                    needs_retry = True
-
-                if "temperature" in error_text and "only the default" in error_text:
-                    retry_payload = dict(payload) if retry_payload is None else retry_payload
-                    if "temperature" in retry_payload:
-                        retry_payload["temperature"] = 1
+                    if "max_tokens" in error_text and "max_completion_tokens" in error_text:
+                        retry_payload = dict(payload) if retry_payload is None else retry_payload
+                        retry_payload["max_completion_tokens"] = retry_payload.get(
+                            "max_tokens"
+                        )
+                        retry_payload.pop("max_tokens", None)
                         needs_retry = True
 
-                if "unsupported parameter" in error_text:
-                    unsupported_params = (
-                        "temperature",
-                        "top_p",
-                        "presence_penalty",
-                        "frequency_penalty",
-                        "stop",
-                    )
-                    for param in unsupported_params:
-                        if param in error_text:
-                            retry_payload = (
-                                dict(payload) if retry_payload is None else retry_payload
-                            )
-                            if param in retry_payload:
-                                retry_payload.pop(param, None)
-                                needs_retry = True
+                    if "temperature" in error_text and "only the default" in error_text:
+                        retry_payload = dict(payload) if retry_payload is None else retry_payload
+                        if "temperature" in retry_payload:
+                            retry_payload["temperature"] = 1
+                            needs_retry = True
 
-                if needs_retry and retry_payload is not None:
-                    try:
-                        resp = requests.post(
-                            self.chat_url,
-                            headers=self._build_headers(),
-                            json=retry_payload,
-                            timeout=timeout_seconds,
+                    if "unsupported parameter" in error_text:
+                        unsupported_params = (
+                            "temperature",
+                            "top_p",
+                            "presence_penalty",
+                            "frequency_penalty",
+                            "stop",
                         )
-                    except requests.RequestException as exc:
-                        raise ValueError(
-                            f"{self.provider_name} 호출 실패: {exc}"
-                        ) from exc
+                        for param in unsupported_params:
+                            if param in error_text:
+                                retry_payload = (
+                                    dict(payload) if retry_payload is None else retry_payload
+                                )
+                                if param in retry_payload:
+                                    retry_payload.pop(param, None)
+                                    needs_retry = True
 
-            if resp.status_code == 404:
-                error_text = (resp.text or "").lower()
+                    if needs_retry and retry_payload is not None:
+                        try:
+                            # Re-use client for retry
+                            resp = await client.post(
+                                self.chat_url,
+                                headers=self._build_headers(),
+                                json=retry_payload,
+                                timeout=timeout_seconds,
+                            )
+                        except httpx.RequestError as exc:
+                            raise ValueError(
+                                f"{self.provider_name} 호출 실패: {exc}"
+                            ) from exc
+
+                if resp.status_code == 404:
+                    error_text = (resp.text or "").lower()
+                    if "not a chat model" in error_text:
+                        handled = await self._handle_not_chat_model(
+                            client=client,
+                            payload=payload,
+                            messages=messages,
+                            error_text=error_text,
+                            timeout_seconds=timeout_seconds,
+                        )
+                        if handled is not None:
+                            return handled
+
+                if resp.status_code >= 400:
+                    snippet = resp.text[:200] if resp.text else ""
+                    raise ValueError(
+                        f"{self.provider_name} 호출 실패 (status {resp.status_code}): {snippet}"
+                    )
+
+            try:
+                data = resp.json()
+            except ValueError as exc:
+                raise ValueError(f"{self.provider_name} 응답을 JSON으로 파싱할 수 없습니다.") from exc
+
+            if isinstance(data, dict) and "error" in data:
+                error_text = str(data.get("error", {}).get("message", "")).lower()
                 if "not a chat model" in error_text:
-                    handled = self._handle_not_chat_model(
+                    handled = await self._handle_not_chat_model(
+                        client=client,
                         payload=payload,
                         messages=messages,
-                        timeout_seconds=timeout_seconds,
                         error_text=error_text,
+                        timeout_seconds=timeout_seconds,
                     )
                     if handled is not None:
                         return handled
+                self._raise_error_response(data, resp.status_code)
 
-            if resp.status_code >= 400:
-                snippet = resp.text[:200] if resp.text else ""
-                raise ValueError(
-                    f"{self.provider_name} 호출 실패 (status {resp.status_code}): {snippet}"
-                )
-
-        try:
-            data = resp.json()
-        except ValueError as exc:
-            raise ValueError(f"{self.provider_name} 응답을 JSON으로 파싱할 수 없습니다.") from exc
-
-        if isinstance(data, dict) and "error" in data:
-            error_text = str(data.get("error", {}).get("message", "")).lower()
-            if "not a chat model" in error_text:
-                handled = self._handle_not_chat_model(
-                    payload=payload,
-                    messages=messages,
-                    timeout_seconds=timeout_seconds,
-                    error_text=error_text,
-                )
-                if handled is not None:
-                    return handled
-            self._raise_error_response(data, resp.status_code)
-
-        return data
+            return data
 
     def get_num_tokens(self, messages: List[Dict[str, Any]]) -> int:
         """
