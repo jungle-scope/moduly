@@ -30,9 +30,9 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
 
     node_type = "httpRequestNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        HTTP 요청을 실행하고 응답을 반환합니다.
+        HTTP 요청을 실행하고 응답을 반환합니다 (비동기).
         """
         data = self.data
 
@@ -76,12 +76,12 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
             if not content_type_keys:
                 headers["Content-Type"] = "application/json"
 
-        # 4. HTTP 요청 실행
+        # 4. HTTP 요청 실행 (비동기)
         method = data.method.value
         timeout = data.timeout / 1000.0  # ms -> seconds
 
         try:
-            with httpx.Client(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 # 현재는 JSON만 지원
                 # TODO: 추후 다른 Content-Type 지원 시 여기에 분기 추가
                 # - application/x-www-form-urlencoded
@@ -93,7 +93,7 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
                     try:
                         json_body = json.loads(body)
 
-                        response = client.request(
+                        response = await client.request(
                             method=method,
                             url=url,
                             headers={
@@ -110,7 +110,7 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
                         )
                 else:
                     # Body가 없는 경우 (GET 요청 등)
-                    response = client.request(
+                    response = await client.request(
                         method=method,
                         url=url,
                         headers=headers,

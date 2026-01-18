@@ -28,7 +28,7 @@ class CodeNode(Node[CodeNodeData]):
         super().__init__(id, data, execution_context)
         self.sandbox_service = SandboxService()
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         샌드박스에서 Python 코드 실행
 

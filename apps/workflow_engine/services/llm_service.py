@@ -19,7 +19,7 @@ from apps.shared.schemas.llm import (
     LLMModelResponse,
     LLMProviderResponse,
 )
-from apps.workflow_engine.services.llm_client.factory import get_llm_client
+from apps.shared.services.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 

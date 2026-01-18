@@ -22,7 +22,7 @@ class BaseLLMClient(ABC):
         self.credentials = credentials or {}
 
     @abstractmethod
-    def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+    async def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
         LLM에 메시지를 전달하고 결과를 반환합니다.
 
@@ -49,7 +49,7 @@ class BaseLLMClient(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> List[float]:
         """
         단일 텍스트에 대한 임베딩 벡터를 반환합니다.
         
@@ -61,7 +61,7 @@ class BaseLLMClient(ABC):
         """
         raise NotImplementedError
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
         (선택 구현) 다수 텍스트에 대한 임베딩 벡터 리스트를 반환합니다.
         기본 구현은 embed를 반복 호출합니다.
@@ -72,4 +72,4 @@ class BaseLLMClient(ABC):
         Returns:
             벡터 리스트의 리스트
         """
-        return [self.embed(t) for t in texts]
+        return [await self.embed(t) for t in texts]

@@ -16,6 +16,7 @@ import {
   Clock,
   Slack,
   Repeat,
+  BookOpen,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -216,6 +217,21 @@ export const nodeRegistry: NodeDefinition[] = [
     defaultData: () => ({
       title: '문서 추출',
       referenced_variables: [],
+    }),
+  },
+  {
+    id: 'variable-extraction',
+    type: 'variableExtractionNode',
+    name: '변수 추출',
+    category: 'logic',
+    color: '#0891b2', // cyan-600 색상
+    icon: <BookOpen className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description: 'JSON 데이터에서 필요한 값을 추출해 변수로 만듭니다.',
+    defaultData: () => ({
+      title: '변수 추출',
+      source_selector: [],
+      mappings: [],
     }),
   },
   {

@@ -90,6 +90,9 @@ dist/
 # 테스트 유저와 관련 데이터 삭제 스크립트 (개발시 DB CRUD 확인용)
 scripts/cleanup_users.py
 
+# 부하 테스트 리포트
+tests/load/reports/
+
 # Helm 패키징 파일 (빌드 결과물) - 무시
 *.tgz
 *.tar.gz

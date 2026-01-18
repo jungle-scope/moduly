@@ -1,4 +1,7 @@
+import asyncio
+import inspect
 import logging
+
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict
@@ -154,6 +157,9 @@ class DbProcessor(BaseProcessor):
             # 모든 선택된 테이블의 스키마를 하나의 chunk로 생성
             try:
                 schema_info = connector.get_schema_info(config_dict)
+                if inspect.iscoroutine(schema_info):
+                    schema_info = asyncio.run(schema_info)
+
                 if schema_info and selections:
                     combined_schema_text = ""
                     for selection in selections:
@@ -386,7 +392,11 @@ class DbProcessor(BaseProcessor):
         row_count = 0
         logger.info("Executing query...")
 
-        for row_dict in connector.fetch_data(config_dict, query):
+        data_iter = connector.fetch_data(config_dict, query)
+        if inspect.iscoroutine(data_iter):
+            data_iter = asyncio.run(data_iter)
+
+        for row_dict in data_iter:
             row_count += 1
             if row_count % 100 == 0:
                 logger.info(f"Processing rows: {row_count}")

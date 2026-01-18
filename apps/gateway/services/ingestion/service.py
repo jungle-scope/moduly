@@ -579,7 +579,16 @@ class IngestionOrchestrator:
 
             if llm_client:
                 # 배치 임베딩 호출 - 실패 시 즉시 에러 발생 (Raise)
-                batch_embeddings = llm_client.embed_batch(batch_texts)
+                import asyncio
+                import inspect
+                
+                # embed_batch가 async 함수이므로 동기적으로 결과 실행
+                embeddings_result = llm_client.embed_batch(batch_texts)
+                if inspect.iscoroutine(embeddings_result):
+                    batch_embeddings = asyncio.run(embeddings_result)
+                else:
+                    batch_embeddings = embeddings_result
+
 
                 # 인덱스 매핑
                 for idx, embedding in zip(batch_indices, batch_embeddings):
