@@ -29,8 +29,6 @@ spec:
               name: http
           env:
             # ===== 기본 설정 =====
-            - name: SANDBOX_DEV_MODE
-              value: "false" # 개발: NSJail 사용 (Prod와 동일)
             - name: TZ
               value: "Asia/Seoul"
 
