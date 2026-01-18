@@ -124,10 +124,11 @@ class LLMNode(Node[LLMNodeData]):
                     self.data.user_prompt, inputs
                 )
                 if rendered_user_prompt:
-                    knowledge_context, knowledge_metadata = (
-                        await self._execute_knowledge_search(
-                            query=rendered_user_prompt, db_session=db_session
-                        )
+                    (
+                        knowledge_context,
+                        knowledge_metadata,
+                    ) = await self._execute_knowledge_search(
+                        query=rendered_user_prompt, db_session=db_session
                     )
             except Exception as e:
                 logger.error(f"[LLMNode] Knowledge search failed: {e}")
@@ -137,7 +138,7 @@ class LLMNode(Node[LLMNodeData]):
 
         # Knowledge Context 주입 (System Prompt 최상단)
         if knowledge_context:
-            rag_header = f"[참고 자료]\n아래 제공된 참고 자료를 바탕으로 답변하세요:\n\n{knowledge_context}\n\n---\n"
+            rag_header = f"[지식 베이스]\n아래 제공된 지식을 바탕으로 답변하세요:\n\n{knowledge_context}\n\n---\n"
             system_content = rag_header + system_content
 
         messages = [
@@ -220,9 +221,7 @@ class LLMNode(Node[LLMNodeData]):
                             model_id=fallback_model_id,
                         )
                     except Exception as e:
-                        logger.error(
-                            f"[LLMNode] Fallback client load failed: {e}."
-                        )
+                        logger.error(f"[LLMNode] Fallback client load failed: {e}.")
                         raise
             finally:
                 if fallback_session is not None:

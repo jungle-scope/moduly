@@ -117,7 +117,7 @@ async def upload_document(
     api_headers: Optional[str] = Form(None, alias="apiHeaders"),
     api_body: Optional[str] = Form(None, alias="apiBody"),
     connection_id: Optional[UUID] = Form(None, alias="connectionId"),
-    # 참고자료그룹 신규 생성일 때만 필요한 정보들
+    # 지식 베이스 신규 생성일 때만 필요한 정보들
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     ai_model: Optional[str] = Form(None, alias="embeddingModel"),
