@@ -57,34 +57,24 @@ class NSJailWrapper:
         """
         start_time = time.time()
         
-        # 1. 실행할 스크립트를 임시 파일로 저장
+        # 실행할 스크립트를 임시 파일로 저장
         script_content = self._create_wrapper_script(code, inputs)
         script_path = self._write_temp_script(script_content, job_id)
         
         try:
-            # DEV_MODE: NSJail 없이 직접 Python 실행 (Windows 개발용)
-            if settings.DEV_MODE:
-                result = subprocess.run(
-                    ["python3", script_path],  # PATH에서 python3 찾기
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                )
-            else:
-                # 2. NSJail 명령 구성
-                cmd = self._build_command(script_path, timeout, enable_network)
-                
-                # 3. subprocess 실행
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout + 2,  # NSJail 자체 타임아웃 + 여유
-                )
+            # NSJail 명령 구성 및 실행
+            cmd = self._build_command(script_path, timeout, enable_network)
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout + 2,  # NSJail 자체 타임아웃 + 여유
+            )
             
             execution_time = (time.time() - start_time) * 1000
             
-            # 4. 결과 파싱
+            # 결과 파싱
             return self._parse_result(result, execution_time, job_id)
             
         except subprocess.TimeoutExpired:
@@ -95,7 +85,7 @@ class NSJailWrapper:
             return ExecutionResult.sandbox_error(str(e), job_id)
             
         finally:
-            # 5. 임시 파일 정리
+            # 임시 파일 정리
             self._cleanup_temp_script(script_path)
     
     def _auto_convert(self, value):
