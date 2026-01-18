@@ -7,14 +7,14 @@ BaseLLMClient를 직접 상속하여 독립적인 구현을 제공합니다.
 
 from typing import Any, Dict, List
 
-import requests
+import httpx
 
 from .base import BaseLLMClient
 
 
 class GoogleClient(BaseLLMClient):
     """
-    Google Gemini 클라이언트.
+    Google Gemini 클라이언트 (비동기).
 
     credentials 예시:
     {
@@ -43,37 +43,37 @@ class GoogleClient(BaseLLMClient):
             "Content-Type": "application/json",
         }
 
-    def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> List[float]:
         """
-        Google Gemini Embeddings API 호출.
+        Google Gemini Embeddings API 호출 (비동기).
         """
         payload = {"model": self.model_id, "input": text}
 
-        try:
-            resp = requests.post(
-                self.embedding_url,
-                headers=self._build_headers(),
-                json=payload,
-                timeout=30,
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"Google Gemini 임베딩 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=30) as client:
+            try:
+                resp = await client.post(
+                    self.embedding_url,
+                    headers=self._build_headers(),
+                    json=payload,
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"Google Gemini 임베딩 호출 실패: {exc}") from exc
 
-        if resp.status_code >= 400:
-            raise ValueError(
-                f"Google Gemini 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
-            )
+            if resp.status_code >= 400:
+                raise ValueError(
+                    f"Google Gemini 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
+                )
 
-        try:
-            data = resp.json()
-            # OpenAI 호환 형식: { "data": [ { "embedding": [...] } ] }
-            return data["data"][0]["embedding"]
-        except (ValueError, KeyError, IndexError) as exc:
-            raise ValueError("Google Gemini 임베딩 응답 파싱 실패") from exc
+            try:
+                data = resp.json()
+                # OpenAI 호환 형식: { "data": [ { "embedding": [...] } ] }
+                return data["data"][0]["embedding"]
+            except (ValueError, KeyError, IndexError) as exc:
+                raise ValueError("Google Gemini 임베딩 응답 파싱 실패") from exc
 
-    def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+    async def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
-        Google Gemini Chat Completions 엔드포인트 호출 (OpenAI 호환).
+        Google Gemini Chat Completions 엔드포인트 호출 (OpenAI 호환, 비동기).
 
         Args:
             messages: role/content 형식의 메시지 리스트
@@ -91,21 +91,22 @@ class GoogleClient(BaseLLMClient):
         }
         payload.update(kwargs)
 
-        try:
-            resp = requests.post(
-                self.chat_url, headers=self._build_headers(), json=payload, timeout=60
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"Google Gemini 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                resp = await client.post(
+                    self.chat_url, headers=self._build_headers(), json=payload
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"Google Gemini 호출 실패: {exc}") from exc
 
-        if resp.status_code >= 400:
-            snippet = resp.text[:200] if resp.text else ""
-            raise ValueError(f"Google Gemini 호출 실패 (status {resp.status_code}): {snippet}")
+            if resp.status_code >= 400:
+                snippet = resp.text[:200] if resp.text else ""
+                raise ValueError(f"Google Gemini 호출 실패 (status {resp.status_code}): {snippet}")
 
-        try:
-            return resp.json()
-        except ValueError as exc:
-            raise ValueError("Google Gemini 응답을 JSON으로 파싱할 수 없습니다.") from exc
+            try:
+                return resp.json()
+            except ValueError as exc:
+                raise ValueError("Google Gemini 응답을 JSON으로 파싱할 수 없습니다.") from exc
 
     def get_num_tokens(self, messages: List[Dict[str, Any]]) -> int:
         """
@@ -122,3 +123,4 @@ class GoogleClient(BaseLLMClient):
         
         # 대략 4자당 1토큰으로 추정
         return max(1, total_chars // 4)
+

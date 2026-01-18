@@ -100,7 +100,7 @@ class LLMNode(Node[LLMNodeData]):
 
         memory_summary = None
         try:
-            memory_summary = self._build_memory_summary()
+            memory_summary = await self._build_memory_summary()
         except Exception as e:
             # 기억 모드 실패는 실행을 막지 않음 (비용만 스킵)
             print(f"[LLMNode] memory summary skipped: {e}")
@@ -116,7 +116,7 @@ class LLMNode(Node[LLMNodeData]):
                 )
                 if rendered_user_prompt:
                     knowledge_context, knowledge_metadata = (
-                        self._execute_knowledge_search(
+                        await self._execute_knowledge_search(
                             query=rendered_user_prompt, db_session=db_session
                         )
                     )
@@ -324,9 +324,9 @@ class LLMNode(Node[LLMNodeData]):
         except Exception as e:
             raise ValueError(f"프롬프트 렌더링 실패: {e}")
 
-    def _build_memory_summary(self) -> Optional[str]:
+    async def _build_memory_summary(self) -> Optional[str]:
         """
-        최근 워크플로우 실행에서 LLM 노드 입출력을 요약해 시스템 프롬프트에 넣습니다.
+        최근 워크플로우 실행에서 LLM 노드 입출력을 요약해 시스템 프롬프트에 넣습니다. (비동기)
         - 키가 없거나 히스토리가 없으면 조용히 None 반환
         - 요약 실패 시 워크플로우 실행은 그대로 진행
         """
@@ -393,7 +393,7 @@ class LLMNode(Node[LLMNodeData]):
                 },
                 {"role": "user", "content": "\n".join(history_lines)},
             ]
-            summary_response = summary_client.invoke(
+            summary_response = await summary_client.invoke(
                 messages=summary_messages,
                 temperature=0.2,
                 max_tokens=512,
@@ -450,11 +450,11 @@ class LLMNode(Node[LLMNodeData]):
         return fallback_model
         return fallback_model
 
-    def _execute_knowledge_search(
+    async def _execute_knowledge_search(
         self, query: str, db_session
     ) -> tuple[str, List[Dict[str, Any]]]:
         """
-        연결된 지식 베이스에서 문서를 검색합니다.
+        연결된 지식 베이스에서 문서를 검색합니다 (비동기).
         KnowledgeNode 로직을 재사용.
         """
         user_id_str = self.execution_context.get("user_id")
@@ -477,7 +477,7 @@ class LLMNode(Node[LLMNodeData]):
         all_chunks: List[tuple[str, ChunkPreview]] = []
 
         for kb_id in kb_ids:
-            chunks = retrieval.search_documents(
+            chunks = await retrieval.search_documents(
                 query,
                 knowledge_base_id=kb_id,
                 top_k=top_k,

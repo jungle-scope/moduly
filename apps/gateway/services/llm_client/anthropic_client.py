@@ -6,14 +6,14 @@ Anthropic Messages API를 직접 호출합니다.
 
 from typing import Any, Dict, List
 
-import requests
+import httpx
 
 from .base import BaseLLMClient
 
 
 class AnthropicClient(BaseLLMClient):
     """
-    Anthropic Claude 클라이언트.
+    Anthropic Claude 클라이언트 (비동기).
 
     credentials 예시:
     {
@@ -40,7 +40,7 @@ class AnthropicClient(BaseLLMClient):
             "Content-Type": "application/json",
         }
 
-    def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> List[float]:
         """
         Anthropic은 임베딩 API를 제공하지 않습니다.
         """
@@ -49,9 +49,9 @@ class AnthropicClient(BaseLLMClient):
             "OpenAI 또는 Google의 임베딩 모델을 사용해주세요."
         )
 
-    def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+    async def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
-        Anthropic Messages API 호출.
+        Anthropic Messages API 호출 (비동기).
 
         Args:
             messages: role/content 형식의 메시지 리스트
@@ -85,23 +85,24 @@ class AnthropicClient(BaseLLMClient):
         # 나머지 옵션 추가 (temperature 등)
         payload.update(kwargs)
 
-        try:
-            resp = requests.post(
-                self.messages_url, headers=self._build_headers(), json=payload, timeout=60
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"Anthropic 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                resp = await client.post(
+                    self.messages_url, headers=self._build_headers(), json=payload
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"Anthropic 호출 실패: {exc}") from exc
 
-        if resp.status_code >= 400:
-            snippet = resp.text[:200] if resp.text else ""
-            raise ValueError(f"Anthropic 호출 실패 (status {resp.status_code}): {snippet}")
+            if resp.status_code >= 400:
+                snippet = resp.text[:200] if resp.text else ""
+                raise ValueError(f"Anthropic 호출 실패 (status {resp.status_code}): {snippet}")
 
-        try:
-            data = resp.json()
-            # Anthropic 응답을 OpenAI 호환 형식으로 변환
-            return self._convert_to_openai_format(data)
-        except ValueError as exc:
-            raise ValueError("Anthropic 응답을 JSON으로 파싱할 수 없습니다.") from exc
+            try:
+                data = resp.json()
+                # Anthropic 응답을 OpenAI 호환 형식으로 변환
+                return self._convert_to_openai_format(data)
+            except ValueError as exc:
+                raise ValueError("Anthropic 응답을 JSON으로 파싱할 수 없습니다.") from exc
 
     def _convert_to_openai_format(self, anthropic_response: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -163,3 +164,4 @@ class AnthropicClient(BaseLLMClient):
         
         # 대략 4자당 1토큰으로 추정
         return max(1, total_chars // 4)
+

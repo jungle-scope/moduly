@@ -6,7 +6,7 @@ OpenAI용 LLM 클라이언트.
 
 from typing import Any, Dict, List
 
-import requests
+import httpx
 import tiktoken
 
 from .base import BaseLLMClient
@@ -14,7 +14,7 @@ from .base import BaseLLMClient
 
 class OpenAIClient(BaseLLMClient):
     """
-    OpenAI 클라이언트.
+    OpenAI 클라이언트 (비동기).
 
     credentials 예시:
     {
@@ -39,37 +39,37 @@ class OpenAIClient(BaseLLMClient):
             "Content-Type": "application/json",
         }
 
-    def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> List[float]:
         """
-        Embeddings API 호출.
+        Embeddings API 호출 (비동기).
         """
         payload = {"model": self.model_id, "input": text}
 
-        try:
-            resp = requests.post(
-                self.embedding_url,
-                headers=self._build_headers(),
-                json=payload,
-                timeout=30,
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"{self.provider_name} 임베딩 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=30) as client:
+            try:
+                resp = await client.post(
+                    self.embedding_url,
+                    headers=self._build_headers(),
+                    json=payload,
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"{self.provider_name} 임베딩 호출 실패: {exc}") from exc
 
-        if resp.status_code >= 400:
-            raise ValueError(
-                f"{self.provider_name} 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
-            )
+            if resp.status_code >= 400:
+                raise ValueError(
+                    f"{self.provider_name} 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
+                )
 
-        try:
-            data = resp.json()
-            # OpenAI response format: { "data": [ { "embedding": [...] } ] }
-            return data["data"][0]["embedding"]
-        except (ValueError, KeyError, IndexError) as exc:
-            raise ValueError(f"{self.provider_name} 임베딩 응답 파싱 실패") from exc
+            try:
+                data = resp.json()
+                # OpenAI response format: { "data": [ { "embedding": [...] } ] }
+                return data["data"][0]["embedding"]
+            except (ValueError, KeyError, IndexError) as exc:
+                raise ValueError(f"{self.provider_name} 임베딩 응답 파싱 실패") from exc
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
-        OpenAI Embeddings API 배치 호출 (최대 2,048개)
+        OpenAI Embeddings API 배치 호출 (최대 2,048개, 비동기)
 
         Args:
             texts: 임베딩할 텍스트 리스트
@@ -85,33 +85,33 @@ class OpenAIClient(BaseLLMClient):
 
         payload = {"model": self.model_id, "input": texts}
 
-        try:
-            resp = requests.post(
-                self.embedding_url,
-                headers=self._build_headers(),
-                json=payload,
-                timeout=60,
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"OpenAI 배치 임베딩 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                resp = await client.post(
+                    self.embedding_url,
+                    headers=self._build_headers(),
+                    json=payload,
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"OpenAI 배치 임베딩 호출 실패: {exc}") from exc
 
-        if resp.status_code >= 400:
-            raise ValueError(
-                f"OpenAI 배치 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
-            )
+            if resp.status_code >= 400:
+                raise ValueError(
+                    f"OpenAI 배치 임베딩 호출 실패 (status {resp.status_code}): {resp.text[:200]}"
+                )
 
-        try:
-            data = resp.json()
-            # OpenAI batch response: { "data": [ {"index": 0, "embedding": [...]}, ... ] }
-            # index 순서대로 정렬
-            sorted_data = sorted(data["data"], key=lambda x: x["index"])
-            return [item["embedding"] for item in sorted_data]
-        except (ValueError, KeyError, IndexError) as exc:
-            raise ValueError("OpenAI 배치 임베딩 응답 파싱 실패") from exc
+            try:
+                data = resp.json()
+                # OpenAI batch response: { "data": [ {"index": 0, "embedding": [...]}, ... ] }
+                # index 순서대로 정렬
+                sorted_data = sorted(data["data"], key=lambda x: x["index"])
+                return [item["embedding"] for item in sorted_data]
+            except (ValueError, KeyError, IndexError) as exc:
+                raise ValueError("OpenAI 배치 임베딩 응답 파싱 실패") from exc
 
-    def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+    async def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
-        Chat Completions 엔드포인트 호출.
+        Chat Completions 엔드포인트 호출 (비동기).
 
         Args:
             messages: role/content 형식의 메시지 리스트
@@ -135,21 +135,22 @@ class OpenAIClient(BaseLLMClient):
 
         payload.update(kwargs)
 
-        try:
-            resp = requests.post(
-                self.chat_url, headers=self._build_headers(), json=payload, timeout=60
-            )
-        except requests.RequestException as exc:
-            raise ValueError(f"{self.provider_name} 호출 실패: {exc}") from exc
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                resp = await client.post(
+                    self.chat_url, headers=self._build_headers(), json=payload
+                )
+            except httpx.RequestError as exc:
+                raise ValueError(f"{self.provider_name} 호출 실패: {exc}") from exc
 
-        if resp.status_code >= 400:
-            snippet = resp.text[:200] if resp.text else ""
-            raise ValueError(f"{self.provider_name} 호출 실패 (status {resp.status_code}): {snippet}")
+            if resp.status_code >= 400:
+                snippet = resp.text[:200] if resp.text else ""
+                raise ValueError(f"{self.provider_name} 호출 실패 (status {resp.status_code}): {snippet}")
 
-        try:
-            return resp.json()
-        except ValueError as exc:
-            raise ValueError(f"{self.provider_name} 응답을 JSON으로 파싱할 수 없습니다.") from exc
+            try:
+                return resp.json()
+            except ValueError as exc:
+                raise ValueError(f"{self.provider_name} 응답을 JSON으로 파싱할 수 없습니다.") from exc
 
     def get_num_tokens(self, messages: List[Dict[str, Any]]) -> int:
         """
@@ -173,3 +174,4 @@ class OpenAIClient(BaseLLMClient):
             total_tokens += len(enc.encode(content))
 
         return max(1, total_tokens)
+
