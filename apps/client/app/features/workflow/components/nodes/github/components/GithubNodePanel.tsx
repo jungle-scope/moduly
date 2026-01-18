@@ -5,6 +5,8 @@ import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
+import { ExternalLink } from 'lucide-react';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 import { ValidationAlert } from '../../../ui/ValidationAlert';
 
@@ -174,11 +176,10 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
       {/* 1. 액션 선택 */}
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-gray-700">작업</label>
-        <select
-          className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+        <RoundedSelect
           value={data.action || 'get_pr'}
-          onChange={(e) => {
-            const newAction = e.target.value;
+          onChange={(val) => {
+            const newAction = val;
             handleUpdateData('action', newAction);
 
             // Action에 따라 title 자동 변경
@@ -188,16 +189,17 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             };
             handleUpdateData('title', titleMap[newAction] || 'GitHub');
           }}
-        >
-          <option value="get_pr">Get PR Diff</option>
-          <option value="comment_pr">Comment on PR</option>
-        </select>
+          options={[
+            { label: 'Get PR Diff', value: 'get_pr' },
+            { label: 'Comment on PR', value: 'comment_pr' },
+          ]}
+        />
       </div>
       <div className="border-b border-gray-200" />
 
       {/* 2. 인증 */}
       <CollapsibleSection title="인증" defaultOpen={true} showDivider>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           <label className="text-xs font-medium text-gray-700">
             GitHub 개인 액세스 토큰
           </label>
@@ -208,6 +210,15 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             value={data.api_token || ''}
             onChange={(e) => handleUpdateData('api_token', e.target.value)}
           />
+          <a
+            href="https://github.com/settings/tokens/new?description=Moduly&scopes=repo"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors w-fit"
+          >
+            <ExternalLink className="w-3 h-3" />
+            GitHub 토큰 발급받기 (repo 권한 포함)
+          </a>
           {tokenMissing && (
             <ValidationAlert message="⚠️ API 토큰을 입력해주세요." />
           )}

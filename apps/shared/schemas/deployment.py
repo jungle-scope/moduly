@@ -2,9 +2,8 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
-
 from apps.shared.db.models.workflow_deployment import DeploymentType
+from pydantic import BaseModel, Field
 
 
 class DeploymentBase(BaseModel):
@@ -44,6 +43,7 @@ class DeploymentInfoResponse(BaseModel):
     """공개 배포 정보 응답 (인증 불필요)"""
 
     url_slug: str
+    name: str
     version: int
     description: Optional[str] = None
     type: str

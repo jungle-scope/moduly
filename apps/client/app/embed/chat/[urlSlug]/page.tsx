@@ -8,6 +8,7 @@ import './embed-reset.css';
 
 interface DeploymentInfo {
   url_slug: string;
+  name: string;
   version: number;
   description?: string;
   type: string;
@@ -67,9 +68,7 @@ export default function EmbedChatPage() {
           {
             id: 'welcome',
             role: 'assistant',
-            content: data.description
-              ? `안녕하세요! ${data.description}입니다. 무엇을 도와드릴까요?`
-              : '안녕하세요! 무엇을 도와드릴까요?',
+            content: `안녕하세요! ${data.name}입니다. 무엇을 도와드릴까요?`,
             timestamp: new Date(),
           },
         ]);
@@ -211,7 +210,7 @@ export default function EmbedChatPage() {
               width: '32px',
               height: '32px',
               border: '3px solid #e5e7eb',
-              borderTopColor: '#2563eb',
+              borderTopColor: '#4AAED9',
               borderRadius: '50%',
               animation: 'spin 1s linear infinite',
             }}
@@ -309,7 +308,7 @@ export default function EmbedChatPage() {
             margin: 0,
           }}
         >
-          {deploymentInfo?.description || '채팅'}
+          {deploymentInfo?.name || '채팅'}
         </h1>
       </div>
 
@@ -339,7 +338,7 @@ export default function EmbedChatPage() {
                 padding: '12px 16px',
                 borderRadius: '12px',
                 backgroundColor:
-                  message.role === 'user' ? '#2563eb' : '#ffffff',
+                  message.role === 'user' ? '#4AAED9' : '#ffffff',
                 color: message.role === 'user' ? '#ffffff' : '#111827',
                 fontSize: '14px',
                 lineHeight: '1.5',
@@ -421,8 +420,8 @@ export default function EmbedChatPage() {
               color: '#111827',
             }}
             onFocus={(e) => {
-              e.target.style.borderColor = '#2563eb';
-              e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+              e.target.style.borderColor = '#4AAED9';
+              e.target.style.boxShadow = '0 0 0 3px rgba(74, 174, 217, 0.15)';
             }}
             onBlur={(e) => {
               e.target.style.borderColor = '#d1d5db';
@@ -434,24 +433,28 @@ export default function EmbedChatPage() {
             disabled={!inputValue.trim() || sending}
             style={{
               padding: '12px 24px',
-              backgroundColor:
-                !inputValue.trim() || sending ? '#9ca3af' : '#2563eb',
+              background:
+                !inputValue.trim() || sending
+                  ? '#9ca3af'
+                  : 'linear-gradient(to right, #4AAED9, #22D3EE)',
               color: '#ffffff',
               borderRadius: '8px',
               fontSize: '14px',
               fontWeight: '500',
               border: 'none',
               cursor: !inputValue.trim() || sending ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s',
+              transition: 'all 0.2s',
             }}
             onMouseEnter={(e) => {
               if (inputValue.trim() && !sending) {
-                e.currentTarget.style.backgroundColor = '#1d4ed8';
+                e.currentTarget.style.background =
+                  'linear-gradient(to right, #3D9BC5, #06B6D4)';
               }
             }}
             onMouseLeave={(e) => {
               if (inputValue.trim() && !sending) {
-                e.currentTarget.style.backgroundColor = '#2563eb';
+                e.currentTarget.style.background =
+                  'linear-gradient(to right, #4AAED9, #22D3EE)';
               }
             }}
           >
