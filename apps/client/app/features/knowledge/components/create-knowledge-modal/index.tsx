@@ -513,18 +513,20 @@ export default function CreateKnowledgeModal({
             file.type || 'application/octet-stream',
           );
 
-          // 2. S3에 직접 업로드
-          await knowledgeApi.uploadToS3(
-            presignedData.upload_url,
-            file,
-            file.type || 'application/octet-stream',
-          );
+          if (presignedData.use_backend_proxy) {
+            // s3FileUrl/Key를 설정하지 않음 -> 아래에서 file 객체가 전송됨
+          } else {
+            // 2. S3에 직접 업로드
+            await knowledgeApi.uploadToS3(
+              presignedData.upload_url,
+              file,
+              file.type || 'application/octet-stream',
+            );
 
-          // 3. S3 정보 저장
-          s3FileUrl = presignedData.upload_url.split('?')[0]; // Query string 제거
-          s3FileKey = presignedData.s3_key;
-
-          console.log('[S3 Upload] Success:', s3FileKey);
+            // 3. S3 정보 저장
+            s3FileUrl = presignedData.upload_url.split('?')[0]; // Query string 제거
+            s3FileKey = presignedData.s3_key;
+          }
         } catch (err: any) {
           console.error('[S3 Upload] Failed:', err);
           toast.error(`S3 업로드 실패: ${err.message}`);
