@@ -194,6 +194,8 @@ jobs:
             if [ -n "${{ steps.build-frontend.outputs.image }}" ]; then
               kubectl set image deployment/frontend frontend=${{ steps.build-frontend.outputs.image }} -n dev
             fi
+          fi
+
           # Sandbox
           if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
             echo "Deploying Sandbox..."
