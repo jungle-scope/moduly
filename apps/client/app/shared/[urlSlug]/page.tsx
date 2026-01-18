@@ -64,6 +64,22 @@ const getDisplayPlaceholder = (label: string, type: string): string => {
   return `${label}을(를) 입력해 주세요`;
 };
 
+// 마크다운 볼드(**text**) 렌더링
+const renderTextWithBold = (text: string): React.ReactNode => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={index} className="font-semibold">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return part;
+  });
+};
+
 export default function SharedWorkflowPage() {
   const params = useParams();
   const urlSlug = params.urlSlug as string;
@@ -295,35 +311,126 @@ export default function SharedWorkflowPage() {
 
           {/* Result Display */}
           {result && (
-            <div className="mt-6 space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-green-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                결과
-              </h3>
-
+            <div className="mt-6 space-y-4">
               {result.status === 'success' && result.results ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <pre className="text-sm text-gray-800 whitespace-pre-wrap overflow-auto font-mono">
-                    {JSON.stringify(result.results, null, 2)}
-                  </pre>
+                <div className="space-y-3">
+                  {deploymentInfo?.output_schema?.outputs?.map((output) => {
+                    const value = result.results[output.variable];
+                    if (value === undefined || value === null) return null;
+
+                    const displayValue =
+                      typeof value === 'object'
+                        ? JSON.stringify(value, null, 2)
+                        : String(value);
+
+                    return (
+                      <div
+                        key={output.variable}
+                        className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden"
+                      >
+                        {/* 라벨 헤더 */}
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4 text-green-500"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700">
+                              {output.label || output.variable}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(displayValue);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded transition-colors"
+                            title="복사"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                        {/* 값 내용 */}
+                        <div className="px-4 py-3">
+                          <div className="text-gray-900 whitespace-pre-wrap leading-relaxed text-sm">
+                            {renderTextWithBold(displayValue)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* output_schema가 없는 경우 폴백 */}
+                  {(!deploymentInfo?.output_schema?.outputs ||
+                    deploymentInfo.output_schema.outputs.length === 0) && (
+                    <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-100">
+                        <svg
+                          className="w-4 h-4 text-green-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-700">
+                          실행 완료
+                        </span>
+                      </div>
+                      <div className="px-4 py-3">
+                        <div className="text-gray-900 whitespace-pre-wrap leading-relaxed text-sm">
+                          {typeof result.results === 'object'
+                            ? Object.entries(result.results).map(
+                                ([key, val]) => (
+                                  <div key={key} className="mb-2 last:mb-0">
+                                    <span className="font-medium text-gray-600">
+                                      {key}:{' '}
+                                    </span>
+                                    <span>
+                                      {typeof val === 'object'
+                                        ? JSON.stringify(val)
+                                        : String(val)}
+                                    </span>
+                                  </div>
+                                ),
+                              )
+                            : String(result.results)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <pre className="text-sm text-gray-700 whitespace-pre-wrap overflow-auto font-mono">
-                    {JSON.stringify(result, null, 2)}
-                  </pre>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <p className="text-sm text-amber-700">
+                    {result.message || '처리 중 문제가 발생했습니다.'}
+                  </p>
                 </div>
               )}
             </div>

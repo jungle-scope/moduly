@@ -5,7 +5,8 @@ import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
 import { getIncompleteVariables } from '../../../../utils/validationUtils';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { ReferencedVariablesControl } from '../../ui/ReferencedVariablesControl';
-import { AlertTriangle } from 'lucide-react';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
+import { ExternalLink } from 'lucide-react';
 import { IncompleteVariablesAlert } from '../../../ui/IncompleteVariablesAlert';
 import { ValidationAlert } from '../../../ui/ValidationAlert';
 
@@ -104,30 +105,25 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
     [data.referenced_variables, handleUpdateData],
   );
 
-
   const tokenMissing = useMemo(() => {
     return !data.api_token?.trim();
   }, [data.api_token]);
-
 
   const ownerMissing = useMemo(() => {
     return !data.repo_owner?.trim();
   }, [data.repo_owner]);
 
-
   const repoMissing = useMemo(() => {
     return !data.repo_name?.trim();
   }, [data.repo_name]);
-
 
   const prMissing = useMemo(() => {
     return !data.pr_number || data.pr_number <= 0;
   }, [data.pr_number]);
 
-
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
-    [data.referenced_variables]
+    [data.referenced_variables],
   );
 
   // 자동완성 핸들러
@@ -180,11 +176,10 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
       {/* 1. 액션 선택 */}
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-gray-700">작업</label>
-        <select
-          className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+        <RoundedSelect
           value={data.action || 'get_pr'}
-          onChange={(e) => {
-            const newAction = e.target.value;
+          onChange={(val) => {
+            const newAction = val;
             handleUpdateData('action', newAction);
 
             // Action에 따라 title 자동 변경
@@ -194,16 +189,17 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             };
             handleUpdateData('title', titleMap[newAction] || 'GitHub');
           }}
-        >
-          <option value="get_pr">Get PR Diff</option>
-          <option value="comment_pr">Comment on PR</option>
-        </select>
+          options={[
+            { label: 'Get PR Diff', value: 'get_pr' },
+            { label: 'Comment on PR', value: 'comment_pr' },
+          ]}
+        />
       </div>
       <div className="border-b border-gray-200" />
 
       {/* 2. 인증 */}
       <CollapsibleSection title="인증" defaultOpen={true} showDivider>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           <label className="text-xs font-medium text-gray-700">
             GitHub 개인 액세스 토큰
           </label>
@@ -214,6 +210,15 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             value={data.api_token || ''}
             onChange={(e) => handleUpdateData('api_token', e.target.value)}
           />
+          <a
+            href="https://github.com/settings/tokens/new?description=Moduly&scopes=repo"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors w-fit"
+          >
+            <ExternalLink className="w-3 h-3" />
+            GitHub 토큰 발급받기 (repo 권한 포함)
+          </a>
           {tokenMissing && (
             <ValidationAlert message="⚠️ API 토큰을 입력해주세요." />
           )}
@@ -231,7 +236,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
           title="" // 내부 타이틀 숨김
           description="이 섹션에서 입력변수를 등록하고, 이전 노드의 출력값과 연결하세요."
         />
-        
+
         <IncompleteVariablesAlert variables={incompleteVariables} />
       </CollapsibleSection>
 
@@ -251,9 +256,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             )}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">
-              저장소
-            </label>
+            <label className="text-xs font-medium text-gray-700">저장소</label>
             <input
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
               placeholder="예) react"
@@ -265,9 +268,7 @@ export function GithubNodePanel({ nodeId, data }: GithubNodePanelProps) {
             )}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-700">
-              PR 번호
-            </label>
+            <label className="text-xs font-medium text-gray-700">PR 번호</label>
             <input
               type="number"
               className="h-8 w-full rounded border border-gray-300 px-2 text-sm font-mono focus:outline-none focus:border-blue-500"
