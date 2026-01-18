@@ -9,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
+from apps.shared.db.models.app import App
 from apps.shared.db.models.schedule import Schedule
 from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 
@@ -165,6 +166,9 @@ class SchedulerService:
                 logger.error(f"Deployment 비활성화됨: {deployment_id}")
                 return
 
+            # App 조회하여 workflow_id 가져오기
+            app = db.query(App).filter(App.id == deployment.app_id).first()
+
             # user_input에 스케줄 메타데이터 포함
             user_input = {
                 "triggered_at": triggered_at,
@@ -174,7 +178,9 @@ class SchedulerService:
             # execution_context 구성
             execution_context = {
                 "user_id": str(deployment.created_by),  # UUID를 문자열로 변환
-                "workflow_id": str(deployment.app_id) if deployment.app_id else None,
+                "workflow_id": str(app.workflow_id)
+                if app and app.workflow_id
+                else None,
                 "trigger_mode": "schedule",
                 "deployment_id": str(deployment_id),
             }

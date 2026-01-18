@@ -85,7 +85,7 @@ export const OptionFieldItem = ({
                 <tr key={i} className="border-b last:border-b-0">
                   <td className="px-2 py-1.5 font-mono text-gray-700">{v.name || v.variable}</td>
                   <td className="px-2 py-1.5 font-mono text-gray-600 text-[10px]">
-                    {v.source || (v.value_selector ? v.value_selector.join(' → ') : JSON.stringify(v))}
+                    {v.source || v.json_path || (v.value_selector ? v.value_selector.join(' → ') : JSON.stringify(v))}
                   </td>
                 </tr>
               ))}

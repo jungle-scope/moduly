@@ -5,19 +5,18 @@ from typing import Any, Dict
 from apps.workflow_engine.workflow.nodes.base.node import Node
 from apps.workflow_engine.workflow.nodes.code.entities import CodeNodeData
 
-from apps.workflow_engine.services.docker_service import DockerSandboxService
+from apps.workflow_engine.services.sandbox_service import SandboxService
 
 
 class CodeNode(Node[CodeNodeData]):
     """
-    코드 실행 노드 - Docker에서 사용자가 제공한 Python 코드를 안전하게 실행
+    코드 실행 노드 - Moduly 샌드박스에서 사용자가 제공한 Python 코드를 안전하게 실행
 
     보안 기능:
-    - 격리된 Docker 컨테이너
+    - NSJail 격리된 환경
     - 비root 사용자 실행
-    - 네트워크 비활성화
-    - 리소스 제한 (CPU, Memory, Swap, PIDs)
-    - 임시 파일용 tmpfs
+    - 네트워크 제어 (기본 차단)
+    - 리소스 제한
     - 타임아웃 보호
     """
 
@@ -27,11 +26,11 @@ class CodeNode(Node[CodeNodeData]):
         self, id: str, data: CodeNodeData, execution_context: Dict[str, Any] = None
     ):
         super().__init__(id, data, execution_context)
-        self.docker_service = DockerSandboxService()
+        self.sandbox_service = SandboxService()
 
     async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Docker 샌드박스에서 Python 코드 실행 (비동기)
+        샌드박스에서 Python 코드 실행
 
         Args:
             inputs: 이전 노드들의 컨텍스트 (예: {"Start": {"query": "hello"}})
@@ -55,9 +54,16 @@ class CodeNode(Node[CodeNodeData]):
             except ValueError:
                 return {"error": f"Invalid variable source format: {inp.source}"}
 
-        # 2. Docker에서 코드 실행 (비동기)
-        result = await self.docker_service.execute_python_code(
-            code=self.data.code, inputs=code_inputs, timeout=self.data.timeout
+        # 2. 샌드박스에서 코드 실행
+        tenant_id = self.execution_context.get("user_id") if self.execution_context else None
+        trigger_mode = self.execution_context.get("trigger_mode") if self.execution_context else None
+        
+        result = self.sandbox_service.execute_python_code(
+            code=self.data.code,
+            inputs=code_inputs,
+            timeout=self.data.timeout,
+            trigger_type=trigger_mode,
+            tenant_id=tenant_id,
         )
 
         return result
