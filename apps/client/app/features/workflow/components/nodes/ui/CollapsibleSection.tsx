@@ -6,7 +6,7 @@ interface CollapsibleSectionProps {
   children: React.ReactNode;
   defaultOpen?: boolean;
   className?: string;
-  icon?: React.ReactNode;
+  icon?: React.ReactNode | ((expand: () => void) => React.ReactNode);
   showDivider?: boolean; // 섹션 하단 구분선 표시 여부
 }
 
@@ -43,7 +43,17 @@ export function CollapsibleSection({
           <span className="text-sm font-medium text-gray-700">{title}</span>
         </div>
 
-        {icon && <div className="flex items-center">{icon}</div>}
+        {icon && (
+          <div
+            className="flex items-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(true);
+            }}
+          >
+            {typeof icon === 'function' ? icon(() => setIsOpen(true)) : icon}
+          </div>
+        )}
       </div>
 
       {/* Content */}
