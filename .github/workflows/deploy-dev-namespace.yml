@@ -3,7 +3,7 @@ name: Deploy to Dev Namespace (Manual)
 on:
   push:
     branches:
-      - performance/KAN-533 # 팀원 브랜치에서 자동 배포
+      - feature/KAN-534 # 팀원 브랜치에서 자동 배포
     paths:
       - "apps/gateway/**"
       - "apps/workflow_engine/**"
