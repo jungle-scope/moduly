@@ -90,6 +90,4 @@ class EmbeddingService:
             return embeddings
         except Exception as e:
             logger.error(f"[EmbeddingService] Failed: {e}")
-            # 실패 시 더미 벡터 (0.0) 반환 or Raise
-            # 여기서는 Workflow가 멈추지 않도록 Raise하되 상위에서 처리
             raise e
