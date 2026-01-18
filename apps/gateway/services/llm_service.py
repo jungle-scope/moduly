@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import requests
 from sqlalchemy.orm import Session, joinedload
 
-from apps.gateway.services.llm_client.factory import get_llm_client
+from apps.shared.services.llm_client import get_llm_client
 from apps.shared.db.models.llm import (
     LLMCredential,
     LLMModel,

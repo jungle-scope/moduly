@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from apps.gateway.services.llm_client.openai_client import OpenAIClient
+from apps.shared.services.llm_client import OpenAIClient
 
 
 def test_openai_invoke_success(monkeypatch):
