@@ -30,6 +30,14 @@ export const getNodeOutputs = (node: Node): string[] => {
       return (
         (node.data?.referenced_variables as any[])?.map((v) => v.name) || []
       );
+    case 'variableExtractionNode':
+      return Array.from(
+        new Set(
+          ((node.data?.mappings as any[]) || [])
+            .map((mapping) => mapping?.name)
+            .filter(Boolean),
+        ),
+      );
 
     case 'githubNode':
       // Get PR: pr_title, pr_body, pr_state, pr_number, files_count, files, diff_url
