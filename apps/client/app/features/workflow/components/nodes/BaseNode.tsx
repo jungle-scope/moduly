@@ -24,6 +24,7 @@ interface BaseNodeProps {
   sourceHandleStyle?: React.CSSProperties;
 
   onHandlePlusClick?: (side: 'left' | 'right') => void;
+  titleClassName?: string;
 }
 
 export const SmartHandle: React.FC<
@@ -148,6 +149,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
   sourceHandleId = 'source',
   targetHandleStyle,
   sourceHandleStyle,
+  titleClassName = 'truncate max-w-[140px]',
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -198,7 +200,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
     <div
       ref={ref}
       className={cn(
-        'relative group min-w-[320px] p-7 transition-all',
+        'relative group min-w-[320px] min-h-[150px] p-7 transition-all',
         className,
       )}
       style={{ isolation: 'isolate', overflow: 'visible' }}
@@ -236,7 +238,7 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
           )}
 
           <div className="flex flex-col">
-            <h3 className="text-lg font-bold text-gray-900 leading-none mb-1">
+            <h3 className={cn("text-lg font-bold text-gray-900 leading-none mb-1", titleClassName)} title={data.title}>
               {data.title || 'Untitled Node'}
             </h3>
           </div>

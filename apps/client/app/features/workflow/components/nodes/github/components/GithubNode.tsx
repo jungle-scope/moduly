@@ -55,24 +55,12 @@ export const GithubNode = memo(
         iconColor="#333" // GitHub black
       >
         <div className="flex flex-col gap-2 p-1">
-          {/* Action and Repo Preview */}
-          <div className="flex items-center gap-2">
-            <div
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${actionClass}`}
-            >
-              {actionName}
-            </div>
-            <div className="text-xs text-gray-600 flex-1 font-mono overflow-x-auto whitespace-nowrap scrollbar-hide">
-              {data.repo_owner && data.repo_name
-                ? `${data.repo_owner}/${data.repo_name}`
-                : 'Repo를 설정하세요'}
-            </div>
+          {/* Action Badge */}
+          <div
+            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border w-fit ${actionClass}`}
+          >
+            {actionName}
           </div>
-          {data.pr_number && (
-            <div className="text-[10px] text-gray-500">
-              PR #{data.pr_number}
-            </div>
-          )}
 
           {hasValidationIssue && <ValidationBadge />}
         </div>
