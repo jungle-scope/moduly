@@ -60,6 +60,7 @@ services:
 
       # JWT Secret
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
 
       # Sandbox
       SANDBOX_URL: http://sandbox:8194
@@ -122,6 +123,10 @@ services:
       REDIS_PASSWORD: ""
       REDIS_URL: redis://redis:6379/0
 
+      # Security
+      MASTER_KEY: ${MASTER_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
       # Sandbox
       SANDBOX_URL: http://sandbox:8194
       SANDBOX_API_KEY: ${SANDBOX_API_KEY:-dify-sandbox-key}
@@ -146,6 +151,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - gateway_uploads:/app/uploads
     networks:
       - moduly-network
 
@@ -191,15 +198,10 @@ services:
         NEXT_PUBLIC_API_URL: http://localhost
     container_name: moduly-frontend
     environment:
-      # 브라우저: Nginx를 통해 접근
       NEXT_PUBLIC_API_URL: http://localhost
-      # 서버 사이드: Docker 내부 네트워크 사용
       API_URL: http://gateway:8000
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
-    # Frontend는 Nginx를 통해서만 접근 (포트 노출 제거)
-    # ports:
-    #   - "3000:3000"
     depends_on:
       - gateway
     networks:

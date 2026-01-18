@@ -23,7 +23,7 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 
 1. **저장소 클론**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/moduly.git
+   git clone https://github.com/jungle-scope/moduly.git
    ```
 
 2. **환경 변수 설정 (선택사항)**
