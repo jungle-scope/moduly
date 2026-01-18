@@ -16,6 +16,7 @@ import {
   Clock,
   Slack,
   Repeat,
+  BookOpen,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
