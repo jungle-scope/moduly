@@ -86,7 +86,7 @@ async def execute_code(request: ExecuteRequest):
             inputs=request.inputs,
             timeout=request.timeout,
             priority=priority,
-            trigger_type=request.trigger_type,
+            trigger_mode=request.trigger_type,
             enable_network=request.enable_network,
             tenant_id=request.tenant_id,
         )
