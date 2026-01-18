@@ -31,8 +31,8 @@ class SandboxSettings:
     # Fair Scheduler 설정
     MAX_PER_TENANT: int = int(os.getenv("SANDBOX_MAX_PER_TENANT", "3"))  # 테넌트당 최대 동시 실행
     AGING_INTERVAL: int = int(os.getenv("SANDBOX_AGING_INTERVAL", "5"))  # Aging 체크 주기 (초)
-    AGING_THRESHOLD_LOW: int = int(os.getenv("SANDBOX_AGING_THRESHOLD_LOW", "30"))  # LOW→NORMAL 승급 (초)
-    AGING_THRESHOLD_NORMAL: int = int(os.getenv("SANDBOX_AGING_THRESHOLD_NORMAL", "60"))  # NORMAL→HIGH 승급 (초)
+    AGING_THRESHOLD_LOW: int = int(os.getenv("SANDBOX_AGING_THRESHOLD_LOW", "15"))  # LOW→NORMAL 승급 (초)
+    AGING_THRESHOLD_NORMAL: int = int(os.getenv("SANDBOX_AGING_THRESHOLD_NORMAL", "30"))  # NORMAL→HIGH 승급 (초)
     QUEUE_CLEANUP_INTERVAL: int = int(os.getenv("SANDBOX_QUEUE_CLEANUP_INTERVAL", "300"))  # 빈 큐 정리 주기 (초)
     QUEUE_IDLE_TIMEOUT: int = int(os.getenv("SANDBOX_QUEUE_IDLE_TIMEOUT", "600"))  # 빈 큐 삭제 기준 (초)
     

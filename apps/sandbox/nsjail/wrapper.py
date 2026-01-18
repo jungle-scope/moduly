@@ -190,7 +190,6 @@ except Exception as e:
             "--time_limit", str(timeout),
         ]
         
-        # 네트워크 설정 (config에서 clone_newnet: true로 기본 비활성화됨)
         # enable_network가 true이면 네트워크 격리 비활성화
         if enable_network:
             cmd.extend(["--disable_clone_newnet"])

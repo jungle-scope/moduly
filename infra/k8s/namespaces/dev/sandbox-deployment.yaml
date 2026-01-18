@@ -72,9 +72,9 @@ spec:
             - name: SANDBOX_AGING_INTERVAL
               value: "5"
             - name: SANDBOX_AGING_THRESHOLD_LOW
-              value: "30"
+              value: "15"
             - name: SANDBOX_AGING_THRESHOLD_NORMAL
-              value: "60"
+              value: "30"
 
           resources:
             requests:

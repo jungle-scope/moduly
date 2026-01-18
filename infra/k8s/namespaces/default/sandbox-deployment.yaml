@@ -80,9 +80,9 @@ spec:
             - name: SANDBOX_AGING_INTERVAL
               value: "5"
             - name: SANDBOX_AGING_THRESHOLD_LOW
-              value: "30" # LOW → NORMAL 승급 기준 (초)
+              value: "15" # LOW → NORMAL 승급 기준 (초)
             - name: SANDBOX_AGING_THRESHOLD_NORMAL
-              value: "60" # NORMAL → HIGH 승급 기준 (초)
+              value: "30" # NORMAL → HIGH 승급 기준 (초)
             - name: SANDBOX_QUEUE_CLEANUP_INTERVAL
               value: "300" # 빈 큐 정리 주기 (초)
             - name: SANDBOX_QUEUE_IDLE_TIMEOUT
