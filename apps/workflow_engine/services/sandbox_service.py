@@ -52,7 +52,8 @@ class SandboxService:
         timeout: int = 10,
         mem_limit: str = "128m",  # 호환성 유지 (미사용)
         cpu_quota: int = 50000,   # 호환성 유지 (미사용)
-        priority: str = "normal",
+        priority: str = None,    # None이면 SJF 기반 자동 결정
+        trigger_type: str = None, # 트리거 유형 (manual, schedule, webhook, batch)
         enable_network: bool = False,
         tenant_id: str = None,
     ) -> Dict[str, Any]:
@@ -65,7 +66,8 @@ class SandboxService:
             timeout: 실행 타임아웃 (초)
             mem_limit: 메모리 제한 (미사용, 호환성 유지)
             cpu_quota: CPU 할당량 (미사용, 호환성 유지)
-            priority: 우선순위 ("high", "normal", "low")
+            priority: 우선순위 ("high", "normal", "low", None=자동)
+            trigger_type: 트리거 유형 (첫 실행 시 fallback 우선순위 결정용)
             enable_network: 네트워크 허용 여부
             tenant_id: 테넌트 ID (공정 스케줄링용)
 
@@ -81,6 +83,7 @@ class SandboxService:
             "inputs": inputs,
             "timeout": timeout,
             "priority": priority,
+            "trigger_type": trigger_type,
             "enable_network": enable_network,
             "tenant_id": tenant_id,
         }

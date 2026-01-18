@@ -19,7 +19,8 @@ class ExecuteRequest(BaseModel):
     code: str = Field(..., description="실행할 Python 코드 (def main(inputs): ... 형태)")
     inputs: Dict[str, Any] = Field(default_factory=dict, description="입력 데이터")
     timeout: int = Field(default=10, ge=1, le=60, description="타임아웃 (초)")
-    priority: str = Field(default="normal", description="우선순위 (high, normal, low)")
+    priority: Optional[str] = Field(default=None, description="우선순위 (high, normal, low), None이면 SJF 기반 자동 결정")
+    trigger_type: Optional[str] = Field(default=None, description="트리거 유형 (manual, schedule, webhook, batch)，첫 실행 시 fallback 우선순위 결정용")
     enable_network: bool = Field(default=False, description="네트워크 허용 여부")
     tenant_id: Optional[str] = Field(default=None, description="테넌트 ID, 지금은 user_id (공정 스케줄링용)")
 
@@ -75,7 +76,9 @@ async def execute_code(request: ExecuteRequest):
         "normal": Priority.NORMAL,
         "low": Priority.LOW,
     }
-    priority = priority_map.get(request.priority.lower(), Priority.NORMAL)
+    priority = None
+    if request.priority:
+        priority = priority_map.get(request.priority.lower())
     
     try:
         result = await scheduler.submit(
@@ -83,6 +86,7 @@ async def execute_code(request: ExecuteRequest):
             inputs=request.inputs,
             timeout=request.timeout,
             priority=priority,
+            trigger_type=request.trigger_type,
             enable_network=request.enable_network,
             tenant_id=request.tenant_id,
         )

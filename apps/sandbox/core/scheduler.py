@@ -143,6 +143,7 @@ class FairScheduler:
         inputs: dict,
         timeout: int = None,
         priority: Priority = None,  # None이면 자동 결정
+        trigger_mode: str = None,
         enable_network: bool = False,
         tenant_id: str = None,
     ) -> ExecutionResult:
@@ -158,9 +159,19 @@ class FairScheduler:
         # EMA 계산용 카운터
         self._requests_this_interval += 1
         
-        # SJF: 우선순위 자동 결정 (명시적으로 주어지지 않으면)
+        # 우선순위 결정 (SJF + 트리거 유형 기반 fallback)
         if priority is None:
-            priority = self._execution_history.suggest_priority(code, fallback=Priority.NORMAL)
+            # 트리거 유형에 따른 fallback 우선순위
+            fallback_map = {
+                "manual": Priority.HIGH,    # 사용자가 테스트 실행 중 (대기 중)
+                "webhook": Priority.HIGH,   # 외부 시스템 응답 대기
+                "api": Priority.NORMAL,     # API/앱 배포 실행
+                "app": Priority.NORMAL,     # 앱 배포 실행
+                "deployed": Priority.NORMAL,  # 배포된 워크플로우
+                "schedule": Priority.LOW,  # 스케줄 트리거
+            }
+            fallback = fallback_map.get(trigger_mode, Priority.NORMAL)
+            priority = self._execution_history.suggest_priority(code, fallback=fallback)
         
         # Job 생성
         loop = asyncio.get_event_loop()
