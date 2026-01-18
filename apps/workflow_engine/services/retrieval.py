@@ -66,9 +66,9 @@ class RetrievalService:
             logger.warning(f"[Model Selection Error] Using default: {e}")
             return "gpt-4o-mini"
 
-    def _rewrite_query(self, query: str) -> str:
+    async def _rewrite_query(self, query: str) -> str:
         """
-        LLM을 사용하여 검색 쿼리를 최적화합니다. (Query Rewriting)
+        LLM을 사용하여 검색 쿼리를 최적화합니다. (Query Rewriting, 비동기)
         """
         try:
             rewrite_model_id = self._get_efficient_rewrite_model()
@@ -91,7 +91,7 @@ class RetrievalService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Original Query: {query}"},
             ]
-            response = client.invoke(messages, max_tokens=200)
+            response = await client.invoke(messages, max_tokens=200)
             rewritten_query = response["choices"][0]["message"]["content"].strip()
 
             if rewritten_query.startswith('"') and rewritten_query.endswith('"'):
@@ -103,9 +103,9 @@ class RetrievalService:
             logger.error(f"Failed to rewrite query: {e}")
             return query
 
-    def _generate_multi_queries(self, query: str, num_variations: int = 3) -> list[str]:
+    async def _generate_multi_queries(self, query: str, num_variations: int = 3) -> list[str]:
         """
-        Multi-Query Expansion: LLM을 사용하여 원본 질문의 다양한 변형을 생성합니다.
+        Multi-Query Expansion: LLM을 사용하여 원본 질문의 다양한 변형을 생성합니다. (비동기)
         """
         try:
             rewrite_model_id = self._get_efficient_rewrite_model()
@@ -127,7 +127,7 @@ class RetrievalService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Original Question: {query}"},
             ]
-            response = client.invoke(messages, max_tokens=500)
+            response = await client.invoke(messages, max_tokens=500)
             content = response["choices"][0]["message"]["content"].strip()
 
             queries = []
@@ -142,13 +142,13 @@ class RetrievalService:
                         queries.append(query_text)
 
             if len(queries) < num_variations:
-                queries.append(self._rewrite_query(query))
+                queries.append(await self._rewrite_query(query))
 
             return queries[:num_variations]
 
         except Exception as e:
-            logger.error(f"Falling back to single query: {e}")
-            return [self._rewrite_query(query)]
+            print(f"[Multi-Query Error] Falling back to single query: {e}")
+            return [await self._rewrite_query(query)]
 
     def _vector_search(self, query_vector: list, knowledge_base_id: str, top_k: int):
         distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label(
@@ -259,7 +259,7 @@ class RetrievalService:
             logger.error(f"Falling back to original order: {e}")
             return candidates[:top_k]
 
-    def search_documents(
+    async def search_documents(
         self,
         query: str,
         knowledge_base_id: str = None,
@@ -271,16 +271,16 @@ class RetrievalService:
         use_multi_query: bool = False,
     ) -> list[ChunkPreview]:
         """
-        [Public API] Hybrid Search (Vector + Keyword) with optional Multi-Query and Reranking
+        [Public API] Hybrid Search (Vector + Keyword) with optional Multi-Query and Reranking (비동기)
         """
         if not knowledge_base_id:
             logger.error("Missing knowledge_base_id")
             return []
 
         if use_multi_query:
-            queries = self._generate_multi_queries(query, num_variations=3)
+            queries = await self._generate_multi_queries(query, num_variations=3)
         elif use_rewrite:
-            queries = [self._rewrite_query(query)]
+            queries = [await self._rewrite_query(query)]
         else:
             queries = [query]
 
@@ -309,7 +309,7 @@ class RetrievalService:
             )
 
             for i, q in enumerate(queries):
-                query_vector = embed_client.embed(q)
+                query_vector = await embed_client.embed(q)
                 vector_results = self._vector_search(
                     query_vector, knowledge_base_id, top_k * 10
                 )
@@ -456,25 +456,25 @@ class RetrievalService:
 
         return re.sub(encrypted_pattern, decrypt_match, content)
 
-    def retrieve_context(
+    async def retrieve_context(
         self, query: str, knowledge_base_id: str, top_k: int = 5
     ) -> str:
         """
-        [Public API] 검색된 문서들의 내용을 하나의 문자열로 합쳐서 반환합니다.
+        [Public API] 검색된 문서들의 내용을 하나의 문자열로 합쳐서 반환합니다. (비동기)
         """
-        chunks = self.search_documents(query, knowledge_base_id, top_k)
+        chunks = await self.search_documents(query, knowledge_base_id, top_k)
         if not chunks:
             return ""
 
         return "\n\n".join([c.content for c in chunks])
 
-    def generate_answer(
+    async def generate_answer(
         self, query: str, knowledge_base_id: str, model_id: str = "gpt-4o"
     ) -> RAGResponse:
         """
-        [Public API] 검색 + 답변 생성 (Chat Interface용)
+        [Public API] 검색 + 답변 생성 (Chat Interface용, 비동기)
         """
-        relevant_chunks = self.search_documents(query, knowledge_base_id)
+        relevant_chunks = await self.search_documents(query, knowledge_base_id)
 
         if not relevant_chunks:
             return RAGResponse(
@@ -512,7 +512,7 @@ class RetrievalService:
         ]
 
         try:
-            result = self.llm_client.invoke(messages)
+            result = await self.llm_client.invoke(messages)
             answer = result["choices"][0]["message"]["content"]
         except Exception as e:
             logger.warning(f"LLM Generation Failed: {e}")

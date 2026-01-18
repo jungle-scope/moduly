@@ -17,7 +17,7 @@ class ConditionNode(Node[ConditionNodeData]):
 
     node_type = "conditionNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         설정된 케이스들을 순차적으로 평가하고 선택된 분기 핸들을 반환합니다.
 

@@ -29,7 +29,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
 
     node_type = "workflowNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
         workflow_id = self.data.workflowId
@@ -91,8 +91,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
             # 값이 없으면 None 또는 빈 문자열? (일단 None)
             sub_workflow_inputs[target_var] = val
 
-        # 3. 서브 워크플로우 실행
-
+        # 3. 서브 워크플로우 실행 (비동기)
         # is_deployed=True로 설정하여 AnswerNode의 결과만 반환받도록 함
         # user_id 등 context 전달
         # parent_run_id를 전달하여 서브 워크플로우의 노드 실행 기록이 부모 워크플로우와 연결되도록 함
@@ -109,27 +108,9 @@ class WorkflowNode(Node[WorkflowNodeData]):
             is_subworkflow=True,  # [FIX] 서브 워크플로우 표시 - Redis 이벤트 발행 스킵
         )
 
-        # [FIX] 메모리 누수 방지:
-        # - 서브 워크플로우 실행 후 명시적 cleanup
-        # - asyncio.run() 대신 기존 이벤트 루프 재사용 (중첩 호출 시 루프 충돌 방지)
+        # [비동기 전환] 직접 await로 서브 워크플로우 실행
         try:
-            # 기존 이벤트 루프가 있는지 확인
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
-            if loop and loop.is_running():
-                # 이미 이벤트 루프가 실행 중인 경우 (Celery Worker 환경)
-                # run_in_executor에서 호출되므로 새 루프 생성 필요
-                new_loop = asyncio.new_event_loop()
-                try:
-                    result = new_loop.run_until_complete(engine.execute())
-                finally:
-                    new_loop.close()
-            else:
-                # 이벤트 루프가 없는 경우 (테스트 환경 등)
-                result = asyncio.run(engine.execute())
+            result = await engine.execute()
         finally:
             engine.cleanup()
 

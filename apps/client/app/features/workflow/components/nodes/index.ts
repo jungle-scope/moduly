@@ -8,6 +8,7 @@ import { LLMNode } from './llm/components/LLMNode';
 import { TemplateNode } from './template/components/TemplateNode';
 import { WorkflowNode } from './workflow/components/WorkflowNode';
 import { FileExtractionNode } from './file_extraction/components/FileExtractionNode';
+import { VariableExtractionNode } from './variable_extraction/components/VariableExtractionNode';
 import { WebhookTriggerNode } from './webhook/components/WebhookTriggerNode';
 import { ScheduleTriggerNode } from './schedule/components/ScheduleTriggerNode';
 
@@ -27,6 +28,7 @@ export const nodeTypes = {
   templateNode: TemplateNode,
   workflowNode: WorkflowNode,
   fileExtractionNode: FileExtractionNode,
+  variableExtractionNode: VariableExtractionNode,
   webhookTrigger: WebhookTriggerNode,
   scheduleTrigger: ScheduleTriggerNode,
 

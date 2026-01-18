@@ -42,7 +42,7 @@ class DockerSandboxService:
         )
         self.api_key = api_key or os.getenv("SANDBOX_API_KEY", "Modulycallsandbox306")
 
-    def execute_python_code(
+    async def execute_python_code(
         self,
         code: str,
         inputs: Dict[str, Any],
@@ -51,7 +51,7 @@ class DockerSandboxService:
         cpu_quota: int = 50000,
     ) -> Dict[str, Any]:
         """
-        파이썬 코드를 Dify Sandbox API에서 안전하게 실행
+        파이썬 코드를 Dify Sandbox API에서 안전하게 실행 (비동기)
 
         Args:
             code: 실행할 파이썬 코드 (def main(inputs): ... 형태)
@@ -92,9 +92,9 @@ class DockerSandboxService:
         )
 
         try:
-            # HTTP POST 요청
-            with httpx.Client(timeout=timeout_config) as client:
-                response = client.post(url, json=request_data, headers=headers)
+            # HTTP POST 요청 (비동기)
+            async with httpx.AsyncClient(timeout=timeout_config) as client:
+                response = await client.post(url, json=request_data, headers=headers)
 
                 # 에러 체크: 서비스 불가
                 if response.status_code == 503:

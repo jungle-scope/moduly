@@ -159,7 +159,7 @@ def check_credentials(
 
 
 @router.post("/generate", response_model=CodeGenerateResponse)
-def generate_code(
+async def generate_code(
     request: CodeGenerateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -234,7 +234,7 @@ def generate_code(
         ]
 
         # 6. LLM 호출
-        response = client.invoke(messages, temperature=0.3, max_tokens=2000)
+        response = await client.invoke(messages, temperature=0.3, max_tokens=2000)
 
         # 7. 응답 파싱 (여러 형식 지원)
         generated_code = ""

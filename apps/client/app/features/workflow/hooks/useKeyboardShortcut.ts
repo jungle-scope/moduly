@@ -34,6 +34,9 @@ export function useKeyboardShortcut(
       const hasAlt = keysArray.includes('Alt');
       const hasShift = keysArray.includes('Shift');
 
+      // event.key가 없는 엣지 케이스 방지
+      if (!event.key) return;
+
       // 실제 눌린 키가 타겟 키와 일치하는지 확인
       const isKeyMatch = event.key.toLowerCase() === targetKey;
 

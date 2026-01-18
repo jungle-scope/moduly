@@ -1,3 +1,4 @@
+import pytest
 from apps.workflow_engine.workflow.nodes.base.entities import NodeStatus
 from apps.workflow_engine.workflow.nodes.start import StartNode, StartNodeData
 from apps.workflow_engine.workflow.nodes.start.start_node import WorkflowVariable
@@ -19,7 +20,8 @@ def test_start_node_initialization():
     assert node.node_type == "startNode"
 
 
-def test_start_node_execution():
+@pytest.mark.asyncio
+async def test_start_node_execution():
     """StartNode가 입력을 그대로 반환하고 상태가 완료로 변경되는지 테스트합니다."""
     # Given
     node_data = StartNodeData(
@@ -37,7 +39,7 @@ def test_start_node_execution():
 
     # When
     # execute() 메서드는 내부적으로 _run()을 호출하고 상태를 관리합니다.
-    outputs = node.execute(test_inputs)
+    outputs = await node.execute(test_inputs)
 
     # Then
     # 1. 입력값이 그대로 출력되었는지 확인 (StartNode의 역할)
@@ -59,3 +61,4 @@ def test_start_node_default_values():
 
     # Then
     assert node_data.trigger_type == "manual"  # 기본값 확인
+
