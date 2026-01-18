@@ -2,7 +2,7 @@
 #
 # NSJail 기반 Python 코드 실행 샌드박스 (개발 환경)
 # - 리소스 제한 완화
-# - DEV_MODE=true로 NSJail 없이 직접 실행 가능
+#
 #
 apiVersion: apps/v1
 kind: Deployment
