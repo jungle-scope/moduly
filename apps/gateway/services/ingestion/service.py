@@ -121,7 +121,7 @@ class IngestionOrchestrator:
 
         with lock.lock() as acquired:
             if not acquired:
-                print(
+                logger.error(
                     f"[IngestionOrchestrator] Document {document_id} is already being processed by another worker"
                 )
                 return
@@ -140,9 +140,6 @@ class IngestionOrchestrator:
 
                 # 이미 처리 완료된 문서 건너뛰기
                 if doc.status == "completed":
-                    print(
-                        f"[INFO] Document {document_id} already completed, skipping..."
-                    )
                     return
 
                 self._update_progress_redis(document_id, 0)
@@ -354,12 +351,10 @@ class IngestionOrchestrator:
                         est_page_start = max(0, (first_chunk_idx - 1) // 2)
                         est_page_end = est_page_start + 4
                         target_pages = f"{est_page_start}-{est_page_end}"
-                        print(
-                            f"[Preview] Adjusted target_pages to {target_pages} based on chunk_range {chunk_range}"
-                        )
+
                     except Exception as e:
-                        print(
-                            f"[Preview] Failed to parse chunk_range for page targeting: {e}"
+                        logger.error(
+                            f"Failed to parse chunk_range for page targeting: {e}"
                         )
 
                 source_config["target_pages"] = target_pages
@@ -583,14 +578,13 @@ class IngestionOrchestrator:
                 # 배치 임베딩 호출 - 실패 시 즉시 에러 발생 (Raise)
                 import asyncio
                 import inspect
-                
+
                 # embed_batch가 async 함수이므로 동기적으로 결과 실행
                 embeddings_result = llm_client.embed_batch(batch_texts)
                 if inspect.iscoroutine(embeddings_result):
                     batch_embeddings = asyncio.run(embeddings_result)
                 else:
                     batch_embeddings = embeddings_result
-
 
                 # 인덱스 매핑
                 for idx, embedding in zip(batch_indices, batch_embeddings):

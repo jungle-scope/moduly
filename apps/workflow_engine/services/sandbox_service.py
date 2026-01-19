@@ -11,7 +11,6 @@ Sandbox Service for secure Python code execution via Moduly Sandbox API
 - v2.0: Dify Sandbox → Moduly Sandbox (NSJail 기반) 마이그레이션
 """
 
-import json
 import logging
 import os
 from typing import Any, Dict
@@ -23,13 +22,14 @@ logger = logging.getLogger(__name__)
 
 class CodeExecutionError(Exception):
     """코드 실행 중 발생한 에러"""
+
     pass
 
 
 class SandboxService:
     """
     Moduly Sandbox API를 통해 파이썬 코드를 안전하게 실행하는 서비스
-    
+
     내부적으로 NSJail 기반 샌드박스 서비스를 호출합니다.
     """
 
@@ -51,9 +51,9 @@ class SandboxService:
         inputs: Dict[str, Any],
         timeout: int = 10,
         mem_limit: str = "128m",  # 호환성 유지 (미사용)
-        cpu_quota: int = 50000,   # 호환성 유지 (미사용)
-        priority: str = None,    # None이면 SJF 기반 자동 결정
-        trigger_type: str = None, # 트리거 유형 (manual, schedule, webhook, batch)
+        cpu_quota: int = 50000,  # 호환성 유지 (미사용)
+        priority: str = None,  # None이면 SJF 기반 자동 결정
+        trigger_type: str = None,  # 트리거 유형 (manual, schedule, webhook, batch)
         enable_network: bool = False,
         tenant_id: str = None,
     ) -> Dict[str, Any]:
@@ -107,7 +107,9 @@ class SandboxService:
 
                 # 에러 체크: 서비스 과부하
                 if response.status_code == 503:
-                    return {"error": "Code execution service is overloaded, please retry later"}
+                    return {
+                        "error": "Code execution service is overloaded, please retry later"
+                    }
 
                 # 에러 체크: 기타 HTTP 에러
                 if response.status_code != 200:
@@ -139,6 +141,5 @@ class SandboxService:
 
         except Exception as e:
             error_msg = f"예상치 못한 오류: {str(e)}"
-            import traceback
-            traceback.print_exc()
+            logger.exception(error_msg)
             return {"error": error_msg}
