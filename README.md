@@ -13,11 +13,13 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 ### 설치 방법
 
 1. **저장소 클론**
+
    ```bash
    git clone https://github.com/jungle-scope/moduly.git
    ```
 
 2. **환경 변수 설정 (선택사항)**
+
    ```bash
    cd docker
    cp .env.example .env
@@ -25,14 +27,15 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
    ```
 
 3. **모든 서비스 시작**
+
    ```bash
    docker-compose -f docker/docker-compose.yml up -d
    ```
-   
+
    > **참고**: 첫 실행 시 이미지 빌드와 DB 마이그레이션이 자동으로 진행됩니다. 완료까지 3-5분 정도 소요됩니다.
 
 4. **애플리케이션 접속**
-   
+
    브라우저에서 다음 주소로 접속:
    - **Moduly 애플리케이션**: http://localhost
    - API 문서: http://localhost/api/docs
@@ -44,7 +47,7 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
    - **OpenAI, Anthropic(Claude), Google Gemini** 등 다양한 AI 제공업체의 API 키를 등록할 수 있습니다.
    - 워크플로우에서 사용하고 싶은 모델을 자유롭게 추가하고 관리해보세요. (GPT-4, Claude 3.5 Sonnet, Gemini Pro 등 지원)
 
-완료! 🎉 이제 Moduly를 로컬에서 사용할 수 있습니다.
+완료! 🎉 이제 Moduly를 로컬에서 사용할 수 있습니다!
 
 ## ✨ 주요 기능
 
@@ -74,6 +77,7 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 ### 배포 옵션
 
 **REST API**
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/run/{url_slug} \
   -H "Content-Type: application/json" \
