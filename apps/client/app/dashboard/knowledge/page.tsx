@@ -76,11 +76,11 @@ export default function KnowledgePage() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-8 bg-white min-h-full">
       {/* Page Title */}
       <h1 className="text-2xl font-bold text-gray-800 mb-6">지식 관리</h1>
       {/* Actions Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="flex flex-col md:flex-row justify-end items-center gap-3 mb-6">
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -92,16 +92,16 @@ export default function KnowledgePage() {
             className="w-64 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
         </div>
-        <div className="flex flex-col items-end">
-          <button
-            onClick={() => handleCreate()}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-            title="새 지식 베이스 만들기"
-          >
-            <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />새 지식
-            베이스
-          </button>
-        </div>
+
+        {/* Create Button */}
+        <button
+          onClick={() => handleCreate()}
+          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          title="새 지식 베이스 만들기"
+        >
+          <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />새 지식
+          베이스
+        </button>
       </div>
 
       {/* Loading State */}
