@@ -1,6 +1,13 @@
 'use client';
 
-import { Sliders, Plus, StickyNote, Play, Trash2 } from 'lucide-react';
+import {
+  Sliders,
+  Plus,
+  StickyNote,
+  Play,
+  Trash2,
+  Settings,
+} from 'lucide-react';
 import { NodeSelector } from './NodeSelector';
 import { LogTab } from './tabs/LogTab';
 import { MonitoringTab } from './tabs/MonitoringTab';
@@ -16,10 +23,15 @@ import {
   createNewCaseForConnection,
 } from '../../utils/conditionNodeHelpers';
 import { calculateAutoLayout } from '../../utils/layoutHelpers';
-// useDeployment removed
+import { useDeployment } from '../../hooks/useDeployment';
 import { arrangeConditionNodeChildren } from '../../utils/arrangeConditionNodes';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useNodeCreation } from '../../hooks/useNodeCreation';
+import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
+import { DeploymentFlowModal } from '../deployment/DeploymentFlowModal';
 
 import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -30,7 +42,6 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
-  type Edge,
 } from '@xyflow/react';
 
 import '@xyflow/react/dist/style.css';
@@ -66,7 +77,6 @@ import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTrig
 import { ScheduleTriggerNodePanel } from '../nodes/schedule/components/ScheduleTriggerNodePanel';
 import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
 import { LLMReferenceSidePanel } from '../nodes/llm/components/LLMReferenceSidePanel';
-import { settingsSidebar } from './SettingsSidebar';
 import { useDragConnectionPreview } from '../../hooks/useDragConnectionPreview';
 import { DragConnectionOverlay } from './DragConnectionOverlay';
 import { SettingsSidebar } from './SettingsSidebar';
@@ -133,7 +143,46 @@ export default function NodeCanvas({
     resetPreview,
   } = useDragConnectionPreview(nodes, edges);
 
-  // Memory mode controls and Deployment logic removed from here (Moved to EditorHeader)
+  // Memory mode controls
+  const router = useRouter();
+  const {
+    isMemoryModeEnabled,
+    hasProviderKey,
+    memoryModeDescription,
+    toggleMemoryMode,
+    appendMemoryFlag,
+    modals: memoryModeModals,
+  } = useMemoryMode(router, toast);
+
+  // Publish state
+  const canPublish = useWorkflowStore((state) => state.canPublish());
+
+  // Deployment logic (extracted to hook)
+  const {
+    showDeployFlowModal,
+    setShowDeployFlowModal,
+    showDeployDropdown,
+    setShowDeployDropdown,
+    deploymentType,
+    toggleDeployDropdown,
+    handlePublishAsRestAPI,
+    handlePublishAsWebApp,
+    handlePublishAsWidget,
+    handlePublishAsWorkflowNode,
+    handlePublishAsSchedule,
+    handlePublishAsWebhook,
+    handleDeploy,
+  } = useDeployment({
+    nodes,
+    isSettingsOpen,
+    toggleSettings,
+    isVersionHistoryOpen,
+    toggleVersionHistory,
+    isTestPanelOpen,
+    toggleTestPanel,
+    setSelectedNodeId,
+    setSelectedNodeType,
+  });
 
   // Start node detection for deployment options
   const startNode = useMemo(() => {
@@ -218,8 +267,14 @@ export default function NodeCanvas({
       setSelectedNodeType(null);
       setIsParamPanelOpen(false);
       setIsRefPanelOpen(false);
+      setShowDeployDropdown(false);
     }
-  }, [isSettingsOpen, isVersionHistoryOpen, isTestPanelOpen]);
+  }, [
+    isSettingsOpen,
+    isVersionHistoryOpen,
+    isTestPanelOpen,
+    setShowDeployDropdown,
+  ]);
 
   const handleSelectApp = useCallback(
     async (app: App & { active_deployment_id?: string; version?: number }) => {
@@ -617,15 +672,167 @@ export default function NodeCanvas({
                   isRight={previewState.isRight}
                 />
 
-                {/* Right: Action Buttons (Test Only) */}
+                {/* Right: Action Buttons */}
                 <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
-                  <button
-                    onClick={toggleTestPanel}
-                    className="h-9 px-4 flex items-center gap-1.5 rounded-lg bg-white border border-gray-200 shadow-sm transition-colors hover:bg-gray-50 text-blue-600 font-medium text-[13px]"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    <span>테스트</span>
-                  </button>
+                  {/* Group: Memory | Settings | Version | Test */}
+                  <div className="h-9 flex items-center p-0.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="h-full flex items-center px-2">
+                      <MemoryModeToggle
+                        isEnabled={isMemoryModeEnabled}
+                        hasProviderKey={hasProviderKey}
+                        description={memoryModeDescription}
+                        onToggle={toggleMemoryMode}
+                      />
+                    </div>
+                    <div className="w-px h-4 bg-gray-200 mx-1" />
+                    <button
+                      onClick={toggleSettings}
+                      className="h-full px-3 flex items-center gap-1.5 rounded-md transition-colors hover:bg-gray-100 text-gray-600 text-[13px] font-medium"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>설정</span>
+                    </button>
+                    <div className="w-px h-4 bg-gray-200 mx-1" />
+                    <button
+                      onClick={toggleVersionHistory}
+                      className="h-full px-3 flex items-center gap-1.5 rounded-md transition-colors hover:bg-gray-100 text-gray-600 text-[13px] font-medium"
+                    >
+                      <ClockIcon className="w-4 h-4" />
+                      <span>버전</span>
+                    </button>
+                    <div className="w-px h-4 bg-gray-200 mx-1" />
+                    <button
+                      onClick={toggleTestPanel}
+                      className="h-full px-3 flex items-center gap-1.5 rounded-md transition-colors hover:bg-gray-100 text-blue-600 font-medium text-[13px]"
+                    >
+                      <Play className="w-4 h-4" />
+                      <span>테스트</span>
+                    </button>
+                  </div>
+
+                  {/* Standalone: Publish Button & Dropdown */}
+                  <div className="relative">
+                    <button
+                      disabled={!canPublish}
+                      onClick={toggleDeployDropdown}
+                      className={`h-9 px-4 font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px] shadow-sm ${
+                        !canPublish
+                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
+                    >
+                      게시하기
+                      <svg
+                        className={`w-3.5 h-3.5 transition-transform ${
+                          showDeployDropdown ? 'rotate-180' : ''
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {/* Deployment Dropdown Menu */}
+                    {showDeployDropdown && canPublish && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowDeployDropdown(false)}
+                        />
+                        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
+                          {/* Webhook Trigger Deployment */}
+                          {startNode?.type === 'webhookTrigger' && (
+                            <button
+                              onClick={handlePublishAsWebhook}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900">
+                                웹훅으로 개시하기
+                              </div>
+                              <div className="text-sm text-gray-500 mt-1">
+                                URL 호출로 실행
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Schedule Trigger Deployment */}
+                          {startNode?.type === 'scheduleTrigger' && (
+                            <button
+                              onClick={handlePublishAsSchedule}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900">
+                                알람으로 개시하기
+                              </div>
+                              <div className="text-sm text-gray-500 mt-1">
+                                설정된 주기에 따라 실행
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Standard Start Node Deployment Options */}
+                          {(startNode?.type === 'startNode' || !startNode) && (
+                            <>
+                              <button
+                                onClick={handlePublishAsRestAPI}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  REST API로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  API 키로 접근
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWebApp}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  웹 앱으로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  링크 공유로 누구나 사용
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWidget}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  웹사이트에 챗봇 추가하기
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  복사 한 번으로 위젯 연동 완료
+                                </div>
+                              </button>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={handlePublishAsWorkflowNode}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  서브 모듈로 배포
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  다른 워크플로우에서 재사용
+                                </div>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* 플로팅 하단 패널 */}
@@ -909,7 +1116,18 @@ export default function NodeCanvas({
       {/* Sidebars */}
       <SettingsSidebar />
       <VersionHistorySidebar />
-      <TestSidebar />
+      <TestSidebar appendMemoryFlag={appendMemoryFlag} />
+
+      {/* Deployment Flow Modal */}
+      <DeploymentFlowModal
+        isOpen={showDeployFlowModal}
+        onClose={() => setShowDeployFlowModal(false)}
+        deploymentType={deploymentType}
+        onDeploy={handleDeploy}
+      />
+
+      {/* Memory Mode Modals */}
+      {memoryModeModals}
     </div>
   );
 }
