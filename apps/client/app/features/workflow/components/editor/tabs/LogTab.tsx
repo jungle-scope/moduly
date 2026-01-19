@@ -293,36 +293,41 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
       <div className="flex-1 overflow-hidden relative">
         {/* 뷰: 목록 모드 */}
         <div
-          className={`h-full w-full ${viewMode === 'list' ? 'block' : 'hidden'}`}
+          className={`h-full w-full flex flex-col ${viewMode === 'list' ? 'flex' : 'hidden'}`}
         >
-          <div className="h-full max-w-5xl mx-auto p-6 pt-16 overflow-y-auto scroll-smooth pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <LogFilterBar
-              onFilterChange={handleFilterChange}
-              availableVersions={[]}
-            />
+          {/* Header Spacer */}
+          <div className="h-14 shrink-0" />
 
-            <div
-              ref={abSectionRef}
-              className="scroll-mt-4 transition-all duration-300 mb-4"
-            >
-              <LogABTestBar
-                isOpen={isABTestOpen}
-                onToggle={() => setIsABTestOpen(!isABTestOpen)}
-                runA={abRunA}
-                runB={abRunB}
-                selectionTarget={selectionTarget}
-                onSelectTarget={setSelectionTarget}
-                onCompare={startABCompare}
-                onReset={resetABTest}
+          <div className="flex-1 w-full overflow-y-auto scroll-smooth">
+            <div className="max-w-5xl mx-auto p-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <LogFilterBar
+                onFilterChange={handleFilterChange}
+                availableVersions={[]}
               />
-            </div>
 
-            {/* 로그 목록 컨테이너 */}
-            <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm relative min-h-[400px]">
-              {/* 선택 오버레이 */}
-              <LogSelectionOverlay selectionTarget={selectionTarget} />
+              <div
+                ref={abSectionRef}
+                className="scroll-mt-4 transition-all duration-300 mb-4"
+              >
+                <LogABTestBar
+                  isOpen={isABTestOpen}
+                  onToggle={() => setIsABTestOpen(!isABTestOpen)}
+                  runA={abRunA}
+                  runB={abRunB}
+                  selectionTarget={selectionTarget}
+                  onSelectTarget={setSelectionTarget}
+                  onCompare={startABCompare}
+                  onReset={resetABTest}
+                />
+              </div>
 
-              {renderLogListContent()}
+              {/* 로그 목록 컨테이너 */}
+              <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm relative min-h-[400px]">
+                {/* 선택 오버레이 */}
+                <LogSelectionOverlay selectionTarget={selectionTarget} />
+
+                {renderLogListContent()}
+              </div>
             </div>
           </div>
         </div>

@@ -780,7 +780,7 @@ export default function NodeCanvas({
                                     REST API로 배포
                                   </div>
                                   <div className="text-sm text-gray-500 mt-1">
-                                    API 키로 접근
+                                    내 서비스나 백엔드 서버에서 호출
                                   </div>
                                 </button>
                                 <div className="border-t border-gray-100 my-1" />
@@ -789,10 +789,10 @@ export default function NodeCanvas({
                                   className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                                 >
                                   <div className="font-medium text-gray-900">
-                                    웹 앱으로 배포
+                                    공개 웹페이지 생성
                                   </div>
                                   <div className="text-sm text-gray-500 mt-1">
-                                    링크 공유로 누구나 사용
+                                    설치 없이 바로 쓸 수 있는 페이지 제공
                                   </div>
                                 </button>
                                 <div className="border-t border-gray-100 my-1" />
@@ -801,10 +801,10 @@ export default function NodeCanvas({
                                   className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                                 >
                                   <div className="font-medium text-gray-900">
-                                    웹사이트에 챗봇 추가하기
+                                    사이트에 임베드
                                   </div>
                                   <div className="text-sm text-gray-500 mt-1">
-                                    복사 한 번으로 위젯 연동 완료
+                                    스크립트 코드로 내 웹사이트에 삽입
                                   </div>
                                 </button>
                                 <div className="border-t border-gray-100 my-1" />
@@ -816,7 +816,7 @@ export default function NodeCanvas({
                                     서브 모듈로 배포
                                   </div>
                                   <div className="text-sm text-gray-500 mt-1">
-                                    다른 워크플로우에서 재사용
+                                    다른 모듈에서 재사용
                                   </div>
                                 </button>
                               </>
