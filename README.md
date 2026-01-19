@@ -47,7 +47,7 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
    - **OpenAI, Anthropic(Claude), Google Gemini** 등 다양한 AI 제공업체의 API 키를 등록할 수 있습니다.
    - 워크플로우에서 사용하고 싶은 모델을 자유롭게 추가하고 관리해보세요. (GPT-4, Claude 3.5 Sonnet, Gemini Pro 등 지원)
 
-완료! 🎉 이제 Moduly를 로컬에서 사용할 수 있습니다!
+완료! 🎉 이제 Moduly를 로컬에서 사용할 수 있습니다.
 
 ## ✨ 주요 기능
 

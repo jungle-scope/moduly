@@ -21,8 +21,8 @@ class RetrievalService:
 
     def _get_efficient_rewrite_model(self) -> str:
         """
-        사용자의 credential을 확인하여 가장 효율적인(가성비) 모델을 반환합니다.
-        Fallback: gpt-4o-mini
+        사용자의 credential을 확인하여 가장 효율적인 모델을 반환합니다.
+        Fallback: gpt-4o-mini 모델
         """
         try:
             credentials = (
