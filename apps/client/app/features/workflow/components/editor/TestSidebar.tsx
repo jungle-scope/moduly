@@ -247,7 +247,7 @@ export function TestSidebar({ appendMemoryFlag }: TestSidebarProps) {
   };
 
   return (
-    <div className="absolute top-2 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200 dark:bg-gray-900 dark:border-gray-800">
+    <div className="absolute top-18 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200 dark:bg-gray-900 dark:border-gray-800">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between dark:border-gray-800">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">

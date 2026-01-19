@@ -140,7 +140,7 @@ export function SettingsSidebar() {
   if (!isSettingsOpen) return null;
 
   return (
-    <div className="absolute top-2 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200">
+    <div className="absolute top-18 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200">
       {/* 헤더 */}
       <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
         <div className="flex items-center gap-2 text-gray-800">
