@@ -22,7 +22,7 @@ export default function DashboardHomePage() {
           {/* Create Module Card */}
           <button
             onClick={() => router.push('/dashboard/mymodule')}
-            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-blue-200 text-left"
+            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-blue-200 text-left h-full flex flex-col"
           >
             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <ArrowRight className="w-5 h-5 text-blue-600" />
@@ -41,7 +41,7 @@ export default function DashboardHomePage() {
           {/* Explore Marketplace Card */}
           <button
             onClick={() => router.push('/dashboard/explore')}
-            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-purple-200 text-left"
+            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-purple-200 text-left h-full flex flex-col"
           >
             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <ArrowRight className="w-5 h-5 text-purple-600" />
@@ -60,7 +60,7 @@ export default function DashboardHomePage() {
           {/* Statistics Card */}
           <button
             onClick={() => router.push('/dashboard/statistics')}
-            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 text-left"
+            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 text-left h-full flex flex-col"
           >
             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <ArrowRight className="w-5 h-5 text-green-600" />
@@ -77,7 +77,7 @@ export default function DashboardHomePage() {
           {/* Knowledge DB Card */}
           <button
             onClick={() => router.push('/dashboard/knowledge')}
-            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-orange-200 text-left"
+            className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-orange-200 text-left h-full flex flex-col"
           >
             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <ArrowRight className="w-5 h-5 text-orange-600" />
@@ -88,9 +88,7 @@ export default function DashboardHomePage() {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               지식 관리
             </h3>
-            <p className="text-gray-600 text-sm">
-              지식을 관리하세요
-            </p>
+            <p className="text-gray-600 text-sm">지식을 관리하세요</p>
           </button>
         </div>
 

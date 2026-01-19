@@ -12,6 +12,7 @@ import {
   Puzzle,
   Home,
   LogOut,
+  Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from './Logo';
@@ -53,6 +54,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [userName, setUserName] = useState('사용자');
   const [userEmail, setUserEmail] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -103,9 +105,25 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="flex h-full w-52 flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30 border-r border-gray-200">
+    <aside
+      className={cn(
+        'flex h-full flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 transition-all duration-300 relative',
+        isCollapsed ? 'w-[80px]' : 'w-[270px]',
+      )}
+    >
+      {/* Toggle Button */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className={cn(
+          'absolute z-50 p-1.5 rounded-lg hover:bg-gray-100 transition-all duration-300',
+          isCollapsed ? 'left-1/2 -translate-x-1/2 top-8' : 'right-4 top-8',
+        )}
+      >
+        <Menu className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+      </button>
+
       {/* Logo */}
-      <Logo />
+      {isCollapsed ? <div className="h-[88px] w-full" /> : <Logo />}
 
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -118,14 +136,15 @@ export default function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                'flex items-center rounded-lg py-2.5 text-sm font-medium transition-colors gap-3 px-3',
+                'flex items-center rounded-lg py-2.5 text-sm font-medium transition-colors gap-3',
+                isCollapsed ? 'justify-center px-2' : 'px-3',
                 isActive
                   ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-white',
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              <span>{item.name}</span>
+              {!isCollapsed && <span>{item.name}</span>}
             </Link>
           );
         })}
@@ -133,31 +152,44 @@ export default function Sidebar() {
 
       {/* User Info Footer */}
       <div
-        className="border-t border-gray-200 p-4 dark:border-gray-800 mb-safe relative"
+        className={cn(
+          'border-t border-gray-200 p-4 dark:border-gray-800 mb-safe relative transition-all',
+          isCollapsed && 'items-center justify-center',
+        )}
         ref={dropdownRef}
       >
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          className={cn(
+            'flex items-center gap-3 w-full rounded-lg hover:bg-gray-50 transition-colors text-left',
+            isCollapsed ? 'justify-center p-0' : 'p-2',
+          )}
         >
           <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
             <span className="text-white font-medium text-xs">
               {userName.charAt(0).toUpperCase()}
             </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {userName}
-            </p>
-            <p className="text-xs text-gray-500 truncate">
-              {userEmail || '사용자'}
-            </p>
-          </div>
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {userName}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {userEmail || '사용자'}
+              </p>
+            </div>
+          )}
         </button>
 
         {/* Dropdown Menu (Upwards) */}
         {isDropdownOpen && (
-          <div className="absolute bottom-full left-0 mb-2 w-full px-2 z-50">
+          <div
+            className={cn(
+              'absolute bottom-full mb-2 w-full z-50',
+              isCollapsed ? 'left-10 w-48' : 'left-0 px-2',
+            )}
+          >
             <div className="bg-white rounded-lg shadow-lg border border-gray-200 py-1 overflow-hidden">
               <button
                 onClick={handleLogout}
