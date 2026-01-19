@@ -149,7 +149,7 @@ class RetrievalService:
             return queries[:num_variations]
 
         except Exception as e:
-            print(f"[Multi-Query Error] Falling back to single query: {e}")
+            logger.error(f"[Multi-Query] Falling back to single query: {e}")
             return [await self._rewrite_query(query)]
 
     def _vector_search(self, query_vector: list, knowledge_base_id: str, top_k: int):

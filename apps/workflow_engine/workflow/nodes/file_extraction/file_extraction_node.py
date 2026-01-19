@@ -116,7 +116,7 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                     try:
                         os.remove(temp_file_path)
                     except Exception as e:
-                        print(f"[Warning] Failed to remove temp file: {e}")
+                        logger.warning(f"Failed to remove temp file: {e}")
 
         return results
 

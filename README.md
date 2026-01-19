@@ -26,7 +26,7 @@ Moduly는 직관적인 시각적 인터페이스를 통해 AI 기반 워크플�
 
 3. **모든 서비스 시작**
    ```bash
-   docker-compose -f docker/docker-compose.yml up -d
+   docker-compose up -d
    ```
    
    > **참고**: 첫 실행 시 이미지 빌드와 DB 마이그레이션이 자동으로 진행됩니다. 완료까지 3-5분 정도 소요됩니다.
