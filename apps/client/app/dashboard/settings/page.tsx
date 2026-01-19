@@ -298,7 +298,7 @@ export default function SettingsPage() {
             )}
 
             {isModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
                 <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
                   <div className="mb-6">
                     <h2 className="text-xl font-bold text-gray-900">
