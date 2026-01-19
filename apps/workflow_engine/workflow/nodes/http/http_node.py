@@ -22,6 +22,23 @@ def _get_nested_value(data: Any, keys: list[str]) -> Any:
     return data
 
 
+def _set_nested_value(data: Dict[str, Any], keys: list[str], value: Any):
+    """
+    중첩된 딕셔너리에 값을 설정합니다. (점 표기법 지원용)
+    """
+    current = data
+    for i, key in enumerate(keys[:-1]):
+        if key not in current:
+            current[key] = {}
+        
+        if not isinstance(current[key], dict):
+            current[key] = {}
+            
+        current = current[key]
+    
+    current[keys[-1]] = value
+
+
 class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
     """
     HTTP 요청을 수행하는 노드입니다.
@@ -154,7 +171,12 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
                 escaped_val = json.dumps(val)
                 if escaped_val.startswith('"') and escaped_val.endswith('"'):
                     escaped_val = escaped_val[1:-1]
-                context[variable.name] = escaped_val
+                val = escaped_val
+            
+            # 변수명에 점(.)이 있는 경우 중첩 딕셔너리로 처리
+            if "." in variable.name:
+                keys = variable.name.split(".")
+                _set_nested_value(context, keys, val)
             else:
                 context[variable.name] = val
 
