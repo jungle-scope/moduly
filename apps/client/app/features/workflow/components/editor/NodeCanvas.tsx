@@ -585,7 +585,7 @@ export default function NodeCanvas({
   }, [runIdParam]);
 
   return (
-    <div className="flex-1 bg-gradient-to-r from-blue-50 via-white to-blue-50/30 p-2 relative flex flex-col overflow-hidden">
+    <div className="flex-1 bg-white p-2 relative flex flex-col overflow-hidden">
       {/* Main Content Area Container */}
       <div className="flex-1 h-full rounded-xl bg-gray-100 flex flex-col overflow-hidden">
         {/* Tab Header Removed */}

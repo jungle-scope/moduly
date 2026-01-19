@@ -9,7 +9,7 @@ export default function EditorHeader() {
   const { projectApp } = useWorkflowStore();
 
   return (
-    <header className="h-10 min-h-[40px] bg-gradient-to-r from-blue-50 via-white to-blue-50/30 flex items-center px-4 justify-between relative z-50">
+    <header className="h-10 min-h-[40px] bg-white flex items-center px-4 justify-between relative z-50">
       {/* 1. Left: Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm ml-2">
         <button

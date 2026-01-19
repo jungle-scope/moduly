@@ -30,11 +30,6 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
-        {/*
-          <Toaster />: 토스트 메시지를 보여줄 "스피커" 역할의 컴포넌트입니다.
-          앱의 최상위(Layout)에 미리 설치해두면, 하위 컴포넌트 어디서든 
-          toast.success() 등의 함수("방송")를 호출했을 때 이곳을 통해 알림창이 나타납니다.
-        */}
         <Toaster />
       </body>
     </html>

@@ -75,7 +75,7 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="p-8 bg-gradient-to-br from-white via-gray-50 to-gray-100 min-h-full border border-gray-200">
+    <div className="p-8 bg-white min-h-full">
       {/* Page Title */}
       <h1 className="text-2xl font-bold text-gray-800 mb-6">마켓플레이스</h1>
 

@@ -145,7 +145,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-8 bg-gradient-to-br from-white via-gray-50 to-gray-100 min-h-full border border-gray-200">
+    <div className="p-8 bg-white min-h-full">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">설정</h1>
 
       <div className="mb-8 border-b border-gray-200 dark:border-gray-800">
@@ -305,10 +305,7 @@ export default function SettingsPage() {
                       API Key 등록
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">
-                      {
-                        providers.find((p) => p.id === selectedProviderId)
-                          ?.name
-                      }{' '}
+                      {providers.find((p) => p.id === selectedProviderId)?.name}{' '}
                       설정을 추가합니다.
                     </p>
                   </div>
@@ -351,7 +348,8 @@ export default function SettingsPage() {
                                 .find((p) => p.id === selectedProviderId)
                                 ?.name.toLowerCase() || '';
                             if (pName.includes('google')) return 'AIza...';
-                            if (pName.includes('anthropic')) return 'sk-ant-...';
+                            if (pName.includes('anthropic'))
+                              return 'sk-ant-...';
                             if (pName.includes('llama')) return 'llx-...';
                             return 'sk-...';
                           })()}
@@ -360,8 +358,8 @@ export default function SettingsPage() {
                         <Key className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                       </div>
                       <p className="text-xs text-blue-600 mt-1.5 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        키 등록 시, 사용 가능한 모델 목록을 자동으로 가져옵니다.
+                        <AlertCircle className="w-3 h-3" />키 등록 시, 사용
+                        가능한 모델 목록을 자동으로 가져옵니다.
                       </p>
                     </div>
                   </div>

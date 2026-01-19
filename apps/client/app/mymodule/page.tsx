@@ -103,7 +103,7 @@ export default function DashboardPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search for projects"
+            placeholder="내 모듈 검색"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-64 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -115,8 +115,7 @@ export default function DashboardPage() {
           onClick={handleCreateApp}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
-          <Plus className="w-4 h-4" />
-          Create
+          <Plus className="w-4 h-4" /> 새 모듈
         </button>
       </div>
 

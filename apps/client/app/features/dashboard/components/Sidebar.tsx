@@ -107,7 +107,7 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        'flex h-full flex-col bg-gradient-to-b from-blue-50 via-white to-blue-50/30 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 transition-all duration-300 relative',
+        'flex h-full flex-col bg-blue-50 rounded-3xl transition-all duration-300 relative',
         isCollapsed ? 'w-[80px]' : 'w-[270px]',
       )}
     >
