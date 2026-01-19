@@ -15,11 +15,11 @@ secrets:
   # JWT secret key (for development only!)
   secretKey: "local-dev-jwt-secret-key-DO-NOT-USE-IN-PRODUCTION"
   
-  # Master encryption key (optional)
-  masterKey: ""
+  # Master encryption key (실제 사용 시 Base64 32바이트 키를 생성해 교체)
+  masterKey: "hzL/x9Kj3vN1pM5qR8tW2bY7cX4aD6eF0gJ1hU3sV9k="
   
-  # Encryption key (optional)
-  encryptionKey: ""
+  # Encryption key (실제 사용 시 Base64 32바이트 키를 생성해 교체)
+  encryptionKey: "mB5vX8zL1nA4qW7tR0eY3dF6cG9jJ2kP5hS8tV1wZ4x="
   
   # Sandbox API key
   sandboxApiKey: "Modulycallsandbox306"
@@ -72,7 +72,7 @@ redis:
 # Resource Limits (Reduced for local environments)
 # =============================================================================
 gateway:
-  replicas: 1  # Single replica for local
+  replicaCount: 1  # Single replica for local
   resources:
     limits:
       cpu: 500m
@@ -86,7 +86,7 @@ gateway:
     SANDBOX_URL: "http://localhost:8194"  # Port-forward sandbox
 
 worker:
-  replicas: 1  # Single replica for local
+  replicaCount: 1  # Single replica for local
   resources:
     limits:
       cpu: 500m
@@ -99,7 +99,7 @@ worker:
     SANDBOX_URL: "http://localhost:8194"
 
 logger:
-  replicas: 1
+  replicaCount: 1
   resources:
     limits:
       cpu: 200m
@@ -109,7 +109,7 @@ logger:
       memory: 64Mi
 
 frontend:
-  replicas: 1
+  replicaCount: 1
   resources:
     limits:
       cpu: 500m
@@ -120,12 +120,12 @@ frontend:
   # Override API URL for local port-forward testing
   env:
     # Client-side (browser) API URL
-    NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    NEXT_PUBLIC_API_URL: "http://localhost"
     # Server-side (SSR) API URL - uses Kubernetes service
     API_URL: "http://my-moduly-gateway:8000"
 
 sandbox:
-  replicas: 1
+  replicaCount: 1
   resources:
     limits:
       cpu: 500m
@@ -135,7 +135,45 @@ sandbox:
       memory: 128Mi
 
 # =============================================================================
-# Ingress (Disabled for local - use port-forward instead)
+# Ingress Configuration (Local)
 # =============================================================================
 ingress:
-  enabled: false
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # Rewrite target deprecated/not needed if gateway handles /api path
+    
+  hosts:
+    - host: localhost
+      paths:
+        - path: /api
+          pathType: Prefix
+          backend: gateway
+        - path: /
+          pathType: Prefix
+          backend: frontend
+  tls: []
+
+# =============================================================================
+# Ingress Controller (ingress-nginx dependency)
+# =============================================================================
+ingress-nginx:
+  enabled: true
+  controller:
+    service:
+      type: LoadBalancer
+      ports:
+        http: 80
+        https: 443
+    # Resource limits for local dev
+    resources:
+      requests:
+        cpu: 100m
+        memory: 90Mi
+      limits:
+        cpu: 300m
+        memory: 300Mi
+    # Watch only moduly namespace to avoid conflicts
+    scope:
+      enabled: true
