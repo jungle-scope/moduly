@@ -32,7 +32,7 @@ class VariableExtractionNode(Node[VariableExtractionNodeData]):
 
     node_type = "variableExtractionNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         source_selector로 원본 데이터를 찾고, mappings에 정의된 경로로 값을 추출합니다.
 
