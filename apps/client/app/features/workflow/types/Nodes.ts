@@ -139,7 +139,7 @@ export interface LLMNodeData extends BaseNodeData {
   context_variable?: string;
   parameters: Record<string, unknown>;
 
-  // 참고 자료 (Knowledge) 통합 필드
+  // 지식 (Knowledge) 통합 필드
   knowledgeBases?: { id: string; name: string }[];
   scoreThreshold?: number;
   topK?: number;
@@ -246,6 +246,18 @@ export interface FileExtractionNodeData extends BaseNodeData {
 }
 // ============================================================================
 
+// ==================== [VariableExtractionNode] ==============================
+export interface VariableExtractionMapping {
+  name: string;
+  json_path: string;
+}
+
+export interface VariableExtractionNodeData extends BaseNodeData {
+  source_selector: string[];
+  mappings: VariableExtractionMapping[];
+}
+// ============================================================================
+
 // ======================== [GithubNode] ======================================
 export type GithubAction = 'get_pr' | 'comment_pr';
 
@@ -345,6 +357,10 @@ export type FileExtractionNode = ReactFlowNode<
   FileExtractionNodeData,
   'fileExtractionNode'
 >;
+export type VariableExtractionNode = ReactFlowNode<
+  VariableExtractionNodeData,
+  'variableExtractionNode'
+>;
 export type WebhookTriggerNode = ReactFlowNode<
   WebhookTriggerNodeData,
   'webhookTrigger'
@@ -371,6 +387,7 @@ export type AppNode =
   | CodeNode
   | TemplateNode
   | FileExtractionNode
+  | VariableExtractionNode
   | WebhookTriggerNode
   | ScheduleTriggerNode
   | GithubNode

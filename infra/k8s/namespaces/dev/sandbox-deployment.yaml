@@ -1,0 +1,111 @@
+# Moduly Sandbox Deployment (Dev Namespace)
+#
+# NSJail 기반 Python 코드 실행 샌드박스 (개발 환경)
+# - 리소스 제한 완화
+#
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox
+  namespace: dev
+  labels:
+    app: sandbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sandbox
+  template:
+    metadata:
+      labels:
+        app: sandbox
+    spec:
+      containers:
+        - name: sandbox
+          image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-sandbox:dev
+          ports:
+            - containerPort: 8194
+              name: http
+          env:
+            # ===== 기본 설정 =====
+            - name: TZ
+              value: "Asia/Seoul"
+
+            # ===== 워커 풀 설정 =====
+            - name: SANDBOX_MIN_WORKERS
+              value: "1"
+            - name: SANDBOX_MAX_WORKERS
+              value: "4"
+            - name: SANDBOX_WORKER_IDLE_TIMEOUT
+              value: "30"
+
+            # ===== 동적 스케일링 (EMA) =====
+            - name: SANDBOX_SCALING_INTERVAL
+              value: "1"
+            - name: SANDBOX_EMA_ALPHA
+              value: "0.2"
+            - name: SANDBOX_TARGET_RPS_PER_WORKER
+              value: "2.0"
+            - name: SANDBOX_SCALE_DOWN_COOLDOWN
+              value: "30"
+            - name: SANDBOX_SCALE_DOWN_IDLE_TIME
+              value: "30"
+
+            # ===== 실행 제한 =====
+            - name: SANDBOX_DEFAULT_TIMEOUT
+              value: "30" # 개발: 여유있게
+            - name: SANDBOX_MAX_TIMEOUT
+              value: "60"
+            - name: SANDBOX_MAX_MEMORY_MB
+              value: "256" # 개발: 여유있게
+
+            # ===== 큐 설정 =====
+            - name: SANDBOX_MAX_QUEUE_SIZE
+              value: "100"
+
+            # ===== Fair Scheduler =====
+            - name: SANDBOX_MAX_PER_TENANT
+              value: "5" # 개발: 여유있게
+            - name: SANDBOX_AGING_INTERVAL
+              value: "5"
+            - name: SANDBOX_AGING_THRESHOLD_LOW
+              value: "15"
+            - name: SANDBOX_AGING_THRESHOLD_NORMAL
+              value: "30"
+
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          securityContext:
+            privileged: true
+          livenessProbe:
+            httpGet:
+              path: /v1/sandbox/health
+              port: 8194
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /v1/sandbox/health
+              port: 8194
+            initialDelaySeconds: 10
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sandbox-service
+  namespace: dev
+spec:
+  selector:
+    app: sandbox
+  ports:
+    - port: 8194
+      targetPort: 8194
+      name: http
+  type: ClusterIP

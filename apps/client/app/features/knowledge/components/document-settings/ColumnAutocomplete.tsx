@@ -8,7 +8,6 @@ interface ColumnAutocompleteProps {
   selectedColumns: Record<string, string[]>; // {table: [columns]}
   value: string;
   onChange: (value: string) => void;
-  onAliasGenerate?: (table: string, column: string, alias: string) => void;
   placeholder?: string;
   className?: string;
 }
@@ -23,7 +22,6 @@ export default function ColumnAutocomplete({
   selectedColumns,
   value,
   onChange,
-  onAliasGenerate,
   placeholder,
   className = '',
 }: ColumnAutocompleteProps) {
@@ -164,24 +162,11 @@ export default function ColumnAutocomplete({
     const lastOpenBrace = textBeforeCursor.lastIndexOf('{{');
     const beforeBrace = value.substring(0, lastOpenBrace);
 
-    // 스마트 별칭 생성 로직
-    let insertText = item.column;
-    const isCollision = allColumns.some(
-      (col) => col.table !== item.table && col.column === item.column,
-    );
-
-    // 충돌 시에는 원래 이름(table.column) 사용
-    if (isCollision) {
-      insertText = item.fullName;
-    }
+    // table.column 형식 사용
+    const insertText = item.fullName;
 
     const newValue = `${beforeBrace}{{${insertText}}}${textAfterCursor}`;
     onChange(newValue);
-
-    // 충돌이 없을 때만 짧은 별칭 자동 생성 (충돌 시에는 기본 문법 사용하므로 별칭 불필요)
-    if (!isCollision && onAliasGenerate) {
-      onAliasGenerate(item.table, item.column, item.column);
-    }
 
     // 커서 위치 조정
     const newCursorPos = beforeBrace.length + insertText.length + 4;

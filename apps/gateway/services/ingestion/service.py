@@ -231,6 +231,7 @@ class IngestionOrchestrator:
         """
         진행률을 Redis에 저장 (DB 과부하 방지)
         이전 값보다 작으면 업데이트하지 않음
+        expire=True: 완료/실패 시 100을 저장하고 짧은 TTL로 자동 만료
         """
         from apps.shared.pubsub import get_redis_client
 
@@ -239,7 +240,8 @@ class IngestionOrchestrator:
             key = f"knowledge_progress:{document_id}"
 
             if expire:
-                redis_client.delete(key)
+                # 완료/실패 시 100을 저장하고 30초 후 자동 삭제
+                redis_client.set(key, str(progress), ex=30)
                 return
 
             current_val = redis_client.get(key)

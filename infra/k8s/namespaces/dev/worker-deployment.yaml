@@ -56,12 +56,7 @@ spec:
               value: "ap-northeast-2"
             # Sandbox 설정
             - name: SANDBOX_URL
-              value: "http://sandbox-service.default.svc.cluster.local:8194"
-            - name: SANDBOX_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: SANDBOX_API_KEY
+              value: "http://sandbox-service.dev.svc.cluster.local:8194"
           resources:
             requests:
               cpu: 100m

@@ -103,7 +103,9 @@ class RetrievalService:
             logger.error(f"Query rewrite failed: {e}")
             return query
 
-    async def _generate_multi_queries(self, query: str, num_variations: int = 3) -> list[str]:
+    async def _generate_multi_queries(
+        self, query: str, num_variations: int = 3
+    ) -> list[str]:
         """
         Multi-Query Expansion: LLM을 사용하여 원본 질문의 다양한 변형을 생성합니다 (비동기).
         """
@@ -270,7 +272,7 @@ class RetrievalService:
         threshold: float = 0.15,
         use_rewrite: bool = False,
         hybrid_search: bool = True,
-        use_rerank: bool = False,
+        use_rerank: bool = True,
         use_multi_query: bool = False,
     ) -> list[ChunkPreview]:
         """
@@ -359,12 +361,14 @@ class RetrievalService:
                     chunk = item["chunk"]
                     doc = item["doc"]
                     rerank_score = item.get("rerank_score", 0.0)
+                    rrf_score = item.get("score", 0.0)  # 원본 RRF 점수
 
                     meta = chunk.metadata_.copy() if chunk.metadata_ else {}
                     meta["search_method"] = (
                         "hybrid+rerank" if hybrid_search else "multi_query+rerank"
                     )
                     meta["rerank_score"] = float(rerank_score)
+                    meta["rrf_score"] = float(rrf_score)  # RRF 점수도 저장
                     if use_multi_query:
                         meta["num_queries"] = len(queries)
 

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class SyncService:
     """
-    [Workflow Engine] 실행 전 DB 지식베이스 동기화 서비스
+    [Workflow Engine] 실행 전 DB 지식 베이스 동기화 서비스
     """
 
     def __init__(self, db: Session, user_id: UUID):
@@ -25,7 +25,7 @@ class SyncService:
 
     def sync_knowledge_bases(self, graph_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        워크플로우 그래프에서 DB 타입 지식베이스를 찾아 동기화(Ingestion)를 수행합니다.
+        워크플로우 그래프에서 DB 타입 지식 베이스를 찾아 동기화(Ingestion)를 수행합니다.
         실행 직전에 최신 데이터를 가져오기 위함입니다.
 
         Args:
@@ -39,10 +39,10 @@ class SyncService:
         """
         kb_ids = self._extract_knowledge_base_ids(graph_data)
         if not kb_ids:
-            logger.info("[동기화] 동기화할 지식베이스 없음")
+            logger.info("[동기화] 동기화할 지식 베이스 없음")
             return {"synced_count": 0, "failed": []}
 
-        logger.info(f"[동기화] {len(kb_ids)}개 지식베이스 동기화 시작")
+        logger.info(f"[동기화] {len(kb_ids)}개 지식 베이스 동기화 시작")
         synced_count = 0
         failed_docs = []
 
@@ -72,7 +72,7 @@ class SyncService:
             for doc in documents:
                 try:
                     logger.info(
-                        f"[동기화] 외부 DB 동기화 중: {doc.filename} (지식베이스: {kb.name})"
+                        f"[동기화] 외부 DB 동기화 중: {doc.filename} (지식 베이스: {kb.name})"
                     )
 
                     # 1. DB Fetch & Process

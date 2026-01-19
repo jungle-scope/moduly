@@ -93,6 +93,7 @@ async def generate_presigned_url(
             "upload_url": presigned_data["url"],
             "s3_key": presigned_data["key"],
             "method": presigned_data["method"],
+            "use_backend_proxy": presigned_data.get("use_backend_proxy"),
         }
     except Exception as e:
         logger.error(f"Presigned URL generation failed: {e}")
@@ -116,7 +117,7 @@ async def upload_document(
     api_headers: Optional[str] = Form(None, alias="apiHeaders"),
     api_body: Optional[str] = Form(None, alias="apiBody"),
     connection_id: Optional[UUID] = Form(None, alias="connectionId"),
-    # 참고자료그룹 신규 생성일 때만 필요한 정보들
+    # 지식 베이스 신규 생성일 때만 필요한 정보들
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     ai_model: Optional[str] = Form(None, alias="embeddingModel"),
@@ -391,25 +392,34 @@ async def get_document_progress(
                 yield 'data: {"error": "Document not found"}\n\n'
                 break
 
-            # 2. Redis에서 실시간 진행률 조회
-            redis_client = get_redis_client()
-            redis_key = f"knowledge_progress:{document_id}"
+            status = doc.status
 
-            redis_progress = redis_client.get(redis_key)
+            # 2. Redis에서 실시간 진행률 조회 (에러 핸들링 포함)
+            redis_progress = None
+            try:
+                redis_client = get_redis_client()
+                redis_key = f"knowledge_progress:{document_id}"
+                redis_progress = redis_client.get(redis_key)
+            except Exception as e:
+                logger.warning(f"Redis read failed for progress: {e}")
 
-            # 3. 진행률 결정 (Redis 값)
-            if redis_progress:
+            # 3. 진행률 결정 (상태 기반 우선)
+            if status == "completed":
+                progress = 100
+            elif status == "failed":
+                progress = 0
+            elif redis_progress:
                 try:
                     progress = int(redis_progress)
-                except ValueError:
-                    progress = 9
+                except (ValueError, TypeError):
+                    # Redis 값이 손상되었으면 이번 전송 건너뛰고 재시도
+                    continue
             else:
-                progress = 10
+                progress = 0
 
             # 메타 정보에서는 메시지만 가져옴
             meta = doc.meta_info or {}
             step_message = meta.get("processing_current_step", "처리 중...")
-            status = doc.status
 
             # 4. 데이터 전송 포맷 (SSE 표준: "data: ...\n\n")
             data = json.dumps(
@@ -424,7 +434,7 @@ async def get_document_progress(
 
             yield f"data: {data}\n\n"
 
-            # 4. 종료 조건
+            # 5. 종료 조건
             if status == "completed" or progress >= 100:
                 break
             if status == "failed":

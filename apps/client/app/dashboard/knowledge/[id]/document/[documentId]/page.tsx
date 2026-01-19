@@ -119,21 +119,6 @@ export default function DocumentSettingsPage() {
   const [rangeEnd, setRangeEnd] = useState<string>('');
   const [keywordFilter, setKeywordFilter] = useState<string>('');
 
-  // Alias 자동 생성 핸들러
-  const handleAliasGenerate = (
-    table: string,
-    column: string,
-    alias: string,
-  ) => {
-    setAliases((prev) => ({
-      ...prev,
-      [table]: {
-        ...(prev[table] || {}),
-        [column]: alias,
-      },
-    }));
-  };
-
   // SSE 연결 (Indexing 상태일 때)
   useEffect(() => {
     if (status !== 'indexing' || !documentId) return;
@@ -448,7 +433,6 @@ export default function DocumentSettingsPage() {
           selectedColumns={selectedDbItems}
           value={template}
           onChange={setTemplate}
-          onAliasGenerate={handleAliasGenerate}
           placeholder="예: {{mock_inventory.name}} 상품은 현재 {{mock_inventory.quantity}}개 남아있으며, 정상가는 {{mock_inventory.price}}원입니다."
           className="w-full flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono overflow-y-auto"
         />
@@ -547,7 +531,7 @@ export default function DocumentSettingsPage() {
             className="hover:text-blue-600 max-w-[150px] truncate"
             title={kbName}
           >
-            {kbName || '지식베이스'}
+            {kbName || '지식 베이스'}
           </Link>
           <ChevronRight className="w-3 h-3 text-gray-300" />
           <span

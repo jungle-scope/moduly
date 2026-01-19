@@ -100,7 +100,7 @@ export const SlackPostNode = memo(
             >
               {modeLabel}
             </span>
-            <span className="flex-1 truncate font-mono text-[10px] text-gray-500">
+            <span className="flex-1 truncate font-mono text-[10px] text-gray-500 max-w-[200px]">
               {urlPreview}
             </span>
           </div>
