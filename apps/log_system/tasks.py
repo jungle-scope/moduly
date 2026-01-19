@@ -235,6 +235,8 @@ def create_node_log(self, data: Dict[str, Any]):
     session = SessionLocal()
     try:
         workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
+        # [NEW] 전달받은 ID 사용
+        node_run_id = _deserialize_uuid(data.get("id"))
 
         # 부모 WorkflowRun이 존재하는지 확인
         run_exists = (
@@ -244,22 +246,29 @@ def create_node_log(self, data: Dict[str, Any]):
         )
 
         if not run_exists:
+            # 부모가 없으면 생성될 때까지 재시도
             raise Exception(f"WorkflowRun not found: {workflow_run_id}")
 
         node_run = WorkflowNodeRun(
+            id=node_run_id,  # [NEW] PK 지정
             workflow_run_id=workflow_run_id,
             node_id=data["node_id"],
             node_type=data["node_type"],
             status=NodeRunStatus.RUNNING,
             inputs=data.get("inputs") or {},
             process_data=data.get("process_data") or {},
-            started_at=data["started_at"],
+            started_at=_deserialize_datetime(data["started_at"]),
         )
         session.add(node_run)
         session.commit()
 
         return {"status": "success", "node_id": data["node_id"]}
 
+    except IntegrityError:
+        session.rollback()
+        # [NEW] 중복 키 오류(이미 존재함)는 성공으로 간주 (Idempotency)
+        # 이미 생성되었다면 OK
+        return {"status": "success", "node_id": data["node_id"], "duplicated": True}
     except Exception as e:
         session.rollback()
         logger.error(f"[Log-System] create_node_log 실패: {e}")
@@ -273,19 +282,27 @@ def update_node_log_finish(self, data: Dict[str, Any]):
     """노드 실행 완료 로그 업데이트"""
     session = SessionLocal()
     try:
-        workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
-
-        node_run = (
-            session.query(WorkflowNodeRun)
-            .filter(WorkflowNodeRun.workflow_run_id == workflow_run_id)
-            .filter(WorkflowNodeRun.node_id == data["node_id"])
-            .order_by(WorkflowNodeRun.started_at.desc())
-            .first()
-        )
+        # [NEW] Log ID(PK)로 직접 조회
+        log_id = _deserialize_uuid(data.get("log_id"))
+        
+        node_run = None
+        if log_id:
+            node_run = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
+        else:
+            # 하위 호환성 (레거시 동작)
+            workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
+            node_run = (
+                session.query(WorkflowNodeRun)
+                .filter(WorkflowNodeRun.workflow_run_id == workflow_run_id)
+                .filter(WorkflowNodeRun.node_id == data["node_id"])
+                .order_by(WorkflowNodeRun.started_at.desc())
+                .first()
+            )
 
         if not node_run:
+            # 아직 create가 안된 경우 재시도
             raise Exception(
-                f"WorkflowNodeRun not found: {workflow_run_id}/{data['node_id']}"
+                f"WorkflowNodeRun not found: log_id={log_id}"
             )
 
         node_run.status = NodeRunStatus.SUCCESS
@@ -313,19 +330,27 @@ def update_node_log_error(self, data: Dict[str, Any]):
     """노드 실행 에러 로그 업데이트"""
     session = SessionLocal()
     try:
-        workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
-
-        node_run = (
-            session.query(WorkflowNodeRun)
-            .filter(WorkflowNodeRun.workflow_run_id == workflow_run_id)
-            .filter(WorkflowNodeRun.node_id == data["node_id"])
-            .order_by(WorkflowNodeRun.started_at.desc())
-            .first()
-        )
+        # [NEW] Log ID(PK)로 직접 조회
+        log_id = _deserialize_uuid(data.get("log_id"))
+        
+        node_run = None
+        if log_id:
+             node_run = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
+        else:
+            # 하위 호환성 (레거시 동작)
+            workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
+            node_run = (
+                session.query(WorkflowNodeRun)
+                .filter(WorkflowNodeRun.workflow_run_id == workflow_run_id)
+                .filter(WorkflowNodeRun.node_id == data["node_id"])
+                .order_by(WorkflowNodeRun.started_at.desc())
+                .first()
+            )
 
         if not node_run:
+             # 아직 create가 안된 경우 재시도
             raise Exception(
-                f"WorkflowNodeRun not found: {workflow_run_id}/{data['node_id']}"
+                f"WorkflowNodeRun not found: log_id={log_id}"
             )
 
         node_run.status = NodeRunStatus.FAILED

@@ -455,16 +455,20 @@ class WorkflowEngine:
             # [NEW] 노드 옵션 스냅샷 추출 (실행 시점 설정 기록용)
             # 실행 자체는 동기(Blocking)이지만, 이를 스레드 풀로 넘겨서 처리
             node_options_snapshot = self._extract_node_options(node_schema)
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(
-                None,
-                lambda: self.logger.create_node_log(
+            
+            # [FIX] create_node_log가 반환하는 log_id 캡처
+            def _create_log():
+                return self.logger.create_node_log(
                     node_id,
                     node_schema.type,
                     inputs,
                     process_data=node_options_snapshot,
-                ),
-            )
+                )
+
+            loop = asyncio.get_running_loop()
+            log_id = await loop.run_in_executor(None, _create_log)
+        else:
+            log_id = None
 
         # [FIX] Redis Pub/Sub으로 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
         # [PERF] 비동기 발행 사용
@@ -495,6 +499,7 @@ class WorkflowEngine:
                     node_schema,
                     node_instance,
                     inputs,
+                    log_id,  # [NEW] log_id 전달
                 )
 
         # [NEW] 노드별 타임아웃 적용 (asyncio.wait_for)
@@ -544,7 +549,9 @@ class WorkflowEngine:
         task = asyncio.create_task(_task_wrapper_with_event())
         running_tasks[task] = node_id
 
-    async def _execute_node_task_async(self, node_id, node_schema, node_instance, inputs):
+    async def _execute_node_task_async(
+        self, node_id, node_schema, node_instance, inputs, log_id=None
+    ):
         """
         개별 노드를 실행하는 작업 (비동기 실행)
         [실시간 스트리밍] 이벤트는 _submit_node에서 처리하므로 결과만 반환
@@ -560,7 +567,7 @@ class WorkflowEngine:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(
                     None,
-                    lambda: self.logger.update_node_log_finish(node_id, result),
+                    lambda: self.logger.update_node_log_finish(log_id, node_id, result),
                 )
 
             return result
@@ -571,7 +578,7 @@ class WorkflowEngine:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(
                     None,
-                    lambda: self.logger.update_node_log_error(node_id, error_msg),
+                    lambda: self.logger.update_node_log_error(log_id, node_id, error_msg),
                 )
             raise e
 
