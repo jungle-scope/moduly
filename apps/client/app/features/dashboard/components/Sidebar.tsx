@@ -140,10 +140,13 @@ export default function Sidebar() {
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
         >
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-medium text-xs">
-              {userName.charAt(0).toUpperCase()}
-            </span>
+          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+            <img
+              src="https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=400&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YXNpYW58ZW58MHx8MHx8fDI%3D"
+              alt={userName}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
