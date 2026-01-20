@@ -4,7 +4,7 @@ from typing import List
 
 import uuid
 from datetime import datetime, timezone
-from apps.shared.db.models.workflow_run import RunTriggerMode
+from apps.shared.db.models.workflow_run import RunTriggerMode, WorkflowRun, RunStatus
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -500,11 +500,7 @@ async def execute_workflow(
                 status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
             )
 
-        # WorkflowRun을 Celery 태스크 전에 동기적으로 생성, 경쟁상태 방지
-        import uuid
-        from datetime import datetime, timezone
-        from apps.shared.db.models.workflow_run import RunTriggerMode
-        
+        # WorkflowRun을 Celery 태스크 전에 동기적으로 생성, 경쟁상태 방지        
         run_id = uuid.uuid4()
         workflow_run = WorkflowRun(
             id=run_id,
@@ -523,7 +519,7 @@ async def execute_workflow(
         execution_context = {
             "user_id": str(current_user.id),
             "workflow_id": workflow_id,
-            "workflow_run_id": str(run_id),  # [NEW] Engine에 run_id 전달
+            "workflow_run_id": str(run_id),
             "memory_mode": memory_mode_enabled,
         }
 
@@ -572,7 +568,6 @@ async def stream_workflow(
     - inputs: JSON 문자열 (일반 입력값)
     - file_변수명: 업로드된 파일들
     """
-    import uuid
 
     memory_mode_enabled = False
     # 1. 권한 확인
@@ -618,10 +613,7 @@ async def stream_workflow(
             status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
         )
 
-    # 4. [FIX] WorkflowRun을 Celery 태스크 전에 동기적으로 생성
-    from datetime import datetime, timezone
-    from apps.shared.db.models.workflow_run import RunTriggerMode
-    
+    # 4. WorkflowRun을 Celery 태스크 전에 동기적으로 생성
     external_run_id = str(uuid.uuid4())
     workflow_run = WorkflowRun(
         id=uuid.UUID(external_run_id),
@@ -640,7 +632,7 @@ async def stream_workflow(
     execution_context = {
         "user_id": str(current_user.id),
         "workflow_id": workflow_id,
-        "workflow_run_id": external_run_id,  # [NEW] Engine에 run_id 전달
+        "workflow_run_id": external_run_id,
         "memory_mode": memory_mode_enabled,
     }
 
