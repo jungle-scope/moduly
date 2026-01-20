@@ -344,6 +344,7 @@ export default function EmbedChatPage() {
                 lineHeight: '1.5',
                 boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
                 wordWrap: 'break-word',
+                whiteSpace: 'pre-wrap',
               }}
             >
               {message.content}
