@@ -267,11 +267,21 @@ def create_node_log(self, data: Dict[str, Any]):
 
         return {"status": "success", "node_id": data["node_id"]}
 
-    except IntegrityError:
+    except IntegrityError as e:
         session.rollback()
-        # [NEW] 중복 키 오류(이미 존재함)는 성공으로 간주 (Idempotency)
-        # 이미 생성되었다면 OK
-        return {"status": "success", "node_id": data["node_id"], "duplicated": True}
+        # [FIX] IntegrityError가 정말 "중복"인지 확인
+        # FK 에러(부모 없음)와 PK 에러(이미 있음)를 구분해야 함
+        node_run_id = _deserialize_uuid(data.get("id"))
+        existing = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == node_run_id).first()
+        
+        if existing:
+            # 진짜 중복 (이미 존재) → 성공 처리
+            logger.info(f"[Log-System] create_node_log 중복 무시 (이미 존재): log_id={node_run_id}")
+            return {"status": "success", "node_id": data["node_id"], "duplicated": True}
+        else:
+            # FK 에러 (부모 WorkflowRun 없음) → Retry
+            logger.warning(f"[Log-System] create_node_log FK 에러, Retry: {e}")
+            raise self.retry(exc=e, countdown=min(2**(self.request.retries + 1), 30))
     except Exception as e:
         session.rollback()
         logger.error(f"[Log-System] create_node_log 실패: {e}")
@@ -331,11 +341,24 @@ def update_node_log_finish(self, data: Dict[str, Any]):
 
         return {"status": "success", "node_id": data["node_id"]}
 
-    except IntegrityError:
+    except IntegrityError as e:
         session.rollback()
-        # 중복 키 오류는 이미 처리됨을 의미 (Idempotency)
-        logger.info(f"[Log-System] update_node_finish 중복 처리 무시: log_id={data.get('log_id')}")
-        return {"status": "success", "node_id": data["node_id"], "duplicated": True}
+        # [FIX] IntegrityError 발생 시 실제로 레코드가 있는지 확인 후 업데이트
+        log_id = _deserialize_uuid(data.get("log_id"))
+        existing = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
+        
+        if existing:
+            # 진짜 중복 (이미 존재) → 업데이트 시도
+            logger.info(f"[Log-System] update_node_finish 중복 감지, 업데이트 시도: log_id={log_id}")
+            existing.status = NodeRunStatus.SUCCESS
+            existing.outputs = data["outputs"] if isinstance(data["outputs"], dict) else {"result": data["outputs"]}
+            existing.finished_at = _deserialize_datetime(data["finished_at"])
+            session.commit()
+            return {"status": "success", "node_id": data["node_id"], "updated": True}
+        else:
+            # FK 에러 (부모 WorkflowRun 없음) → Retry
+            logger.warning(f"[Log-System] update_node_finish FK 에러, Retry: {e}")
+            raise self.retry(exc=e, countdown=min(2**(self.request.retries + 1), 30))
     except Exception as e:
         session.rollback()
         logger.error(f"[Log-System] update_node_log_finish 실패: {e}")
@@ -390,11 +413,24 @@ def update_node_log_error(self, data: Dict[str, Any]):
 
         return {"status": "success", "node_id": data["node_id"]}
 
-    except IntegrityError:
+    except IntegrityError as e:
         session.rollback()
-        # 중복 키 오류는 이미 처리됨을 의미 (Idempotency)
-        logger.info(f"[Log-System] update_node_error 중복 처리 무시: log_id={data.get('log_id')}")
-        return {"status": "success", "node_id": data["node_id"], "duplicated": True}
+        # [FIX] IntegrityError 발생 시 실제로 레코드가 있는지 확인 후 업데이트
+        log_id = _deserialize_uuid(data.get("log_id"))
+        existing = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
+        
+        if existing:
+            # 진짜 중복 (이미 존재) → 업데이트 시도
+            logger.info(f"[Log-System] update_node_error 중복 감지, 업데이트 시도: log_id={log_id}")
+            existing.status = NodeRunStatus.FAILED
+            existing.error_message = data["error_message"]
+            existing.finished_at = _deserialize_datetime(data["finished_at"])
+            session.commit()
+            return {"status": "success", "node_id": data["node_id"], "updated": True}
+        else:
+            # FK 에러 (부모 WorkflowRun 없음) → Retry
+            logger.warning(f"[Log-System] update_node_error FK 에러, Retry: {e}")
+            raise self.retry(exc=e, countdown=min(2**(self.request.retries + 1), 30))
     except Exception as e:
         session.rollback()
         logger.error(f"[Log-System] update_node_log_error 실패: {e}")
