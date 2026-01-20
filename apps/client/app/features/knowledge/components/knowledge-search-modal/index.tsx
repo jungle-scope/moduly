@@ -272,8 +272,8 @@ export default function KnowledgeSearchModal({
                     <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                       AI 답변
                     </p>
-                    <div className="text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                      {response.answer}
+                    <div className="text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 whitespace-pre-wrap">
+                      {response.answer.replace(/\n{2,}/g, '\n')}
                     </div>
                   </div>
                 </div>

@@ -527,3 +527,62 @@ class RetrievalService:
             answer = f"오류가 발생하여 답변을 생성할 수 없습니다. ({str(e)})"
 
         return RAGResponse(answer=answer, references=relevant_chunks)
+
+    async def generate_answer_for_test(
+        self, query: str, knowledge_base_id: str, model_id: str = "gpt-4o"
+    ) -> RAGResponse:
+        """
+        [Public API] 검색 + 답변 생성 (테스트 전용 - 가독성 개선)
+        AI 답변 테스트 화면에서 사용하며, 답변 형식을 더 읽기 쉽게 만듭니다.
+        """
+        relevant_chunks = await self.search_documents(query, knowledge_base_id)
+
+        if not relevant_chunks:
+            return RAGResponse(
+                answer="해당 질문에 답변할 수 있는 문서를 찾지 못했습니다.",
+                references=[],
+            )
+
+        context_text = "\n\n".join([c.content for c in relevant_chunks])
+
+        if self.llm_client and self.llm_client.model_id == model_id:
+            pass
+        else:
+            try:
+                self.llm_client = LLMService.get_client_for_user(
+                    self.db, self.user_id, model_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to load generation model {model_id}: {e}")
+                self.llm_client = None
+
+        if not self.llm_client:
+            return RAGResponse(
+                answer=f"⚠️ 답변 생성을 위한 모델({model_id})을 찾을 수 없습니다. (Credential 등록 필요)",
+                references=[],
+            )
+
+        # 테스트 전용: 가독성 개선 프롬프트
+        system_prompt = (
+            "You are a helpful assistant. Use the following context to answer the user's question.\n"
+            "If the answer is not in the context, say you don't know.\n\n"
+            "**답변 형식 규칙 (CRITICAL - MUST FOLLOW):**\n"
+            "- 여러 항목을 나열할 때는 반드시 번호(1. 2. 3.)를 사용하여 목록 형태로 작성하세요.\n"
+            "- 항목 사이에는 빈 줄(Extra newline)을 넣지 말고, 촘촘하게 배치하세요.\n"
+            "- 마크다운 표는 사용하지 마세요 (일반 텍스트로만 작성)\n"
+            f"Context:\n{context_text}"
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query},
+        ]
+
+        try:
+            result = await self.llm_client.invoke(messages)
+            answer = result["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(f"LLM generation failed: {e}")
+            answer = f"오류가 발생하여 답변을 생성할 수 없습니다. ({str(e)})"
+
+        return RAGResponse(answer=answer, references=relevant_chunks)
