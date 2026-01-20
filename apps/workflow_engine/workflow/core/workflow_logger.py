@@ -162,30 +162,58 @@ class WorkflowLogger:
         self._submit_log("log.create_node", data)
         return log_id
 
-    def update_node_log_finish(self, log_id: uuid.UUID, node_id: str, outputs: Any):
-        """노드 실행 완료 로그 업데이트"""
+    def update_node_log_finish(
+        self,
+        log_id: uuid.UUID,
+        node_id: str,
+        outputs: Any,
+        node_type: str = None,
+        inputs: Dict[str, Any] = None,
+        process_data: Dict[str, Any] = None,
+        started_at: datetime = None,
+    ):
+        """노드 실행 완료 로그 업데이트 (Upsert 패턴 지원)"""
         if not self.workflow_run_id or not log_id:
             return
 
         data = {
-            "log_id": log_id,  # [NEW] PK로 직접 조회
+            "log_id": log_id,
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "outputs": outputs,
             "finished_at": datetime.now(timezone.utc),
+            # [NEW] Upsert용 추가 정보 (레코드가 없을 때 생성에 사용)
+            "node_type": node_type,
+            "inputs": inputs or {},
+            "process_data": process_data or {},
+            "started_at": started_at,
         }
         self._submit_log("log.update_node_finish", data)
 
-    def update_node_log_error(self, log_id: uuid.UUID, node_id: str, error_message: str):
-        """노드 실행 에러 로그 업데이트"""
+    def update_node_log_error(
+        self,
+        log_id: uuid.UUID,
+        node_id: str,
+        error_message: str,
+        node_type: str = None,
+        inputs: Dict[str, Any] = None,
+        process_data: Dict[str, Any] = None,
+        started_at: datetime = None,
+    ):
+        """노드 실행 에러 로그 업데이트 (Upsert 패턴 지원)"""
         if not self.workflow_run_id or not log_id:
             return
 
         data = {
-            "log_id": log_id,  # [NEW] PK로 직접 조회
+            "log_id": log_id,
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "error_message": error_message,
             "finished_at": datetime.now(timezone.utc),
+            # [NEW] Upsert용 추가 정보 (레코드가 없을 때 생성에 사용)
+            "node_type": node_type,
+            "inputs": inputs or {},
+            "process_data": process_data or {},
+            "started_at": started_at,
         }
         self._submit_log("log.update_node_error", data)

@@ -277,92 +277,117 @@ def create_node_log(self, data: Dict[str, Any]):
         session.close()
 
 
-@celery_app.task(name="log.update_node_finish", bind=True, max_retries=3)
+@celery_app.task(name="log.update_node_finish", bind=True, max_retries=5)
 def update_node_log_finish(self, data: Dict[str, Any]):
-    """노드 실행 완료 로그 업데이트"""
+    """노드 실행 완료 로그 업데이트 (Upsert 패턴 적용)"""
     session = SessionLocal()
     try:
-        # [NEW] Log ID(PK)로 직접 조회
         log_id = _deserialize_uuid(data.get("log_id"))
+        workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
+        finished_at = _deserialize_datetime(data["finished_at"])
         
+        # outputs 정규화
+        outputs = data["outputs"]
+        if not isinstance(outputs, dict):
+            outputs = {"result": outputs}
+
         node_run = None
         if log_id:
             node_run = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
-        else:
-            # 하위 호환성 (레거시 동작)
-            workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
-            node_run = (
-                session.query(WorkflowNodeRun)
-                .filter(WorkflowNodeRun.workflow_run_id == workflow_run_id)
-                .filter(WorkflowNodeRun.node_id == data["node_id"])
-                .order_by(WorkflowNodeRun.started_at.desc())
-                .first()
-            )
 
         if not node_run:
-            # 아직 create가 안된 경우 재시도
-            raise Exception(
-                f"WorkflowNodeRun not found: log_id={log_id}"
+            # [FIX] Upsert: 레코드가 없으면 직접 생성 (Race Condition 해결)
+            # finish가 create보다 먼저 도착한 경우
+            started_at = _deserialize_datetime(data.get("started_at")) or finished_at
+
+            node_run = WorkflowNodeRun(
+                id=log_id,
+                workflow_run_id=workflow_run_id,
+                node_id=data["node_id"],
+                node_type=data.get("node_type", "unknown"),
+                status=NodeRunStatus.SUCCESS,
+                inputs=data.get("inputs") or {},
+                process_data=data.get("process_data") or {},
+                outputs=outputs,
+                started_at=started_at,
+                finished_at=finished_at,
             )
-
-        node_run.status = NodeRunStatus.SUCCESS
-        outputs = data["outputs"]
-        if isinstance(outputs, dict):
-            node_run.outputs = outputs
+            session.add(node_run)
+            logger.info(f"[Log-System] Upsert: 노드 로그 직접 생성 (log_id={log_id})")
         else:
-            node_run.outputs = {"result": outputs}
+            # 레코드가 있으면 업데이트
+            node_run.status = NodeRunStatus.SUCCESS
+            node_run.outputs = outputs
+            node_run.finished_at = finished_at
 
-        node_run.finished_at = _deserialize_datetime(data["finished_at"])
         session.commit()
 
         return {"status": "success", "node_id": data["node_id"]}
 
+    except IntegrityError:
+        session.rollback()
+        # 중복 키 오류는 이미 처리됨을 의미 (Idempotency)
+        logger.info(f"[Log-System] update_node_finish 중복 처리 무시: log_id={data.get('log_id')}")
+        return {"status": "success", "node_id": data["node_id"], "duplicated": True}
     except Exception as e:
         session.rollback()
         logger.error(f"[Log-System] update_node_log_finish 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        raise self.retry(exc=e, countdown=min(2**self.request.retries, 30))
     finally:
         session.close()
 
 
-@celery_app.task(name="log.update_node_error", bind=True, max_retries=3)
+
+@celery_app.task(name="log.update_node_error", bind=True, max_retries=5)
 def update_node_log_error(self, data: Dict[str, Any]):
-    """노드 실행 에러 로그 업데이트"""
+    """노드 실행 에러 로그 업데이트 (Upsert 패턴 적용)"""
     session = SessionLocal()
     try:
-        # [NEW] Log ID(PK)로 직접 조회
         log_id = _deserialize_uuid(data.get("log_id"))
-        
+        workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
+        finished_at = _deserialize_datetime(data["finished_at"])
+
         node_run = None
         if log_id:
-             node_run = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
-        else:
-            # 하위 호환성 (레거시 동작)
-            workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
-            node_run = (
-                session.query(WorkflowNodeRun)
-                .filter(WorkflowNodeRun.workflow_run_id == workflow_run_id)
-                .filter(WorkflowNodeRun.node_id == data["node_id"])
-                .order_by(WorkflowNodeRun.started_at.desc())
-                .first()
-            )
+            node_run = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
 
         if not node_run:
-             # 아직 create가 안된 경우 재시도
-            raise Exception(
-                f"WorkflowNodeRun not found: log_id={log_id}"
-            )
+            # [FIX] Upsert: 레코드가 없으면 직접 생성 (Race Condition 해결)
+            # error가 create보다 먼저 도착한 경우
+            started_at = _deserialize_datetime(data.get("started_at")) or finished_at
 
-        node_run.status = NodeRunStatus.FAILED
-        node_run.error_message = data["error_message"]
-        node_run.finished_at = _deserialize_datetime(data["finished_at"])
+            node_run = WorkflowNodeRun(
+                id=log_id,
+                workflow_run_id=workflow_run_id,
+                node_id=data["node_id"],
+                node_type=data.get("node_type", "unknown"),
+                status=NodeRunStatus.FAILED,
+                inputs=data.get("inputs") or {},
+                process_data=data.get("process_data") or {},
+                error_message=data["error_message"],
+                started_at=started_at,
+                finished_at=finished_at,
+            )
+            session.add(node_run)
+            logger.info(f"[Log-System] Upsert: 노드 에러 로그 직접 생성 (log_id={log_id})")
+        else:
+            # 레코드가 있으면 업데이트
+            node_run.status = NodeRunStatus.FAILED
+            node_run.error_message = data["error_message"]
+            node_run.finished_at = finished_at
+
         session.commit()
 
         return {"status": "success", "node_id": data["node_id"]}
 
+    except IntegrityError:
+        session.rollback()
+        # 중복 키 오류는 이미 처리됨을 의미 (Idempotency)
+        logger.info(f"[Log-System] update_node_error 중복 처리 무시: log_id={data.get('log_id')}")
+        return {"status": "success", "node_id": data["node_id"], "duplicated": True}
     except Exception as e:
         session.rollback()
         logger.error(f"[Log-System] update_node_log_error 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        raise self.retry(exc=e, countdown=min(2**self.request.retries, 30))
     finally:
         session.close()
