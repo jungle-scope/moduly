@@ -734,6 +734,17 @@ class LLMService:
         )
 
         if not cred:
+            # [DEBUG] provider_id 매칭 실패 시에만 로깅
+            all_creds = (
+                db.query(LLMCredential).filter(LLMCredential.user_id == user_id).all()
+            )
+            logger.warning(
+                f"[DEBUG] Credential not found! model_id={model_id}, "
+                f"target_model.provider_id={target_model.provider_id}, "
+                f"user_id={user_id}, all_creds_count={len(all_creds)}, "
+                f"cred_provider_ids={[str(c.provider_id) for c in all_creds]}, "
+                f"cred_is_valid={[c.is_valid for c in all_creds]}"
+            )
             raise ValueError(
                 f"유효한 API 키를 찾을 수 없습니다. [설정 > 모델 키 관리]에서 '{model_id}' 모델을 지원하는 API Key를 등록해주세요."
             )
