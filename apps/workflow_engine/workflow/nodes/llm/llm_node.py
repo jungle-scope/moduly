@@ -66,8 +66,9 @@ class LLMNode(Node[LLMNodeData]):
         self.data.validate()
 
         # STEP 2. 모델 준비 ----------------------------------------------------
-        # [FIX] 세션 라이프사이클 개선 - 메서드 전체를 try/finally로 감싸서 마지막에 닫음
-        db_session = getattr(self, "db", None)
+        # [FIX] 세션 라이프사이클 개선
+        # execution_context에서 db 세션 가져오기 (WorkflowEngine이 주입함)
+        db_session = self.execution_context.get("db")
         temp_session = None
         client_override = getattr(self, "_client_override", None)
 
@@ -353,12 +354,21 @@ class LLMNode(Node[LLMNodeData]):
         except Exception:
             return None
 
-        session = SessionLocal()
+        except Exception:
+            return None
+
+        # [FIX] 세션 최적화: execution_context의 세션 우선 사용
+        db_session = self.execution_context.get("db")
+        is_temp_session = False
+        if not db_session:
+            db_session = SessionLocal()
+            is_temp_session = True
+
         try:
             current_run_id = self.execution_context.get("workflow_run_id")
             # 최근 실행 N건 조회 (본 실행 제외)
             run_query = (
-                session.query(WorkflowRun)
+                db_session.query(WorkflowRun)
                 .filter(
                     WorkflowRun.workflow_id == workflow_id,
                     WorkflowRun.user_id == user_id,
@@ -376,7 +386,7 @@ class LLMNode(Node[LLMNodeData]):
                 return None
 
             node_runs = (
-                session.query(WorkflowNodeRun)
+                db_session.query(WorkflowNodeRun)
                 .filter(
                     WorkflowNodeRun.workflow_run_id.in_(run_ids),
                     WorkflowNodeRun.node_type == "llmNode",
@@ -394,9 +404,9 @@ class LLMNode(Node[LLMNodeData]):
                     f"- #{idx + 1} [{nr.node_id}] input={self._shorten(nr.inputs)} | output={self._shorten(nr.outputs)}"
                 )
 
-            summary_model_id = self._pick_summary_model(session, self.data.model_id)
+            summary_model_id = self._pick_summary_model(db_session, self.data.model_id)
             summary_client = LLMService.get_client_for_user(
-                session,
+                db_session,
                 user_id=user_id,
                 model_id=summary_model_id,
             )
@@ -421,7 +431,9 @@ class LLMNode(Node[LLMNodeData]):
             except Exception:
                 return None
         finally:
-            session.close()
+            # [FIX] 임시 세션일 때만 닫음
+            if is_temp_session:
+                db_session.close()
 
     def _shorten(self, payload: Any, limit: int = 360) -> str:
         """LLM 히스토리 문자열을 과하지 않게 자르는 헬퍼 (한국어 포함)"""

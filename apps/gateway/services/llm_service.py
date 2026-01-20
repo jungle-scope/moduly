@@ -718,10 +718,13 @@ class LLMService:
             .first()
         )
         if not target_model:
+            # raise ValueError(f"Unknown model_id: {model_id}")
+            # 시스템에 없는 모델명일 경우 처리 (커스텀 모델명 호환성)
+            # 일단 에러 발생시키지 않고 진행하거나, Known 에러로 처리
             raise ValueError(f"Unknown model_id: {model_id}")
 
         # [SIMPLIFIED] rel 테이블 조인 대신 프로바이더 매칭으로 단순화
-        # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 크리덴셜을 찾음
+        # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 유효한 크리덴셜을 찾음
         cred = (
             db.query(LLMCredential)
             .filter(
@@ -734,17 +737,6 @@ class LLMService:
         )
 
         if not cred:
-            # [DEBUG] provider_id 매칭 실패 시에만 로깅
-            all_creds = (
-                db.query(LLMCredential).filter(LLMCredential.user_id == user_id).all()
-            )
-            logger.info(
-                f"[DEBUG] Credential not found! model_id={model_id}, "
-                f"target_model.provider_id={target_model.provider_id}, "
-                f"user_id={user_id}, all_creds_count={len(all_creds)}, "
-                f"cred_provider_ids={[str(c.provider_id) for c in all_creds]}, "
-                f"cred_is_valid={[c.is_valid for c in all_creds]}"
-            )
             raise ValueError(
                 f"유효한 API 키를 찾을 수 없습니다. [설정 > 모델 키 관리]에서 '{model_id}' 모델을 지원하는 API Key를 등록해주세요."
             )
