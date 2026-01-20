@@ -562,7 +562,6 @@ class WorkflowEngine:
             result = await node_instance.execute(inputs)
 
             # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
-            # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
             if not self.is_subworkflow:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(
