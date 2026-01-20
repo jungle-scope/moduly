@@ -1,6 +1,5 @@
 import json
 import logging
-import sys
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -795,7 +794,6 @@ class LLMService:
             logger.error(
                 f"[LLMService] Failed to parse credential config for credential_id={cred.id}: {e}"
             )
-            sys.stdout.flush()  # 로그 즉시 출력
             raise ValueError("Invalid credential config")
 
         db.refresh(cred)
