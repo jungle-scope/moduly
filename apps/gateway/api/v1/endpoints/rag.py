@@ -339,7 +339,7 @@ async def search_test_chat(
     """
     retrieval_service = RetrievalService(db, user_id=current_user.id)
     kb_id_str = str(query.knowledge_base_id) if query.knowledge_base_id else None
-    response = await retrieval_service.generate_answer(
+    response = await retrieval_service.generate_answer_for_test(
         query.query,
         knowledge_base_id=kb_id_str,
         model_id=query.generation_model or "gpt-4o",
