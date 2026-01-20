@@ -104,7 +104,7 @@ export default function NodeLibrarySidebar({
     <div
       ref={sidebarRef}
       className={`relative h-full bg-transparent transition-all duration-300 ease-in-out z-20 ${
-        isOpen ? 'w-64' : 'w-12'
+        isOpen ? 'w-64' : 'w-0'
       }`}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
@@ -131,13 +131,15 @@ export default function NodeLibrarySidebar({
       </div>
 
       {/* Toggle Button */}
-      <div className="absolute -right-3 top-20 z-30">
+      <div className="absolute -right-4 top-20 z-50">
         <button
           onClick={onToggle}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
-          className={`flex items-center justify-center w-6 h-6 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50 transition-opacity ${
-            isHovering || !isOpen ? 'opacity-100' : 'opacity-0'
+          className={`flex items-center justify-center w-8 h-8 bg-white border border-gray-200 rounded-full shadow-md hover:bg-gray-50 transition-all duration-200 ${
+            isHovering || !isOpen
+              ? 'opacity-100 scale-100'
+              : 'opacity-0 scale-90 pointer-events-none'
           }`}
         >
           {isOpen ? (

@@ -703,26 +703,17 @@ class LLMService:
             .filter(LLMModel.model_id_for_api_call == model_id)
             .first()
         )
+
         if not target_model:
+            # 시스템에 없는 모델명일 경우 처리 (커스텀 모델명 호환성)
+            # 일단 에러 발생시키지 않고 진행하거나, Known 에러로 처리
             raise ValueError(f"Unknown model_id: {model_id}")
 
-        cred = (
-            db.query(LLMCredential)
-            .join(
-                LLMRelCredentialModel,
-                LLMRelCredentialModel.credential_id == LLMCredential.id,
-            )
-            .filter(
-                LLMCredential.user_id == user_id,
-                LLMCredential.is_valid == True,
-                LLMRelCredentialModel.model_id == target_model.id,
-                LLMRelCredentialModel.is_verified == True,
-            )
-            .order_by(
-                LLMRelCredentialModel.priority.desc(),
-                LLMCredential.updated_at.desc(),
-            )
-            .first()
+        # [SIMPLIFIED] rel 테이블 조인 대신 프로바이더 매칭으로 단순화
+        # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 유효한 크리덴셜을 찾음
+        provider_id = target_model.provider_id if target_model else None
+        cred = LLMService._get_valid_credential_for_user(
+            db, user_id=user_id, provider_id=provider_id
         )
 
         if not cred:
