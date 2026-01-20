@@ -199,64 +199,27 @@ class WorkflowEngine:
 
         self.start_time = time.time()  # 실행 시작 시간 기록
         # ============================================================
-        # [NEW] 실행 로그 시작
+        # WorkflowRun은 Gateway에서 이미 동기적으로 생성됨
+        # Engine은 workflow_run_id만 전달받아 사용
         # ============================================================
-        # 외부에서 전달된 run_id가 있으면 사용 (Gateway에서 미리 생성한 경우)
         external_run_id = self.execution_context.get("workflow_run_id")
         
-        logger.error(f"[DEBUG] _execute_core started. IsSub: {self.is_subworkflow}, ExternalRunId: {external_run_id}, ParentRunId: {self.parent_run_id}")
-
-        # [FIX] 서브 워크플로우인 경우 run_id 생성/로깅 스킵
+        # 서브 워크플로우인 경우 부모의 run_id 사용
         if self.is_subworkflow:
-            # 서브 워크플로우는 부모의 run_id만 참조, DB에 별도 run 레코드 생성하지 않음
             if self.parent_run_id:
                 self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
                 self.execution_context["workflow_run_id"] = self.parent_run_id
         elif external_run_id:
-            # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
+            # Gateway에서 생성된 run_id 사용 (정상 케이스)
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
-            # [PERF] 로깅 비동기 실행 (스레드 풀)
-            logger.error(f"[DEBUG] Using external_run_id: {external_run_id}, calling create_run_log async")
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(
-                None,
-                lambda: self.logger.create_run_log(
-                    workflow_id=self.execution_context.get("workflow_id"),
-                    user_id=self.execution_context.get("user_id"),
-                    user_input=self.user_input,
-                    is_deployed=self.is_deployed,
-                    execution_context=self.execution_context,
-                    external_run_id=external_run_id,  # [NEW] 외부 run_id 전달
-                ),
-            )
+            logger.info(f"[Engine] Using pre-created WorkflowRun: {external_run_id}")
         elif self.parent_run_id:
-            # 서브 워크플로우인 경우 부모의 run_id를 재사용 (레거시 지원)
+            # 레거시 지원: 서브 워크플로우
             self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
             self.execution_context["workflow_run_id"] = self.parent_run_id
         else:
-            # 새로운 run_id 생성 (비동기 처리 불가 - run_id가 필요함)
-            # 하지만 create_run_log 내부의 Celery 호출만 비동기화하고, UUID 생성은 동기 처리 가능
-            # 여기서는 편의상 동기로 처리하되, Celery 호출이 블로킹되지 않도록 주의해야 함.
-            # WorkflowLogger는 내부적으로 동기 Celery 호출을 하므로,
-            # run_id를 먼저 생성하고 로깅은 나중에 하거나, run_in_executor에서 반환값을 받아야 함.
-
-            # [FIX] run_id 생성을 위해 run_in_executor 사용 및 결과 대기
-            logger.error(f"[DEBUG] No external run_id, creating new run_log async. Ctx: {self.execution_context.keys()}")
-            loop = asyncio.get_running_loop()
-
-            def _create_log():
-                return self.logger.create_run_log(
-                    workflow_id=self.execution_context.get("workflow_id"),
-                    user_id=self.execution_context.get("user_id"),
-                    user_input=self.user_input,
-                    is_deployed=self.is_deployed,
-                    execution_context=self.execution_context,
-                )
-
-            workflow_run_id = await loop.run_in_executor(None, _create_log)
-
-            if workflow_run_id:
-                self.execution_context["workflow_run_id"] = str(workflow_run_id)
+            # workflow_run_id가 없으면 로깅 비활성화 (예: 단위 테스트)
+            logger.warning("[Engine] No workflow_run_id provided, logging disabled")
         # ============================================================
 
         start_node = self._find_start_node()

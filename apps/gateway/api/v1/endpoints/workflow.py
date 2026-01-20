@@ -2,6 +2,10 @@ import json
 import logging
 from typing import List
 
+import uuid
+from datetime import datetime, timezone
+from apps.shared.db.models.workflow_run import RunTriggerMode
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy import Integer
@@ -496,10 +500,30 @@ async def execute_workflow(
                 status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
             )
 
-        # execution_context 구성
+        # WorkflowRun을 Celery 태스크 전에 동기적으로 생성, 경쟁상태 방지
+        import uuid
+        from datetime import datetime, timezone
+        from apps.shared.db.models.workflow_run import RunTriggerMode
+        
+        run_id = uuid.uuid4()
+        workflow_run = WorkflowRun(
+            id=run_id,
+            workflow_id=workflow.id,
+            user_id=current_user.id,
+            status=RunStatus.RUNNING,
+            trigger_mode=RunTriggerMode.MANUAL,
+            user_input=user_input,
+            started_at=datetime.now(timezone.utc),
+        )
+        db.add(workflow_run)
+        db.commit()
+        logger.info(f"[Gateway] WorkflowRun created synchronously: {run_id}")
+
+        # execution_context 구성 (run_id 포함)
         execution_context = {
             "user_id": str(current_user.id),
             "workflow_id": workflow_id,
+            "workflow_run_id": str(run_id),  # [NEW] Engine에 run_id 전달
             "memory_mode": memory_mode_enabled,
         }
 
@@ -594,13 +618,29 @@ async def stream_workflow(
             status_code=404, detail=f"Workflow '{workflow_id}' draft not found"
         )
 
-    # 4. [NEW] Gateway에서 run_id 생성 (Celery 태스크에 전달)
+    # 4. [FIX] WorkflowRun을 Celery 태스크 전에 동기적으로 생성
+    from datetime import datetime, timezone
+    from apps.shared.db.models.workflow_run import RunTriggerMode
+    
     external_run_id = str(uuid.uuid4())
+    workflow_run = WorkflowRun(
+        id=uuid.UUID(external_run_id),
+        workflow_id=workflow.id,
+        user_id=current_user.id,
+        status=RunStatus.RUNNING,
+        trigger_mode=RunTriggerMode.MANUAL,
+        user_input=user_input,
+        started_at=datetime.now(timezone.utc),
+    )
+    db.add(workflow_run)
+    db.commit()
+    logger.info(f"[Gateway] WorkflowRun created synchronously (stream): {external_run_id}")
 
     # 5. 실행 컨텍스트 준비
     execution_context = {
         "user_id": str(current_user.id),
         "workflow_id": workflow_id,
+        "workflow_run_id": external_run_id,  # [NEW] Engine에 run_id 전달
         "memory_mode": memory_mode_enabled,
     }
 

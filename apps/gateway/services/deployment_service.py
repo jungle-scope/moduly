@@ -369,10 +369,33 @@ class DeploymentService:
 
         # 6. 워크플로우 실행 (Celery 태스크로 위임)
         try:
+            # [FIX] WorkflowRun을 Celery 태스크 전에 동기적으로 생성
+            from datetime import datetime, timezone
+            from apps.shared.db.models.workflow_run import (
+                WorkflowRun,
+                RunStatus,
+                RunTriggerMode,
+            )
+            
+            run_id = uuid.uuid4()
+            workflow_run = WorkflowRun(
+                id=run_id,
+                workflow_id=app.workflow_id,
+                user_id=app.created_by,
+                status=RunStatus.RUNNING,
+                trigger_mode=RunTriggerMode.API,
+                user_input=user_inputs,
+                started_at=datetime.now(timezone.utc),
+            )
+            db.add(workflow_run)
+            db.commit()
+            logger.info(f"[DeploymentService] WorkflowRun created synchronously: {run_id}")
+
             # [NEW] 로깅을 위한 컨텍스트 주입
             execution_context = {
                 "user_id": str(app.created_by),  # UUID를 문자열로 변환 (JSON 직렬화)
                 "workflow_id": str(app.workflow_id) if app.workflow_id else None,
+                "workflow_run_id": str(run_id),  # [NEW] Engine에 run_id 전달
                 "trigger_mode": "app",  # [NEW] 실행 모드 (앱 배포 실행)
                 "deployment_id": str(deployment.id),
                 "workflow_version": deployment.version,

@@ -55,7 +55,7 @@ def verify_webhook_auth(request: Request, app: App) -> bool:
 
 
 def run_webhook_workflow(
-    deployment_id: str, payload: Dict[str, Any], app_created_by: str, workflow_id: str
+    deployment_id: str, payload: Dict[str, Any], app_created_by: str, workflow_id: str, workflow_run_id: str
 ):
     """
     백그라운드에서 워크플로우를 Celery 태스크로 실행하는 함수
@@ -65,12 +65,14 @@ def run_webhook_workflow(
         payload: Webhook Payload (JSON)
         app_created_by: 앱 생성자 ID
         workflow_id: 워크플로우 ID
+        workflow_run_id: WorkflowRun ID (Gateway에서 미리 생성됨)
     """
     try:
         # execution_context 구성
         execution_context = {
             "user_id": app_created_by,
             "workflow_id": workflow_id,
+            "workflow_run_id": workflow_run_id,  # [NEW] Engine에 run_id 전달
             "trigger_mode": "webhook",
             "deployment_id": deployment_id,
         }
@@ -145,13 +147,37 @@ async def receive_webhook(
     if not deployment:
         raise HTTPException(status_code=404, detail="Active deployment not found")
 
-    # 6. 실행 모드: Celery 태스크로 워크플로우 실행 위임
+    # 6. [FIX] WorkflowRun을 먼저 동기적으로 생성
+    import uuid
+    from datetime import datetime, timezone
+    from apps.shared.db.models.workflow_run import (
+        WorkflowRun,
+        RunStatus,
+        RunTriggerMode,
+    )
+    
+    run_id = uuid.uuid4()
+    workflow_run = WorkflowRun(
+        id=run_id,
+        workflow_id=app.workflow_id,
+        user_id=app.created_by,
+        status=RunStatus.RUNNING,
+        trigger_mode=RunTriggerMode.API,  # Webhook은 API 방식
+        user_input=payload,
+        started_at=datetime.now(timezone.utc),
+    )
+    db.add(workflow_run)
+    db.commit()
+    logger.info(f"[Webhook] WorkflowRun created synchronously: {run_id}")
+
+    # 7. 실행 모드: Celery 태스크로 워크플로우 실행 위임
     background_tasks.add_task(
         run_webhook_workflow,
         str(deployment.id),
         payload,
         str(app.created_by),
         str(app.workflow_id) if app.workflow_id else None,
+        str(run_id),  # [NEW] run_id 전달
     )
 
     return {
