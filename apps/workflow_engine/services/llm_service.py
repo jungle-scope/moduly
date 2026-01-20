@@ -703,27 +703,20 @@ class LLMService:
             .filter(LLMModel.model_id_for_api_call == model_id)
             .first()
         )
+
         if not target_model:
             raise ValueError(f"Unknown model_id: {model_id}")
 
-        # NOTE: is_verified 조건 제거됨
-        # sync_credential_models 실행 중 일시적으로 is_verified=False가 되어
-        # 간헐적으로 "API 키를 찾을 수 없습니다" 오류가 발생하는 문제 해결
+        # [SIMPLIFIED] rel 테이블 조인 대신 프로바이더 매칭으로 단순화
+        # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 크리덴셜을 찾음
         cred = (
             db.query(LLMCredential)
-            .join(
-                LLMRelCredentialModel,
-                LLMRelCredentialModel.credential_id == LLMCredential.id,
-            )
             .filter(
                 LLMCredential.user_id == user_id,
                 LLMCredential.is_valid == True,
-                LLMRelCredentialModel.model_id == target_model.id,
+                LLMCredential.provider_id == target_model.provider_id,
             )
-            .order_by(
-                LLMRelCredentialModel.priority.desc(),
-                LLMCredential.updated_at.desc(),
-            )
+            .order_by(LLMCredential.updated_at.desc())
             .first()
         )
 
