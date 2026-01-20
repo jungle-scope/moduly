@@ -714,6 +714,7 @@ class LLMService:
 
         target_model = (
             db.query(LLMModel)
+            .options(joinedload(LLMModel.provider))
             .filter(LLMModel.model_id_for_api_call == model_id)
             .first()
         )
@@ -729,6 +730,20 @@ class LLMService:
         cred = LLMService._get_valid_credential_for_user(
             db, user_id=user_id, provider_id=provider_id
         )
+
+        # [FALLBACK] UUID 불일치 시 이름 기반 매칭 (서버/로컬 DB 차이 대응)
+        if not cred and target_model and target_model.provider:
+            cred = (
+                db.query(LLMCredential)
+                .join(LLMProvider)
+                .filter(
+                    LLMCredential.user_id == user_id,
+                    LLMCredential.is_valid == True,
+                    LLMProvider.name == target_model.provider.name,
+                )
+                .order_by(LLMCredential.updated_at.desc())
+                .first()
+            )
 
         if not cred:
             raise ValueError(
