@@ -229,14 +229,17 @@ def update_run_log_error(self, data: Dict[str, Any]):
         session.close()
 
 
-@celery_app.task(name="log.create_node", bind=True, max_retries=3)
+@celery_app.task(name="log.create_node", bind=True, max_retries=5)
 def create_node_log(self, data: Dict[str, Any]):
     """노드 실행 로그 생성"""
     session = SessionLocal()
     try:
         workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
-        # [NEW] 전달받은 ID 사용
+        # 전달받은 ID 사용
         node_run_id = _deserialize_uuid(data.get("id"))
+
+        # 세션 캐시 무효화 - 다른 Worker의 커밋 반영
+        session.expire_all()
 
         # 부모 WorkflowRun이 존재하는지 확인
         run_exists = (
@@ -272,7 +275,8 @@ def create_node_log(self, data: Dict[str, Any]):
     except Exception as e:
         session.rollback()
         logger.error(f"[Log-System] create_node_log 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        # Retry 간격 최대 30초
+        raise self.retry(exc=e, countdown=min(2**(self.request.retries + 1), 30))
     finally:
         session.close()
 
@@ -285,6 +289,9 @@ def update_node_log_finish(self, data: Dict[str, Any]):
         log_id = _deserialize_uuid(data.get("log_id"))
         workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
         finished_at = _deserialize_datetime(data["finished_at"])
+        
+        # 세션 캐시 무효화 - 다른 Worker의 커밋 반영
+        session.expire_all()
         
         # outputs 정규화
         outputs = data["outputs"]
@@ -346,6 +353,9 @@ def update_node_log_error(self, data: Dict[str, Any]):
         log_id = _deserialize_uuid(data.get("log_id"))
         workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
         finished_at = _deserialize_datetime(data["finished_at"])
+
+        # 세션 캐시 무효화 - 다른 Worker의 커밋 반영
+        session.expire_all()
 
         node_run = None
         if log_id:
