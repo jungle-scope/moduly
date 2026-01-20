@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://moduly-ai.cloud"><strong>SaaS 체험하기</strong></a> | 
-  <a href="#-빠른-시작"><strong>설치 가이드</strong></a> | 
+  <a href="#install-guide"><strong>설치 가이드</strong></a> | 
   <a href="https://github.com/jungle-scope/moduly/issues"><strong>기능 제안</strong></a>
 </p>
 
@@ -57,6 +57,8 @@ Moduly는 **SaaS**, **셀프 호스팅 (Docker Compose)**, **셀프 호스팅 (H
 별도의 설치 없이 바로 시작해보세요.
 
 👉 [**Moduly Cloud 바로가기 (moduly-ai.cloud)**](https://moduly-ai.cloud)
+
+<div id="install-guide"></div>
 
 ### 2. 셀프 호스팅 (Docker Compose)
 

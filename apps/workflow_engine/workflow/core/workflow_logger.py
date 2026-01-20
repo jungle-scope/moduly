@@ -142,12 +142,16 @@ class WorkflowLogger:
         node_type: str,
         inputs: Dict[str, Any],
         process_data: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> Optional[uuid.UUID]:
         """노드 실행 로그 생성"""
         if not self.workflow_run_id:
-            return
+            return None
+
+        # [FIX] Deterministic Log ID 생성
+        log_id = uuid.uuid4()
 
         data = {
+            "id": log_id,  # [NEW] PK를 미리 생성하여 전달
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "node_type": node_type,
@@ -156,13 +160,15 @@ class WorkflowLogger:
             "started_at": datetime.now(timezone.utc),
         }
         self._submit_log("log.create_node", data)
+        return log_id
 
-    def update_node_log_finish(self, node_id: str, outputs: Any):
+    def update_node_log_finish(self, log_id: uuid.UUID, node_id: str, outputs: Any):
         """노드 실행 완료 로그 업데이트"""
-        if not self.workflow_run_id:
+        if not self.workflow_run_id or not log_id:
             return
 
         data = {
+            "log_id": log_id,  # [NEW] PK로 직접 조회
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "outputs": outputs,
@@ -170,12 +176,13 @@ class WorkflowLogger:
         }
         self._submit_log("log.update_node_finish", data)
 
-    def update_node_log_error(self, node_id: str, error_message: str):
+    def update_node_log_error(self, log_id: uuid.UUID, node_id: str, error_message: str):
         """노드 실행 에러 로그 업데이트"""
-        if not self.workflow_run_id:
+        if not self.workflow_run_id or not log_id:
             return
 
         data = {
+            "log_id": log_id,  # [NEW] PK로 직접 조회
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "error_message": error_message,

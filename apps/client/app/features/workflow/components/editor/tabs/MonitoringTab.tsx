@@ -70,7 +70,7 @@ export const MonitoringTab = ({
   return (
     <div
       ref={scrollRef}
-      className="h-full w-full overflow-y-auto bg-gray-100 p-6 scroll-smooth animate-in fade-in slide-in-from-bottom-2 duration-300"
+      className="h-full w-full overflow-y-auto bg-gray-100 p-6 pt-16 scroll-smooth animate-in fade-in slide-in-from-bottom-2 duration-300"
     >
       <div className="max-w-7xl mx-auto space-y-6 pb-20">
         {monitoringLoading || !stats ? (
