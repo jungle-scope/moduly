@@ -703,8 +703,26 @@ class LLMService:
             .filter(LLMModel.model_id_for_api_call == model_id)
             .first()
         )
+
+        # [DEBUG] 모델 조회 결과 로깅
+        logger.info(
+            f"[get_client_for_user] model_id={model_id}, "
+            f"target_model_found={target_model is not None}, "
+            f"target_model_id={target_model.id if target_model else None}, "
+            f"user_id={user_id}"
+        )
+
         if not target_model:
             raise ValueError(f"Unknown model_id: {model_id}")
+
+        # [DEBUG] 크리덴셜 조회 전 조건 로깅
+        all_user_creds = (
+            db.query(LLMCredential).filter(LLMCredential.user_id == user_id).all()
+        )
+        logger.info(
+            f"[get_client_for_user] user_id={user_id} has {len(all_user_creds)} credentials, "
+            f"valid_count={sum(1 for c in all_user_creds if c.is_valid)}"
+        )
 
         # NOTE: is_verified 조건 제거됨
         # sync_credential_models 실행 중 일시적으로 is_verified=False가 되어
@@ -725,6 +743,12 @@ class LLMService:
                 LLMCredential.updated_at.desc(),
             )
             .first()
+        )
+
+        # [DEBUG] 크리덴셜 조회 결과 로깅
+        logger.info(
+            f"[get_client_for_user] cred_found={cred is not None}, "
+            f"cred_id={cred.id if cred else None}"
         )
 
         if not cred:
