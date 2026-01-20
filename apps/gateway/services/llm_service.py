@@ -746,6 +746,11 @@ class LLMService:
             )
 
         if not cred:
+            logger.error(
+                f"[LLMService] No valid credential found for user_id={user_id}, model_id='{model_id}'. "
+                f"TargetModel: {target_model.name if target_model else 'None'} (ID: {target_model.id if target_model else 'None'}), "
+                f"ProviderID: {provider_id}"
+            )
             raise ValueError(
                 f"유효한 API 키를 찾을 수 없습니다. [설정 > 모델 키 관리]에서 '{model_id}' 모델을 지원하는 API Key를 등록해주세요."
             )

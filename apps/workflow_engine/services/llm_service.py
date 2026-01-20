@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -690,6 +691,11 @@ class LLMService:
         우선순위:
         1. llm_rel_credential_models에서 명시적 권한 확인 (fail-closed)
         """
+        logger.info(
+            f"[LLMService] get_client_for_user called: user_id={user_id}, model_id={model_id}"
+        )
+        sys.stdout.flush()  # 즉시 출력 보장
+
         # TODO: Tenant 스키마 도입 시 tenant_id 지원 추가.
         # 현재는 user_id만 필터링합니다.
 
@@ -708,17 +714,47 @@ class LLMService:
         if not target_model:
             # 시스템에 없는 모델명일 경우 처리 (커스텀 모델명 호환성)
             # 일단 에러 발생시키지 않고 진행하거나, Known 에러로 처리
+            logger.error(
+                f"[LLMService] Unknown model_id '{model_id}' requested by user_id={user_id}. "
+                f"Model not found in database."
+            )
             raise ValueError(f"Unknown model_id: {model_id}")
+
+        logger.info(
+            f"[LLMService] Target model found: name='{target_model.name}', "
+            f"id={target_model.id}, provider={target_model.provider.name if target_model.provider else 'None'}"
+        )
+        sys.stdout.flush()
 
         # [SIMPLIFIED] rel 테이블 조인 대신 프로바이더 매칭으로 단순화
         # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 유효한 크리덴셜을 찾음
         provider_id = target_model.provider_id if target_model else None
+        logger.info(
+            f"[LLMService] Looking for credential: user_id={user_id}, provider_id={provider_id}"
+        )
+        sys.stdout.flush()
+
         cred = LLMService._get_valid_credential_for_user(
             db, user_id=user_id, provider_id=provider_id
         )
 
+        if cred:
+            logger.info(
+                f"[LLMService] Credential found (primary): credential_id={cred.id}, "
+                f"credential_name='{cred.credential_name}', is_valid={cred.is_valid}"
+            )
+            sys.stdout.flush()
+        else:
+            logger.warning(
+                f"[LLMService] No credential found in primary lookup for user_id={user_id}, provider_id={provider_id}"
+            )
+            sys.stdout.flush()
+
         # [FALLBACK] UUID 불일치 시 이름 기반 매칭 (서버/로컬 DB 차이 대응)
         if not cred and target_model and target_model.provider:
+            logger.info(
+                f"[LLMService] Attempting fallback credential lookup by provider name: {target_model.provider.name}"
+            )
             cred = (
                 db.query(LLMCredential)
                 .join(LLMProvider)
@@ -730,8 +766,24 @@ class LLMService:
                 .order_by(LLMCredential.updated_at.desc())
                 .first()
             )
+            if cred:
+                logger.info(
+                    f"[LLMService] Credential found (fallback): credential_id={cred.id}, "
+                    f"credential_name='{cred.credential_name}'"
+                )
+            else:
+                logger.warning(
+                    f"[LLMService] Fallback credential lookup also failed for provider: {target_model.provider.name}"
+                )
 
         if not cred:
+            logger.error(
+                f"[LLMService] No valid credential found for user_id={user_id}, model_id='{model_id}'. "
+                f"TargetModel: {target_model.name if target_model else 'None'} (ID: {target_model.id if target_model else 'None'}), "
+                f"ProviderID: {provider_id}"
+            )
+            sys.stdout.flush()
+
             raise ValueError(
                 f"유효한 API 키를 찾을 수 없습니다. [설정 > 모델 키 관리]에서 '{model_id}' 모델을 지원하는 API Key를 등록해주세요."
             )
@@ -741,11 +793,23 @@ class LLMService:
             cfg = json.loads(cred.encrypted_config)
             api_key = cfg.get("apiKey")
             base_url = cfg.get("baseUrl")
-        except:
+            logger.info(
+                f"[LLMService] Credential config loaded successfully: base_url={base_url}, "
+                f"api_key={'***' + api_key[-4:] if api_key and len(api_key) > 4 else 'INVALID'}"
+            )
+        except Exception as e:
+            logger.error(
+                f"[LLMService] Failed to parse credential config for credential_id={cred.id}: {e}"
+            )
+            sys.stdout.flush()  # 로그 즉시 출력
             raise ValueError("Invalid credential config")
 
         db.refresh(cred)
         provider_type = cred.provider.name
+
+        logger.info(
+            f"[LLMService] Creating LLM client: provider={provider_type}, model_id={model_id}"
+        )
 
         return get_llm_client(
             provider=provider_type,
