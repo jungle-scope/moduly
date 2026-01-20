@@ -99,11 +99,30 @@ class LLMNode(Node[LLMNodeData]):
                     client = LLMService.get_client_for_user(
                         db_session, user_id=user_id, model_id=self.data.model_id
                     )
-                except Exception as e:
-                    logger.warning(
-                        f"[LLMNode] User context found but failed to get client: {e}."
-                    )
-                    raise
+                except Exception as primary_client_error:
+                    # [FIX] API 키 조회 실패 시 fallback 모델로 시도
+                    fallback_model_id = self.data.fallback_model_id
+                    if fallback_model_id:
+                        logger.warning(
+                            f"[LLMNode] Primary model client failed: {primary_client_error}. "
+                            f"Trying fallback model: {fallback_model_id}"
+                        )
+                        try:
+                            client = LLMService.get_client_for_user(
+                                db_session, user_id=user_id, model_id=fallback_model_id
+                            )
+                            # fallback 성공 시 model_id도 변경
+                            self.data.model_id = fallback_model_id
+                        except Exception as fallback_client_error:
+                            logger.error(
+                                f"[LLMNode] Fallback model client also failed: {fallback_client_error}"
+                            )
+                            raise primary_client_error  # 원래 에러로 raise
+                    else:
+                        logger.warning(
+                            f"[LLMNode] User context found but failed to get client: {primary_client_error}."
+                        )
+                        raise
 
             memory_summary = None
             try:
