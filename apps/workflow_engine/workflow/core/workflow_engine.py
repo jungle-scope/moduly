@@ -451,9 +451,15 @@ class WorkflowEngine:
 
         # [실시간 스트리밍] node_start 이벤트를 Task 생성 시점(실행 시작 전)에 즉시 전송
         # [FIX] 서브 워크플로우에서는 노드 로깅도 스킵 (UI 간섭 방지)
+        # [NEW] Upsert 패턴을 위해 started_at 기록 (Race Condition 해결용)
+        from datetime import datetime, timezone
+        started_at = datetime.now(timezone.utc)
+
+        # [NEW] 노드 옵션 스냅샷 추출 (서브워크플로우 아닐 때만)
+        node_options_snapshot = None
+        log_id = None
+
         if not self.is_subworkflow:
-            # [NEW] 노드 옵션 스냅샷 추출 (실행 시점 설정 기록용)
-            # 실행 자체는 동기(Blocking)이지만, 이를 스레드 풀로 넘겨서 처리
             node_options_snapshot = self._extract_node_options(node_schema)
             
             # [FIX] create_node_log가 반환하는 log_id 캡처
@@ -467,8 +473,6 @@ class WorkflowEngine:
 
             loop = asyncio.get_running_loop()
             log_id = await loop.run_in_executor(None, _create_log)
-        else:
-            log_id = None
 
         # [FIX] Redis Pub/Sub으로 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
         # [PERF] 비동기 발행 사용
@@ -493,13 +497,15 @@ class WorkflowEngine:
 
         async def _task_wrapper():
             async with semaphore:
-                # 비동기 노드 실행 (run_in_executor 제거)
+                # 비동기 노드 실행 + Upsert용 추가 정보 전달
                 return await self._execute_node_task_async(
                     node_id,
                     node_schema,
                     node_instance,
                     inputs,
-                    log_id,  # [NEW] log_id 전달
+                    log_id,
+                    node_options_snapshot,  # [NEW] Upsert용
+                    started_at,  # [NEW] Upsert용
                 )
 
         # [NEW] 노드별 타임아웃 적용 (asyncio.wait_for)
@@ -550,11 +556,19 @@ class WorkflowEngine:
         running_tasks[task] = node_id
 
     async def _execute_node_task_async(
-        self, node_id, node_schema, node_instance, inputs, log_id=None
+        self,
+        node_id,
+        node_schema,
+        node_instance,
+        inputs,
+        log_id=None,
+        node_options_snapshot=None,
+        started_at=None,
     ):
         """
         개별 노드를 실행하는 작업 (비동기 실행)
         [실시간 스트리밍] 이벤트는 _submit_node에서 처리하므로 결과만 반환
+        [Upsert 패턴] 추가 정보를 전달하여 Race Condition 해결
         반환값: 노드 실행 결과 (Dict)
         """
         try:
@@ -562,23 +576,40 @@ class WorkflowEngine:
             result = await node_instance.execute(inputs)
 
             # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
-            # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
+            # [FIX] Upsert용 추가 정보 전달
             if not self.is_subworkflow:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(
                     None,
-                    lambda: self.logger.update_node_log_finish(log_id, node_id, result),
+                    lambda: self.logger.update_node_log_finish(
+                        log_id,
+                        node_id,
+                        result,
+                        node_type=node_schema.type,
+                        inputs=inputs,
+                        process_data=node_options_snapshot,
+                        started_at=started_at,
+                    ),
                 )
 
             return result
 
         except Exception as e:
             error_msg = str(e)
+            # [FIX] Upsert용 추가 정보 전달
             if not self.is_subworkflow:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(
                     None,
-                    lambda: self.logger.update_node_log_error(log_id, node_id, error_msg),
+                    lambda: self.logger.update_node_log_error(
+                        log_id,
+                        node_id,
+                        error_msg,
+                        node_type=node_schema.type,
+                        inputs=inputs,
+                        process_data=node_options_snapshot,
+                        started_at=started_at,
+                    ),
                 )
             raise e
 
