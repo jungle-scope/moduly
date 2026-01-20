@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
@@ -12,6 +13,8 @@ from apps.workflow_engine.workflow.core.workflow_logger import (
     WorkflowLogger,  # [NEW] 로깅 유틸리티
 )
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowEngine:
@@ -200,6 +203,8 @@ class WorkflowEngine:
         # ============================================================
         # 외부에서 전달된 run_id가 있으면 사용 (Gateway에서 미리 생성한 경우)
         external_run_id = self.execution_context.get("workflow_run_id")
+        
+        logger.info(f"[DEBUG] _execute_core started. IsSub: {self.is_subworkflow}, ExternalRunId: {external_run_id}, ParentRunId: {self.parent_run_id}")
 
         # [FIX] 서브 워크플로우인 경우 run_id 생성/로깅 스킵
         if self.is_subworkflow:
@@ -211,6 +216,7 @@ class WorkflowEngine:
             # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
             # [PERF] 로깅 비동기 실행 (스레드 풀)
+            logger.info(f"[DEBUG] Using external_run_id: {external_run_id}, calling create_run_log async")
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(
                 None,
@@ -235,6 +241,7 @@ class WorkflowEngine:
             # run_id를 먼저 생성하고 로깅은 나중에 하거나, run_in_executor에서 반환값을 받아야 함.
 
             # [FIX] run_id 생성을 위해 run_in_executor 사용 및 결과 대기
+            logger.info("[DEBUG] No external run_id, creating new run_log async")
             loop = asyncio.get_running_loop()
 
             def _create_log():
@@ -575,9 +582,12 @@ class WorkflowEngine:
             # 노드 실행 (핵심) - 비동기 실행
             result = await node_instance.execute(inputs)
 
+            logger.info(f"[DEBUG] Node {node_id} executed. Result keys: {list(result.keys()) if isinstance(result, dict) else 'NotDict'}. IsSub: {self.is_subworkflow}")
+
             # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
             # [FIX] Upsert용 추가 정보 전달
             if not self.is_subworkflow:
+                logger.info(f"[DEBUG] Calling update_node_log_finish for {node_id}")
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(
                     None,

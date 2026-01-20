@@ -14,11 +14,14 @@ WorkflowEngine의 실행 이력을 Log-System 마이크로서비스에 비동기
   - 이 파일은 Celery 태스크 호출만 담당
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from apps.shared.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowLogger:
@@ -60,6 +63,7 @@ class WorkflowLogger:
     def _submit_log(self, task_name: str, data: Dict[str, Any]):
         """Celery 태스크로 로그 작업 제출"""
         serialized_data = self._serialize_for_celery(data)
+        logger.info(f"[DEBUG] Submitting log task: {task_name}, RunID: {data.get('run_id') or data.get('workflow_run_id')}")
         celery_app.send_task(task_name, args=[serialized_data])
 
     def __enter__(self):
