@@ -725,15 +725,9 @@ class LLMService:
 
         # [SIMPLIFIED] rel 테이블 조인 대신 프로바이더 매칭으로 단순화
         # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 유효한 크리덴셜을 찾음
-        cred = (
-            db.query(LLMCredential)
-            .filter(
-                LLMCredential.user_id == user_id,
-                LLMCredential.is_valid == True,
-                LLMCredential.provider_id == target_model.provider_id,
-            )
-            .order_by(LLMCredential.updated_at.desc())
-            .first()
+        provider_id = target_model.provider_id if target_model else None
+        cred = LLMService._get_valid_credential_for_user(
+            db, user_id=user_id, provider_id=provider_id
         )
 
         if not cred:
