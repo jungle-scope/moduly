@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 import requests
 from sqlalchemy.orm import Session, joinedload
 
-from apps.shared.services.llm_client import get_llm_client
 from apps.shared.db.models.llm import (
     LLMCredential,
     LLMModel,
@@ -20,6 +19,7 @@ from apps.shared.schemas.llm import (
     LLMModelResponse,
     LLMProviderResponse,
 )
+from apps.shared.services.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -720,6 +720,9 @@ class LLMService:
         if not target_model:
             raise ValueError(f"Unknown model_id: {model_id}")
 
+        # NOTE: is_verified 조건 제거됨
+        # sync_credential_models 실행 중 일시적으로 is_verified=False가 되어
+        # 간헐적으로 "API 키를 찾을 수 없습니다" 오류가 발생하는 문제 해결
         cred = (
             db.query(LLMCredential)
             .join(
@@ -730,7 +733,6 @@ class LLMService:
                 LLMCredential.user_id == user_id,
                 LLMCredential.is_valid == True,
                 LLMRelCredentialModel.model_id == target_model.id,
-                LLMRelCredentialModel.is_verified == True,
             )
             .order_by(
                 LLMRelCredentialModel.priority.desc(),
