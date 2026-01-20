@@ -694,6 +694,7 @@ class LLMService:
         logger.info(
             f"[LLMService] get_client_for_user called: user_id={user_id}, model_id={model_id}"
         )
+        sys.stdout.flush()  # 즉시 출력 보장
 
         # TODO: Tenant 스키마 도입 시 tenant_id 지원 추가.
         # 현재는 user_id만 필터링합니다.
@@ -723,6 +724,7 @@ class LLMService:
             f"[LLMService] Target model found: name='{target_model.name}', "
             f"id={target_model.id}, provider={target_model.provider.name if target_model.provider else 'None'}"
         )
+        sys.stdout.flush()
 
         # [SIMPLIFIED] rel 테이블 조인 대신 프로바이더 매칭으로 단순화
         # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 유효한 크리덴셜을 찾음
@@ -730,6 +732,7 @@ class LLMService:
         logger.info(
             f"[LLMService] Looking for credential: user_id={user_id}, provider_id={provider_id}"
         )
+        sys.stdout.flush()
 
         cred = LLMService._get_valid_credential_for_user(
             db, user_id=user_id, provider_id=provider_id
@@ -740,10 +743,12 @@ class LLMService:
                 f"[LLMService] Credential found (primary): credential_id={cred.id}, "
                 f"credential_name='{cred.credential_name}', is_valid={cred.is_valid}"
             )
+            sys.stdout.flush()
         else:
             logger.warning(
                 f"[LLMService] No credential found in primary lookup for user_id={user_id}, provider_id={provider_id}"
             )
+            sys.stdout.flush()
 
         # [FALLBACK] UUID 불일치 시 이름 기반 매칭 (서버/로컬 DB 차이 대응)
         if not cred and target_model and target_model.provider:
@@ -777,6 +782,7 @@ class LLMService:
                 f"TargetModel: {target_model.name if target_model else 'None'} (ID: {target_model.id if target_model else 'None'}), "
                 f"ProviderID: {provider_id}"
             )
+            sys.stdout.flush()
 
             raise ValueError(
                 f"유효한 API 키를 찾을 수 없습니다. [설정 > 모델 키 관리]에서 '{model_id}' 모델을 지원하는 API Key를 등록해주세요."
