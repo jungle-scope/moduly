@@ -13,6 +13,12 @@ from apps.shared.db.models.app import App
 from apps.shared.db.models.schedule import Schedule
 from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 
+from apps.shared.db.models.workflow_run import (
+    WorkflowRun,
+    RunStatus,
+    RunTriggerMode,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -175,13 +181,7 @@ class SchedulerService:
                 "schedule_id": str(schedule_id),
             }
 
-            # [FIX] WorkflowRun을 먼저 동기적으로 생성
-            from apps.shared.db.models.workflow_run import (
-                WorkflowRun,
-                RunStatus,
-                RunTriggerMode,
-            )
-            
+            # WorkflowRun을 먼저 동기적으로 생성           
             run_id = uuid.uuid4()
             workflow_run = WorkflowRun(
                 id=run_id,
@@ -189,7 +189,7 @@ class SchedulerService:
                 user_id=deployment.created_by,
                 status=RunStatus.RUNNING,
                 trigger_mode=RunTriggerMode.SCHEDULE,
-                user_input=user_input,
+                inputs=user_input,
                 started_at=datetime.now(timezone.utc),
             )
             db.add(workflow_run)
@@ -202,7 +202,7 @@ class SchedulerService:
                 "workflow_id": str(app.workflow_id)
                 if app and app.workflow_id
                 else None,
-                "workflow_run_id": str(run_id),  # [NEW] Engine에 run_id 전달
+                "workflow_run_id": str(run_id),
                 "trigger_mode": "schedule",
                 "deployment_id": str(deployment_id),
             }

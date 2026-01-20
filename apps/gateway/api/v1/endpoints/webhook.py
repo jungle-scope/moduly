@@ -11,6 +11,14 @@ from apps.shared.db.models.app import App
 from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 from apps.shared.db.session import get_db
 
+import uuid
+from datetime import datetime, timezone
+from apps.shared.db.models.workflow_run import (
+    WorkflowRun,
+    RunStatus,
+    RunTriggerMode,
+)
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -72,7 +80,7 @@ def run_webhook_workflow(
         execution_context = {
             "user_id": app_created_by,
             "workflow_id": workflow_id,
-            "workflow_run_id": workflow_run_id,  # [NEW] Engine에 run_id 전달
+            "workflow_run_id": workflow_run_id,
             "trigger_mode": "webhook",
             "deployment_id": deployment_id,
         }
@@ -147,15 +155,7 @@ async def receive_webhook(
     if not deployment:
         raise HTTPException(status_code=404, detail="Active deployment not found")
 
-    # 6. [FIX] WorkflowRun을 먼저 동기적으로 생성
-    import uuid
-    from datetime import datetime, timezone
-    from apps.shared.db.models.workflow_run import (
-        WorkflowRun,
-        RunStatus,
-        RunTriggerMode,
-    )
-    
+    # 6. WorkflowRun을 먼저 동기적으로 생성    
     run_id = uuid.uuid4()
     workflow_run = WorkflowRun(
         id=run_id,
@@ -163,7 +163,7 @@ async def receive_webhook(
         user_id=app.created_by,
         status=RunStatus.RUNNING,
         trigger_mode=RunTriggerMode.API,  # Webhook은 API 방식
-        user_input=payload,
+        inputs=payload,
         started_at=datetime.now(timezone.utc),
     )
     db.add(workflow_run)
@@ -177,7 +177,7 @@ async def receive_webhook(
         payload,
         str(app.created_by),
         str(app.workflow_id) if app.workflow_id else None,
-        str(run_id),  # [NEW] run_id 전달
+        str(run_id),
     )
 
     return {

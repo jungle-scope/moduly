@@ -508,7 +508,7 @@ async def execute_workflow(
             user_id=current_user.id,
             status=RunStatus.RUNNING,
             trigger_mode=RunTriggerMode.MANUAL,
-            user_input=user_input,
+            inputs=user_input,
             started_at=datetime.now(timezone.utc),
         )
         db.add(workflow_run)
@@ -621,7 +621,7 @@ async def stream_workflow(
         user_id=current_user.id,
         status=RunStatus.RUNNING,
         trigger_mode=RunTriggerMode.MANUAL,
-        user_input=user_input,
+        inputs=user_input,
         started_at=datetime.now(timezone.utc),
     )
     db.add(workflow_run)
