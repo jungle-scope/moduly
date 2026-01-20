@@ -235,11 +235,16 @@ class DbProcessor(BaseProcessor):
 
         # Strategies
         def transform_strategy(row_dict):
+            # {{table.column}} 형식 지원
+            render_context = row_dict.copy()
+            render_context[table_name] = row_dict
+
             return transformer.transform(
-                row_dict,
+                render_context,
                 template_str=source_config.get("template") or selection.get("template"),
                 aliases=source_config.get("aliases") or selection.get("aliases"),
             )
+
 
         def encryption_key_strategy(table, col):
             return col
