@@ -725,7 +725,7 @@ class LLMService:
             all_creds = (
                 db.query(LLMCredential).filter(LLMCredential.user_id == user_id).all()
             )
-            logger.warning(
+            logger.info(
                 f"[DEBUG] Credential not found! model_id={model_id}, "
                 f"target_model.provider_id={target_model.provider_id}, "
                 f"user_id={user_id}, all_creds_count={len(all_creds)}, "
