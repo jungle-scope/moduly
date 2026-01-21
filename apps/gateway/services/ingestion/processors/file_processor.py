@@ -10,7 +10,7 @@ from apps.gateway.services.ingestion.parsers.docx_parser import DocxParser
 from apps.gateway.services.ingestion.parsers.excel_csv_parser import ExcelCsvParser
 from apps.gateway.services.ingestion.parsers.pdf_parser import PdfParser
 from apps.gateway.services.ingestion.parsers.txt_parser import TxtParser
-from apps.gateway.services.ingestion.processors.base import (
+from apps.shared.services.ingestion.processors.base import (
     BaseProcessor,
     ProcessingResult,
 )
