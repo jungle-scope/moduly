@@ -74,3 +74,44 @@ celery_app.conf.update(
         "max_connections": 20,  # 결과 백엔드 연결 풀
     },
 )
+
+
+# [FIX] 워커 프로세스 초기화 시 DB 커넥션 풀 리셋
+# Fork 방식 사용 시 부모 프로세스의 커넥션 풀을 상속받아 발생하는 충돌 방지
+from celery.signals import worker_process_init  # noqa: E402
+
+
+@worker_process_init.connect
+def init_worker_process(**kwargs):
+    """
+    워커 프로세스(자식)가 생성될 때 실행됩니다.
+    1. .env 환경 변수를 다시 로드 (override=True)
+    2. 상속받은 SQL Engine의 커넥션 풀 폐기 (DB 연결 초기화)
+    """
+    import os
+    from pathlib import Path
+
+    # 1. 환경 변수 다시 로드 (설정 리로드)
+    try:
+        from dotenv import load_dotenv
+
+        # moduly 루트 디렉토리 찾기 (현재 파일: apps/shared/celery_app.py)
+        # ../../.env
+        current_dir = Path(__file__).resolve().parent
+        root_dir = current_dir.parent.parent
+        env_path = root_dir / ".env"
+
+        if env_path.exists():
+            load_dotenv(dotenv_path=env_path, override=True)
+            print(f"Worker process ({os.getpid()}): .env reloaded.")
+    except ImportError:
+        pass
+
+    # 2. DB 연결 초기화
+    from apps.shared.db.session import engine
+
+    # 기존 커넥션 풀 폐기 (연결 종료가 아니라 풀 객체만 리셋)
+    engine.dispose()
+    print(
+        f"Worker process initialized. (PID: {os.getpid()}) - DB Engine disposed, Config checked."
+    )

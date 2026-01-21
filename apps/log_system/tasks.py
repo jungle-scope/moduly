@@ -229,14 +229,17 @@ def update_run_log_error(self, data: Dict[str, Any]):
         session.close()
 
 
-@celery_app.task(name="log.create_node", bind=True, max_retries=3)
+@celery_app.task(name="log.create_node", bind=True, max_retries=5)
 def create_node_log(self, data: Dict[str, Any]):
     """노드 실행 로그 생성"""
     session = SessionLocal()
     try:
         workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
-        # [NEW] 전달받은 ID 사용
+        # 전달받은 ID 사용
         node_run_id = _deserialize_uuid(data.get("id"))
+
+        # 세션 캐시 무효화 - 다른 Worker의 커밋 반영
+        session.expire_all()
 
         # 부모 WorkflowRun이 존재하는지 확인
         run_exists = (
@@ -246,8 +249,12 @@ def create_node_log(self, data: Dict[str, Any]):
         )
 
         if not run_exists:
-            # 부모가 없으면 생성될 때까지 재시도
-            raise Exception(f"WorkflowRun not found: {workflow_run_id}")
+            # [FIX] Race Condition: 부모(WorkflowRun)가 아직 생성되지 않음
+            # 에러 로그 없이 조용히 재시도 (Quiet Retry)
+            raise self.retry(
+                exc=Exception(f"Waiting for WorkflowRun: {workflow_run_id}"),
+                countdown=1,
+            )
 
         node_run = WorkflowNodeRun(
             id=node_run_id,  # [NEW] PK 지정
@@ -272,7 +279,8 @@ def create_node_log(self, data: Dict[str, Any]):
     except Exception as e:
         session.rollback()
         logger.error(f"[Log-System] create_node_log 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        # Retry 간격 최대 30초
+        raise self.retry(exc=e, countdown=min(2 ** (self.request.retries + 1), 30))
     finally:
         session.close()
 
@@ -285,7 +293,10 @@ def update_node_log_finish(self, data: Dict[str, Any]):
         log_id = _deserialize_uuid(data.get("log_id"))
         workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
         finished_at = _deserialize_datetime(data["finished_at"])
-        
+
+        # 세션 캐시 무효화 - 다른 Worker의 커밋 반영
+        session.expire_all()
+
         # outputs 정규화
         outputs = data["outputs"]
         if not isinstance(outputs, dict):
@@ -293,12 +304,29 @@ def update_node_log_finish(self, data: Dict[str, Any]):
 
         node_run = None
         if log_id:
-            node_run = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
+            node_run = (
+                session.query(WorkflowNodeRun)
+                .filter(WorkflowNodeRun.id == log_id)
+                .first()
+            )
 
         if not node_run:
             # [FIX] Upsert: 레코드가 없으면 직접 생성 (Race Condition 해결)
             # finish가 create보다 먼저 도착한 경우
             started_at = _deserialize_datetime(data.get("started_at")) or finished_at
+
+            # [FIX] 부모 WorkflowRun 존재 확인 - 없으면 Quiet Retry
+            # NodeRun을 생성하려면 부모가 반드시 있어야 함 (FK 제약)
+            run_exists = (
+                session.query(WorkflowRun.id)
+                .filter(WorkflowRun.id == workflow_run_id)
+                .first()
+            )
+            if not run_exists:
+                raise self.retry(
+                    exc=Exception(f"Waiting for WorkflowRun: {workflow_run_id}"),
+                    countdown=1,
+                )
 
             node_run = WorkflowNodeRun(
                 id=log_id,
@@ -327,7 +355,9 @@ def update_node_log_finish(self, data: Dict[str, Any]):
     except IntegrityError:
         session.rollback()
         # 중복 키 오류는 이미 처리됨을 의미 (Idempotency)
-        logger.info(f"[Log-System] update_node_finish 중복 처리 무시: log_id={data.get('log_id')}")
+        logger.info(
+            f"[Log-System] update_node_finish 중복 처리 무시: log_id={data.get('log_id')}"
+        )
         return {"status": "success", "node_id": data["node_id"], "duplicated": True}
     except Exception as e:
         session.rollback()
@@ -335,7 +365,6 @@ def update_node_log_finish(self, data: Dict[str, Any]):
         raise self.retry(exc=e, countdown=min(2**self.request.retries, 30))
     finally:
         session.close()
-
 
 
 @celery_app.task(name="log.update_node_error", bind=True, max_retries=5)
@@ -347,14 +376,33 @@ def update_node_log_error(self, data: Dict[str, Any]):
         workflow_run_id = _deserialize_uuid(data["workflow_run_id"])
         finished_at = _deserialize_datetime(data["finished_at"])
 
+        # 세션 캐시 무효화 - 다른 Worker의 커밋 반영
+        session.expire_all()
+
         node_run = None
         if log_id:
-            node_run = session.query(WorkflowNodeRun).filter(WorkflowNodeRun.id == log_id).first()
+            node_run = (
+                session.query(WorkflowNodeRun)
+                .filter(WorkflowNodeRun.id == log_id)
+                .first()
+            )
 
         if not node_run:
             # [FIX] Upsert: 레코드가 없으면 직접 생성 (Race Condition 해결)
             # error가 create보다 먼저 도착한 경우
             started_at = _deserialize_datetime(data.get("started_at")) or finished_at
+
+            # [FIX] 부모 WorkflowRun 존재 확인 - 없으면 Quiet Retry
+            run_exists = (
+                session.query(WorkflowRun.id)
+                .filter(WorkflowRun.id == workflow_run_id)
+                .first()
+            )
+            if not run_exists:
+                raise self.retry(
+                    exc=Exception(f"Waiting for WorkflowRun: {workflow_run_id}"),
+                    countdown=1,
+                )
 
             node_run = WorkflowNodeRun(
                 id=log_id,
@@ -369,7 +417,9 @@ def update_node_log_error(self, data: Dict[str, Any]):
                 finished_at=finished_at,
             )
             session.add(node_run)
-            logger.info(f"[Log-System] Upsert: 노드 에러 로그 직접 생성 (log_id={log_id})")
+            logger.info(
+                f"[Log-System] Upsert: 노드 에러 로그 직접 생성 (log_id={log_id})"
+            )
         else:
             # 레코드가 있으면 업데이트
             node_run.status = NodeRunStatus.FAILED
@@ -383,7 +433,9 @@ def update_node_log_error(self, data: Dict[str, Any]):
     except IntegrityError:
         session.rollback()
         # 중복 키 오류는 이미 처리됨을 의미 (Idempotency)
-        logger.info(f"[Log-System] update_node_error 중복 처리 무시: log_id={data.get('log_id')}")
+        logger.info(
+            f"[Log-System] update_node_error 중복 처리 무시: log_id={data.get('log_id')}"
+        )
         return {"status": "success", "node_id": data["node_id"], "duplicated": True}
     except Exception as e:
         session.rollback()

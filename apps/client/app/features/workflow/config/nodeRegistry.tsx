@@ -298,7 +298,7 @@ export const nodeRegistry: NodeDefinition[] = [
     defaultData: () => ({
       title: 'slack',
       method: 'POST',
-      url: '',
+      url: 'https://slack.com/api/chat.postMessage',
       headers: [{ key: 'Content-Type', value: 'application/json' }],
       body: JSON.stringify(
         {
@@ -308,13 +308,13 @@ export const nodeRegistry: NodeDefinition[] = [
         2,
       ),
       timeout: 5000,
-      authType: 'none',
+      authType: 'bearer',
       authConfig: {},
       referenced_variables: [],
       message: '',
       channel: '',
       blocks: '',
-      slackMode: 'webhook',
+      slackMode: 'api',
     }),
   },
   {
