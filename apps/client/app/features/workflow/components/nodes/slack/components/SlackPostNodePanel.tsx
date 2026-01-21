@@ -61,7 +61,7 @@ interface SlackPostNodePanelProps {
 
 export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
   const { updateNodeData, nodes, edges } = useWorkflowStore();
-  const mode = data.slackMode || 'webhook';
+  const mode = data.slackMode || 'api';
   const messageRef = useRef<HTMLTextAreaElement>(null);
   const blocksRef = useRef<HTMLTextAreaElement>(null);
 
@@ -89,7 +89,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
       updateNodeData(nodeId, { method: 'POST' });
     }
     if (!data.slackMode) {
-      updateNodeData(nodeId, { slackMode: 'webhook' });
+      updateNodeData(nodeId, { slackMode: 'api' });
     }
   }, [data.method, data.slackMode, nodeId, updateNodeData]);
 
@@ -492,6 +492,22 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
         </>
       )}
 
+      <CollapsibleSection title="입력변수" showDivider>
+        <ReferencedVariablesControl
+          variables={data.referenced_variables || []}
+          upstreamNodes={upstreamNodes}
+          onUpdate={handleUpdateVariable}
+          onAdd={handleAddVariable}
+          onRemove={handleRemoveVariable}
+          title=""
+          description="메시지/블록에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
+        />
+
+        {incompleteVariables.length > 0 && (
+          <IncompleteVariablesAlert variables={incompleteVariables} />
+        )}
+      </CollapsibleSection>
+
       <CollapsibleSection
         title="헤더 / 타임아웃"
         showDivider
@@ -591,22 +607,6 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             </div>
           </div>
         </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection title="입력변수" showDivider>
-        <ReferencedVariablesControl
-          variables={data.referenced_variables || []}
-          upstreamNodes={upstreamNodes}
-          onUpdate={handleUpdateVariable}
-          onAdd={handleAddVariable}
-          onRemove={handleRemoveVariable}
-          title=""
-          description="메시지/블록에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
-        />
-
-        {incompleteVariables.length > 0 && (
-          <IncompleteVariablesAlert variables={incompleteVariables} />
-        )}
       </CollapsibleSection>
 
       <CollapsibleSection title="메시지" defaultOpen={true} showDivider>

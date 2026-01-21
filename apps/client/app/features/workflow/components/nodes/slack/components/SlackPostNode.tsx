@@ -9,9 +9,8 @@ import { hasIncompleteVariables } from '../../../../utils/validationUtils';
 
 export const SlackPostNode = memo(
   ({ data, selected }: NodeProps<Node<SlackPostNodeData>>) => {
-    const mode = data.slackMode || 'webhook';
-    const urlPreview =
-      data.url || 'https://hooks.slack.com/services/...';
+    const mode = data.slackMode || 'api';
+    const urlPreview = data.url || 'https://hooks.slack.com/services/...';
     const modeClass =
       mode === 'api'
         ? 'bg-blue-100 text-blue-700 border-blue-200'
