@@ -200,7 +200,15 @@ class DbProcessor(BaseProcessor):
 
             # JOIN 모드 체크(2개까지만 허용)
             join_config = source_config.get("join_config", {})
-            if join_config.get("enabled", False) and len(selections) == 2:
+            
+            # 2개 테이블 선택 시 FK 관계 필수
+            if len(selections) == 2:
+                if not join_config.get("enabled", False):
+                    raise ValueError(
+                        "2개 테이블을 선택했지만 외래키(FK) 관계가 없습니다. "
+                        "JOIN을 수행하려면 테이블 간 FK 관계가 필요합니다."
+                    )
+                
                 logger.info(
                     f"[DB처리] JOIN 모드: {selections[0]['table_name']} + {selections[1]['table_name']}"
                 )

@@ -536,6 +536,18 @@ async def process_document(
     )
     doc.meta_info = new_meta
 
+    # DB 소스인 경우 FK 관계 검증 (백그라운드 실행 전)
+    if doc.source_type == "DB" and request.db_config:
+        selections = request.db_config.get("selections", [])
+        join_config = request.db_config.get("join_config", {})
+        
+        # 2개 테이블 선택 시 FK 관계 필수
+        if len(selections) == 2 and not join_config.get("enabled", False):
+            raise HTTPException(
+                status_code=400,
+                detail="선택한 테이블 간 FK 관계가 없습니다."
+            )
+
     # 상태 업데이트 (처리 시작 전)
     doc.status = (
         "indexing"  # IngestionService가 실행되기 전부터 UI에서 처리중으로 표시하기 위함
@@ -611,7 +623,7 @@ def preview_document_chunking(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Preview failed")
-        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
     # 3. 응답 반환
     return DocumentPreviewResponse(

@@ -385,7 +385,7 @@ class IngestionOrchestrator:
 
         # Check for errors from processor
         if result.metadata and "error" in result.metadata:
-            raise Exception(f"Processor Error: {result.metadata['error']}")
+            raise ValueError(result.metadata['error'])
 
         raw_blocks = result.chunks
 
