@@ -57,10 +57,17 @@ class WorkflowLogger:
                 serialized[key] = value
         return serialized
 
-    def _submit_log(self, task_name: str, data: Dict[str, Any]):
-        """Celery 태스크로 로그 작업 제출"""
+    def _submit_log(self, task_name: str, data: Dict[str, Any], countdown: float = 0):
+        """
+        Celery 태스크로 로그 작업 제출 (비동기)
+
+        Args:
+            task_name: Celery 태스크 이름
+            data: 전송할 데이터
+            countdown: 태스크 실행 전 대기 시간(초). 부모 레코드 생성 대기용.
+        """
         serialized_data = self._serialize_for_celery(data)
-        celery_app.send_task(task_name, args=[serialized_data])
+        celery_app.send_task(task_name, args=[serialized_data], countdown=countdown)
 
     def __enter__(self):
         """Context Manager 진입"""
@@ -159,7 +166,8 @@ class WorkflowLogger:
             "process_data": process_data or {},
             "started_at": datetime.now(timezone.utc),
         }
-        self._submit_log("log.create_node", data)
+        # [FIX] 0.3초 딜레이: 부모 WorkflowRun이 먼저 생성되도록 대기
+        self._submit_log("log.create_node", data, countdown=0.3)
         return log_id
 
     def update_node_log_finish(
@@ -188,7 +196,8 @@ class WorkflowLogger:
             "process_data": process_data or {},
             "started_at": started_at,
         }
-        self._submit_log("log.update_node_finish", data)
+        # [FIX] 0.3초 딜레이: 부모 WorkflowRun이 먼저 생성되도록 대기
+        self._submit_log("log.update_node_finish", data, countdown=0.3)
 
     def update_node_log_error(
         self,
@@ -216,4 +225,5 @@ class WorkflowLogger:
             "process_data": process_data or {},
             "started_at": started_at,
         }
-        self._submit_log("log.update_node_error", data)
+        # [FIX] 0.3초 딜레이: 부모 WorkflowRun이 먼저 생성되도록 대기
+        self._submit_log("log.update_node_error", data, countdown=0.3)
