@@ -40,13 +40,17 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: REDIS_PASSWORD
-            # Redis 설정 (default namespace의 Redis 공유, DB 1번 사용)
+            # Dev 전용 Redis DB
             - name: REDIS_HOST
               value: redis-master.default.svc.cluster.local
             - name: REDIS_PORT
               value: "6379"
+            - name: REDIS_BROKER_DB
+              value: "3"
+            - name: REDIS_BACKEND_DB
+              value: "4"
             - name: REDIS_DB
-              value: "1"
+              value: "5"
             # S3 설정 (파일 처리용)
             - name: STORAGE_TYPE
               value: "CLOUD"
