@@ -231,9 +231,13 @@ export const LogDetail = ({
                         {displayInfo.label}
                       </span>
                       <span className={`text-[9px] px-1 py-0.5 rounded ${
-                        node.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        node.status === 'success' 
+                          ? 'bg-green-100 text-green-700' 
+                          : node.status === 'running'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-red-100 text-red-700'
                       }`}>
-                        {node.status === 'success' ? '✓' : '✗'}
+                        {node.status === 'success' ? '✓' : node.status === 'running' ? '...' : '✗'}
                       </span>
                     </div>
                     {duration && (
@@ -313,10 +317,12 @@ export const LogDetail = ({
                         className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${
                           node.status === 'success'
                             ? 'bg-green-100 text-green-700'
+                            : node.status === 'running'
+                            ? 'bg-blue-100 text-blue-700'
                             : 'bg-red-100 text-red-700'
                         }`}
                       >
-                        {node.status === 'success' ? '성공' : '실패'}
+                        {node.status === 'success' ? '성공' : node.status === 'running' ? '진행중' : '실패'}
                       </span>
                     </div>
                     {duration && (
