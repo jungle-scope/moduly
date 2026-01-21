@@ -49,8 +49,8 @@ class DbNlTransformer(BaseTransformer):
             # JOIN: 이미 {table: {col: val}} 구조
             namespaced_data = input_data
 
-        # 2. 템플릿 렌더링
-        if template_str:
+        # 2. 템플릿 렌더링 ({{ }} 변수가 있는 경우만)
+        if template_str and '{{' in template_str:
             try:
                 template = Template(template_str)
                 result = template.render(**namespaced_data)
