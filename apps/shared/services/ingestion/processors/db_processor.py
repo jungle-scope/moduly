@@ -269,10 +269,11 @@ class DbProcessor(BaseProcessor):
 
         # Strategies
         def transform_strategy(row_dict):
+            # 선택된 컬럼만 포함 (중복 출력 방지)
             return transformer.transform(
                 row_dict,
-                template_str=selection.get("template"),
-                aliases=selection.get("aliases"),
+                template_str=source_config.get("template") or selection.get("template"),
+                table_name=table_name,
             )
 
         def encryption_key_strategy(table, col):
@@ -307,7 +308,6 @@ class DbProcessor(BaseProcessor):
             convert_to_namespace,
             generate_join_query,
         )
-        from jinja2 import Template
 
         limit = source_config.get("limit", 1000)
         query = generate_join_query(selections, join_config, limit)
@@ -323,26 +323,22 @@ class DbProcessor(BaseProcessor):
 
         # Strategies
         def transform_strategy(row_dict):
-            # 네임스페이스 변환
+            # 네임스페이스 변환: {table__col: val} → {table: {col: val}}
             namespaced_data = convert_to_namespace(row_dict)
-            render_context = namespaced_data.copy()
 
-            # Alias 적용
-            for sel in selections:
-                table = sel["table_name"]
-                table_aliases = sel.get("aliases", {})
-                if table in namespaced_data:
-                    for col, val in namespaced_data[table].items():
-                        if col in table_aliases:
-                            render_context[table_aliases[col]] = val
+            # JSON 직렬화 가능한 형태로 변환 (Decimal, datetime 등)
+            serialized_data = {}
+            for table, cols in namespaced_data.items():
+                if isinstance(cols, dict):
+                    serialized_data[table] = self._convert_to_json_serializable(cols)
+                else:
+                    serialized_data[table] = cols
 
-            if template_str:
-                try:
-                    return Template(template_str).render(**render_context)
-                except Exception as e:
-                    logger.error(f"Template rendering failed: {e}")
-                    return str(namespaced_data)
-            return str(namespaced_data)
+            # DbNlTransformer 사용하여 일관된 처리
+            return transformer.transform(
+                serialized_data,
+                template_str=template_str,
+            )
 
         def encryption_key_strategy(table, col):
             # JOIN 쿼리는 table__col 형식으로 키가 생성됨

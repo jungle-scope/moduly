@@ -40,7 +40,7 @@ class IngestionFactory:
             return ApiProcessor(db_session, user_id)
 
         elif source_type == SourceType.DB:
-            from services.ingestion.processors.db_processor import DbProcessor
+            from apps.shared.services.ingestion.processors.db_processor import DbProcessor
 
             return DbProcessor(db_session, user_id)
 
