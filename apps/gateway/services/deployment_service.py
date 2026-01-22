@@ -302,6 +302,7 @@ class DeploymentService:
         user_inputs: Dict[str, Any],
         auth_token: Optional[str] = None,
         require_auth: bool = True,  # 인증 필요 여부 (기본값: 필요)
+        trigger_mode: str,  # [NEW] 실행 모드 (필수)
     ) -> Dict[str, Any]:
         """
         배포된 워크플로우를 실행합니다.
@@ -344,14 +345,7 @@ class DeploymentService:
             raise HTTPException(status_code=404, detail="Deployment is inactive")
 
         # 4. 인증 검증 (App의 auth_secret 사용)
-        # 배포 타입에 따른 인증 검증
-        if (
-            deployment.type == DeploymentType.WEBAPP
-            or deployment.type == DeploymentType.WIDGET
-        ):
-            # 웹 앱 및 위젯: 공개 접근 허용 (require_auth는 이미 False)
-            pass
-        elif require_auth:
+        if require_auth:
             # 인증이 필요한 경우 (REST API 등)
             if not app.auth_secret:
                 raise HTTPException(
@@ -362,7 +356,7 @@ class DeploymentService:
                 raise HTTPException(
                     status_code=401, detail="Invalid authentication secret"
                 )
-        # require_auth가 False면 인증 스킵
+        # require_auth가 False면 인증 스킵 (웹 앱/위젯)
 
         # 5. 그래프 데이터 준비
         graph_data = deployment.graph_snapshot
@@ -373,7 +367,7 @@ class DeploymentService:
             execution_context = {
                 "user_id": str(app.created_by),  # UUID를 문자열로 변환 (JSON 직렬화)
                 "workflow_id": str(app.workflow_id) if app.workflow_id else None,
-                "trigger_mode": "app",  # [NEW] 실행 모드 (앱 배포 실행)
+                "trigger_mode": trigger_mode,
                 "deployment_id": str(deployment.id),
                 "workflow_version": deployment.version,
             }
