@@ -185,6 +185,10 @@ async def google_login(request: Request):
     # url_for는 현재 요청의 Host 헤더(또는 Forwarded 헤더)를 기반으로 절대 경로 생성
     redirect_uri = request.url_for("auth_google_callback")
 
+    # https로 요청 보내도록 수정
+    if "localhost" not in str(redirect_uri) and "127.0.0.1" not in str(redirect_uri):
+        redirect_uri = str(redirect_uri).replace("http://", "https://")
+
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
