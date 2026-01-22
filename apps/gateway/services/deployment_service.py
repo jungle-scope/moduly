@@ -300,9 +300,9 @@ class DeploymentService:
         db: Session,
         url_slug: str,
         user_inputs: Dict[str, Any],
+        trigger_mode: str,
         auth_token: Optional[str] = None,
         require_auth: bool = True,  # 인증 필요 여부 (기본값: 필요)
-        trigger_mode: str,
     ) -> Dict[str, Any]:
         """
         배포된 워크플로우를 실행합니다.
