@@ -33,42 +33,19 @@ Drag & Drop으로 나만의 AI 워크플로우를 설계하고 실행하세요.
 *   **폭넓은 확장성**: HTTP Request, Email(IMAP) 등 다양한 외부 서비스와의 데이터 동기화 및 연동 지원.
 *   **셀프 호스팅 최적화**: Docker Compose 하나로 프론트엔드부터 백엔드, DB까지 로컬 환경에 즉시 배포.
 
-## Architecture
-![Architecture](./docs/images/architecture.png)
-
-## Tech Stack
-
-Moduly는 최신 기술 스택을 활용하여 안정성과 확장성을 보장합니다.
-
-### **Frontend**
-*   **Framework**: Next.js 16 (TypeScript)
-*   **Styling**: Tailwind CSS
-*   **Components**: React Flow (노드 기반 UI), Shadcn UI
-
-### **Backend (Workflow Engine)**
-*   **Language**: Python 3.11
-*   **Core**: Celery
-*   **Database**: SQLAlchemy 2.0(ORM), Redis (Message Broker & Caching)
-*   **AI Core**: LiteLLM (LLM Abstraction), LangChain, PyMuPD, LlamaParse, pgvector
-
-### **Infrastructure**
-*   **Containerization**: Docker, Docker Compose - 로컬 개발 환경
-*   **Kubernetes + Helm** - 프로덕션 오케스트레이션
-*   **Terraform** - 인프라 프로비저닝
-*   **NSJail** - 코드 샌드박스 격리
-*   **CI/CD**: GitHub Actions
-
-<a id="getting-started"></a>
 ## Getting Started
 
-로컬 환경에서 Moduly를 빠르게 실행하는 방법입니다.
+로컬 환경에서 Moduly를 실행하는 두 가지 방법이 있습니다:
+- **Docker Compose**: 로컬 또는 단일 서버에서 빠른 설치
+- **Kubernetes (Helm)**: 프로덕션 환경을 위한 확장 가능한 배포
 
-### Prerequisites
-설치 전 다음 도구들이 필요합니다.
+### Option 1: Docker Compose
+
+#### Prerequisites
 *   [Docker](https://www.docker.com/) & Docker Compose
 *   Git
 
-### Installation
+#### Installation
 
 1. **저장소 클론**
    ```bash
@@ -89,19 +66,59 @@ Moduly는 최신 기술 스택을 활용하여 안정성과 확장성을 보장�
    ```
    *최초 실행 시 이미지를 빌드하느라 시간이 조금 걸릴 수 있습니다.*
 
-4. **의존성 설치 및 실행**
-   ```bash
-   make all
-   ```
-   *이 명령은 다음을 순차적으로 수행합니다:*
-   - Gateway 및 Workflow Engine Python 패키지 설치
-   - Client 앱 npm 패키지 설치
-   - 데이터베이스 마이그레이션
-   - 테스트 실행
-   - 개발 서버 시작
+4. **접속**
+   브라우저를 열고 `http://localhost`으로 접속하여 Moduly를 시작하세요.
+   API 문서는 `http://localhost/api/docs`에서 확인할 수 있습니다.
 
-6. **접속**
-   브라우저를 열고 `http://localhost:3000`으로 접속하여 Moduly를 시작하세요.
+### Option 2: Kubernetes (Helm)
+
+Kubernetes 클러스터에 프로덕션 수준의 배포를 원한다면 Helm 차트를 사용하세요.
+
+#### Prerequisites
+*   Kubernetes 클러스터 (v1.24+)
+*   [Helm](https://helm.sh/) (v3.0+)
+*   [kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+#### Installation
+
+1. **저장소 클론**
+   ```bash
+   git clone https://github.com/jungle-scope/moduly.git
+   cd moduly
+   ```
+
+2. **의존성 업데이트**
+   ```bash
+   cd infra/helm/moduly
+   helm dependency update
+   ```
+
+3. **values.yaml 생성 및 설정**
+   ```bash
+   helm show values ./infra/helm/moduly > values.yaml
+   ```
+   
+   생성된 `values.yaml` 파일을 수정하여 환경에 맞게 구성합니다:
+   - 이미지 태그
+   - 도메인 설정 (ingress)
+   - 스토리지 클래스
+   - 리소스 제한
+   - 환경 변수 (API 키 등)
+
+4. **Helm 차트 설치**
+   ```bash
+   helm upgrade --install moduly ./infra/helm/moduly -f values.yaml
+   ```
+
+5. **배포 확인**
+   ```bash
+   kubectl get pods -n moduly
+   kubectl get ingress -n moduly
+   ```
+
+   설정한 도메인으로 접속하거나 Ingress IP를 확인하여 접속하세요.
+
+> **참고**: 자세한 Helm 차트 설정은 `infra/helm/moduly/README.md`를 참고하세요.
 
 ### 환경변수
 
@@ -113,6 +130,54 @@ Moduly는 최신 기술 스택을 활용하여 안정성과 확장성을 보장�
 | `ENCRYPTION_KEY` | 민감 데이터 암호화 키 | (Random String) |
 | `REDIS_URL` | Redis 접속 주소 | `redis://redis:6379/0` |
 | `POSTGRES_USER` | DB 사용자명 | `moduly` |
+
+## Architecture
+![Architecture](./docs/images/architecture.png)
+
+## Tech Stack
+
+Moduly는 최신 기술 스택을 활용하여 안정성과 확장성을 보장합니다.
+
+### **Frontend**
+*   **Framework**: Next.js 16 (TypeScript)
+*   **Styling**: Tailwind CSS
+*   **Components**: React Flow (노드 기반 UI), Shadcn UI
+
+### **Backend (Workflow Engine)**
+*   **Language**: Python 3.11
+*   **Core**: Celery
+*   **Database**: SQLAlchemy 2.0(ORM), Redis (Message Broker & Caching)
+*   **AI Core**: LiteLLM (LLM Abstraction), PyMuPD, LlamaParse, pgvector
+
+### **Infrastructure**
+*   **Containerization**: Docker, Docker Compose - 로컬 개발 환경
+*   **Kubernetes + Helm** - 프로덕션 오케스트레이션
+*   **Terraform** - 인프라 프로비저닝
+*   **NSJail** - 코드 샌드박스 격리
+*   **CI/CD**: GitHub Actions
+
+## Project Structure
+
+```
+moduly/
+├── apps/                    # 마이크로서비스 애플리케이션
+│   ├── client/             # Next.js 프론트엔드
+│   ├── gateway/            # FastAPI 게이트웨이 (API 서버)
+│   ├── workflow_engine/    # Celery 워크플로우 엔진 (작업 처리)
+│   ├── sandbox/            # NSJail 코드 실행 환경
+│   ├── log_system/         # 로그 수집 및 처리 시스템
+│   └── shared/             # 공통 라이브러리 (DB, 유틸리티)
+├── infra/                   # 인프라 설정
+│   ├── helm/               # Kubernetes Helm 차트
+│   ├── k8s/                # Kubernetes 매니페스트
+│   └── terraform/          # Terraform 인프라 코드
+├── docker/                  # Docker 설정
+│   ├── docker-compose.yml  # 로컬 실행 용 compose 파일
+│   └── */                  # 각 서비스별 Dockerfile
+├── scripts/                 # 빌드 및 배포 스크립트
+├── tests/                   # 테스트 코드
+└── docs/                    # 문서 및 이미지
+```
 
 ## How to use
 

@@ -3,7 +3,7 @@ name: Deploy to EKS (Log System)
 on:
   push:
     branches:
-      - develop
+      - main
     paths:
       - 'apps/log_system/**'
       - 'apps/shared/**'
