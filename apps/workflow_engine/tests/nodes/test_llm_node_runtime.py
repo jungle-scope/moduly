@@ -18,7 +18,10 @@ for p in [ROOT, PARENT_OF_ROOT]:
 
 from apps.workflow_engine.services.llm_service import LLMService
 from apps.workflow_engine.workflow.nodes.llm.entities import LLMNodeData, LLMVariable
-from apps.workflow_engine.workflow.nodes.llm.llm_node import LLMNode
+from apps.workflow_engine.workflow.nodes.llm.llm_node import (
+    LLMNode,
+    SAFETY_SYSTEM_PROMPT,
+)
 
 
 class DummyClient:
@@ -88,6 +91,7 @@ async def test_llm_node_runs_with_override_client():
     assert dummy_client.calls
     called = dummy_client.calls[0]
     assert called["messages"] == [
+        {"role": "system", "content": SAFETY_SYSTEM_PROMPT},
         {"role": "system", "content": "sys X"},
         {"role": "user", "content": "user X"},
         {"role": "assistant", "content": "assistant X"},
@@ -135,4 +139,3 @@ async def test_llm_node_uses_fallback_model_on_failure(monkeypatch):
     assert fallback_client.calls
     assert result["text"] == "fallback ok"
     assert result["model"] == "fallback-model"
-
