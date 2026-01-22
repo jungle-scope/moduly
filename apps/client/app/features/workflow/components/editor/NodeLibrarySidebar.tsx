@@ -38,8 +38,8 @@ export default function NodeLibrarySidebar({
   const startNodeCount = useWorkflowStore((state) => state.getStartNodeCount());
   const hasTriggerNode = startNodeCount > 0;
   const disabledNodeTypes = hasTriggerNode
-    ? ['startNode', 'webhookTrigger', 'scheduleTrigger']
-    : [];
+    ? ['startNode', 'webhookTrigger', 'scheduleTrigger', 'loopNode']
+    : ['loopNode'];
 
   // Hover Card State
   const [hoveredNode, setHoveredNode] = useState<NodeDefinition | null>(null);
@@ -243,6 +243,21 @@ export default function NodeLibrarySidebar({
           <p className="text-sm text-gray-600 leading-relaxed">
             {hoveredNode.description}
           </p>
+          {/* 비활성화된 노드(예: loopNode)인 경우 안내 메시지 추가 */}
+          {disabledNodeTypes.includes(hoveredNode.type) &&
+            hoveredNode.type === 'loopNode' && (
+              <div className="mt-3 pt-2 border-t border-gray-100 text-xs font-medium text-amber-600 flex items-center gap-1.5">
+                <span>🚧</span>
+                <span>준비중 - 곧 사용 가능합니다</span>
+              </div>
+            )}
+          {disabledNodeTypes.includes(hoveredNode.type) &&
+            hoveredNode.type !== 'loopNode' && (
+              <div className="mt-3 pt-2 border-t border-gray-100 text-xs font-medium text-amber-600 flex items-center gap-1.5">
+                <span>🚫</span>
+                <span>이미 시작 노드가 존재합니다</span>
+              </div>
+            )}
         </div>
       )}
     </div>
