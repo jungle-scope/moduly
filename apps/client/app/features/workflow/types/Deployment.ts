@@ -1,10 +1,10 @@
 export type DeploymentType =
   | 'api'
   | 'widget'
-  | 'mcp'
   | 'webapp'
   | 'workflow_node'
-  | 'schedule';
+  | 'schedule'
+  | 'webhook';
 
 // 입력 변수 스키마 타입
 export interface InputVariable {

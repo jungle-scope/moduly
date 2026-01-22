@@ -230,13 +230,17 @@ export default function CreateKnowledgeModal({
     similarity: 0.7,
   });
 
+  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([]);
+
   // 유효성 검사
   const isNameValid = formData.name.length > 0 && formData.name.length <= 50;
   const isDescValid = formData.description.length <= 100;
   const isFormValid =
     isNameValid &&
     isDescValid &&
-    (!knowledgeBaseId ? formData.embeddingModel : true);
+    (!knowledgeBaseId
+      ? formData.embeddingModel && embeddingModels.length > 0
+      : true);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -263,7 +267,6 @@ export default function CreateKnowledgeModal({
     name: string;
     provider_name?: string;
   };
-  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -426,7 +429,7 @@ export default function CreateKnowledgeModal({
       // [Case 1] New Knowledge Base Creation (Empty)
       if (!knowledgeBaseId) {
         if (!formData.name) {
-          alert('지식베이스 이름을 입력해주세요.');
+          alert('지식 베이스 이름을 입력해주세요.');
           setIsLoading(false);
           return;
         }
@@ -442,7 +445,7 @@ export default function CreateKnowledgeModal({
           embedding_model: formData.embeddingModel,
         });
 
-        toast.success('지식베이스가 생성되었습니다.');
+        toast.success('지식 베이스가 생성되었습니다.');
         onClose();
         router.push(`/dashboard/knowledge/${response.id}`);
         return;
@@ -510,18 +513,20 @@ export default function CreateKnowledgeModal({
             file.type || 'application/octet-stream',
           );
 
-          // 2. S3에 직접 업로드
-          await knowledgeApi.uploadToS3(
-            presignedData.upload_url,
-            file,
-            file.type || 'application/octet-stream',
-          );
+          if (presignedData.use_backend_proxy) {
+            // s3FileUrl/Key를 설정하지 않음 -> 아래에서 file 객체가 전송됨
+          } else {
+            // 2. S3에 직접 업로드
+            await knowledgeApi.uploadToS3(
+              presignedData.upload_url,
+              file,
+              file.type || 'application/octet-stream',
+            );
 
-          // 3. S3 정보 저장
-          s3FileUrl = presignedData.upload_url.split('?')[0]; // Query string 제거
-          s3FileKey = presignedData.s3_key;
-
-          console.log('[S3 Upload] Success:', s3FileKey);
+            // 3. S3 정보 저장
+            s3FileUrl = presignedData.upload_url.split('?')[0]; // Query string 제거
+            s3FileKey = presignedData.s3_key;
+          }
         } catch (err: any) {
           console.error('[S3 Upload] Failed:', err);
           toast.error(`S3 업로드 실패: ${err.message}`);
@@ -530,7 +535,7 @@ export default function CreateKnowledgeModal({
         }
       }
 
-      // 지식베이스 생성 (소스 추가)
+      // 지식 베이스 생성 (소스 추가)
       const response = await knowledgeApi.uploadKnowledgeBase({
         sourceType: sourceType,
         // S3 직접 업로드 정보 (있으면 전달)
@@ -740,7 +745,7 @@ export default function CreateKnowledgeModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {knowledgeBaseId ? '소스 추가' : '지식베이스 생성'}
+            {knowledgeBaseId ? '소스 추가' : '지식 베이스 생성'}
           </h2>
           <button
             type="button"
@@ -977,14 +982,14 @@ export default function CreateKnowledgeModal({
               {/* Name Input with Character Count */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  지식베이스 이름 <span className="text-red-500">*</span>
+                  지식 베이스 이름 <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     value={formData.name}
                     onChange={handleNameChange}
-                    placeholder="지식베이스 이름을 입력하세요"
+                    placeholder="지식 베이스 이름을 입력하세요"
                     maxLength={50}
                     className="w-full px-4 py-3 pr-16 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
                   />
@@ -1003,7 +1008,7 @@ export default function CreateKnowledgeModal({
                   <textarea
                     value={formData.description}
                     onChange={handleDescChange}
-                    placeholder="이 지식베이스의 목적이나 포함된 문서의 특징을 적어주세요."
+                    placeholder="이 지식 베이스의 목적이나 포함된 문서의 특징을 적어주세요."
                     className="w-full px-4 py-3 pb-8 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none h-24 resize-none"
                     maxLength={100}
                   />
@@ -1095,7 +1100,7 @@ export default function CreateKnowledgeModal({
             {isLoading
               ? knowledgeBaseId
                 ? '소스 추가 중...'
-                : '지식베이스 생성 중...'
+                : '지식 베이스 생성 중...'
               : knowledgeBaseId
                 ? '소스 추가'
                 : '생성하기'}

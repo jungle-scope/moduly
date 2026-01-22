@@ -52,25 +52,34 @@ services:
       DB_NAME: moduly_local
 
       # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
       REDIS_URL: redis://redis:6379/0
 
       # JWT Secret
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
 
-      # Sandbox
-      SANDBOX_URL: http://sandbox:8194
-      SANDBOX_API_KEY: ${SANDBOX_API_KEY:-dify-sandbox-key}
+      # Storage
+      STORAGE_TYPE: ${STORAGE_TYPE:-LOCAL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
 
       # Proxy
       HTTP_PROXY: http://proxy:3128
       HTTPS_PROXY: http://proxy:3128
-      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,redis,workflow_engine,log_system"
+      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,redis,workflow_engine,log_system,proxy"
 
       # Python
       PYTHONUNBUFFERED: 1
       PYTHONPATH: /app
-    ports:
-      - "8000:8000"
+    # Gateway는 Nginx를 통해서만 접근 (포트 노출 제거)
+    # ports:
+    #   - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,16 +113,30 @@ services:
       DB_NAME: moduly_local
 
       # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
       REDIS_URL: redis://redis:6379/0
+
+      # Security
+      MASTER_KEY: ${MASTER_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
 
       # Sandbox
       SANDBOX_URL: http://sandbox:8194
-      SANDBOX_API_KEY: ${SANDBOX_API_KEY:-dify-sandbox-key}
+
+      # Storage
+      STORAGE_TYPE: ${STORAGE_TYPE:-LOCAL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
 
       # Proxy
       HTTP_PROXY: http://proxy:3128
       HTTPS_PROXY: http://proxy:3128
-      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,redis,gateway,log_system"
+      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,redis,gateway,log_system,proxy"
 
       # Python
       PYTHONUNBUFFERED: 1
@@ -123,6 +146,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - gateway_uploads:/app/uploads
     networks:
       - moduly-network
 
@@ -141,6 +166,10 @@ services:
       DB_NAME: moduly_local
 
       # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
       REDIS_URL: redis://redis:6379/0
 
       # Python
@@ -160,15 +189,14 @@ services:
       context: ..
       dockerfile: docker/client/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://gateway:8000
+        # Nginx를 통한 API 접근 (브라우저에서 접근 가능)
+        NEXT_PUBLIC_API_URL: http://localhost
     container_name: moduly-frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://gateway:8000
+      NEXT_PUBLIC_API_URL: http://localhost
       API_URL: http://gateway:8000
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
-    ports:
-      - "3000:3000"
     depends_on:
       - gateway
     networks:
@@ -188,23 +216,102 @@ services:
       start_period: 30s
       retries: 3
 
-  # Code Execution Sandbox (Dify Sandbox)
+  # Code Execution Sandbox (NSJail-based)
   sandbox:
     build:
       context: ..
       dockerfile: docker/sandbox/Dockerfile
     container_name: moduly-sandbox
+    privileged: true # NSJail에 필요 (Namespace 사용)
     environment:
-      API_KEY: ${SANDBOX_API_KEY:-dify-sandbox-key}
       TZ: Asia/Seoul
+      
+      # 네트워크 허용 여부
+      SANDBOX_ENABLE_NETWORK: "${SANDBOX_ENABLE_NETWORK:-false}"
+
+      # 워커 설정
+      SANDBOX_MIN_WORKERS: "${SANDBOX_MIN_WORKERS:-2}"
+      SANDBOX_MAX_WORKERS: "${SANDBOX_MAX_WORKERS:-8}"
+      SANDBOX_WORKER_IDLE_TIMEOUT: 30
+
+      # 동적 스케일링 (EMA)
+      SANDBOX_SCALING_INTERVAL: 1
+      SANDBOX_EMA_ALPHA: 0.2
+      SANDBOX_TARGET_RPS_PER_WORKER: 2.0
+      SANDBOX_SCALE_DOWN_COOLDOWN: 30
+      SANDBOX_SCALE_DOWN_IDLE_TIME: 30
+
+      # 실행 제한
+      SANDBOX_DEFAULT_TIMEOUT: "${SANDBOX_DEFAULT_TIMEOUT:-10}"
+      SANDBOX_MAX_TIMEOUT: 60
+      SANDBOX_MAX_MEMORY_MB: 256
+
+      # 큐 설정
+      SANDBOX_MAX_QUEUE_SIZE: 100
+
+      # Fair Scheduler
+      SANDBOX_MAX_PER_TENANT: "${SANDBOX_MAX_PER_TENANT:-3}"
+      SANDBOX_AGING_INTERVAL: 5
+      SANDBOX_AGING_THRESHOLD_LOW: 15
+      SANDBOX_AGING_THRESHOLD_NORMAL: 30
     ports:
       - "8194:8194"
     networks:
       - moduly-network
     mem_limit: 512m
     cpus: 0.5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8194/v1/sandbox/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
-  # HTTP Proxy (Squid)
+  # ============================================================================
+  # Nginx Reverse Proxy - 단일 진입점
+  # ============================================================================
+  # 역할: 프론트엔드와 백엔드를 하나의 포트(80)로 통합 제공
+  # - / → Frontend (Next.js)
+  # - /api → Backend (FastAPI)
+  # ============================================================================
+  nginx:
+    build:
+      context: ..
+      dockerfile: docker/nginx/Dockerfile
+    container_name: moduly-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      frontend:
+        condition: service_started
+      gateway:
+        condition: service_started
+    networks:
+      - moduly-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ============================================================================
+  # HTTP Proxy (Squid) - 선택사항
+  # ============================================================================
+  # 역할: 외부 API 호출 시 보안 필터링 (AWS 메타데이터, 사설 IP 차단)
+  #
+  # ⚠️  Proxy를 비활성화하려면:
+  # 1. 아래 proxy 서비스 전체를 주석 처리하세요
+  # 2. gateway, workflow_engine, sandbox의 HTTP_PROXY 환경변수도 주석 처리하세요
+  #
+  # ⚠️  주의: Code 노드에서 외부 URL을 호출하는 경우 보안상 Proxy 사용을 권장합니다.
+  # ============================================================================
   proxy:
     build:
       context: ..

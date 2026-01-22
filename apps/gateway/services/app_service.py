@@ -72,7 +72,6 @@ class AppService:
 
         db.commit()
         db.refresh(app)
-        print(f"✅ App created: {app.name} (ID: {app.id})")
 
         AppService._populate_owner_name(db, app)
         return app
@@ -235,7 +234,6 @@ class AppService:
         if request.is_market is not None:
             # 복제된 앱은 마켓에 공개 불가
             if request.is_market and app.forked_from:
-                print(f"❌ Cannot publish cloned app {app_id} to market")
                 raise ValueError("Cannot publish cloned app to market")
             app.is_market = request.is_market
 
@@ -296,11 +294,14 @@ class AppService:
         # 5. 워크플로우 복제 (배포된 스냅샷 기반)
         graph_snapshot = deployment.graph_snapshot
 
+        # 민감 정보 필터링
+        cleaned_snapshot = AppService._clean_graph_data(graph_snapshot)
+
         # graph_snapshot에서 features 분리 (있다면)
-        features = graph_snapshot.get("features", {})
+        features = cleaned_snapshot.get("features", {})
 
         # graph 데이터 (features 제외)
-        graph_data = {k: v for k, v in graph_snapshot.items() if k != "features"}
+        graph_data = {k: v for k, v in cleaned_snapshot.items() if k != "features"}
 
         new_workflow = Workflow(
             tenant_id=user_id,
@@ -353,6 +354,31 @@ class AppService:
         db.commit()
 
         return True
+
+    @staticmethod
+    def _clean_graph_data(graph_snapshot: dict) -> dict:
+        """
+        그래프 스냅샷에서 민감 정보를 제거합니다.
+        (knowledgeBases, api_token, authConfig, password, email 등)
+        """
+        cleaned_data = copy.deepcopy(graph_snapshot)
+        nodes = cleaned_data.get("nodes", [])
+
+        for node in nodes:
+            data = node.get("data", {})
+            node_type = node.get("type")
+
+            if node_type == "llmNode":
+                data.pop("knowledgeBases", None)
+            elif node_type == "githubNode":
+                data.pop("api_token", None)
+            elif node_type == "httpRequestNode":
+                data.pop("authConfig", None)
+            elif node_type == "mailNode":
+                data.pop("password", None)
+                data.pop("email", None)
+
+        return cleaned_data
 
     @staticmethod
     def _generate_url_slug(db: Session, name: str) -> str:

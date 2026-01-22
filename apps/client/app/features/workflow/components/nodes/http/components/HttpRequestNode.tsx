@@ -34,7 +34,7 @@ export const HttpRequestNode = memo(
         icon={<Globe className="text-white" />}
         iconColor="#0ea5e9" // sky-500
       >
-        <div className="flex flex-col gap-2 p-1 max-w-[240px]">
+        <div className="flex flex-col gap-2 p-1">
           {/* Method and URL Preview */}
           <div className="flex items-center gap-2">
             <div
@@ -43,7 +43,7 @@ export const HttpRequestNode = memo(
               {method}
             </div>
             <div
-              className="text-xs text-gray-600 flex-1 truncate font-mono"
+              className="text-xs text-gray-600 flex-1 truncate font-mono max-w-[200px]"
               title={data.url || 'URL을 입력하세요'}
             >
               {data.url || 'URL을 입력하세요'}

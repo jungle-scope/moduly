@@ -14,7 +14,13 @@ import {
 import { toast } from 'sonner';
 import { StartNodeData, WorkflowVariable } from '../../types/Nodes';
 
-export function TestSidebar() {
+type TestSidebarProps = {
+  appendMemoryFlag?: (
+    inputs: Record<string, any> | FormData,
+  ) => Record<string, any> | FormData;
+};
+
+export function TestSidebar({ appendMemoryFlag }: TestSidebarProps) {
   const {
     isTestPanelOpen,
     toggleTestPanel,
@@ -47,15 +53,15 @@ export function TestSidebar() {
   if (startNode?.type === 'startNode') {
     variables = (startNode.data as StartNodeData)?.variables || [];
   } else if (startNode?.type === 'webhookTrigger') {
-    // Webhook의 경우 JSON payload 입력
+    // Webhook의 경우 내부적으로만 사용, UI에서는 특별 처리
     variables = [
       {
         id: '__json_payload__',
         name: '__json_payload__',
-        label: 'JSON Payload (Body)',
+        label: '웹훅 페이로드',
         type: 'paragraph',
         required: true,
-        placeholder: '{"issue": {"key": "TEST-123"}}',
+        placeholder: '{"user": "john", "action": "signup"}',
       },
     ];
   }
@@ -77,6 +83,19 @@ export function TestSidebar() {
           initial[v.name] = '';
         }
       });
+
+      // 웹훅의 경우 캡처된 데이터가 있으면 자동 채우기
+      if (startNode?.type === 'webhookTrigger') {
+        const data = startNode.data as any;
+        if (data.captured_payload) {
+          initial['__json_payload__'] = JSON.stringify(
+            data.captured_payload,
+            null,
+            2,
+          );
+        }
+      }
+
       setInputs(initial);
       setFiles({});
     }
@@ -153,10 +172,14 @@ export function TestSidebar() {
 
       let finalResult: any = null;
 
-      // 2. 스트리밍 실행
+      // 2. 스트리밍 실행 (기억모드 플래그 적용)
+      const inputsWithMemory = appendMemoryFlag
+        ? appendMemoryFlag(finalInputs)
+        : finalInputs;
+
       await workflowApi.executeWorkflowStream(
         activeWorkflowId,
-        finalInputs,
+        inputsWithMemory as Record<string, any>,
         async (event) => {
           // 시각적 피드백을 위한 지연
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -224,7 +247,7 @@ export function TestSidebar() {
   };
 
   return (
-    <div className="absolute top-26 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200 dark:bg-gray-900 dark:border-gray-800">
+    <div className="absolute top-18 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200 dark:bg-gray-900 dark:border-gray-800">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between dark:border-gray-800">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
@@ -280,6 +303,47 @@ export function TestSidebar() {
                   입력 변수가 없는 모듈입니다.
                   <br />
                   바로 실행할 수 있습니다.
+                </div>
+              ) : startNode?.type === 'webhookTrigger' ? (
+                /* 웹훅 전용 UI */
+                <div className="space-y-3">
+                  {!(startNode.data as any).captured_payload && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
+                      <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                        캡처된 데이터가 없습니다. 웹훅 트리거의{' '}
+                        <strong>[캡처 시작]</strong> 기능을 사용하면 실제
+                        데이터가 테스트 입력에 자동으로 채워집니다.
+                      </p>
+                    </div>
+                  )}
+
+                  {(startNode.data as any).captured_payload && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/20 dark:border-green-800">
+                      <p className="text-xs text-green-700 dark:text-green-300 leading-relaxed">
+                        ✅ 최신 데이터가 자동으로 로드되었습니다. 캡처된
+                        Payload를 확인하고 바로 테스트를 진행해 보세요.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    {(startNode.data as any).captured_payload && (
+                      <span className="text-xs text-green-600 dark:text-green-400">
+                        {/* ✓ 캡처된 데이터 사용 중 (메시지로 대체됨) */}
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <textarea
+                      value={inputs['__json_payload__'] || ''}
+                      onChange={(e) =>
+                        handleChange('__json_payload__', e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[200px] font-mono text-sm dark:bg-gray-800 dark:border-gray-700"
+                      placeholder='webhook payload: {"user": "john", "action": "signup"}'
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">

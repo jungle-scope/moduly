@@ -12,7 +12,7 @@ import {
   Clock,
   Settings,
   Trash2,
-  RotateCw,
+  // RotateCw,
   Bot,
   FolderOpen,
   Webhook,
@@ -24,7 +24,7 @@ import {
   knowledgeApi,
   KnowledgeBaseDetailResponse,
 } from '@/app/features/knowledge/api/knowledgeApi';
-import { SourceType } from '@/app/features/knowledge/types/Knowledge';
+// import { SourceType } from '@/app/features/knowledge/types/Knowledge';
 import CreateKnowledgeModal from '@/app/features/knowledge/components/create-knowledge-modal';
 import KnowledgeSearchModal from '@/app/features/knowledge/components/knowledge-search-modal';
 import ChangeEmbeddingModelModal from '@/app/features/knowledge/components/change-embedding-model-modal';
@@ -250,23 +250,23 @@ export default function KnowledgeDetailPage() {
     }
   };
 
-  const handleSyncDocument = async (
-    documentId: string,
-    sourceType: SourceType,
-  ) => {
-    try {
-      await knowledgeApi.syncDocument(id, documentId);
-      fetchKnowledgeBase();
-      const message =
-        sourceType === 'DB'
-          ? 'DB 동기화가 시작되었습니다.'
-          : 'API 동기화가 시작되었습니다.';
-      toast.success(message);
-    } catch (error) {
-      console.error('Failed to sync document:', error);
-      toast.error('동기화 실패');
-    }
-  };
+  // const handleSyncDocument = async (
+  //   documentId: string,
+  //   sourceType: SourceType,
+  // ) => {
+  //   try {
+  //     await knowledgeApi.syncDocument(id, documentId);
+  //     fetchKnowledgeBase();
+  //     const message =
+  //       sourceType === 'DB'
+  //         ? 'DB 동기화가 시작되었습니다.'
+  //         : 'API 동기화가 시작되었습니다.';
+  //     toast.success(message);
+  //   } catch (error) {
+  //     console.error('Failed to sync document:', error);
+  //     toast.error('동기화 실패');
+  //   }
+  // };
 
   const handleNameUpdate = async () => {
     if (!editName.trim()) {
@@ -301,7 +301,7 @@ export default function KnowledgeDetailPage() {
     }
   };
 
-  // 참고자료 그룹 삭제 핸들러
+  // 지식 베이스 삭제 핸들러
   const handleDeleteKnowledgeBase = async () => {
     if (deleteConfirmName !== knowledgeBase?.name) {
       toast.error('자료 그룹 이름이 일치하지 않습니다.');
@@ -341,7 +341,7 @@ export default function KnowledgeDetailPage() {
   }
 
   return (
-    <div className="p-8 bg-gray-50/30 dark:bg-gray-900 min-h-screen">
+    <div className="p-8 bg-gray-50/30 dark:bg-gray-900 min-h-full">
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 mb-6">
         <Link
@@ -575,7 +575,7 @@ export default function KnowledgeDetailPage() {
                     <td className="px-5 py-2.5">
                       <div className="flex items-center gap-1.5">
                         {renderStatusBadge(doc.status)}
-                        {doc.source_type &&
+                        {/* {doc.source_type &&
                           ['API', 'DB'].includes(doc.source_type) && (
                             <button
                               className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all"
@@ -589,7 +589,7 @@ export default function KnowledgeDetailPage() {
                             >
                               <RotateCw className="h-3.5 w-3.5" />
                             </button>
-                          )}
+                          )} */}
                       </div>
                     </td>
                     <td className="px-5 py-2.5 text-gray-500 text-xs">
@@ -644,7 +644,7 @@ export default function KnowledgeDetailPage() {
             <div className="flex justify-between items-start">
               <h3 className="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
                 <Trash2 className="w-5 h-5" />
-                지식베이스 삭제
+                지식 베이스 삭제
               </h3>
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
@@ -659,7 +659,7 @@ export default function KnowledgeDetailPage() {
                 <p className="font-semibold mb-2">
                   ⚠️ 경고: 복구할 수 없습니다.
                 </p>
-                <p>삭제하시려면 지식베이스 이름을 정확히 입력해주세요:</p>
+                <p>삭제하시려면 지식 베이스 이름을 정확히 입력해주세요:</p>
                 <p className="mt-2 px-3 py-2 bg-white dark:bg-gray-800 rounded border border-red-200 dark:border-red-800 font-bold text-red-700 dark:text-red-300">
                   {knowledgeBase.name}
                 </p>
@@ -670,7 +670,7 @@ export default function KnowledgeDetailPage() {
                 value={deleteConfirmName}
                 onChange={(e) => setDeleteConfirmName(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
-                placeholder="지식베이스 이름 입력"
+                placeholder="지식 베이스 이름 입력"
               />
 
               <div className="flex justify-end gap-3 pt-2">

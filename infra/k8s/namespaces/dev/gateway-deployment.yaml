@@ -7,7 +7,7 @@ metadata:
     app: api-server
     env: dev
 spec:
-  replicas: 1  # dev는 1개만
+  replicas: 1
   selector:
     matchLabels:
       app: api-server
@@ -17,100 +17,99 @@ spec:
         app: api-server
         env: dev
     spec:
-      serviceAccountName: api-server-sa  # IRSA 연결
+      serviceAccountName: api-server-sa # IRSA 연결
       containers:
-      - name: api-server
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-gateway:dev-latest
-        ports:
-        - containerPort: 8000
-        env:
-        # DB 설정 (default namespace의 PostgreSQL 공유)
-        - name: DB_HOST
-          value: postgresql.default.svc.cluster.local
-        - name: DB_PORT
-          value: "5432"
-        - name: DB_NAME
-          value: moduly_dev  # dev 전용 database
-        - name: DB_USER
-          value: postgres
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: DB_PASSWORD
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: REDIS_PASSWORD
-        # Redis 설정 (default namespace의 Redis 공유, DB 1번 사용)
-        - name: REDIS_HOST
-          value: redis-master.default.svc.cluster.local
-        - name: REDIS_PORT
-          value: "6379"
-        - name: REDIS_DB
-          value: "1"
-        # CORS 설정 (로컬 테스트용)
-        - name: CORS_ORIGINS
-          value: "http://localhost:3000,http://127.0.0.1:3000"
-        - name: SECRET_KEY
-          value: "dev_secret_key_for_testing_only"
-        # Sandbox 설정
-        - name: SANDBOX_URL
-          value: "http://sandbox-service.default.svc.cluster.local:8194"
-        - name: SANDBOX_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: SANDBOX_API_KEY
-        # 외부 DB 연동 설정
-        - name: MASTER_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: MASTER_KEY
-        - name: ENCRYPTION_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: ENCRYPTION_KEY
-        # S3 설정 (IRSA)
-        - name: RAG_INGESTION_MODE
-          value: "DEV"
-        - name: S3_BUCKET_NAME
-          value: "moduly-dev-file-upload"
-        - name: AWS_REGION
-          value: "ap-northeast-2"
-        # 소셜 로그인 관련 설정
-        - name: GOOGLE_CLIENT_ID
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: GOOGLE_CLIENT_ID
-        - name: GOOGLE_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: GOOGLE_CLIENT_SECRET
-        resources:
-          requests:
-            cpu: 100m      # dev는 리소스 적게
-            memory: 256Mi
-          limits:
-            cpu: 300m
-            memory: 512Mi
-        livenessProbe:
-          httpGet:
-            path: /api/v1/health
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /api/v1/health
-            port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 5
+        - name: api-server
+          image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-gateway:dev-latest
+          ports:
+            - containerPort: 8000
+          env:
+            # DB 설정 (default namespace의 PostgreSQL 공유)
+            - name: DB_HOST
+              value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: moduly_dev # dev 전용 database
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
+            # Dev 전용 Redis DB
+            - name: REDIS_HOST
+              value: redis-master.default.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_BROKER_DB
+              value: "3"
+            - name: REDIS_BACKEND_DB
+              value: "4"
+            - name: REDIS_DB
+              value: "5"
+            # CORS 설정 (로컬 테스트용)
+            - name: CORS_ORIGINS
+              value: "http://localhost:3000,http://127.0.0.1:3000"
+            - name: SECRET_KEY
+              value: "dev_secret_key_for_testing_only"
+            # Sandbox 설정
+            - name: SANDBOX_URL
+              value: "http://sandbox-service.default.svc.cluster.local:8194"
+            # 외부 DB 연동 설정
+            - name: MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MASTER_KEY
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: ENCRYPTION_KEY
+            # S3 설정 (IRSA)
+            - name: STORAGE_TYPE
+              value: "CLOUD"
+            - name: S3_BUCKET_NAME
+              value: "moduly-dev-file-upload"
+            - name: AWS_REGION
+              value: "ap-northeast-2"
+            # 소셜 로그인 관련 설정
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: GOOGLE_CLIENT_ID
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: GOOGLE_CLIENT_SECRET
+          resources:
+            requests:
+              cpu: 100m # dev는 리소스 적게
+              memory: 256Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -121,6 +120,6 @@ spec:
   selector:
     app: api-server
   ports:
-  - port: 8000
-    targetPort: 8000
+    - port: 8000
+      targetPort: 8000
   type: ClusterIP

@@ -22,6 +22,23 @@ def _get_nested_value(data: Any, keys: list[str]) -> Any:
     return data
 
 
+def _set_nested_value(data: Dict[str, Any], keys: list[str], value: Any):
+    """
+    중첩된 딕셔너리에 값을 설정합니다. (점 표기법 지원용)
+    """
+    current = data
+    for i, key in enumerate(keys[:-1]):
+        if key not in current:
+            current[key] = {}
+        
+        if not isinstance(current[key], dict):
+            current[key] = {}
+            
+        current = current[key]
+    
+    current[keys[-1]] = value
+
+
 class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
     """
     HTTP 요청을 수행하는 노드입니다.
@@ -30,9 +47,9 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
 
     node_type = "httpRequestNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        HTTP 요청을 실행하고 응답을 반환합니다.
+        HTTP 요청을 실행하고 응답을 반환합니다 (비동기).
         """
         data = self.data
 
@@ -76,12 +93,12 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
             if not content_type_keys:
                 headers["Content-Type"] = "application/json"
 
-        # 4. HTTP 요청 실행
+        # 4. HTTP 요청 실행 (비동기)
         method = data.method.value
         timeout = data.timeout / 1000.0  # ms -> seconds
 
         try:
-            with httpx.Client(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 # 현재는 JSON만 지원
                 # TODO: 추후 다른 Content-Type 지원 시 여기에 분기 추가
                 # - application/x-www-form-urlencoded
@@ -93,7 +110,7 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
                     try:
                         json_body = json.loads(body)
 
-                        response = client.request(
+                        response = await client.request(
                             method=method,
                             url=url,
                             headers={
@@ -110,7 +127,7 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
                         )
                 else:
                     # Body가 없는 경우 (GET 요청 등)
-                    response = client.request(
+                    response = await client.request(
                         method=method,
                         url=url,
                         headers=headers,
@@ -154,7 +171,12 @@ class HttpRequestNode(Node[HttpRequestNodeData]):  # Node 상속
                 escaped_val = json.dumps(val)
                 if escaped_val.startswith('"') and escaped_val.endswith('"'):
                     escaped_val = escaped_val[1:-1]
-                context[variable.name] = escaped_val
+                val = escaped_val
+            
+            # 변수명에 점(.)이 있는 경우 중첩 딕셔너리로 처리
+            if "." in variable.name:
+                keys = variable.name.split(".")
+                _set_nested_value(context, keys, val)
             else:
                 context[variable.name] = val
 

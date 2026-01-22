@@ -17,7 +17,7 @@ class ConditionNode(Node[ConditionNodeData]):
 
     node_type = "conditionNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         설정된 케이스들을 순차적으로 평가하고 선택된 분기 핸들을 반환합니다.
 
@@ -34,11 +34,19 @@ class ConditionNode(Node[ConditionNodeData]):
         # 조건 평가
         for case in cases:
             case_result = self._evaluate_case(case, inputs)
-            if case_result:
-                return {"selected_handle": case.id}
 
-        # 모든 조건이 False이면 default 반환
-        return {"selected_handle": "default"}
+            if case_result:
+                return {
+                    "result": True,
+                    "matched_case_id": case.id,
+                    "selected_handle": case.id,
+                }
+
+        return {
+            "result": False,
+            "matched_case_id": None,
+            "selected_handle": "default",
+        }
 
     def _get_cases(self) -> List[ConditionCase]:
         """
@@ -81,7 +89,7 @@ class ConditionNode(Node[ConditionNodeData]):
     def _evaluate_condition(self, condition: Condition, inputs: Dict[str, Any]) -> bool:
         """단일 조건을 평가합니다."""
         # variable_selector에서 값 추출
-        if not condition.variable_selector:
+        if len(condition.variable_selector) < 1:
             return False
 
         node_id = condition.variable_selector[0]
@@ -199,5 +207,6 @@ class ConditionNode(Node[ConditionNodeData]):
 
             else:
                 return False
-        except Exception:
+
+        except (ValueError, TypeError):
             return False

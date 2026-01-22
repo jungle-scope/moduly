@@ -20,6 +20,7 @@ def create_deployment(
 ):
     """
     워크플로우를 배포합니다.
+    [TEST] bugfix/KAN-000, gateway 배포를 위해 주석 추가
     """
     return DeploymentService.create_deployment(db, deployment_in, current_user.id)
 
@@ -120,6 +121,7 @@ def get_deployment_info_public(
 
     return DeploymentInfoResponse(
         url_slug=app.url_slug,
+        name=app.name,
         version=deployment.version,
         description=deployment.description,
         type=deployment.type.value,

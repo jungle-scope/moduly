@@ -6,11 +6,14 @@
 
 실행 방법:
     cd apps/server
-    .venv\Scripts\python.exe tests/services/test_http_node_real.py
+    python -m pytest tests/nodes/test_http_node_real.py
 """
 
+import asyncio
 import os
 import sys
+
+import pytest
 
 # Add project root to sys.path
 sys.path.append(
@@ -21,7 +24,8 @@ from apps.workflow_engine.workflow.nodes.http import HttpRequestNode, HttpReques
 from apps.workflow_engine.workflow.nodes.http.entities import HttpMethod
 
 
-def test_real_get_request():
+@pytest.mark.asyncio
+async def test_real_get_request():
     """실제 GET 요청 - JSONPlaceholder API"""
     print("📡 GET 요청 테스트 중...")
 
@@ -34,7 +38,7 @@ def test_real_get_request():
     node = HttpRequestNode(id="http-1", data=node_data)
 
     # 실제 요청 실행
-    outputs = node.execute({})
+    outputs = await node.execute({})
 
     # 검증
     assert outputs["status"] == 200, f"Expected 200, got {outputs['status']}"
@@ -48,7 +52,8 @@ def test_real_get_request():
     print(f"   전체 응답: {outputs['data']}\n")
 
 
-def test_real_post_request():
+@pytest.mark.asyncio
+async def test_real_post_request():
     """실제 POST 요청 - JSONPlaceholder API"""
     print("📡 POST 요청 테스트 중...")
 
@@ -61,7 +66,7 @@ def test_real_post_request():
     )
     node = HttpRequestNode(id="http-1", data=node_data)
 
-    outputs = node.execute({})
+    outputs = await node.execute({})
 
     assert outputs["status"] == 201, f"Expected 201, got {outputs['status']}"
     assert outputs["data"]["id"] == 101, "JSONPlaceholder returns id 101 for new posts"
@@ -72,7 +77,8 @@ def test_real_post_request():
     print(f"   전체 응답: {outputs['data']}\n")
 
 
-def test_real_get_list():
+@pytest.mark.asyncio
+async def test_real_get_list():
     """실제 GET 요청 - 목록 조회"""
     print("📡 GET 목록 조회 테스트 중...")
 
@@ -84,7 +90,7 @@ def test_real_get_list():
     )
     node = HttpRequestNode(id="http-1", data=node_data)
 
-    outputs = node.execute({})
+    outputs = await node.execute({})
 
     assert outputs["status"] == 200
     assert isinstance(outputs["data"], list), "Response should be a list"
@@ -96,7 +102,8 @@ def test_real_get_list():
     print(f"   첫 번째 게시글: {outputs['data'][0]['title']}\n")
 
 
-def test_real_with_custom_headers():
+@pytest.mark.asyncio
+async def test_real_with_custom_headers():
     """커스텀 헤더를 포함한 실제 요청"""
     print("📡 커스텀 헤더 포함 요청 테스트 중...")
 
@@ -114,7 +121,7 @@ def test_real_with_custom_headers():
     )
     node = HttpRequestNode(id="http-1", data=node_data)
 
-    outputs = node.execute({})
+    outputs = await node.execute({})
 
     assert outputs["status"] == 200
 
@@ -123,17 +130,17 @@ def test_real_with_custom_headers():
     print(f"   응답 헤더: {list(outputs['headers'].keys())[:5]}...\n")
 
 
-if __name__ == "__main__":
+async def main():
     print("=" * 60)
     print("🚀 실제 HTTP 요청 통합 테스트 시작")
     print("=" * 60)
     print()
 
     try:
-        test_real_get_request()
-        test_real_post_request()
-        test_real_get_list()
-        test_real_with_custom_headers()
+        await test_real_get_request()
+        await test_real_post_request()
+        await test_real_get_list()
+        await test_real_with_custom_headers()
 
         print("=" * 60)
         print("🎉 모든 테스트 통과!")
@@ -147,3 +154,8 @@ if __name__ == "__main__":
 
         traceback.print_exc()
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+

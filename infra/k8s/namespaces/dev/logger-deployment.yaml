@@ -18,39 +18,43 @@ spec:
         env: dev
     spec:
       containers:
-      - name: logger
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-logger:dev-latest
-        env:
-        # DB 설정 (default namespace의 PostgreSQL 공유)
-        - name: DB_HOST
-          value: postgresql.default.svc.cluster.local
-        - name: DB_PORT
-          value: "5432"
-        - name: DB_NAME
-          value: moduly_dev  # dev 전용 database
-        - name: DB_USER
-          value: postgres
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: DB_PASSWORD
-        # Redis 설정 (default namespace의 Redis 공유, DB 1번 사용)
-        - name: REDIS_HOST
-          value: redis-master.default.svc.cluster.local
-        - name: REDIS_PORT
-          value: "6379"
-        - name: REDIS_DB
-          value: "1"
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: REDIS_PASSWORD
-        resources:
-          requests:
-            cpu: 50m
-            memory: 128Mi
-          limits:
-            cpu: 200m
-            memory: 256Mi
+        - name: logger
+          image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-logger:dev-latest
+          env:
+            # DB 설정 (default namespace의 PostgreSQL 공유)
+            - name: DB_HOST
+              value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: moduly_dev # dev 전용 database
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_PASSWORD
+            # Dev 전용 Redis DB
+            - name: REDIS_HOST
+              value: redis-master.default.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_BROKER_DB
+              value: "3"
+            - name: REDIS_BACKEND_DB
+              value: "4"
+            - name: REDIS_DB
+              value: "5"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

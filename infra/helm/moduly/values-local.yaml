@@ -1,0 +1,179 @@
+# Local Development Values for Moduly Helm Chart
+# This file contains configurations optimized for local Kubernetes testing
+# (Docker Desktop, Minikube, etc.)
+
+# =============================================================================
+# Secrets (Local Development Values)
+# =============================================================================
+secrets:
+  # Database password
+  dbPassword: "moduly123"
+  
+  # Redis password
+  redisPassword: "redis123"
+  
+  # JWT secret key (for development only!)
+  secretKey: "local-dev-jwt-secret-key-DO-NOT-USE-IN-PRODUCTION"
+  
+  # Master encryption key (실제 사용 시 Base64 32바이트 키를 생성해 교체)
+  masterKey: "hzL/x9Kj3vN1pM5qR8tW2bY7cX4aD6eF0gJ1hU3sV9k="
+  
+  # Encryption key (실제 사용 시 Base64 32바이트 키를 생성해 교체)
+  encryptionKey: "mB5vX8zL1nA4qW7tR0eY3dF6cG9jJ2kP5hS8tV1wZ4x="
+  
+  # Sandbox API key
+  sandboxApiKey: "Modulycallsandbox306"
+  
+  # Google OAuth credentials (optional - leave empty for local)
+  googleClientId: ""
+  googleClientSecret: ""
+  
+  # Llama Cloud API key (optional)
+  llamaCloudApiKey: ""
+
+# =============================================================================
+# PostgreSQL Configuration (Use embedded chart for local)
+# =============================================================================
+postgresql:
+  enabled: true
+  auth:
+    username: moduly
+    password: moduly123
+    database: moduly
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi  # Smaller for local testing
+    # Fix: Allow writable filesystem for lock files
+    containerSecurityContext:
+      readOnlyRootFilesystem: false
+
+# =============================================================================
+# Redis Configuration (Use embedded chart for local)
+# =============================================================================
+redis:
+  enabled: true
+  auth:
+    password: redis123
+  # Override image to use existing version
+  image:
+    registry: docker.io
+    repository: bitnami/redis
+    tag: latest  # Use latest for local testing
+  master:
+    persistence:
+      enabled: true
+      size: 500Mi  # Smaller for local testing
+    # Fix: Allow writable filesystem for lock files
+    containerSecurityContext:
+      readOnlyRootFilesystem: false
+
+# =============================================================================
+# Resource Limits (Reduced for local environments)
+# =============================================================================
+gateway:
+  replicaCount: 1  # Single replica for local
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # Override environment for localhost port-forward testing
+  env:
+    CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+    SANDBOX_URL: "http://localhost:8194"  # Port-forward sandbox
+
+worker:
+  replicaCount: 1  # Single replica for local
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # Override environment for localhost
+  env:
+    SANDBOX_URL: "http://localhost:8194"
+
+logger:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+frontend:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # Override API URL for local port-forward testing
+  env:
+    # Client-side (browser) API URL
+    NEXT_PUBLIC_API_URL: "http://localhost"
+    # Server-side (SSR) API URL - uses Kubernetes service
+    API_URL: "http://my-moduly-gateway:8000"
+
+sandbox:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# =============================================================================
+# Ingress Configuration (Local)
+# =============================================================================
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # Rewrite target deprecated/not needed if gateway handles /api path
+    
+  hosts:
+    - host: localhost
+      paths:
+        - path: /api
+          pathType: Prefix
+          backend: gateway
+        - path: /
+          pathType: Prefix
+          backend: frontend
+  tls: []
+
+# =============================================================================
+# Ingress Controller (ingress-nginx dependency)
+# =============================================================================
+ingress-nginx:
+  enabled: true
+  controller:
+    service:
+      type: LoadBalancer
+      ports:
+        http: 80
+        https: 443
+    # Resource limits for local dev
+    resources:
+      requests:
+        cpu: 100m
+        memory: 90Mi
+      limits:
+        cpu: 300m
+        memory: 300Mi
+    # Watch only moduly namespace to avoid conflicts
+    scope:
+      enabled: true

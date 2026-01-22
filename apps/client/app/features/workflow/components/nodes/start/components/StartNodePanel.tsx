@@ -43,7 +43,7 @@ export function StartNodePanel({ nodeId, data }: StartNodePanelProps) {
       >
         <div className="flex flex-col gap-2">
           <p className="text-xs text-gray-500 leading-snug">
-            워크플로우 실행 시 사용자로부터 받을 입력 변수를 정의하세요.
+            모듈 실행 시 사용자로부터 받을 입력 변수를 정의하세요.
           </p>
           <VariableList
             variables={variables}

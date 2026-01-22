@@ -1,5 +1,6 @@
 """Deployment Service - 배포 관련 비즈니스 로직"""
 
+import logging
 import secrets
 import uuid
 from typing import Any, Dict, List, Optional
@@ -15,6 +16,8 @@ from apps.shared.db.models.schedule import Schedule
 from apps.shared.db.models.workflow import Workflow
 from apps.shared.db.models.workflow_deployment import DeploymentType, WorkflowDeployment
 from apps.shared.schemas.deployment import DeploymentCreate
+
+logger = logging.getLogger(__name__)
 
 
 class DeploymentService:
@@ -145,11 +148,8 @@ class DeploymentService:
                 try:
                     scheduler_service = get_scheduler_service()
                     scheduler_service.add_schedule(schedule, db)
-                    print(
-                        f"[Deployment] ✓ 스케줄 생성 완료: {schedule.id} | {schedule.cron_expression}"
-                    )
                 except Exception as e:
-                    print(f"[Deployment] ✗ 스케줄 등록 실패: {e}")
+                    logger.warning(f"[Deployment] ✗ 스케줄 등록 실패: {e}")
                     # 스케줄 등록 실패해도 배포는 성공으로 처리
                     # (나중에 수동으로 재등록 가능)
 
@@ -385,16 +385,38 @@ class DeploymentService:
                 kwargs={"is_deployed": True},
             )
 
-            # 결과 대기 (타임아웃 10분)
-            result = task.get(timeout=600)
+            # [FIX] 비동기 폴링 패턴으로 결과 대기 (스레드 풀 고갈 방지)
+            import asyncio
+            import time
+
+            from celery.result import AsyncResult
+
+            async def wait_for_celery_result(task_id: str, timeout: int = 600):
+                """비동기적으로 Celery 결과 대기 (폴링 방식)"""
+                result = AsyncResult(task_id, app=celery_app)
+                start_time = time.time()
+
+                while not result.ready():
+                    elapsed = time.time() - start_time
+                    if elapsed > timeout:
+                        raise TimeoutError(
+                            f"Workflow execution timed out after {timeout} seconds"
+                        )
+                    await asyncio.sleep(0.5)  # 비동기 대기 (이벤트 루프 블로킹 방지)
+
+                if result.failed():
+                    raise result.result  # 예외 다시 발생
+                return result.result
+
+            result = await wait_for_celery_result(task.id, timeout=600)
 
             if result.get("status") == "success":
                 return {"status": "success", "results": result.get("result", {})}
             else:
                 raise HTTPException(status_code=500, detail="Workflow execution failed")
 
-        except celery_app.backend.TimeoutError:
-            raise HTTPException(status_code=504, detail="Workflow execution timed out")
+        except TimeoutError as e:
+            raise HTTPException(status_code=504, detail=str(e))
 
         except ValueError as e:
             # 필수 노드 누락 등 검증 에러
@@ -553,7 +575,7 @@ class DeploymentService:
                 try:
                     scheduler_service.remove_schedule(other_schedule.id)
                 except Exception as e:
-                    print(f"[Deployment] ✗ 스케줄 제거 실패: {e}")
+                    logger.error(f"[Deployment] ✗ 스케줄 제거 실패: {e}")
 
     @staticmethod
     def toggle_deployment(

@@ -12,10 +12,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.services.llm_service import LLMService
 from apps.shared.db.models.llm import LLMCredential, LLMProvider
 from apps.shared.db.models.user import User
 from apps.shared.db.session import get_db
-from apps.gateway.services.llm_service import LLMService
 
 router = APIRouter()
 
@@ -120,7 +120,7 @@ def check_credentials(
 
 
 @router.post("/improve", response_model=TemplateImproveResponse)
-def improve_template(
+async def improve_template(
     request: TemplateImproveRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -210,7 +210,7 @@ def improve_template(
         ]
 
         # 6. LLM 호출
-        response = client.invoke(messages, temperature=0.7, max_tokens=2000)
+        response = await client.invoke(messages, temperature=0.7, max_tokens=2000)
 
         # 7. 응답 파싱
         improved_template = (
@@ -234,7 +234,6 @@ def improve_template(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"[template_wizard] Error: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=500, detail=f"템플릿 개선 중 오류 발생: {str(e)}"
         )

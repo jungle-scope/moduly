@@ -1,3 +1,4 @@
+import logging
 import mimetypes
 import os
 import tempfile
@@ -26,6 +27,9 @@ from sqlalchemy.orm import Session
 
 from apps.gateway.api.deps import get_db
 from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.services.ingestion.service import (
+    IngestionOrchestrator as IngestionService,
+)
 from apps.shared.db.models.knowledge import Document, KnowledgeBase
 from apps.shared.db.models.user import User
 from apps.shared.schemas.rag import (
@@ -37,8 +41,8 @@ from apps.shared.schemas.rag import (
     KnowledgeBaseResponse,
     KnowledgeUpdate,
 )
-from apps.gateway.services.ingestion.service import IngestionOrchestrator as IngestionService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -76,7 +80,7 @@ def create_knowledge_base(
     )
 
 
-# TODO: is_active column 추가해서 LLM노드와 참고자료 목록에서 모두 사용할 수 있도록 한다
+# TODO: is_active column 추가해서 LLM노드와 지식 베이스 목록에서 모두 사용할 수 있도록 한다
 @router.get("", response_model=List[KnowledgeBaseResponse])
 def list_knowledge_bases(
     db: Session = Depends(get_db),
@@ -84,7 +88,7 @@ def list_knowledge_bases(
 ):
     """
     사용자의 자료 목록을 조회합니다.
-    각 참고자료 그룹에 포함된 문서 개수도 함께 반환합니다.
+    각 지식 베이스 그룹에 포함된 문서 개수도 함께 반환합니다.
     """
     # 완료된 문서만 카운트
     # completed_count = func.sum(
@@ -138,7 +142,7 @@ def get_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    참고자료 그룹의 상세 정보를 조회합니다.
+    지식 베이스의 상세 정보를 조회합니다.
     포함된 자료 목록과 각 자료의 상태를 함께 반환합니다.
     """
     kb = (
@@ -189,7 +193,7 @@ def update_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    참고자료 그룹의 설정을 수정합니다. (이름, 설명, 즐겨찾기 임베딩 모델)
+    지식 베이스의 설정을 수정합니다. (이름, 설명, 즐겨찾기 임베딩 모델)
     """
     kb = (
         db.query(KnowledgeBase)
@@ -210,9 +214,6 @@ def update_knowledge_base(
         update_data.embedding_model is not None
         and update_data.embedding_model != kb.embedding_model
     ):
-        print(
-            f"Updating embedding model from {kb.embedding_model} to {update_data.embedding_model}"
-        )
         kb.embedding_model = update_data.embedding_model
 
         # 재인덱싱 트리거
@@ -234,7 +235,7 @@ def delete_knowledge_base(
     current_user: User = Depends(get_current_user),
 ):
     """
-    참고자료 그룹을 삭제합니다.
+    지식 베이스를 삭제합니다.
     연결된 문서 및 임베딩 데이터는 DB Cascade 설정에 따라 함께 삭제됩니다.
     물리적 파일(S3/Local)도 함께 삭제합니다.
     """
@@ -257,11 +258,10 @@ def delete_knowledge_base(
             try:
                 # S3/Local 파일 삭제
                 storage.delete(doc.file_path)
-                print(f"[Info] Deleted file for doc {doc.id}: {doc.file_path}")
             except Exception as e:
                 # 파일 삭제 실패하더라도 DB 삭제는 계속 진행 (로그만 남김)
-                print(
-                    f"[Warning] Failed to delete file {doc.file_path} for doc {doc.id}: {e}"
+                logger.warning(
+                    f"Failed to delete file {doc.file_path} for doc {doc.id}: {e}"
                 )
 
     # DB 삭제 (Cascade로 청크도 같이 삭제됨)
@@ -445,7 +445,7 @@ def get_document_content(
             """
             return HTMLResponse(content=html_content)
         except Exception as e:
-            print(f"Excel conversion failed: {e}")
+            logger.error(f"Excel conversion failed: {e}")
             # 변환 실패 시 다운로드로 fallback
         finally:
             if temp_file_path and os.path.exists(temp_file_path):
@@ -474,7 +474,7 @@ def get_document_content(
                 },
             )
         except Exception as e:
-            print(f"[Error] Failed to proxy S3 file: {e}")
+            logger.error(f"Failed to proxy S3 file: {e}")
             # 실패 시 Fallback (혹은 에러처리)
             return RedirectResponse(url=doc.file_path)
 
@@ -500,7 +500,6 @@ async def process_document(
     """
     문서 설정(청킹 등)을 저장하고 백그라운드 처리를 시작합니다.
     """
-    print(f"[DEBUG] process_document called - kb_id: {kb_id}, doc_id: {document_id}")
 
     # 1. 문서 조회 (권한 확인)
     doc = (
@@ -515,7 +514,6 @@ async def process_document(
     )
 
     if not doc:
-        print("[DEBUG] Document not found!")
         raise HTTPException(status_code=404, detail="Document not found")
 
     # 2. 설정 업데이트
@@ -538,6 +536,18 @@ async def process_document(
     )
     doc.meta_info = new_meta
 
+    # DB 소스인 경우 FK 관계 검증 (백그라운드 실행 전)
+    if doc.source_type == "DB" and request.db_config:
+        selections = request.db_config.get("selections", [])
+        join_config = request.db_config.get("join_config", {})
+        
+        # 2개 테이블 선택 시 FK 관계 필수
+        if len(selections) == 2 and not join_config.get("enabled", False):
+            raise HTTPException(
+                status_code=400,
+                detail="선택한 테이블 간 FK 관계가 없습니다."
+            )
+
     # 상태 업데이트 (처리 시작 전)
     doc.status = (
         "indexing"  # IngestionService가 실행되기 전부터 UI에서 처리중으로 표시하기 위함
@@ -557,7 +567,6 @@ async def process_document(
         ingestion_service.process_document,
         document_id,
     )
-    print("[DEBUG] Background task added")
 
     return {"status": "processing", "message": "Document processing started"}
 
@@ -610,11 +619,11 @@ def preview_document_chunking(
             chunk_range=request.chunk_range,
             keyword_filter=request.keyword_filter,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
+        logger.exception("Preview failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
     # 3. 응답 반환
     return DocumentPreviewResponse(

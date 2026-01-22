@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """
 
     # RAG Ingestion Mode
-    RAG_INGESTION_MODE: str = "DEV"
+    STORAGE_TYPE: str = "LOCAL"
 
     # AWS Settings
     AWS_ACCESS_KEY_ID: Optional[str] = None

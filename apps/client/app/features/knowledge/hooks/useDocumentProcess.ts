@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import axios from 'axios';
 import {
   knowledgeApi,
   DocumentPreviewRequest,
@@ -32,7 +33,8 @@ interface UseDocumentProcessProps {
   connectionId?: string; // 외부에서 주입받을 수 있는 connectionId
   // 범위 선택 관련
   selectionMode?: 'all' | 'range' | 'keyword';
-  chunkRange?: string; // "1-100, 500-600"
+  rangeStart?: string;
+  rangeEnd?: string;
   keywordFilter?: string;
 }
 
@@ -45,7 +47,8 @@ export function useDocumentProcess({
   settings,
   connectionId: connectionIdOverride,
   selectionMode = 'all',
-  chunkRange = '',
+  rangeStart = '',
+  rangeEnd = '',
   keywordFilter = '',
 }: UseDocumentProcessProps) {
   const [analyzingAction, setAnalyzingAction] = useState<
@@ -70,13 +73,10 @@ export function useDocumentProcess({
       ([table, cols]) => {
         const sensitiveColumnsForTable =
           settings.sensitiveColumns?.[table] || [];
-        const aliasesForTable = settings.aliases?.[table] || {};
         return {
           table_name: table,
           columns: cols,
           sensitive_columns: sensitiveColumnsForTable,
-          aliases: aliasesForTable,
-          template: settings.template || '',
         };
       },
     );
@@ -91,7 +91,11 @@ export function useDocumentProcess({
       source_type: document?.source_type || 'FILE',
       db_config: {
         selections,
-        join_config: settings.joinConfig || undefined, // Use passed joinConfig directly
+        selected_items: settings.selectedDbItems,
+        sensitive_columns: settings.sensitiveColumns,
+        aliases: settings.aliases,
+        template: settings.template,
+        join_config: settings.joinConfig || undefined,
         ...(connectionIdOverride
           ? { connection_id: connectionIdOverride }
           : {}),
@@ -100,14 +104,29 @@ export function useDocumentProcess({
       enable_auto_chunking: settings.enableAutoChunking ?? true,
       // 필터링 파라미터 전송
       selection_mode: selectionMode,
-      chunk_range: chunkRange,
+      chunk_range:
+        selectionMode === 'range' && rangeStart && rangeEnd
+          ? `${rangeStart}-${rangeEnd}`
+          : undefined,
       keyword_filter: keywordFilter,
     };
+  };
+
+  // 유효성 검사 헬퍼
+  const validateRequest = () => {
+    if (selectionMode === 'range') {
+      if (!rangeStart || !rangeEnd) {
+        toast.error('번호를 입력해주세요');
+        return false;
+      }
+    }
+    return true;
   };
 
   // 저장 및 처리 (Save)
   const executeSave = async (strategy: 'general' | 'llamaparse') => {
     if (!document) return;
+    if (!validateRequest()) return;
     try {
       const requestData = createRequestData(strategy);
       await knowledgeApi.processDocument(kbId, document.id, requestData);
@@ -126,16 +145,19 @@ export function useDocumentProcess({
       } else {
         toast.success('데이터 처리를 시작합니다.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Debug] Save failed:', error);
-      console.error('[Debug] Error details:', error.response?.data);
-      toast.error('저장에 실패했습니다.');
+      const errorMessage = axios.isAxiosError(error)
+        ? error.response?.data?.detail || '저장에 실패했습니다.'
+        : '저장에 실패했습니다.';
+      toast.error(errorMessage);
     }
   };
 
   // 3. 미리보기 (Preview)
   const executePreview = async (strategy: 'general' | 'llamaparse') => {
     if (!kbId || !documentId) return;
+    if (!validateRequest()) return;
     setIsPreviewLoading(true);
     try {
       const requestData = createRequestData(strategy);
@@ -149,9 +171,12 @@ export function useDocumentProcess({
       // 서버에서 필터링된 결과를 그대로 사용 (클라이언트 필터링 로직 제거)
       setPreviewSegments(response.segments);
       toast.success(`청킹 미리보기 완료 (${response.segments.length}개 청크)`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error('미리보기 생성 실패');
+      const errorMessage = axios.isAxiosError(error)
+        ? error.response?.data?.detail || '미리보기 생성 실패'
+        : '미리보기 생성 실패';
+      toast.error(errorMessage);
     } finally {
       setIsPreviewLoading(false);
     }

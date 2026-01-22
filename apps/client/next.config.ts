@@ -44,8 +44,7 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     // 환경변수로 백엔드 URL 설정 (기본값: 로컬)
-    const backendUrl =
-      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const backendUrl = process.env.API_URL || 'http://localhost:8000';
 
     return [
       {

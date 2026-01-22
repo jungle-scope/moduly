@@ -117,12 +117,8 @@ class LoopNode(Node[LoopNodeData]):
 
     async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Loop Node 실행 로직 (개선된 방식)
-        - 병렬 실행 지원
-        - 에러 핸들링 강화
-        - 컨텍스트 주입 개선
+        Loop Node 실행 로직 (하이브리드 방식, 비동기)
         """
-
         # 1. 서브그래프 검증
         if not self.data.subGraph or not self.data.subGraph.get("nodes"):
             return {"error": "No subgraph defined", "results": []}
@@ -136,7 +132,9 @@ class LoopNode(Node[LoopNodeData]):
         if not isinstance(array_to_iterate, list):
             return {"error": "Loop target is not an array", "results": []}
 
-        # 4. 반복 실행 설정
+        # 4. 반복 실행 (비동기)
+        results = []
+        iteration_count = 0
         max_iterations = self.data.max_iterations or 100
         # 최대 반복 횟수 제한 (배열 길이 vs 설정값)
         array_to_iterate = array_to_iterate[:max_iterations]
@@ -160,10 +158,15 @@ class LoopNode(Node[LoopNodeData]):
         iteration_count = 0
         for i, item in enumerate(array):
             try:
-                context = self._build_variable_context(inputs, item=item, index=i)
-                # 서브그래프 실행 (스코프 기반)
+                # 변수 컨텍스트 구축 (모든 외부 변수 + loop 변수)
+                context = self._build_variable_context(
+                    inputs, item=item, index=iteration_count
+                )
+
+                # 서브그래프 실행 (스코프 기반, 비동기)
                 result = await self._execute_subgraph_scoped(context)
-                results[i] = result
+                results.append(result)
+
             except Exception as e:
                 self._handle_iteration_error(e, results, i)
 

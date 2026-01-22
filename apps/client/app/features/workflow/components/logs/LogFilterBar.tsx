@@ -40,7 +40,7 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
     handleFilterChange('dateRange', { start, end });
   };
 
-  // Date input handling (string to Date)
+  // 날짜 입력 처리 (string -> Date)
   const handleDateChange = (type: 'start' | 'end', value: string) => {
     const date = value ? new Date(value) : null;
     const newRange = { ...filters.dateRange, [type]: date };
@@ -49,10 +49,10 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
 
   return (
     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 space-y-4">
-      {/* Upper Row: Filters & Quick Actions */}
+      {/* 상단: 필터 및 빠른 액션 */}
       <div className="flex flex-wrap items-center gap-4">
         
-        {/* Service Filter (Global Only) */}
+        {/* 서비스 필터 (글로벌 전용) */}
         {availableServices.length > 0 && (
             <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-gray-500" />
@@ -69,7 +69,7 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
             </div>
         )}
 
-        {/* Status Filter - Toggle Buttons */}
+        {/* 상태 필터 - 토글 버튼 */}
         <div className="flex items-center gap-2">
             {!availableServices.length && <Filter className="w-4 h-4 text-gray-500" />}
             <div className="flex rounded-lg border border-gray-200 overflow-hidden">
@@ -108,7 +108,7 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
             </div>
         </div>
 
-        {/* Sort Dropdown */}
+        {/* 정렬 드롭다운 */}
         <div className="flex items-center gap-2">
             <ArrowUpDown className="w-4 h-4 text-gray-500" />
             <select 
@@ -127,7 +127,7 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
             </select>
         </div>
 
-        {/* Version Filter */}
+        {/* 버전 필터 */}
         {availableVersions.length > 0 && (
             <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500">Version:</span>
@@ -146,9 +146,9 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
 
         <div className="h-6 w-px bg-gray-200 mx-2 hidden sm:block"></div>
 
-        {/* Quick Date Presets */}
+        {/* 빠른 날짜 프리셋 */}
         <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-xs font-semibold text-gray-500 uppercase mr-1">Period:</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase mr-1">기간:</span>
             {[
                 { label: '1일', days: 1 },
                 { label: '3일', days: 3 },
@@ -166,11 +166,11 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
         </div>
       </div>
 
-      {/* Lower Row: Date Range Inputs */}
+      {/* 하단: 날짜 범위 입력 */}
       <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
         <div className="flex items-center gap-2 flex-1">
             <Calendar className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-600 font-medium">Date Range:</span>
+            <span className="text-sm text-gray-600 font-medium">날짜 범위:</span>
             
             <input 
                 type="date"
@@ -187,7 +187,7 @@ export const LogFilterBar = ({ onFilterChange, availableVersions = [], available
             />
         </div>
         
-        {/* Reset Button */}
+        {/* 초기화 버튼 */}
         <button 
             onClick={() => {
                 const reset = { status: 'all', version: 'all', serviceId: 'all', sortBy: 'latest', dateRange: { start: null, end: null } } as any;

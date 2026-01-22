@@ -1,0 +1,77 @@
+{{- if .Values.logger.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moduly.fullname" . }}-logger
+  labels:
+    {{- include "moduly.componentLabels" (dict "component" "logger" "context" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.logger.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "moduly.componentSelectorLabels" (dict "component" "logger" "context" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "moduly.componentSelectorLabels" (dict "component" "logger" "context" .) | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml .Values | sha256sum }}
+        checksum/secret: {{ toYaml .Values.secrets | sha256sum }}
+    spec:
+      containers:
+      - name: logger
+        image: "{{ .Values.logger.image.repository }}:{{ .Values.logger.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.logger.image.pullPolicy }}
+        env:
+        # Database configuration (from ConfigMap)
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: DB_PASSWORD
+        
+        # Redis configuration
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: REDIS_PORT
+        - name: REDIS_DB
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "moduly.configMapName" . }}
+              key: REDIS_DB
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: REDIS_PASSWORD
+        
+        resources:
+          {{- toYaml .Values.logger.resources | nindent 10 }}
+{{- end }}

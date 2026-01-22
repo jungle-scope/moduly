@@ -29,7 +29,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
 
     node_type = "workflowNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
         workflow_id = self.data.workflowId
@@ -91,27 +91,29 @@ class WorkflowNode(Node[WorkflowNodeData]):
             # 값이 없으면 None 또는 빈 문자열? (일단 None)
             sub_workflow_inputs[target_var] = val
 
-        # 3. 서브 워크플로우 실행
-        print(
-            f"[WorkflowNode] Executing sub-workflow {workflow_id} with inputs: {sub_workflow_inputs}"
-        )
-
+        # 3. 서브 워크플로우 실행 (비동기)
         # is_deployed=True로 설정하여 AnswerNode의 결과만 반환받도록 함
         # user_id 등 context 전달
         # parent_run_id를 전달하여 서브 워크플로우의 노드 실행 기록이 부모 워크플로우와 연결되도록 함
         parent_run_id = self.execution_context.get("workflow_run_id")
+
+        # [FIX] DB 세션을 명시적으로 전달하여 중첩 서브 워크플로우에서도 DB 접근 가능하도록 함
         engine = WorkflowEngine(
             graph,
             sub_workflow_inputs,
             execution_context=self.execution_context,
             is_deployed=True,
+            db=db,  # [FIX] DB 세션 명시적 전달 (중첩 서브 워크플로우 지원)
             parent_run_id=parent_run_id,
             is_subworkflow=True,  # [FIX] 서브 워크플로우 표시 - Redis 이벤트 발행 스킵
         )
 
-        result = asyncio.run(engine.execute())
+        # [비동기 전환] 직접 await로 서브 워크플로우 실행
+        try:
+            result = await engine.execute()
+        finally:
+            engine.cleanup()
 
         # 출력 통일: 항상 'result' 키로 반환
         # 서브 워크플로우의 출력값 구조와 관계없이 일관된 출력 제공
-        print(f"[WorkflowNode] Sub-workflow result: {result}")
         return {"result": result}

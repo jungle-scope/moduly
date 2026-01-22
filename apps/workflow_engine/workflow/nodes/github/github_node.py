@@ -2,8 +2,8 @@
 
 from typing import Any, Dict, List, Optional
 
-from github import Github
-from github.GithubException import GithubException
+import httpx
+import gidgethub.httpx
 from jinja2 import Environment
 
 from apps.workflow_engine.workflow.nodes.base.node import Node
@@ -32,9 +32,10 @@ class GithubNode(Node[GithubNodeData]):
 
     node_type = "githubNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        GitHub API 요청을 실행하고 결과를 반환합니다.
+        GitHub API 요청을 실행하고 결과를 반환합니다 (비동기).
+        gidgethub 라이브러리를 사용하여 비동기 API 호출을 수행합니다.
         """
         data = self.data
 
@@ -49,63 +50,69 @@ class GithubNode(Node[GithubNodeData]):
         except ValueError:
             raise ValueError(f"PR 번호가 유효하지 않습니다: {pr_number_str}")
 
-        # GitHub 클라이언트 초기화
-        try:
-            github_client = Github(token)
-            repo = github_client.get_repo(f"{repo_owner}/{repo_name}")
-            pull_request = repo.get_pull(pr_number)
-        except GithubException as e:
-            raise RuntimeError(
-                f"GitHub API 오류 (status: {e.status}): {e.data.get('message', str(e))}"
-            )
+        # GitHub API 호출 (gidgethub 사용)
+        async with httpx.AsyncClient() as client:
+            gh = gidgethub.httpx.GitHubAPI(client, "moduly", oauth_token=token)
 
-        # Action에 따라 분기
-        action = data.action
+            try:
+                # Action에 따라 분기
+                action = data.action
 
-        if action == "get_pr":
-            # PR Diff 가져오기
-            files = list(pull_request.get_files())  # PaginatedList를 list로 변환
-            diff_content = []
+                if action == "get_pr":
+                    # PR 정보 가져오기
+                    pr = await gh.getitem(
+                        f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
+                    )
 
-            for file in files:
-                diff_content.append(
-                    {
-                        "filename": file.filename,
-                        "status": file.status,
-                        "additions": file.additions,
-                        "deletions": file.deletions,
-                        "changes": file.changes,
-                        "patch": file.patch if file.patch else "",
+                    # PR 파일 목록 가져오기
+                    files_url = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/files"
+                    files = []
+                    async for file in gh.getiter(files_url):
+                        files.append({
+                            "filename": file["filename"],
+                            "status": file["status"],
+                            "additions": file["additions"],
+                            "deletions": file["deletions"],
+                            "changes": file["changes"],
+                            "patch": file.get("patch", ""),
+                        })
+
+                    return {
+                        "pr_title": pr["title"],
+                        "pr_body": pr.get("body") or "",
+                        "pr_state": pr["state"],
+                        "pr_number": pr["number"],
+                        "files_count": len(files),
+                        "files": files,
+                        "diff_url": pr["diff_url"],
                     }
-                )
 
-            return {
-                "pr_title": pull_request.title,
-                "pr_body": pull_request.body or "",
-                "pr_state": pull_request.state,
-                "pr_number": pull_request.number,
-                "files_count": len(diff_content),
-                "files": diff_content,
-                "diff_url": pull_request.diff_url,
-            }
+                elif action == "comment_pr":
+                    # PR에 댓글 달기
+                    comment_body = self._render_template(data.comment_body or "", inputs)
 
-        elif action == "comment_pr":
-            # PR에 댓글 달기
-            comment_body = self._render_template(data.comment_body or "", inputs)
+                    if not comment_body:
+                        raise ValueError("댓글 내용이 비어있습니다.")
 
-            if not comment_body:
-                raise ValueError("댓글 내용이 비어있습니다.")
+                    # Issue comments API 사용 (PR은 내부적으로 Issue)
+                    comment = await gh.post(
+                        f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments",
+                        data={"body": comment_body}
+                    )
 
-            comment = pull_request.create_issue_comment(comment_body)
+                    return {
+                        "comment_id": comment["id"],
+                        "comment_url": comment["html_url"],
+                        "comment_body": comment["body"],
+                    }
 
-            return {
-                "comment_id": comment.id,
-                "comment_url": comment.html_url,
-                "comment_body": comment.body,
-            }
+                else:
+                    raise ValueError(f"지원하지 않는 액션입니다: {action}")
 
-        else:
-            raise ValueError(f"지원하지 않는 액션입니다: {action}")
+            except gidgethub.BadRequest as e:
+                raise RuntimeError(f"GitHub API 오류 (Bad Request): {str(e)}")
+            except gidgethub.GitHubException as e:
+                raise RuntimeError(f"GitHub API 오류: {str(e)}")
 
     def _render_template(self, template: Optional[str], inputs: Dict[str, Any]) -> str:
         """
