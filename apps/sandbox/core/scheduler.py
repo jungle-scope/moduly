@@ -165,10 +165,9 @@ class FairScheduler:
             fallback_map = {
                 "manual": Priority.HIGH,    # 사용자가 테스트 실행 중 (대기 중)
                 "webhook": Priority.HIGH,   # 외부 시스템 응답 대기
-                "api": Priority.NORMAL,     # API/앱 배포 실행
-                "app": Priority.NORMAL,     # 앱 배포 실행
-                "deployed": Priority.NORMAL,  # 배포된 워크플로우
-                "schedule": Priority.LOW,  # 스케줄 트리거
+                "api": Priority.NORMAL,     # API 호출 (일반)
+                "app": Priority.NORMAL,     # 웹 앱 호출 (일반)
+                "schedule": Priority.LOW,   # 스케줄 트리거 (백그라운드)
             }
             fallback = fallback_map.get(trigger_mode, Priority.NORMAL)
             priority = self._execution_history.suggest_priority(code, fallback=fallback)
