@@ -385,7 +385,7 @@ class IngestionOrchestrator:
 
         # Check for errors from processor
         if result.metadata and "error" in result.metadata:
-            raise Exception(f"Processor Error: {result.metadata['error']}")
+            raise ValueError(result.metadata['error'])
 
         raw_blocks = result.chunks
 
@@ -596,6 +596,7 @@ class IngestionOrchestrator:
         # ========================================
         # content 암호화 & DB 저장
         # ========================================
+        keyword_error_logged = False
         for i, chunk in enumerate(chunks):
             # 10개마다 진행률 업데이트 (나머지 20% 비중)
             if (i + 1) % 10 == 0 or (i + 1) == len(chunks):
@@ -630,7 +631,9 @@ class IngestionOrchestrator:
                 keywords = r.get_ranked_phrases()[:10]
             except Exception as e:
                 # 키워드 추출 실패는 치명적이지 않음 (로그만 남김)
-                logger.warning(f"Keyword extraction failed: {e}")
+                if not keyword_error_logged:
+                    logger.warning(f"Keyword extraction failed: {e}")
+                    keyword_error_logged = True
 
             # 메타데이터에 키워드 추가
             chunk_metadata = chunk.get("metadata", {}) or {}

@@ -155,39 +155,6 @@ class DbProcessor(BaseProcessor):
             # 사용자가 선택한 테이블/컬럼 정보(selections)를 기반으로 데이터 조회
             selections = source_config.get("selections", [])
 
-            # 모든 선택된 테이블의 스키마를 하나의 chunk로 생성
-            try:
-                schema_info = connector.get_schema_info(config_dict)
-                if schema_info and selections:
-                    combined_schema_text = ""
-                    for selection in selections:
-                        table_name = selection["table_name"]
-                        table_schema = next(
-                            (s for s in schema_info if s["table_name"] == table_name),
-                            None,
-                        )
-                        if table_schema:
-                            combined_schema_text += f"Table: {table_name}\nColumns:\n"
-                            for col in table_schema.get("columns", []):
-                                combined_schema_text += (
-                                    f"- {col['name']} ({col['type']})\n"
-                                )
-                            combined_schema_text += "\n"
-
-                    # 스키마를 첫 번째 chunk로 추가
-                    if combined_schema_text:
-                        chunks.append(
-                            {
-                                "content": combined_schema_text.strip(),
-                                "metadata": {
-                                    "source": f"DB:{conn_record.name}:schema",
-                                    "type": "schema",
-                                },
-                            }
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to fetch schema info: {e}")
-
             transformer = DbNlTransformer()
 
             # 자동 Chunker 초기화
@@ -200,7 +167,14 @@ class DbProcessor(BaseProcessor):
 
             # JOIN 모드 체크(2개까지만 허용)
             join_config = source_config.get("join_config", {})
-            if join_config.get("enabled", False) and len(selections) == 2:
+            
+            # 2개 테이블 선택 시 FK 관계 필수
+            if len(selections) == 2:
+                if not join_config.get("enabled", False):
+                    raise ValueError(
+                        "선택한 테이블 간 FK 관계가 없습니다."
+                    )
+                
                 logger.info(
                     f"[DB처리] JOIN 모드: {selections[0]['table_name']} + {selections[1]['table_name']}"
                 )
@@ -269,10 +243,11 @@ class DbProcessor(BaseProcessor):
 
         # Strategies
         def transform_strategy(row_dict):
+            # 선택된 컬럼만 포함 (중복 출력 방지)
             return transformer.transform(
                 row_dict,
-                template_str=selection.get("template"),
-                aliases=selection.get("aliases"),
+                template_str=source_config.get("template") or selection.get("template"),
+                table_name=table_name,
             )
 
         def encryption_key_strategy(table, col):
@@ -307,7 +282,6 @@ class DbProcessor(BaseProcessor):
             convert_to_namespace,
             generate_join_query,
         )
-        from jinja2 import Template
 
         limit = source_config.get("limit", 1000)
         query = generate_join_query(selections, join_config, limit)
@@ -323,26 +297,22 @@ class DbProcessor(BaseProcessor):
 
         # Strategies
         def transform_strategy(row_dict):
-            # 네임스페이스 변환
+            # 네임스페이스 변환: {table__col: val} → {table: {col: val}}
             namespaced_data = convert_to_namespace(row_dict)
-            render_context = namespaced_data.copy()
 
-            # Alias 적용
-            for sel in selections:
-                table = sel["table_name"]
-                table_aliases = sel.get("aliases", {})
-                if table in namespaced_data:
-                    for col, val in namespaced_data[table].items():
-                        if col in table_aliases:
-                            render_context[table_aliases[col]] = val
+            # JSON 직렬화 가능한 형태로 변환 (Decimal, datetime 등)
+            serialized_data = {}
+            for table, cols in namespaced_data.items():
+                if isinstance(cols, dict):
+                    serialized_data[table] = self._convert_to_json_serializable(cols)
+                else:
+                    serialized_data[table] = cols
 
-            if template_str:
-                try:
-                    return Template(template_str).render(**render_context)
-                except Exception as e:
-                    logger.error(f"Template rendering failed: {e}")
-                    return str(namespaced_data)
-            return str(namespaced_data)
+            # DbNlTransformer 사용하여 일관된 처리
+            return transformer.transform(
+                serialized_data,
+                template_str=template_str,
+            )
 
         def encryption_key_strategy(table, col):
             # JOIN 쿼리는 table__col 형식으로 키가 생성됨
