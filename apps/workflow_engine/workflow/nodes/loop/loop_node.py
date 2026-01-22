@@ -59,7 +59,19 @@ class LoopNode(Node[LoopNodeData]):
             loader=BaseLoader(),
             autoescape=False,  # 자동 이스케이프 비활성화
         )
-        self._subgraph_engine = None  # 재사용할 엔진
+
+    def _get_entry_point_ids(self) -> List[str]:
+        """
+        서브그래프의 진입점(Input Edge가 없는 노드) ID 목록 반환
+        """
+        nodes = self.data.subGraph.get("nodes", [])
+        edges = self.data.subGraph.get("edges", [])
+
+        target_nodes = {edge.get("target") for edge in edges}
+        entry_nodes = [
+            node.get("id") for node in nodes if node.get("id") not in target_nodes
+        ]
+        return entry_nodes
 
     def _render_template(self, template: str, context: Dict[str, Any]) -> Any:
         """
@@ -81,32 +93,35 @@ class LoopNode(Node[LoopNodeData]):
             # 템플릿 오류 시 원본 반환 또는 에러
             return template
 
-    def _build_variable_context(
-        self, inputs: Dict[str, Any], item: Any = None, index: int = None
-    ) -> Dict[str, Any]:
+    def _create_subgraph_engine(self, context: Dict[str, Any]):
         """
-        모든 외부 노드 출력 + Loop 변수를 포함한 컨텍스트 생성
-        모든 변수가 자동으로 접근 가능
+        서브그래프 실행을 위한 WorkflowEngine 생성 (중복 제거)
         """
-        context = {}
+        from workflow.core.workflow_engine import WorkflowEngine
 
-        # 외부 노드 출력 모두 포함
-        for node_id, node_output in inputs.items():
-            context[node_id] = node_output
+        entry_point_ids = self._get_entry_point_ids()
 
-        # Loop 특수 변수
-        context["loop"] = {
-            "item": item,
-            "index": index,
-        }
+        return WorkflowEngine(
+            graph={
+                "nodes": self.data.subGraph["nodes"],
+                "edges": self.data.subGraph.get("edges", []),
+            },
+            user_input=context,
+            execution_context=self.execution_context.copy(),
+            is_deployed=False,
+            db=self.execution_context.get("db"),
+            workflow_timeout=300,
+            is_subworkflow=True,
+            entry_point_ids=entry_point_ids,
+        )
 
-        return context
-
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Loop Node 실행 로직 (하이브리드 방식)
+        Loop Node 실행 로직 (개선된 방식)
+        - 병렬 실행 지원
+        - 에러 핸들링 강화
+        - 컨텍스트 주입 개선
         """
-        import asyncio
 
         # 1. 서브그래프 검증
         if not self.data.subGraph or not self.data.subGraph.get("nodes"):
@@ -121,53 +136,117 @@ class LoopNode(Node[LoopNodeData]):
         if not isinstance(array_to_iterate, list):
             return {"error": "Loop target is not an array", "results": []}
 
-        # 4. 반복 실행
-        results = []
-        iteration_count = 0
+        # 4. 반복 실행 설정
         max_iterations = self.data.max_iterations or 100
+        # 최대 반복 횟수 제한 (배열 길이 vs 설정값)
+        array_to_iterate = array_to_iterate[:max_iterations]
 
-        for item in array_to_iterate:
-            if iteration_count >= max_iterations:
-                break
+        results = [None] * len(array_to_iterate)  # 순서 보장을 위한 초기화
 
+        # 5. 병렬/순차 실행 분기
+        if self.data.parallel_mode:
+            await self._run_parallel(array_to_iterate, inputs, results)
+        else:
+            await self._run_sequential(array_to_iterate, inputs, results)
+
+        # 6. 출력 변수 매핑 및 결과 반환
+        output = self._map_outputs_hybrid(results, inputs)
+        return output
+
+    async def _run_sequential(
+        self, array: List[Any], inputs: Dict[str, Any], results: List[Any]
+    ):
+        """순차 실행 모드"""
+        iteration_count = 0
+        for i, item in enumerate(array):
             try:
-                # 변수 컨텍스트 구축 (모든 외부 변수 + loop 변수)
-                context = self._build_variable_context(
-                    inputs, item=item, index=iteration_count
-                )
-
+                context = self._build_variable_context(inputs, item=item, index=i)
                 # 서브그래프 실행 (스코프 기반)
-                result = asyncio.run(self._execute_subgraph_scoped(context))
-                results.append(result)
-
+                result = await self._execute_subgraph_scoped(context)
+                results[i] = result
             except Exception as e:
-                # 오류 처리 전략 적용
-                if self.data.error_strategy == "end":
-                    raise
-                elif self.data.error_strategy == "continue":
-                    results.append({"error": str(e)})
+                self._handle_iteration_error(e, results, i)
 
             iteration_count += 1
 
-        # 5. 출력 변수 매핑 및 결과 반환
-        return self._map_outputs_hybrid(results, inputs)
+    async def _run_parallel(
+        self, array: List[Any], inputs: Dict[str, Any], results: List[Any]
+    ):
+        """병렬 실행 모드"""
+        import asyncio
+
+        # 동시 실행 제한 (Semaphore) - 기본값 4, 필요시 환경변수나 설정으로 뺄 수 있음
+        max_concurrency = 4
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def _worker(index: int, item: Any):
+            async with semaphore:
+                try:
+                    # 각 워커마다 별도의 컨텍스트 생성 (스레드/태스크 안전)
+                    context = self._build_variable_context(
+                        inputs, item=item, index=index
+                    )
+                    # 독립된 엔진 생성 및 실행
+                    subgraph_engine = self._create_subgraph_engine(context)
+                    result = await subgraph_engine.execute()
+                    results[index] = result
+
+                except Exception as e:
+                    self._handle_iteration_error(e, results, index)
+
+        # 모든 태스크 생성 및 실행
+        tasks = [_worker(i, item) for i, item in enumerate(array)]
+        if tasks:
+            await asyncio.gather(*tasks)
+
+    def _handle_iteration_error(self, error: Exception, results: List[Any], index: int):
+        """반복 중 에러 처리"""
+        if self.data.error_strategy == "end":
+            raise error
+        elif self.data.error_strategy == "continue":
+            # 에러 정보 기록
+            results[index] = {"error": str(error), "status": "failed"}
+
+    def _build_variable_context(
+        self, inputs: Dict[str, Any], item: Any = None, index: int = None
+    ) -> Dict[str, Any]:
+        """
+        [개선] 모든 외부 노드 출력 + Loop 변수를 포함한 컨텍스트 생성
+        - loop.item, loop.index 외에 item, index 직접 접근 지원
+        """
+        context = {}
+
+        # 1. 외부 노드 출력 모두 포함 (루트 레벨)
+        for node_id, node_output in inputs.items():
+            context[node_id] = node_output
+
+        # 2. Loop 특수 변수 (네임스페이스)
+        context["loop"] = {
+            "item": item,
+            "index": index,
+        }
+
+        # 3. Loop 변수 직접 주입 (Dify 스타일 편의성)
+        # 주의: 외부 변수와 이름 충돌 시 Loop 변수가 덮어쓸 수 있음을 유의
+        context["item"] = item
+        context["index"] = index
+
+        return context
 
     def _map_inputs_hybrid(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        하이브리드 입력 매핑:
-        1. inputs 배열이 있으면 명시적 매핑 사용
-        2. 없으면 모든 외부 변수 자동 전달
+        하이브리드 입력 매핑
         """
         if self.data.inputs:
             # 명시적 매핑
             mapped = {}
             for input_mapping in self.data.inputs:
-                # 템플릿 문법 지원
                 if input_mapping.value_selector:
                     value = self._resolve_variable(input_mapping.value_selector, inputs)
                 else:
-                    # value_selector가 없으면 name을 템플릿으로 처리
-                    value = self._render_template(input_mapping.name, inputs)
+                    value = self._render_template(
+                        input_mapping.name, inputs
+                    )  # 템플릿 지원
 
                 mapped[input_mapping.name] = value
             return mapped
@@ -177,60 +256,50 @@ class LoopNode(Node[LoopNodeData]):
 
     async def _execute_subgraph_scoped(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        스코프 기반 서브그래프 실행
-        매번 새 엔진을 생성하지 않고 변수 컨텍스트만 변경
+        서브그래프 실행 (스코프 기반)
+        - 각 반복마다 독립된 WorkflowEngine 생성
+        - context를 user_input으로 전달
         """
-        from workflow.core.workflow_engine import WorkflowEngine
-
-        # 첫 실행 시에만 엔진 생성
-        if self._subgraph_engine is None:
-            self._subgraph_engine = WorkflowEngine(
-                graph={
-                    "nodes": self.data.subGraph["nodes"],
-                    "edges": self.data.subGraph.get("edges", []),
-                },
-                user_input=context,
-                execution_context=self.execution_context.copy(),
-                is_deployed=False,
-                db=self.execution_context.get("db"),
-                workflow_timeout=300,
-            )
-
-        # 컨텍스트 업데이트 (스코프 변경)
-        self._subgraph_engine.user_input = context
-
-        # 실행
-        result = await self._subgraph_engine.execute()
-        return result
+        subgraph_engine = self._create_subgraph_engine(context)
+        return await subgraph_engine.execute()
 
     def _resolve_variable(
         self, value_selector: List[str], inputs: Dict[str, Any]
     ) -> Any:
         """
-        변수 참조 해결
-        value_selector: [node_id, variable_key] 또는 [node_id, variable_key, nested_key, ...]
+        [개선] 변수 참조 해결 (Strict Parsing)
+        value_selector 예: ["node_id", "var_key", "nested", "0"]
         """
-        if not value_selector or len(value_selector) < 2:
+        if not value_selector or len(value_selector) == 0:
             return None
 
+        # 1. 첫 번째 요소는 무조건 node_id 또는 특수 키(sys 등)로 간주
         node_id = value_selector[0]
-        variable_path = value_selector[1:]
 
-        # inputs에서 노드 출력 찾기
+        # inputs에서 찾기
         if node_id not in inputs:
+            # 혹시 env 등 전역 변수일 수도 있음 (여기서는 미지원)
             return None
 
-        node_output = inputs[node_id]
+        current_value = inputs[node_id]
 
-        # 중첩된 경로 탐색
-        current_value = node_output
-        for key in variable_path:
+        # 2. 경로 추적
+        path = value_selector[1:]
+        for key in path:
             if isinstance(current_value, dict):
                 current_value = current_value.get(key)
-            elif isinstance(current_value, list) and key.isdigit():
-                try:
-                    current_value = current_value[int(key)]
-                except (IndexError, ValueError):
+            elif isinstance(current_value, list):
+                # 배열 인덱스 접근 지원
+                if key.isdigit():
+                    try:
+                        idx = int(key)
+                        if 0 <= idx < len(current_value):
+                            current_value = current_value[idx]
+                        else:
+                            return None
+                    except (ValueError, IndexError):
+                        return None
+                else:
                     return None
             else:
                 return None
@@ -244,109 +313,112 @@ class LoopNode(Node[LoopNodeData]):
         self, inputs: Dict[str, Any], mapped_inputs: Dict[str, Any]
     ) -> List[Any]:
         """
-        반복 대상 배열 가져오기 (템플릿 지원)
+        반복 대상 배열 가져오기
         """
-        if not self.data.loop_key:
-            # loop_key가 없으면 mapped_inputs에서 첫 번째 배열 찾기
-            for value in mapped_inputs.values():
-                if isinstance(value, list):
-                    return value
-            return []
+        import ast
+        import json
 
-        # 템플릿 문법 지원
-        if "{{" in self.data.loop_key:
-            context = self._build_variable_context(inputs)
-            array = self._render_template(self.data.loop_key, context)
-            if isinstance(array, list):
-                return array
-            return []
-
-        # value_selector 형식으로 파싱
-        parts = self.data.loop_key.split(".")
-
-        if len(parts) >= 2:
-            value_selector = parts
-            array = self._resolve_variable(value_selector, inputs)
-
-            if isinstance(array, list):
-                return array
-
-        # 폴백: mapped_inputs에서 loop_key로 직접 찾기
-        if self.data.loop_key in mapped_inputs:
-            value = mapped_inputs[self.data.loop_key]
+        def try_parse_list(value: Any) -> Optional[List[Any]]:
             if isinstance(value, list):
                 return value
+            if isinstance(value, str):
+                # 0. 공백 제거
+                value = value.strip()
+                # 1. JSON 시도
+                try:
+                    parsed = json.loads(value)
+                    if isinstance(parsed, list):
+                        return parsed
+                except (json.JSONDecodeError, ValueError):
+                    pass
+                # 2. ast.literal_eval 시도 (Trailing comma 지원)
+                try:
+                    parsed = ast.literal_eval(value)
+                    if isinstance(parsed, list):
+                        return parsed
+                except (ValueError, SyntaxError):
+                    pass
+            return None
+
+        # 1. inputs에 loop_key가 있으면(매핑된 변수 등) 최우선
+        if self.data.loop_key in mapped_inputs:
+            val = mapped_inputs[self.data.loop_key]
+            parsed = try_parse_list(val)
+            if parsed is not None:
+                return parsed
+
+        # 2. value_selector 파싱 시도 (점 표기법)
+        if "." in self.data.loop_key:
+            parts = self.data.loop_key.split(".")
+            val = self._resolve_variable(parts, inputs)
+            parsed = try_parse_list(val)
+            if parsed is not None:
+                return parsed
+
+        # 3. 템플릿 시도
+        if "{{" in self.data.loop_key:
+            context = self._build_variable_context(inputs)
+            val = self._render_template(self.data.loop_key, context)
+            parsed = try_parse_list(val)
+            if parsed is not None:
+                return parsed
 
         return []
 
     def _map_outputs_hybrid(
-        self, results: List[Dict], inputs: Dict[str, Any]
+        self, results: List[Any], inputs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        하이브리드 출력 매핑:
-        1. outputs 배열이 있으면 명시적 수집
-        2. 없으면 전체 결과 반환
+        [개선] 하이브리드 출력 매핑
+        - outputs 설정이 있으면 해당 변수만 추출하여 배열로 반환
+        - flatten_output 옵션 적용
         """
+        # results에는 [run_result1, run_result2, ...] 형태가 됨. run_result는 Dict
+        # 또는 에러 시 {"error": ...}
+
+        valid_results = [r for r in results if r is not None and "error" not in r]
+
         if not self.data.outputs:
-            # outputs가 정의되지 않은 경우, 전체 결과 반환
+            # 매핑 없음 -> 전체 결과 반환
             if self.data.flatten_output:
-                flattened = []
-                for result in results:
-                    if isinstance(result, list):
-                        flattened.extend(result)
-                    else:
-                        flattened.append(result)
-                return {"results": flattened}
+                # 단순히 리스트의 리스트를 펼치는 것이 아니라, 전체 결과를 하나의 리스트로?
+                # 보통 루프 노드의 '출력'이 없으면 각 반복의 최종 출력(마지막 노드?)들을 모을지 불분명.
+                # 여기서는 원본 그대로 반환
+                return {"results": results}
             else:
                 return {"results": results}
 
-        # outputs에 정의된 변수만 추출
         collected_outputs = {}
 
         for output_def in self.data.outputs:
             output_name = output_def.name
             value_selector = output_def.value_selector
 
-            if not value_selector or len(value_selector) < 2:
+            # value_selector가 유효하지 않으면 스킵
+            if not value_selector:
                 continue
 
-            # 각 반복 결과에서 해당 변수 수집
+            # 각 반복 결과에서 값 추출
             collected_values = []
-            for result in results:
-                node_id = value_selector[0]
-                variable_path = value_selector[1:]
 
-                # result에서 노드 출력 찾기
-                if node_id in result:
-                    value = result[node_id]
+            for run_result in valid_results:
+                # run_result는 하나의 워크플로우 실행 결과 (Dict[node_id, output])
+                # 여기서 value_selector를 적용해야 함.
+                # 단, _resolve_variable은 inputs(Dict[node_id, output])을 받으므로 호환됨.
+                val = self._resolve_variable(value_selector, run_result)
+                if val is not None:
+                    collected_values.append(val)
 
-                    # 중첩된 경로 탐색
-                    for key in variable_path:
-                        if isinstance(value, dict):
-                            value = value.get(key)
-                        elif isinstance(value, list) and key.isdigit():
-                            try:
-                                value = value[int(key)]
-                            except (IndexError, ValueError):
-                                value = None
-                                break
-                        else:
-                            value = None
-                            break
-
-                    if value is not None:
-                        collected_values.append(value)
-
-            # flatten_output 적용
-            if self.data.flatten_output and collected_values:
+            # Flatten 처리
+            if self.data.flatten_output:
                 flattened = []
-                for val in collected_values:
-                    if isinstance(val, list):
-                        flattened.extend(val)
+                for v in collected_values:
+                    if isinstance(v, list):
+                        flattened.extend(v)
                     else:
-                        flattened.append(val)
+                        flattened.append(v)
                 collected_outputs[output_name] = flattened
             else:
                 collected_outputs[output_name] = collected_values
 
-        return collected_outputs if collected_outputs else {"results": results}
+        return collected_outputs

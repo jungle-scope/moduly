@@ -76,6 +76,35 @@ export function LoopNodePanel({ nodeId, data }: LoopNodePanelProps) {
       {/* 1. Configuration Section (Settings) */}
       <CollapsibleSection title="설정" showDivider>
         <div className="flex flex-col gap-4">
+          {/* Loop Key (반복 대상 배열) */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-gray-700">
+              반복 대상 배열 *
+            </label>
+            <div className="mb-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-xs text-amber-800 leading-relaxed">
+                ⚠️ <strong>필수 설정:</strong> 반복할 배열을 지정하세요.
+                <br />
+                예: <code className="bg-amber-100 px-1 rounded">
+                  numbers
+                </code>{' '}
+                (입력 변수 매핑 사용 시)
+                <br />
+                또는{' '}
+                <code className="bg-amber-100 px-1 rounded">
+                  start.numbers
+                </code>{' '}
+                (직접 참조 시)
+              </p>
+            </div>
+            <input
+              type="text"
+              value={data.loop_key || ''}
+              onChange={(e) => handleUpdateData('loop_key', e.target.value)}
+              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+            />
+          </div>
+
           {/* Inputs */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -120,19 +149,15 @@ export function LoopNodePanel({ nodeId, data }: LoopNodePanelProps) {
                 출력 변수
               </label>
             </div>
-            {/* Note: Outputs conceptually should map internal variables, but for now reusing the control. 
-                 The user prompts imply mapped values. Ideally this should select from Internal Nodes, but we use upstreamNodes for consistency or reuse. 
-                 If the user meant "Define Output Names", this selector might be confusing if they cant select anything. 
-                 For now, I'll pass upstreamNodes (maybe they want to pass-through?), but typically Loop Output aggregates Loop Body results.
-             */}
+            {/* Loop 내부의 자식 노드들을 선택할 수 있도록 함 */}
             <ReferencedVariablesControl
               variables={data.outputs || []}
-              upstreamNodes={upstreamNodes} // Ideally should be internal nodes?
+              upstreamNodes={nodes.filter((n) => n.parentId === nodeId)} // 내부 자식 노드만 표시
               onUpdate={handleUpdateOutput}
               onAdd={handleAddOutput}
               onRemove={handleRemoveOutput}
               title=""
-              description="루프 실행 결과로 수집할 변수를 정의하세요."
+              description="루프 실행 결과로 수집할 변수를 정의하세요. 내부 노드의 출력을 선택하세요."
               showAddButton={true}
               showRemoveButton={true}
               showItemLabel={false}

@@ -92,6 +92,51 @@ export const useAutoSync = () => {
             const realNodes = currentNodes.filter((n) => n.type !== 'note');
             const noteNodes = currentNodes.filter((n) => n.type === 'note');
 
+            // [FIX] Loop Node의 subGraph 자동 생성
+            const processedNodes = realNodes.map((node) => {
+              if (node.type === 'loopNode') {
+                // 이 Loop Node의 자식 노드들 찾기
+                // [IMPORTANT] 시작 노드는 절대로 자식 노드가 될 수 없음! (데이터 오염 방지)
+                const childNodes = currentNodes.filter(
+                  (n) =>
+                    n.parentId === node.id &&
+                    n.type !== 'startNode' &&
+                    n.type !== 'webhookTrigger',
+                );
+                // 자식 노드들 간의 엣지 찾기
+                const childEdges = currentEdges.filter((edge) =>
+                  childNodes.some(
+                    (n) => n.id === edge.source || n.id === edge.target,
+                  ),
+                );
+
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    subGraph: {
+                      nodes: childNodes.map((n) => ({
+                        ...n,
+                        // parentId 제거 (서브그래프 내에서는 독립적)
+                        parentId: undefined,
+                        extent: undefined,
+                      })),
+                      edges: childEdges,
+                    },
+                  },
+                };
+              }
+
+              // [CRITICAL FIX] Start Node는 절대로 parentId를 가질 수 없음 (강제 초기화)
+              if (node.type === 'startNode' || node.type === 'webhookTrigger') {
+                if (node.parentId) {
+                  return { ...node, parentId: undefined };
+                }
+              }
+
+              return node;
+            });
+
             // features에 noteNodes 저장
             const featuresToSave = {
               ...currentFeatures,
@@ -100,7 +145,7 @@ export const useAutoSync = () => {
 
             // 서버에 저장 요청
             await workflowApi.syncDraftWorkflow(workflowId, {
-              nodes: realNodes, // 엔진용 깨끗한 노드 목록
+              nodes: processedNodes, // subGraph가 포함된 노드 목록
               edges: currentEdges,
               viewport: currentViewport,
               features: featuresToSave,

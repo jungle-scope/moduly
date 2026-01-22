@@ -61,11 +61,6 @@ export const workflowApi = {
   ) => {
     const isFormData = userInput instanceof FormData;
 
-    console.log(
-      '[사용자 입력]: ',
-      isFormData ? 'FormData (파일 포함)' : JSON.stringify(userInput || {}),
-    );
-
     // [FIX] Next.js rewrites는 /api/* 경로를 모두 가로채므로,
     // 스트리밍은 /stream-api/* 경로로 분리하여 Next.js API Route에서 처리
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';

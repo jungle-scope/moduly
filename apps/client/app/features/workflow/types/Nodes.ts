@@ -319,6 +319,10 @@ export interface LoopNodeData extends BaseNodeData {
   error_strategy: 'end' | 'continue'; // 오류 응답 방법
   flatten_output: boolean; // 출력 평탄화
 
+  // Dify-style: child node IDs (rendered on main canvas)
+  _children?: string[];
+
+  // Legacy: nested subgraph (deprecated, will be migrated to _children)
   subGraph?: {
     nodes: any[];
     edges: any[];

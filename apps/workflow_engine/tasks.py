@@ -196,13 +196,15 @@ def stream_workflow(
 
     session = SessionLocal()
     try:
-        # 외부 run_id를 execution_context에 주입
-        execution_context["workflow_run_id"] = external_run_id
+        # [FIX] execution_context 복사본 전달 (WorkflowEngine이 내부에서 db 등을 추가하므로 원본 오염 방지)
+        # 원본이 오염되면 Celery 재시도 시 직렬화 에러(Session not serializable) 발생
+        engine_context = execution_context.copy()
+        engine_context["workflow_run_id"] = external_run_id
 
         engine = WorkflowEngine(
             graph=graph,
             user_input=user_input,
-            execution_context=execution_context,
+            execution_context=engine_context,
             is_deployed=False,
             db=session,
         )

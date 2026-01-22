@@ -8,8 +8,6 @@ Log System Celery 태스크
 import uuid
 from typing import Any, Dict
 
-from sqlalchemy import func
-
 from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App  # noqa: F401
 from apps.shared.db.models.connection import Connection  # noqa: F401
@@ -40,6 +38,7 @@ from apps.shared.db.models.workflow_run import (
     WorkflowRun,
 )
 from apps.shared.db.session import SessionLocal
+from sqlalchemy import func
 
 
 def _serialize_uuid(obj):
@@ -102,6 +101,15 @@ def create_run_log(self, data: Dict[str, Any]):
 
         # UUID 변환
         run_id = _deserialize_uuid(data["run_id"])
+
+        # [FIX] 이미 존재하는지 확인 (Idempotency)
+        existing_run = (
+            session.query(WorkflowRun).filter(WorkflowRun.id == run_id).first()
+        )
+        if existing_run:
+            print(f"[Log-System] Run Log already exists (skipped): {run_id}")
+            return {"status": "skipped", "run_id": str(run_id)}
+
         workflow_id = _deserialize_uuid(data["workflow_id"])
         user_id = _deserialize_uuid(data["user_id"])
         deployment_id = (
@@ -121,8 +129,25 @@ def create_run_log(self, data: Dict[str, Any]):
             deployment_id=deployment_id,
             workflow_version=data.get("workflow_version"),
         )
-        session.add(run_log)
-        session.commit()
+        try:
+            session.add(run_log)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            # [FIX] Exception 메시지 확인 대신 DB 조회를 통해 중복 여부 확인
+            # 다른 프로세스/스레드에서 이미 생성했을 수 있음
+            existing_run = (
+                session.query(WorkflowRun).filter(WorkflowRun.id == run_id).first()
+            )
+            if existing_run:
+                print(
+                    f"[Log-System] Run Log insert race condition recovered (skipped): {run_id}"
+                )
+                return {"status": "skipped", "run_id": str(run_id)}
+
+            # 중복이 아니라면 진짜 에러이므로 로그 출력 후 재시도
+            print(f"[Log-System] create_run_log insert failed: {type(e)}, {e}")
+            raise e
 
         return {"status": "success", "run_id": str(run_id)}
 

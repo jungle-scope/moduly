@@ -77,6 +77,7 @@ import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSideP
 import { LLMReferenceSidePanel } from '../nodes/llm/components/LLMReferenceSidePanel';
 import { useDragConnectionPreview } from '../../hooks/useDragConnectionPreview';
 import { DragConnectionOverlay } from './DragConnectionOverlay';
+
 import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -130,7 +131,7 @@ export default function NodeCanvas() {
     previewState,
     onDragOver: handleDragOver,
     resetPreview,
-  } = useDragConnectionPreview(nodes, edges);
+  } = useDragConnectionPreview(nodes);
 
   // Memory mode controls
   const router = useRouter();

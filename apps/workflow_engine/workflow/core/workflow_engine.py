@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy.orm import Session
 
-from apps.shared.pubsub import publish_workflow_event  # [NEW] Redis Pub/Sub
+from apps.shared.pubsub import publish_workflow_event
 from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
 from apps.workflow_engine.workflow.core.workflow_logger import (
-    WorkflowLogger,  # [NEW] 로깅 유틸리티
+    WorkflowLogger,
 )
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
 
@@ -21,68 +21,79 @@ class WorkflowEngine:
         user_input: Dict[str, Any] = None,
         execution_context: Dict[str, Any] = None,
         is_deployed: bool = False,
-        db: Optional[Session] = None,  # [NEW] DB 세션 주입 (로깅용)
-        parent_run_id: Optional[str] = None,  # [NEW] 서브 워크플로우용 부모 run_id
-        workflow_timeout: int = 600,  # [NEW] 전체 워크플로우 타임아웃 (기본 10분)
-        is_subworkflow: bool = False,  # [NEW] 서브 워크플로우 여부 (Redis 이벤트 발행 스킵)
+        db: Optional[Session] = None,
+        parent_run_id: Optional[str] = None,
+        workflow_timeout: int = 600,
+        is_subworkflow: bool = False,
+        entry_point_ids: Optional[List[str]] = None,
     ):
         """
         WorkflowEngine 초기화
-
-
-        Args:
-            graph: 워크플로우 그래프 데이터
-                - Dict 형태: {"nodes": [...], "edges": [...], "viewport": ...}
-            user_input: 사용자가 입력한 변수 값들
-            execution_context: 실행 컨텍스트 (user_id 등 전역 환경 정보)
-            is_deployed: 배포 모드 여부 (True: 배포된 워크플로우, False: Draft)
-            db: DB 세션 (로깅용) # [NEW]
-            parent_run_id: 부모 워크플로우의 run_id (서브 워크플로우 실행 시 사용)
-            workflow_timeout: 워크플로우 전체 실행 제한 시간 (초 단위, 기본 600초)
         """
         # graph가 딕셔너리인 경우 nodes와 edges 추출
         if isinstance(graph, dict):
             nodes = [NodeSchema(**node) for node in graph.get("nodes", [])]
             edges = [EdgeSchema(**edge) for edge in graph.get("edges", [])]
+        else:
+            nodes, edges = graph
 
-        self.is_deployed = is_deployed  # 배포 모드 플래그
-        self.node_schemas = {node.id: node for node in nodes}  # Schema 보관
-        self.node_instances = {}  # Node 인스턴스 저장
+        self.is_deployed = is_deployed
+        self.node_schemas = {node.id: node for node in nodes}
+        self.node_instances = {}
         self.edges = edges
         self.user_input = user_input if user_input is not None else {}
         self.execution_context = execution_context or {}
-        self.workflow_timeout = workflow_timeout  # [NEW] 전체 타임아웃 설정
-        self.start_time = 0.0  # [NEW] 실행 시작 시간
+        self.workflow_timeout = workflow_timeout
+        self.start_time = 0.0
 
-        # [FIX] DB 세션을 execution_context에 주입 (WorkflowNode 등에서 사용)
         if db is not None:
             self.execution_context["db"] = db
 
-        # [PERF] 그래프 구조 사전 계산
-        self.adjacency_list = {}  # source -> [targets]
-        self.reverse_graph = {}  # target -> [sources]
-        self.edge_handles = {}  # (source, handle) -> [targets]
+        self.adjacency_list = {}
+        self.reverse_graph = {}
+        self.edge_handles = {}
         self._build_optimized_graph()
 
-        # [PERF] 타입별 노드 인덱스 (answerNode 등 빠른 조회를 위해)
         self.nodes_by_type = {}
         for node_id, schema in self.node_schemas.items():
             if schema.type not in self.nodes_by_type:
                 self.nodes_by_type[schema.type] = []
             self.nodes_by_type[schema.type].append(node_id)
 
-        self._build_node_instances()  # Schema → Node 변환
+        self._build_node_instances()
 
-        # ============================================================
-        # [NEW SECTION] 모니터링/로깅 관련 초기화
-        # ============================================================
-        self.logger = WorkflowLogger(db)  # 로깅 유틸리티 인스턴스
-        self.parent_run_id = parent_run_id  # 서브 워크플로우용 부모 run_id
-        self.start_node_id = None  # [NEW] 시작 노드 ID 캐싱
-        self.is_subworkflow = is_subworkflow  # [NEW] 서브 워크플로우 여부
+        self.logger = WorkflowLogger(db)
+        self.parent_run_id = parent_run_id
+        self.start_node_id = None
+        self.is_subworkflow = is_subworkflow
+
+      
+        self.entry_point_ids = entry_point_ids  # None 또는 리스트
 
         # [VALIDATION] 그래프 구조 검증 (순환, 시작 노드 등)
         self.validate_graph()
+
+    async def execute(self) -> Dict[str, Any]:
+        """
+        워크플로우 전체 실행 (Wrapper)
+        """
+        if self.is_deployed:
+            return await self.execute_deployed()
+
+        final_context = {}
+        async for event in self.execute_stream():
+            if event["type"] == "workflow_finish":
+                final_context = event["data"]
+            elif event["type"] == "error":
+                raise ValueError(event["data"]["message"])
+        return final_context
+
+    # ... execute_stream ...
+    # (코드 중략 없이 필요한 부분만 수정하기 어려우므로 __init__만 수정하고 validate_graph 등은 별도 청크로 수정)
+    # 하지만 multi_replace_file_content가 아니므로 한 번에 할 수 있는 만큼만.
+    # __init__은 위에서 수정됨.
+
+    # ...
 
     async def execute(self) -> Dict[str, Any]:
         """
@@ -186,7 +197,7 @@ class WorkflowEngine:
 
         self.start_time = time.time()  # 실행 시작 시간 기록
         # ============================================================
-        # [NEW] 실행 로그 시작
+      
         # ============================================================
         # 외부에서 전달된 run_id가 있으면 사용 (Gateway에서 미리 생성한 경우)
         external_run_id = self.execution_context.get("workflow_run_id")
@@ -197,9 +208,6 @@ class WorkflowEngine:
             if self.parent_run_id:
                 self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
                 self.execution_context["workflow_run_id"] = self.parent_run_id
-            print(
-                f"[WorkflowEngine] 서브 워크플로우 실행 - parent_run_id: {self.parent_run_id}"
-            )
         elif external_run_id:
             # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
@@ -210,9 +218,8 @@ class WorkflowEngine:
                 user_input=self.user_input,
                 is_deployed=self.is_deployed,
                 execution_context=self.execution_context,
-                external_run_id=external_run_id,  # [NEW] 외부 run_id 전달
+                external_run_id=external_run_id,
             )
-            print(f"[WorkflowEngine] 외부 run_id 사용: {external_run_id}")
         elif self.parent_run_id:
             # 서브 워크플로우인 경우 부모의 run_id를 재사용 (레거시 지원)
             self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
@@ -230,12 +237,17 @@ class WorkflowEngine:
                 self.execution_context["workflow_run_id"] = str(workflow_run_id)
         # ============================================================
 
-        start_node = self._find_start_node()
+      
+        if self.entry_point_ids is not None and len(self.entry_point_ids) > 0:
+            initial_nodes = self.entry_point_ids
+        else:
+            initial_nodes = [self._find_start_node()]
+
         results = {}
 
         # 병렬 실행 상태 관리
         executed_nodes = set()
-        queued_nodes = {start_node}
+        queued_nodes = set(initial_nodes)
 
         # AsyncIO Task 관리
         # running_tasks: {Task: node_id}
@@ -253,13 +265,19 @@ class WorkflowEngine:
             if stream_mode:
                 yield {"type": "workflow_start", "data": {}}
 
-            # 초기 시작 노드 실행 태스크 생성
-            await self._submit_node(
-                start_node, results, running_tasks, stream_mode, semaphore, event_queue
-            )
+            # 초기 시작 노드(들) 실행 태스크 생성
+            for node_id in initial_nodes:
+                await self._submit_node(
+                    node_id,
+                    results,
+                    running_tasks,
+                    stream_mode,
+                    semaphore,
+                    event_queue,
+                )
 
             while running_tasks:
-                # [NEW] 전체 타임아웃 체크
+              
                 elapsed_time = time.time() - self.start_time
                 if elapsed_time > self.workflow_timeout:
                     # 모든 실행 중인 태스크 취소
@@ -434,18 +452,15 @@ class WorkflowEngine:
 
         async def _task_wrapper():
             async with semaphore:
-                loop = asyncio.get_running_loop()
-                # 동기 노드 실행을 스레드 풀에서 실행하여 이벤트 루프 블로킹 방지
-                return await loop.run_in_executor(
-                    None,
-                    self._execute_node_task_sync,
+                # [FIX] 모든 노드 실행을 비동기로 처리 (run_in_executor 제거)
+                return await self._execute_node_task(
                     node_id,
                     node_schema,
                     node_instance,
                     inputs,
                 )
 
-        # [NEW] 노드별 타임아웃 적용 (asyncio.wait_for)
+      
         # 우선순위: 1. 노드 설정(node_schema.timeout) > 2. 기본값(300초)
         node_timeout = node_schema.timeout if node_schema.timeout is not None else 300
 
@@ -491,15 +506,15 @@ class WorkflowEngine:
         task = asyncio.create_task(_task_wrapper_with_event())
         running_tasks[task] = node_id
 
-    def _execute_node_task_sync(self, node_id, node_schema, node_instance, inputs):
+    async def _execute_node_task(self, node_id, node_schema, node_instance, inputs):
         """
-        개별 노드를 실행하는 작업 (Worker Thread에서 실행됨)
+        개별 노드를 실행하는 작업 (Main Loop에서 비동기 실행)
         [실시간 스트리밍] 이벤트는 _submit_node에서 처리하므로 결과만 반환
         반환값: 노드 실행 결과 (Dict)
         """
         try:
-            # 노드 실행 (핵심) - 동기 실행
-            result = node_instance.execute(inputs)
+            # 노드 실행 (핵심) - async 지원
+            result = await node_instance.execute(inputs)
 
             # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
             if not self.is_subworkflow:
@@ -514,7 +529,7 @@ class WorkflowEngine:
             raise e
 
     # ================================================================
-    # [NEW] 그래프 검증 메서드
+  
     # ================================================================
 
     def validate_graph(self):
@@ -558,6 +573,15 @@ class WorkflowEngine:
 
     def _check_start_nodes(self):
         """시작 노드 유효성 검사 (0개 또는 2개 이상 불가) 및 ID 캐싱"""
+
+      
+        if self.entry_point_ids is not None:
+            # 진입점이 유효한 노드 ID인지 확인
+            for pid in self.entry_point_ids:
+                if pid not in self.node_schemas:
+                    raise ValueError(f"지정된 진입점 노드가 존재하지 않습니다: {pid}")
+            return
+
         start_nodes = []
 
         # Trigger 노드 타입 정의
@@ -576,14 +600,20 @@ class WorkflowEngine:
                 "워크플로우에 시작 노드(type='startNode' or 'webhookTrigger')가 없습니다."
             )
 
-        # [NEW] 시작 노드 ID 캐싱
+      
         self.start_node_id = start_nodes[0]
 
     def _check_isolation(self):
         """
         시작 노드에서 도달 불가능한 고립(Isolated) 노드가 있는지 검사합니다.
         BFS를 사용하여 도달 가능한 모든 노드를 탐색하고, 전체 노드와 비교합니다.
+
+        Loop Node의 자식 노드들은 parentId로 연결되어 있으므로 특별히 처리합니다.
         """
+      
+        if self.entry_point_ids is not None:
+            return
+
         start_node_id = self._find_start_node()
         visited = {start_node_id}
         queue = [start_node_id]
@@ -596,10 +626,33 @@ class WorkflowEngine:
                     visited.add(neighbor)
                     queue.append(neighbor)
 
+            # Loop Node의 자식 노드들도 방문 처리
+            # parentId가 current_node인 노드들을 찾아서 visited에 추가
+            for node_id, node_schema in self.node_schemas.items():
+                # parentId 확인: node_schema 객체의 속성을 우선 확인
+                parent_id = None
+
+                # 1. node_schema 객체의 직접 속성으로 확인 (우선순위 높음)
+                if hasattr(node_schema, "parentId"):
+                    parent_id = node_schema.parentId
+                elif hasattr(node_schema, "parent_id"):
+                    parent_id = node_schema.parent_id
+                # 2. data 딕셔너리 안에서 확인 (fallback)
+                elif hasattr(node_schema, "data") and isinstance(
+                    node_schema.data, dict
+                ):
+                    parent_id = node_schema.data.get(
+                        "parentId"
+                    ) or node_schema.data.get("parent_id")
+
+                if parent_id == current_node and node_id not in visited:
+                    visited.add(node_id)
+                    queue.append(node_id)
+
         # 전체 노드 집합
         all_nodes = set(self.node_schemas.keys())
 
-        # 주석/메모 노드 제 (선택 사항이지만 보통 메모는 실행 흐름과 무관)
+        # 주석/메모 노드 제외 (선택 사항이지만 보통 메모는 실행 흐름과 무관)
         # 만약 note 타입이 node_schemas에 포함된다면 제외해야 함.
         # 여기서는 self._build_node_instances에서 note 타입을 건너뛰지만,
         # node_schemas에는 포함되어 있을 수 있음.
@@ -610,7 +663,26 @@ class WorkflowEngine:
         }
 
         # 고립된 노드 식별 (도달 불가능한 노드)
-        isolated_nodes = valid_nodes - visited
+        # 단, parentId가 있는 노드(서브그래프 노드)는 제외
+        isolated_nodes = set()
+        for node_id in valid_nodes - visited:
+            node_schema = self.node_schemas[node_id]
+
+            # parentId 확인
+            has_parent = False
+            if hasattr(node_schema, "parentId") and node_schema.parentId:
+                has_parent = True
+            elif hasattr(node_schema, "parent_id") and node_schema.parent_id:
+                has_parent = True
+            elif hasattr(node_schema, "data") and isinstance(node_schema.data, dict):
+                if node_schema.data.get("parentId") or node_schema.data.get(
+                    "parent_id"
+                ):
+                    has_parent = True
+
+            # parentId가 없는 노드만 고립 노드로 판단
+            if not has_parent:
+                isolated_nodes.add(node_id)
 
         if isolated_nodes:
             raise ValueError(
@@ -659,20 +731,13 @@ class WorkflowEngine:
         """
         selected_handle = result.get("selected_handle")
 
-        # 🔍 DEBUG: Track sourceHandle matching for condition nodes
-        if selected_handle is not None:
-            print(f"[DEBUG] Getting next nodes for {node_id}")
-            print(f"[DEBUG] selected_handle: {selected_handle}")
-            print(
-                f"[DEBUG] Available keys in edge_handles: {[k for k in self.edge_handles.keys() if k[0] == node_id]}"
-            )
+        # 🔍 DEBUG: Track sourceHandle matching for condition nodes (Deleted)
 
         # [PERF] 분기가 있는 경우 (O(1))
         if selected_handle is not None:
             key = (node_id, selected_handle)
             next_nodes = self.edge_handles.get(key, [])
-            # 🔍 DEBUG: Track matching result
-            print(f"[DEBUG] Looking for key: {key}, found: {next_nodes}")
+            # 🔍 DEBUG: Track matching result (Deleted)
             return next_nodes
 
         # [PERF] 분기가 없는 경우 (O(1))
@@ -690,11 +755,7 @@ class WorkflowEngine:
     def _build_optimized_graph(self):
         """엣지를 분석하여 효율적인 그래프 구조 생성 (O(E) 한 번만)"""
         for edge in self.edges:
-            # 🔍 DEBUG: Track edge data with sourceHandle
-            if edge.sourceHandle is not None:
-                print(
-                    f"[DEBUG] Building edge: source={edge.source}, target={edge.target}, sourceHandle={edge.sourceHandle}"
-                )
+            # 🔍 DEBUG: Track edge data with sourceHandle (Deleted)
 
             # 정방향 그래프 (source -> targets)
             if edge.source not in self.adjacency_list:

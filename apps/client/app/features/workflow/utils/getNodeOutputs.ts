@@ -48,6 +48,12 @@ export const getNodeOutputs = (node: Node): string[] => {
       ];
     case 'mailNode':
       return ['emails', 'total_count', 'folder'];
+    case 'loopNode': {
+      // 기본적으로 item, index 제공 + 사용자 정의 출력
+      const customOutputs =
+        (node.data?.outputs as any[])?.map((v) => v.name) || [];
+      return ['item', 'index', ...customOutputs];
+    }
     default:
       return ['result'];
   }

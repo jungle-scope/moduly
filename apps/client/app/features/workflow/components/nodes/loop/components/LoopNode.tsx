@@ -1,136 +1,164 @@
+import type { FC } from 'react';
 import { memo, useState, useCallback, useMemo } from 'react';
-import { NodeProps, Node, Edge } from '@xyflow/react';
-import { BaseNode } from '../../BaseNode';
+import {
+  Background,
+  Handle,
+  NodeResizer,
+  Position,
+  useViewport,
+  type NodeProps,
+} from '@xyflow/react';
 import { Repeat, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
-import { LoopInnerCanvas } from './LoopInnerCanvas';
 import { NodeSelector } from '../../../editor/NodeSelector';
 import { nanoid } from 'nanoid';
-import { LoopNode as LoopNodeType } from '../../../../types/Nodes';
+import type { LoopNode as LoopNodeType } from '../../../../types/Nodes';
 
-export const LoopNode = memo(
-  ({ id, data, selected }: NodeProps<LoopNodeType>) => {
-    const { updateNodeData, clearInnerNodeSelection } = useWorkflowStore();
-    const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+const MIN_WIDTH = 400;
+const MIN_HEIGHT = 250;
 
-    // 내부 그래프 데이터 (없으면 초기화)
-    const subNodes = useMemo(
-      () => (data.subGraph?.nodes as Node[]) || [],
-      [data.subGraph?.nodes],
-    );
-    const subEdges = useMemo(
-      () => (data.subGraph?.edges as Edge[]) || [],
-      [data.subGraph?.edges],
-    );
+const Node: FC<NodeProps<LoopNodeType>> = ({ id, data, selected }) => {
+  const { zoom } = useViewport();
+  const { nodes, edges, setNodes, setEdges } = useWorkflowStore();
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-    const isEmpty = subNodes.length === 0;
+  // Ensure all required fields have default values
+  const nodeData = useMemo(
+    () => ({
+      ...data,
+      loop_key: data.loop_key || '',
+      inputs: data.inputs || [],
+      outputs: data.outputs || [],
+      parallel_mode: data.parallel_mode ?? false,
+      error_strategy: data.error_strategy || 'end',
+      flatten_output: data.flatten_output ?? true,
+      _children: data._children || [],
+    }),
+    [data],
+  );
 
-    // 노드 추가 핸들러
-    const handleAddNode = useCallback(
-      (type: string, nodeDef: any) => {
-        const newNodeId = `${type}-${nanoid(6)}`;
+  // 자식 노드들 조회
+  const children = useMemo(
+    () => nodes.filter((n) => n.parentId === id),
+    [nodes, id],
+  );
+  const isEmpty = children.length === 0;
 
-        // 최신 subNodes 상태 가져오기
-        const currentSubNodes = (data.subGraph?.nodes as Node[]) || [];
-        const currentSubEdges = (data.subGraph?.edges as Edge[]) || [];
+  // 노드 추가 핸들러
+  const handleAddNode = useCallback(
+    (type: string, nodeDef: any) => {
+      const newNodeId = `${type}-${nanoid(6)}`;
 
-        // 간단한 자동 레이아웃: 기존 노드들 우측에 배치
-        const lastNode = currentSubNodes[currentSubNodes.length - 1];
-        const newPosition = lastNode
-          ? { x: lastNode.position.x + 250, y: lastNode.position.y }
-          : { x: 50, y: 50 };
+      // 마지막 자식 노드 위치 계산
+      const lastChild = children[children.length - 1];
+      const newPosition = lastChild
+        ? { x: lastChild.position.x + 350, y: lastChild.position.y }
+        : { x: 50, y: 50 };
 
-        const newNode: Node = {
-          id: newNodeId,
-          type: nodeDef.type,
-          position: newPosition,
-          data: nodeDef.defaultData ? nodeDef.defaultData() : {},
-        };
+      // 새 노드 생성 (parentId 설정)
+      const newNode = {
+        id: newNodeId,
+        type: nodeDef.type,
+        position: newPosition,
+        data: nodeDef.defaultData ? nodeDef.defaultData() : {},
+        parentId: id,
+        extent: 'parent' as const,
+      };
 
-        const newNodes = [...currentSubNodes, newNode];
-
-        // 엣지 연결
-        const newEdges = [...currentSubEdges];
-        if (lastNode) {
-          const newEdge: Edge = {
-            id: `e-${lastNode.id}-${newNode.id}`,
-            source: lastNode.id,
-            target: newNode.id,
-            type: 'puzzle',
-          };
-          newEdges.push(newEdge);
-        }
-
-        updateNodeData(id, {
-          subGraph: {
-            nodes: newNodes,
-            edges: newEdges,
-          },
+      // 자동 연결 (마지막 자식과 연결)
+      const newEdges = [...edges];
+      if (lastChild) {
+        newEdges.push({
+          id: `e-${lastChild.id}-${newNode.id}`,
+          source: lastChild.id,
+          target: newNode.id,
+          type: 'puzzle',
         });
+      }
 
-        setIsPopoverOpen(false);
-      },
-      [id, data.subGraph, updateNodeData],
-    );
-
-    // 내부 컨텐츠에 따른 가로 길이 계산
-    const containerStyle = useMemo(() => {
-      if (isEmpty) return { width: 300, height: 200 }; // 기본 크기
-
-      // 가장 오른쪽 노드의 끝 위치 계산
-      let maxX = 0;
-      subNodes.forEach((n) => {
-        const nodeRight = n.position.x + 300; // 대략적인 노드 폭
-        if (nodeRight > maxX) maxX = nodeRight;
+      // Loop 노드의 _children 업데이트
+      const updatedNodes = nodes.map((node) => {
+        if (node.id === id) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              _children: [...(nodeData._children || []), newNodeId],
+            },
+          };
+        }
+        return node;
       });
 
-      const padding = 100;
-      const width = Math.max(300, maxX + padding);
+      setNodes([...updatedNodes, newNode as any]);
+      setEdges(newEdges as any);
+      setIsPopoverOpen(false);
+    },
+    [id, nodes, edges, nodeData._children, children, setNodes, setEdges],
+  );
 
-      return { width: width, height: 400 }; // 높이는 일단 고정
-    }, [subNodes, isEmpty]);
+  return (
+    <div
+      className={cn(
+        'relative h-full min-h-[250px] w-full min-w-[400px] rounded-2xl bg-white border-2',
+        selected ? 'border-blue-500' : 'border-gray-300',
+      )}
+    >
+      {/* Connection Handles */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white !-left-1.5"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white !-right-1.5"
+      />
 
-    // Loop 노드 자체 클릭 핸들러 (내부 캔버스 외부 영역)
-    const handleContainerClick = useCallback(
-      (e: React.MouseEvent) => {
-        // 내부 캔버스 영역이 아닌 곳을 클릭했을 때만 처리
-        const target = e.target as HTMLElement;
+      {/* NodeResizer for manual resizing */}
+      <NodeResizer
+        minWidth={MIN_WIDTH}
+        minHeight={MIN_HEIGHT}
+        isVisible={selected}
+        lineClassName="!border-blue-500"
+        handleClassName="h-3 w-3 bg-blue-500 rounded-full border-2 border-white"
+      />
 
-        // 내부 캔버스나 버튼 클릭은 무시
-        if (
-          target.closest('.loop-inner-canvas') ||
-          target.closest('button') ||
-          target.closest('.node-selector')
-        ) {
-          return;
-        }
-
-        // 내부 노드 선택 해제 (Loop 노드 자체를 선택)
-        clearInnerNodeSelection();
-      },
-      [clearInnerNodeSelection],
-    );
-
-    return (
-      <BaseNode
-        id={id}
-        data={data as any}
-        selected={selected}
-        icon={<Repeat className="w-5 h-5 text-white" />}
-        iconColor="#8b5cf6"
-        className="transition-all duration-300"
-      >
+      {/* Header */}
+      <div className="absolute top-0 left-0 right-0 h-14 flex items-center gap-3 px-4 bg-white rounded-t-2xl border-b border-gray-200 z-10">
         <div
-          className="relative bg-gray-50 rounded-lg border border-dashed border-gray-300 overflow-visible transition-all duration-300"
-          style={{ width: containerStyle.width, height: containerStyle.height }}
-          onClick={handleContainerClick}
+          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: '#8b5cf6' }}
         >
+          <Repeat className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm text-gray-900 truncate">
+            {nodeData.title || '반복'}
+          </div>
+        </div>
+      </div>
+
+      {/* Container - starts below header */}
+      <div className="absolute top-14 left-4 right-4 bottom-4">
+        <div className="w-full h-full bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 overflow-hidden relative">
+          {/* Dify-style background for visual grouping */}
+          <Background
+            id={`loop-background-${id}`}
+            className="!z-0"
+            gap={[14 / zoom, 14 / zoom]}
+            size={2 / zoom}
+            color="var(--color-gray-300)"
+          />
+
           {isEmpty ? (
             <div className="absolute inset-0 flex items-center justify-center z-20">
               <div className="relative">
                 <button
                   onClick={() => setIsPopoverOpen(true)}
-                  className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 gap-2"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-gray-300 bg-white shadow-sm hover:bg-gray-50 h-9 px-4 py-2 gap-2"
                 >
                   <Plus className="w-4 h-4" />
                   노드 추가
@@ -141,7 +169,7 @@ export const LoopNode = memo(
                       className="fixed inset-0 z-30"
                       onClick={() => setIsPopoverOpen(false)}
                     />
-                    <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 z-40 shadow-xl rounded-xl node-selector">
+                    <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 z-40 shadow-xl rounded-xl">
                       <NodeSelector onSelect={handleAddNode} />
                     </div>
                   </>
@@ -149,39 +177,32 @@ export const LoopNode = memo(
               </div>
             </div>
           ) : (
-            <>
-              <div className="loop-inner-canvas w-full h-full">
-                <LoopInnerCanvas
-                  nodes={subNodes}
-                  edges={subEdges}
-                  parentNodeId={id}
-                />
+            <div className="absolute top-4 right-4 z-10">
+              <div className="relative">
+                <button
+                  onClick={() => setIsPopoverOpen(true)}
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium shadow-sm h-8 w-8 bg-white border border-gray-200 hover:bg-gray-50"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                {isPopoverOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setIsPopoverOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-2 z-40 shadow-xl rounded-xl">
+                      <NodeSelector onSelect={handleAddNode} />
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="absolute top-4 right-4 z-10">
-                <div className="relative">
-                  <button
-                    onClick={() => setIsPopoverOpen(true)}
-                    className="inline-flex items-center justify-center rounded-md text-sm font-medium shadow-sm h-8 w-8 bg-white border border-gray-200 hover:bg-gray-50"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                  {isPopoverOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-30"
-                        onClick={() => setIsPopoverOpen(false)}
-                      />
-                      <div className="absolute right-0 top-full mt-2 z-40 shadow-xl rounded-xl node-selector">
-                        <NodeSelector onSelect={handleAddNode} />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
+            </div>
           )}
         </div>
-      </BaseNode>
-    );
-  },
-);
+      </div>
+    </div>
+  );
+};
+
+export const LoopNode = memo(Node);

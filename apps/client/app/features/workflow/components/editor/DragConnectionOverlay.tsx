@@ -26,16 +26,17 @@ export function DragConnectionOverlay({
   const viewport = getViewport();
 
   // 노드 크기
-  const NODE_WIDTH = 300;
-  const NODE_HEIGHT = 150;
+  // 노드 크기 (measured가 없으면 기본값 사용)
+  const nodeWidth = nearestNode.measured?.width || 300;
+  const nodeHeight = nearestNode.measured?.height || 150;
   const LEFT_HANDLE_OFFSET = 0; // 왼쪽 핸들 오프셋
-  const RIGHT_HANDLE_OFFSET = 20; // 오른쪽 핸들 오프셋
+  const RIGHT_HANDLE_OFFSET = 20; // 오른쪽 핸들 오프셋 (BaseNode의 -right-5와 일치하도록 조정)
 
   // 가장 가까운 노드의 연결 지점 계산 (플러스 버튼이 나타나는 위치)
   const connectionX = isRight
-    ? nearestNode.position.x + NODE_WIDTH + RIGHT_HANDLE_OFFSET // 오른쪽: 오른쪽 가장자리 바깥
+    ? nearestNode.position.x + nodeWidth + RIGHT_HANDLE_OFFSET // 오른쪽: 오른쪽 가장자리 바깥
     : nearestNode.position.x - LEFT_HANDLE_OFFSET; // 왼쪽: 왼쪽 가장자리 바깥
-  const connectionY = nearestNode.position.y + NODE_HEIGHT / 2; // Y축 중앙
+  const connectionY = nearestNode.position.y + nodeHeight / 2; // Y축 중앙
 
   const buttonRadius = 12; // 플러스 버튼 원의 반지름 (고정 크기)
   const plusSize = 6; // 플러스 아이콘 크기 (고정 크기)

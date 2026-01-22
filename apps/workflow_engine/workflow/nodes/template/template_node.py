@@ -68,9 +68,6 @@ class TemplateNode(Node[TemplateNodeData]):
             template = Template(self.data.template)
             rendered_text = template.render(context)
         except Exception as e:
-            print(f"[{self.data.title}] 템플릿 렌더링 오류: {e}")
-            rendered_text = f"(Error: {str(e)})"
-
-        print(f"[{self.data.title}] 렌더링 완료: {rendered_text[:50]}...")
+            return {"text": f"(Error: {str(e)})"}
 
         return {"text": rendered_text}
