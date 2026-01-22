@@ -102,12 +102,10 @@ class LoopNode(Node[LoopNodeData]):
 
         return context
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Loop Node 실행 로직 (하이브리드 방식)
+        Loop Node 실행 로직 (하이브리드 방식, 비동기)
         """
-        import asyncio
-
         # 1. 서브그래프 검증
         if not self.data.subGraph or not self.data.subGraph.get("nodes"):
             return {"error": "No subgraph defined", "results": []}
@@ -121,7 +119,7 @@ class LoopNode(Node[LoopNodeData]):
         if not isinstance(array_to_iterate, list):
             return {"error": "Loop target is not an array", "results": []}
 
-        # 4. 반복 실행
+        # 4. 반복 실행 (비동기)
         results = []
         iteration_count = 0
         max_iterations = self.data.max_iterations or 100
@@ -136,8 +134,8 @@ class LoopNode(Node[LoopNodeData]):
                     inputs, item=item, index=iteration_count
                 )
 
-                # 서브그래프 실행 (스코프 기반)
-                result = asyncio.run(self._execute_subgraph_scoped(context))
+                # 서브그래프 실행 (스코프 기반, 비동기)
+                result = await self._execute_subgraph_scoped(context)
                 results.append(result)
 
             except Exception as e:
@@ -180,7 +178,7 @@ class LoopNode(Node[LoopNodeData]):
         스코프 기반 서브그래프 실행
         매번 새 엔진을 생성하지 않고 변수 컨텍스트만 변경
         """
-        from workflow.core.workflow_engine import WorkflowEngine
+        from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
         # 첫 실행 시에만 엔진 생성
         if self._subgraph_engine is None:

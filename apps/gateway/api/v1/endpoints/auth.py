@@ -1,13 +1,13 @@
 import os
 
-from apps.shared.db.session import get_db
-from apps.shared.schemas.auth import LoginRequest, LoginResponse, SignupRequest
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.oauth import oauth
 from apps.gateway.services.auth_service import AuthService
+from apps.shared.db.session import get_db
+from apps.shared.schemas.auth import LoginRequest, LoginResponse, SignupRequest
 
 router = APIRouter()
 
@@ -185,6 +185,10 @@ async def google_login(request: Request):
     # url_for는 현재 요청의 Host 헤더(또는 Forwarded 헤더)를 기반으로 절대 경로 생성
     redirect_uri = request.url_for("auth_google_callback")
 
+    # https로 요청 보내도록 수정
+    if "localhost" not in str(redirect_uri) and "127.0.0.1" not in str(redirect_uri):
+        redirect_uri = str(redirect_uri).replace("http://", "https://")
+
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -199,7 +203,6 @@ async def auth_google_callback(
         token = await oauth.google.authorize_access_token(request)
     except Exception as e:
         # 인증 실패 시 로그인 페이지로 리디렉션 (에러 파라미터 포함 등)
-        print(f"OAuth Error: {e}")
         return Response(status_code=400, content=f"OAuth Authentication Failed: {e}")
 
     # 사용자 정보 추출

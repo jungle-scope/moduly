@@ -97,6 +97,7 @@ export const knowledgeApi = {
     upload_url: string;
     s3_key: string;
     method: string;
+    use_backend_proxy?: boolean;
   }> => {
     const response = await api.post('/rag/upload/presigned-url', {
       filename,
@@ -128,7 +129,7 @@ export const knowledgeApi = {
     }
   },
 
-  // 지식베이스 생성 (빈 KB)
+  // 지식 베이스 생성 (빈 KB)
   createKnowledgeBase: async (
     data: KnowledgeBaseCreate,
   ): Promise<KnowledgeBaseResponse> => {
@@ -136,7 +137,7 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 참고자료 생성 및 파일 업로드
+  // 지식 생성 및 파일 업로드
   uploadKnowledgeBase: async (
     data: KnowledgeCreateRequest,
   ): Promise<IngestionResponse> => {
@@ -177,7 +178,7 @@ export const knowledgeApi = {
     }
   },
 
-  // 참고자료 목록 조회
+  // 지식 목록 조회
   getKnowledgeBases: async (): Promise<KnowledgeBaseResponse[]> => {
     try {
       const response = await api.get('/knowledge');
@@ -188,7 +189,7 @@ export const knowledgeApi = {
     }
   },
 
-  // 참고자료 상세 조회
+  // 지식 상세 조회
   getKnowledgeBase: async (
     id: string,
   ): Promise<KnowledgeBaseDetailResponse> => {
@@ -207,7 +208,7 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 참고자료 수정, 재인덱싱
+  // 지식 수정, 재인덱싱
   updateKnowledgeBase: async (
     id: string,
     data: { name?: string; description?: string; embedding_model?: string },
@@ -216,7 +217,7 @@ export const knowledgeApi = {
     return response.data;
   },
 
-  // 참고자료 그룹 삭제
+  // 지식 베이스 삭제
   deleteKnowledgeBase: async (id: string): Promise<void> => {
     await api.delete(`/knowledge/${id}`);
   },

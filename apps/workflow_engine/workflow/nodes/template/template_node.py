@@ -27,7 +27,7 @@ class TemplateNode(Node[TemplateNodeData]):
 
     node_type = "templateNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         1. 설정된 변수들의 값을 inputs에서 가져와 context를 구성합니다.
         2. Jinja2 템플릿을 렌더링합니다.
@@ -68,9 +68,6 @@ class TemplateNode(Node[TemplateNodeData]):
             template = Template(self.data.template)
             rendered_text = template.render(context)
         except Exception as e:
-            print(f"[{self.data.title}] 템플릿 렌더링 오류: {e}")
             rendered_text = f"(Error: {str(e)})"
-
-        print(f"[{self.data.title}] 렌더링 완료: {rendered_text[:50]}...")
 
         return {"text": rendered_text}

@@ -1,0 +1,414 @@
+# =============================================================================
+# Moduly Helm Chart - Default Values (Open Source)
+# =============================================================================
+# This file contains default configuration for local Kubernetes deployment.
+# For production AWS EKS, see values-production.yaml
+
+# Global settings
+global:
+  # Image pull policy
+  imagePullPolicy: IfNotPresent
+  
+  # Storage class (use default for most environments)
+  storageClass: ""
+
+# =============================================================================
+# Application Services
+# =============================================================================
+
+# Gateway (API Server)
+gateway:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/jungle-scope/moduly-gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+      # Example: AWS NLB annotations
+      # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      # service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  env:
+    # Database configuration
+    DB_HOST: "{{ .Release.Name }}-postgresql"
+    DB_PORT: "5432"
+    DB_NAME: "moduly"
+    DB_USER: "moduly"
+    # DB_PASSWORD is in secrets
+    
+    # Redis configuration
+    REDIS_HOST: "{{ .Release.Name }}-redis-master"
+    REDIS_PORT: "6379"
+    REDIS_DB: "0"
+    # REDIS_PASSWORD is in secrets
+    
+    # CORS and Security
+    CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+    # SECRET_KEY is in secrets
+    
+    # Sandbox configuration
+    SANDBOX_URL: "http://{{ .Release.Name }}-sandbox:8194"
+    # SANDBOX_API_KEY is in secrets
+    
+    # Encryption keys for external DB connections
+    # MASTER_KEY and ENCRYPTION_KEY are in secrets
+    
+    # Storage configuration
+    STORAGE_TYPE: "LOCAL"
+    S3_BUCKET_NAME: ""
+    AWS_REGION: "ap-northeast-2"
+    
+    # Google OAuth (optional)
+    # GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are in secrets
+    
+    # Node environment
+    NODE_ENV: "production"
+
+# Worker (Workflow Engine)
+worker:
+  enabled: true
+  replicaCount: 4
+  
+  image:
+    repository: ghcr.io/jungle-scope/moduly-workflow-engine
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  # No service needed (communicates via Redis queue)
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  env:
+    # Database configuration
+    DB_HOST: "{{ .Release.Name }}-postgresql"
+    DB_PORT: "5432"
+    DB_NAME: "moduly"
+    DB_USER: "moduly"
+    # DB_PASSWORD is in secrets
+    
+    # Redis configuration
+    REDIS_HOST: "{{ .Release.Name }}-redis-master"
+    REDIS_PORT: "6379"
+    REDIS_DB: "0"
+    # REDIS_PASSWORD is in secrets
+    
+    # Sandbox configuration (for Code node execution)
+    SANDBOX_URL: "http://{{ .Release.Name }}-sandbox:8194"
+    # SANDBOX_API_KEY is in secrets
+    
+    # Storage configuration (for file processing)
+    S3_BUCKET_NAME: ""
+    AWS_REGION: "ap-northeast-2"
+    
+# Logger (Logging System)
+logger:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/jungle-scope/moduly-logger
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  
+  env:
+    # Database configuration
+    DB_HOST: "{{ .Release.Name }}-postgresql"
+    DB_PORT: "5432"
+    DB_NAME: "moduly"
+    DB_USER: "moduly"
+    # DB_PASSWORD is in secrets
+    
+    # Redis configuration
+    REDIS_HOST: "{{ .Release.Name }}-redis-master"
+    REDIS_PORT: "6379"
+    REDIS_DB: "0"
+    # REDIS_PASSWORD is in secrets
+
+# Frontend (Next.js Client)
+frontend:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/jungle-scope/moduly-client
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3000
+    annotations: {}
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  env:
+    # Next.js backend API URL
+    # Internal cluster service name for server-side calls
+    NEXT_PUBLIC_API_URL: "http://{{ .Release.Name }}-gateway:8000"
+    API_URL: "http://{{ .Release.Name }}-gateway:8000"
+
+# Sandbox (Code Execution)
+sandbox:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/jungle-scope/moduly-sandbox
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  # NSJail security context
+  securityContext:
+    privileged: true
+  
+  service:
+    type: ClusterIP
+    port: 8194
+    annotations: {}
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  
+  probes:
+    liveness:
+      path: /v1/sandbox/health
+    readiness:
+      path: /v1/sandbox/health
+
+  env:
+    # Timezone
+    TZ: "Asia/Seoul"
+
+    # Worker Pool Settings
+    SANDBOX_MIN_WORKERS: "2"
+    SANDBOX_MAX_WORKERS: "8"
+    SANDBOX_WORKER_IDLE_TIMEOUT: "30"
+
+    # Dynamic Scaling (EMA)
+    SANDBOX_SCALING_INTERVAL: "1"
+    SANDBOX_EMA_ALPHA: "0.2"
+    SANDBOX_TARGET_RPS_PER_WORKER: "2.0"
+    SANDBOX_SCALE_DOWN_COOLDOWN: "30"
+    SANDBOX_SCALE_DOWN_IDLE_TIME: "30"
+
+    # Execution Limits
+    SANDBOX_DEFAULT_TIMEOUT: "10"
+    SANDBOX_MAX_TIMEOUT: "60"
+    SANDBOX_MAX_MEMORY_MB: "128"
+
+    # Queue Settings
+    SANDBOX_MAX_QUEUE_SIZE: "1000"
+
+    # Fair Scheduler
+    SANDBOX_MAX_PER_TENANT: "3"
+    SANDBOX_AGING_INTERVAL: "5"
+    SANDBOX_AGING_THRESHOLD_LOW: "15"
+    SANDBOX_AGING_THRESHOLD_NORMAL: "30"
+    SANDBOX_QUEUE_CLEANUP_INTERVAL: "300"
+    SANDBOX_QUEUE_IDLE_TIMEOUT: "600"
+  
+  # Network policy for sandbox security
+  networkPolicy:
+    enabled: true
+
+# =============================================================================
+# Secrets Configuration
+# =============================================================================
+# IMPORTANT: These are example values. Override with --set or create a secrets file.
+
+secrets:
+  # Database password
+  dbPassword: "changeme_db_password"
+  
+  # Redis password
+  redisPassword: "changeme_redis_password"
+  
+  # JWT secret key
+  secretKey: "changeme_secret_key_for_jwt"
+  
+  # Master encryption key (generate with: openssl rand -base64 32)
+  masterKey: ""
+  encryptionKey: ""
+  
+  # Sandbox API key
+  sandboxApiKey: "Modulycallsandbox306"
+  
+  # Google OAuth (optional)
+  googleClientId: ""
+  googleClientSecret: ""
+  
+  # Llama Cloud API key (optional)
+  llamaCloudApiKey: ""
+
+# =============================================================================
+# PostgreSQL (Bitnami Chart)
+# =============================================================================
+postgresql:
+  enabled: true
+  
+  auth:
+    username: moduly
+    password: moduly123
+    database: moduly
+  
+  # Use custom image with pgvector support
+  image:
+    registry: docker.io
+    repository: pgvector/pgvector
+    tag: pg15
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  
+  # For external database, set enabled: false and configure:
+  # externalDatabase:
+  #   host: your-rds-endpoint.amazonaws.com
+  #   port: 5432
+  #   database: moduly
+  #   username: postgres
+  #   password: your-password
+
+# =============================================================================
+# Redis (Bitnami Chart)
+# =============================================================================
+redis:
+  enabled: true
+  
+  architecture: standalone
+  
+  auth:
+    enabled: true
+    password: redis123
+  
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+  
+  # For external Redis (e.g., ElastiCache), set enabled: false and configure:
+  # externalRedis:
+  #   host: your-elasticache-endpoint.amazonaws.com
+  #   port: 6379
+  #   password: your-password
+
+# =============================================================================
+# Ingress
+# =============================================================================
+ingress:
+  enabled: false
+  
+  className: nginx
+  
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  
+  hosts:
+    - host: moduly.local
+      paths:
+        - path: /api
+          pathType: Prefix
+          backend: gateway
+        - path: /
+          pathType: Prefix
+          backend: frontend
+  
+  tls: []
+  #  - secretName: moduly-tls
+  #    hosts:
+  #      - moduly.local
+
+# =============================================================================
+# Service Account
+# =============================================================================
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  name: ""
+
+# =============================================================================
+# PodSecurityContext
+# =============================================================================
+podSecurityContext:
+  # fsGroup: 2000
+
+securityContext:
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# =============================================================================
+# Node selection
+# =============================================================================
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

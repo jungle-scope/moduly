@@ -71,11 +71,6 @@ spec:
             # Sandbox 설정 (Code 노드 실행용)
             - name: SANDBOX_URL
               value: "http://sandbox-service.default.svc.cluster.local:8194"
-            - name: SANDBOX_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: SANDBOX_API_KEY
             # S3 설정 (파일 처리용)
             - name: STORAGE_TYPE
               value: "CLOUD"
@@ -88,12 +83,11 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: ENCRYPTION_KEY
-          # [FIX] 리소스 증가 (worker_concurrency 16 대응)
           resources:
             requests:
-              cpu: 1000m # 200m → 1000m (5배)
-              memory: 1Gi # 256Mi → 1Gi (4배)
+              cpu: 200m
+              memory: 512Mi 
             limits:
-              cpu: 2000m # 500m → 2000m (4배)
-              memory: 2Gi # 512Mi → 2Gi (4배)
+              cpu: 500m 
+              memory: 2Gi 
 

@@ -6,6 +6,8 @@ import { X, Clock, ChevronRight, CheckCircle2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { Tag } from '@/app/features/app/components/Tag';
+import { getModuleTags } from '@/app/features/app/utils/tagUtils';
 
 export function VersionHistorySidebar() {
   const {
@@ -76,7 +78,7 @@ export function VersionHistorySidebar() {
 
   return (
     <>
-      <div className="absolute top-26 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200">
+      <div className="absolute top-18 right-2 bottom-2 w-[400px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col rounded-xl animate-in slide-in-from-right duration-200">
         {/* 헤더 */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-2 text-gray-800">
@@ -186,33 +188,15 @@ export function VersionHistorySidebar() {
                         onClick={() => previewVersion(v)}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${
-                              v.type === 'api'
-                                ? 'bg-blue-100 text-blue-700'
-                                : v.type === 'webapp'
-                                  ? 'bg-green-100 text-green-700'
-                                  : v.type === 'widget'
-                                    ? 'bg-purple-100 text-purple-700'
-                                    : v.type === 'workflow_node'
-                                      ? 'bg-orange-100 text-orange-700'
-                                      : v.type === 'SCHEDULE'
-                                        ? 'bg-violet-100 text-violet-700'
-                                        : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            {v.type === 'api'
-                              ? 'API'
-                              : v.type === 'webapp'
-                                ? '웹앱'
-                                : v.type === 'widget'
-                                  ? '위젯'
-                                  : v.type === 'workflow_node'
-                                    ? '모듈'
-                                    : v.type === 'SCHEDULE'
-                                      ? '알람'
-                                      : 'MCP'}
-                          </span>
+                          {(() => {
+                            const tags = getModuleTags({
+                              active_deployment_type: v.type,
+                            } as any);
+                            const tag = tags[0];
+                            return tag ? (
+                              <Tag label={tag.label} type={tag.type} />
+                            ) : null;
+                          })()}
                           <span
                             className={`font-medium text-base truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}
                           >

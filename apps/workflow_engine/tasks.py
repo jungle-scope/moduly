@@ -4,11 +4,15 @@ Workflow-Engine Celery 태스크 정의
 """
 
 import asyncio
+import logging
 import uuid
 from typing import Any, Dict
 
 from apps.shared.celery_app import celery_app
 from apps.shared.db.session import SessionLocal
+from apps.shared.pubsub import close_async_redis_client
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="workflow.execute", bind=True, max_retries=3)
@@ -31,13 +35,14 @@ def execute_workflow(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
     # [FIX] 명시적 이벤트 루프 관리 (메모리 누수 방지)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    sync_result = {}
     try:
         # [NEW] DB Knowledge Base 동기화 (Sync Hook)
         try:
@@ -47,9 +52,9 @@ def execute_workflow(
 
                 user_id = uuid.UUID(user_id_str)
                 syncer = SyncService(db=session, user_id=user_id)
-                syncer.sync_knowledge_bases(graph)
+                sync_result = syncer.sync_knowledge_bases(graph)
         except Exception as e:
-            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+            logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
@@ -59,18 +64,21 @@ def execute_workflow(
             db=session,
         )
 
-        # 워크플로우 실행 (async → sync 변환)
+        # 워크플로우 실행 (async → sync 변환 )
         result = loop.run_until_complete(engine.execute())
-        return {"status": "success", "result": result}
+        return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
-        print(f"[Workflow-Engine] execute_workflow 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        logger.error(f"[Workflow-Engine] execute_workflow 실패: {e}")
+        # Session 객체 참조를 제거하기 위해 예외를 새로 생성
+        raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
         # [FIX] 명시적 리소스 정리 (메모리 누수 방지)
         if engine is not None:
             engine.cleanup()
         session.close()
+        # [FIX] Redis 클라이언트 정리 (Event Loop Closed 오류 방지)
+        loop.run_until_complete(close_async_redis_client())
         loop.close()
         asyncio.set_event_loop(None)
 
@@ -93,9 +101,8 @@ def execute_deployed_workflow(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
-
     from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
@@ -120,6 +127,7 @@ def execute_deployed_workflow(
         # execution_context에 workflow_id 추가
         execution_context["workflow_id"] = workflow_id
 
+        sync_result = {}
         # [NEW] DB Knowledge Base 동기화 (Sync Hook)
         try:
             user_id_str = execution_context.get("user_id")
@@ -128,9 +136,9 @@ def execute_deployed_workflow(
 
                 user_id = uuid.UUID(user_id_str)
                 syncer = SyncService(db=session, user_id=user_id)
-                syncer.sync_knowledge_bases(graph)
+                sync_result = syncer.sync_knowledge_bases(graph)
         except Exception as e:
-            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+            logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
@@ -142,16 +150,19 @@ def execute_deployed_workflow(
 
         # 워크플로우 실행 (async → sync 변환)
         result = loop.run_until_complete(engine.execute())
-        return {"status": "success", "result": result}
+        return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
-        print(f"[Workflow-Engine] execute_deployed_workflow 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        logger.error(f"[Workflow-Engine] execute_deployed_workflow 실패: {e}")
+        # Session 객체 참조를 제거하기 위해 예외를 새로 생성
+        raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
         # [FIX] 명시적 리소스 정리 (메모리 누수 방지)
         if engine is not None:
             engine.cleanup()
         session.close()
+        # [FIX] Redis 클라이언트 정리 (Event Loop Closed 오류 방지)
+        loop.run_until_complete(close_async_redis_client())
         loop.close()
         asyncio.set_event_loop(None)
 
@@ -174,9 +185,8 @@ def execute_by_deployment(
     Returns:
         워크플로우 실행 결과
     """
-    from workflow.core.workflow_engine import WorkflowEngine
-
     from apps.shared.db.models.workflow_deployment import WorkflowDeployment
+    from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
     session = SessionLocal()
     engine = None
@@ -198,6 +208,7 @@ def execute_by_deployment(
             raise ValueError(f"배포 그래프 데이터가 없습니다: {deployment_id}")
 
         # [NEW] DB Knowledge Base 동기화 (Sync Hook)
+        sync_result = {}
         try:
             user_id_str = execution_context.get("user_id")
             if user_id_str:
@@ -205,9 +216,9 @@ def execute_by_deployment(
 
                 user_id = uuid.UUID(user_id_str)
                 syncer = SyncService(db=session, user_id=user_id)
-                syncer.sync_knowledge_bases(deployment.graph_snapshot)
+                sync_result = syncer.sync_knowledge_bases(deployment.graph_snapshot)
         except Exception as e:
-            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+            logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=deployment.graph_snapshot,
@@ -219,16 +230,19 @@ def execute_by_deployment(
 
         # 워크플로우 실행 (async → sync 변환)
         result = loop.run_until_complete(engine.execute())
-        return {"status": "success", "result": result}
+        return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
-        print(f"[Workflow-Engine] execute_by_deployment 실패: {e}")
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        logger.error(f"[Workflow-Engine] execute_by_deployment 실패: {e}")
+        # Session 객체 참조를 제거하기 위해 예외를 새로 생성
+        raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
         # [FIX] 명시적 리소스 정리 (메모리 누수 방지)
         if engine is not None:
             engine.cleanup()
         session.close()
+        # [FIX] Redis 클라이언트 정리 (Event Loop Closed 오류 방지)
+        loop.run_until_complete(close_async_redis_client())
         loop.close()
         asyncio.set_event_loop(None)
 
@@ -268,6 +282,7 @@ def stream_workflow(
         execution_context["workflow_run_id"] = external_run_id
 
         # [NEW] DB Knowledge Base 동기화 (Sync Hook)
+        sync_result = {}
         try:
             user_id_str = execution_context.get("user_id")
             if user_id_str:
@@ -275,9 +290,16 @@ def stream_workflow(
 
                 user_id = uuid.UUID(user_id_str)
                 syncer = SyncService(db=session, user_id=user_id)
-                syncer.sync_knowledge_bases(graph)
+                sync_result = syncer.sync_knowledge_bases(graph)
+
+                # 실패 내역이 있으면 이벤트 발행
+                if sync_result.get("failed"):
+                    from apps.shared.pubsub import publish_workflow_event
+
+                    publish_workflow_event(external_run_id, "sync_warning", sync_result)
+
         except Exception as e:
-            print(f"[워크플로우엔진] 동기화 훅 실패: {e}")
+            logger.error(f"[Workflow-Engine] 동기화 훅 실패: {e}")
 
         engine = WorkflowEngine(
             graph=graph,
@@ -301,19 +323,22 @@ def stream_workflow(
             return final_result
 
         result = loop.run_until_complete(run_stream())
-        return {"status": "success", "result": result}
+        return {"status": "success", "result": result, "sync_status": sync_result}
 
     except Exception as e:
-        print(f"[Workflow-Engine] stream_workflow 실패: {e}")
+        logger.error(f"[Workflow-Engine] stream_workflow 실패: {e}")
         # 에러 이벤트도 Pub/Sub으로 발행
         from apps.shared.pubsub import publish_workflow_event
 
         publish_workflow_event(external_run_id, "error", {"message": str(e)})
-        raise self.retry(exc=e, countdown=2**self.request.retries)
+        # Session 객체 참조를 제거하기 위해 예외를 새로 생성
+        raise self.retry(exc=Exception(str(e)), countdown=2**self.request.retries)
     finally:
         # [FIX] 명시적 리소스 정리 (메모리 누수 방지)
         if engine is not None:
             engine.cleanup()
         session.close()
+        # [FIX] Redis 클라이언트 정리 (Event Loop Closed 오류 방지)
+        loop.run_until_complete(close_async_redis_client())
         loop.close()
         asyncio.set_event_loop(None)

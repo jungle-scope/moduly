@@ -4,6 +4,7 @@
 사용자의 자연어 설명을 기반으로 Code Node에서 실행 가능한 Python 코드를 생성합니다.
 """
 
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,17 +12,16 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.dependencies import get_current_user
+from apps.gateway.services.llm_service import LLMService
 from apps.shared.db.models.llm import LLMCredential, LLMProvider
 from apps.shared.db.models.user import User
 from apps.shared.db.session import get_db
-from apps.gateway.services.llm_service import LLMService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 # === Request/Response Schemas ===
-
-
 class CodeGenerateRequest(BaseModel):
     """코드 생성 요청"""
 
@@ -151,9 +151,7 @@ def check_credentials(
     """
     credential = (
         db.query(LLMCredential)
-        .filter(
-            LLMCredential.user_id == current_user.id, LLMCredential.is_valid == True
-        )
+        .filter(LLMCredential.user_id == current_user.id, LLMCredential.is_valid)
         .first()
     )
 
@@ -161,7 +159,7 @@ def check_credentials(
 
 
 @router.post("/generate", response_model=CodeGenerateResponse)
-def generate_code(
+async def generate_code(
     request: CodeGenerateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -175,9 +173,7 @@ def generate_code(
     # 1. 유효한 credential 확인
     credential = (
         db.query(LLMCredential)
-        .filter(
-            LLMCredential.user_id == current_user.id, LLMCredential.is_valid == True
-        )
+        .filter(LLMCredential.user_id == current_user.id, LLMCredential.is_valid)
         .first()
     )
 
@@ -238,7 +234,7 @@ def generate_code(
         ]
 
         # 6. LLM 호출
-        response = client.invoke(messages, temperature=0.3, max_tokens=2000)
+        response = await client.invoke(messages, temperature=0.3, max_tokens=2000)
 
         # 7. 응답 파싱 (여러 형식 지원)
         generated_code = ""
@@ -256,7 +252,7 @@ def generate_code(
             generated_code = response
 
         if not generated_code:
-            print(f"[code_wizard] Unknown response format: {response}")
+            logger.error(f"Unknown response format: {response}")
             raise HTTPException(status_code=500, detail="AI 응답을 파싱할 수 없습니다.")
 
         # 8. 코드 정제 (마크다운 코드 블록 제거)
@@ -270,17 +266,17 @@ def generate_code(
             warnings = validation_result["warnings"]
             if warnings:
                 # 경고가 있지만 코드는 반환 (프론트에서 표시 가능)
-                print(f"[code_wizard] Code warnings: {warnings}")
+                logger.warning(f"Code warnings: {warnings}")
         else:
             generated_code = validation_result["code"]
 
         return {"generated_code": generated_code}
 
     except ValueError as e:
-        print(f"[code_wizard] ValueError: {e}")
+        logger.error(f"ValueError: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"[code_wizard] Error: {type(e).__name__}: {e}")
+        logger.error(f"Error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=f"코드 생성 중 오류 발생: {str(e)}")
 
 
@@ -306,12 +302,6 @@ def _clean_code_response(code: str) -> str:
 def _validate_and_fix_code(code: str) -> dict:
     """
     LLM이 생성한 코드를 검증하고, 가능하면 자동 수정합니다.
-
-    자동 수정 항목:
-    1. def main(inputs): 함수 정의 없음 → 전체 코드를 main 함수로 래핑
-    2. 다른 함수명 사용 → main으로 교체
-    3. print() 사용 → return으로 변환
-    4. 단순값 return → dict로 래핑
 
     Returns:
         {

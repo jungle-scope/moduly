@@ -81,7 +81,7 @@ export function LLMReferenceSidePanel({
         }
       } catch (err) {
         console.error('Failed to load knowledge bases', err);
-        setError('참고 자료를 불러오지 못했습니다.');
+        setError('지식을 불러오지 못했습니다.');
       } finally {
         setLoading(false);
       }
@@ -153,9 +153,9 @@ export function LLMReferenceSidePanel({
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-indigo-600" />
           <div>
-            <h3 className="font-semibold text-gray-800 text-sm">참고 자료</h3>
+            <h3 className="font-semibold text-gray-800 text-sm">지식 베이스</h3>
             <p className="text-[10px] text-gray-500 mt-0.5">
-              LLM이 참조할 참고 자료 그룹을 선택합니다
+              LLM이 참조할 지식 베이스를 선택합니다
             </p>
           </div>
         </div>
@@ -173,7 +173,7 @@ export function LLMReferenceSidePanel({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">
-              참고 자료 그룹 선택
+              지식 베이스 선택
             </span>
             <span className="text-xs text-gray-500">
               선택됨:{' '}
@@ -243,12 +243,12 @@ export function LLMReferenceSidePanel({
                     {isExpanded ? (
                       <>
                         <ChevronUp className="w-3 h-3" />
-                        참고 자료 목록 숨기기
+                        지식 목록 숨기기
                       </>
                     ) : (
                       <>
                         <ChevronDown className="w-3 h-3" />
-                        참고 자료 목록 보기
+                        지식 목록 보기
                       </>
                     )}
                   </button>
@@ -311,7 +311,7 @@ export function LLMReferenceSidePanel({
 
             {!loading && knowledgeBases.length === 0 && !error && (
               <div className="rounded border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-600">
-                완료된 문서가 있는 참고 자료 그룹이 없습니다.
+                완료된 문서가 있는 지식 베이스가 없습니다.
               </div>
             )}
           </div>
@@ -422,7 +422,7 @@ export function LLMReferenceSidePanel({
         <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-1">
           <p className="text-xs font-medium text-blue-800">💡 사용 방법</p>
           <p className="text-[11px] text-blue-700">
-            선택한 참고 자료 그룹에서 사용자 프롬프트를 기반으로 관련 문서를
+            선택한 지식 베이스에서 사용자 프롬프트를 기반으로 관련 문서를
             검색하여 LLM에 컨텍스트로 제공합니다.
           </p>
         </div>

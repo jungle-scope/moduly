@@ -413,6 +413,7 @@ export const WorkflowNode = memo(
         sourceHandleStyle={
           isExpanded ? { top: '56px', right: '-12px' } : undefined
         }
+        titleClassName={isExpanded ? '' : undefined}
       >
         {/* 토글 버튼: 우측 상단 절대 위치 */}
         <button

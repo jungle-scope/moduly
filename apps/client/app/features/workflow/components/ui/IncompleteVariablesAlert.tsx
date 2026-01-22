@@ -1,6 +1,5 @@
 import { VariableWithSelector } from '@/app/features/workflow/utils/validationUtils';
 
-
 interface IncompleteVariablesAlertProps {
   variables: VariableWithSelector[];
 }
@@ -14,17 +13,22 @@ export function IncompleteVariablesAlert({
 
   return (
     <div className="bg-orange-50 border border-orange-200 rounded p-2 text-orange-700 text-xs mt-2">
-      <p className="font-semibold flex items-center gap-1">
-        ⚠️ 변수의 노드/출력이 선택되지 않았습니다:
-      </p>
-      <ul className="list-disc list-inside">
-        {variables.map((v, i) => (
-          <li key={i}>{v.name}</li>
-        ))}
-      </ul>
-      <p className="mt-1 text-[10px] text-orange-500">
-        실행 시 빈 값으로 대체됩니다.
-      </p>
+      <div className="flex items-start gap-1.5">
+        <span>⚠️</span>
+        <div className="flex flex-col gap-0.5">
+          <span>
+            <strong>
+              {variables
+                .map((v, i) => v.name?.trim() || `입력변수 ${i + 1}`)
+                .join(', ')}
+            </strong>
+            {variables.length === 1 ? '이' : '가'} 연결되지 않았어요.
+          </span>
+          <span className="text-[10px] text-orange-500">
+            연결할 노드와 출력을 선택해주세요.
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

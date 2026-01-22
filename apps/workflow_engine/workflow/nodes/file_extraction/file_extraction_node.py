@@ -1,5 +1,7 @@
+import logging
 import os
 import tempfile
+import concurrent.futures
 from typing import Any, Dict, Optional
 
 import pymupdf4llm
@@ -7,6 +9,12 @@ import requests
 
 from ..base.node import Node
 from .entities import FileExtractionNodeData
+
+# CPU 바운드 작업을 위한 전용 Executor (모듈 레벨 공유)
+# max_workers는 서버 사양에 맞게 조절 (예: CPU 코어 수 * 2 등)
+_cpu_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+logger = logging.getLogger(__name__)
 
 
 class FileExtractionNode(Node[FileExtractionNodeData]):
@@ -23,9 +31,11 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
 
     node_type = "fileExtractionNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        문서 파일에서 텍스트를 추출합니다.
+        문서 파일에서 텍스트를 추출합니다 (비동기).
+        I/O 작업(다운로드)와 CPU 작업(PDF 변환)을 분리하여 처리합니다.
+        CPU 바운드 작업은 전용 Executor를 사용하여 이벤트 루프 블로킹을 방지합니다.
 
         Args:
             inputs: 이전 노드 결과 (변수 풀)
@@ -37,8 +47,10 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                 "user_var2": "전체 텍스트..."
             }
         """
+        import asyncio
 
-        # 필수값 검증
+        loop = asyncio.get_running_loop()
+
         if not self.data.referenced_variables:
             raise ValueError("파일 경로 변수를 선택해주세요.")
 
@@ -70,11 +82,14 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
             # 파일 준비 (S3 URL이면 다운로드, 로컬이면 경로 확인)
             is_remote = file_path.startswith("http")
             temp_file_path = None
+            target_path = None
 
             try:
                 if is_remote:
-                    # S3/HTTP URL에서 파일 다운로드
-                    temp_file_path = self._download_file(file_path)
+                    # S3/HTTP URL에서 파일 다운로드 (I/O Bound -> Default Executor)
+                    temp_file_path = await loop.run_in_executor(
+                        None, self._download_file, file_path
+                    )
                     target_path = temp_file_path
                 else:
                     # 로컬 파일 확인
@@ -84,18 +99,15 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                         )
                     target_path = file_path
 
-                # 문서 텍스트 추출
-                try:
-                    md_text_chunks = pymupdf4llm.to_markdown(
-                        target_path, page_chunks=True
-                    )
-                except Exception as e:
-                    raise ValueError(
-                        f"문서 파싱 실패: {str(e)} (변수: {output_name}, 파일: {file_path})"
-                    )
-
-                # 전체 텍스트 합치기
-                full_text = "\n\n".join([chunk["text"] for chunk in md_text_chunks])
+                # 문서 텍스트 추출 (CPU Bound -> Dedicated Executor)
+                # pymupdf4llm은 CPU를 많이 사용하므로 별도 스레드 풀에서 실행
+                full_text = await loop.run_in_executor(
+                    _cpu_executor,
+                    self._extract_text_sync,
+                    target_path,
+                    output_name,
+                    file_path,
+                )
                 results[output_name] = full_text
 
             finally:
@@ -104,9 +116,24 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                     try:
                         os.remove(temp_file_path)
                     except Exception as e:
-                        print(f"[Warning] Failed to remove temp file: {e}")
+                        logger.warning(f"Failed to remove temp file: {e}")
 
         return results
+
+    def _extract_text_sync(
+        self, target_path: str, output_name: str, original_path: str
+    ) -> str:
+        """
+        실제 PDF 파싱을 수행하는 동기 함수 (CPU Bound).
+        별도의 Executor에서 실행되어야 합니다.
+        """
+        try:
+            md_text_chunks = pymupdf4llm.to_markdown(target_path, page_chunks=True)
+            return "\n\n".join([chunk["text"] for chunk in md_text_chunks])
+        except Exception as e:
+            raise ValueError(
+                f"문서 파싱 실패: {str(e)} (변수: {output_name}, 파일: {original_path})"
+            )
 
     def _extract_value_from_selector(
         self, selector: list[str], inputs: Dict[str, Any]

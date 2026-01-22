@@ -121,6 +121,7 @@ def get_deployment_info_public(
 
     return DeploymentInfoResponse(
         url_slug=app.url_slug,
+        name=app.name,
         version=deployment.version,
         description=deployment.description,
         type=deployment.type.value,

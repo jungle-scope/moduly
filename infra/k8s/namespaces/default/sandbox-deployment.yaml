@@ -1,14 +1,18 @@
-# Sandbox Deployment with Proxy Sidecar
-# 
-# Multi-container Pod:
-# - Sandbox: Dify sandbox (code execution)
-# - Proxy: Squid proxy (security layer)
-# 
-# Security:
-# - All Sandbox traffic goes through Proxy
-# - Proxy blocks AWS metadata, private IPs
-# - HTTP_PROXY environment variable routing
-# 
+# Moduly Sandbox Deployment
+#
+# NSJail 기반 Python 코드 실행 샌드박스
+# - Fair Scheduler (MLFQ + Round-Robin + Aging)
+# - SJF 기반 우선순위 자동 결정
+# - EMA 기반 동적 워커 스케일링
+#
+# 보안:
+# - NSJail을 통한 프로세스 격리 (Linux namespace, cgroups)
+# - 네트워크 기본 차단 (enable_network 옵션으로 제어)
+# - 비root 사용자 실행
+# - 리소스 제한 (CPU, 메모리, 시간)
+#
+# 주의: NSJail은 privileged 모드 또는 특정 capabilities 필요
+#
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,67 +30,86 @@ spec:
         app: sandbox
     spec:
       containers:
-      # Main Container: Dify Sandbox
-      - name: sandbox
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-sandbox:latest
-        ports:
-        - containerPort: 8194
-          name: http
-        env:
-        # Proxy 설정 (모든 HTTP/HTTPS 트래픽을 Proxy로)
-        - name: HTTP_PROXY
-          value: "http://localhost:3128"
-        - name: HTTPS_PROXY
-          value: "http://localhost:3128"
-        - name: NO_PROXY
-          value: "localhost,127.0.0.1,.svc,.cluster.local,sandbox-service"
-        # Sandbox API 키
-        - name: API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: SANDBOX_API_KEY
-        # 타임존
-        - name: TZ
-          value: "Asia/Seoul"
-        resources:
-          requests:
-            cpu: 200m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8194
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8194
-          initialDelaySeconds: 10
-          periodSeconds: 5
-      
-      # Sidecar Container: Squid Proxy
-      - name: proxy
-        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-ssrf-proxy:latest
-        ports:
-        - containerPort: 3128
-          name: proxy
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 200m
-            memory: 256Mi
-        livenessProbe:
-          tcpSocket:
-            port: 3128
-          initialDelaySeconds: 10
-          periodSeconds: 10
+        - name: sandbox
+          image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-sandbox:latest
+          ports:
+            - containerPort: 8194
+              name: http
+          env:
+            # ===== 기본 설정 =====
+            - name: TZ
+              value: "Asia/Seoul"
+
+            # ===== 워커 풀 설정 =====
+            - name: SANDBOX_MIN_WORKERS
+              value: "2"
+            - name: SANDBOX_MAX_WORKERS
+              value: "8"
+            - name: SANDBOX_WORKER_IDLE_TIMEOUT
+              value: "30"
+
+            # ===== 동적 스케일링 (EMA) =====
+            - name: SANDBOX_SCALING_INTERVAL
+              value: "1"
+            - name: SANDBOX_EMA_ALPHA
+              value: "0.2"
+            - name: SANDBOX_TARGET_RPS_PER_WORKER
+              value: "2.0"
+            - name: SANDBOX_SCALE_DOWN_COOLDOWN
+              value: "30"
+            - name: SANDBOX_SCALE_DOWN_IDLE_TIME
+              value: "30"
+
+            # ===== 실행 제한 =====
+            - name: SANDBOX_DEFAULT_TIMEOUT
+              value: "10"
+            - name: SANDBOX_MAX_TIMEOUT
+              value: "60"
+            - name: SANDBOX_MAX_MEMORY_MB
+              value: "128"
+
+            # ===== 큐 설정 =====
+            - name: SANDBOX_MAX_QUEUE_SIZE
+              value: "1000"
+
+            # ===== Fair Scheduler =====
+            - name: SANDBOX_MAX_PER_TENANT
+              value: "3"
+            - name: SANDBOX_AGING_INTERVAL
+              value: "5"
+            - name: SANDBOX_AGING_THRESHOLD_LOW
+              value: "15" # LOW → NORMAL 승급 기준 (초)
+            - name: SANDBOX_AGING_THRESHOLD_NORMAL
+              value: "30" # NORMAL → HIGH 승급 기준 (초)
+            - name: SANDBOX_QUEUE_CLEANUP_INTERVAL
+              value: "300" # 빈 큐 정리 주기 (초)
+            - name: SANDBOX_QUEUE_IDLE_TIMEOUT
+              value: "600" # 빈 큐 삭제 기준 (초)
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          # NSJail 실행을 위한 보안 설정
+          securityContext:
+            privileged: true # NSJail namespace 생성을 위해 필요
+          livenessProbe:
+            httpGet:
+              path: /v1/sandbox/health
+              port: 8194
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /v1/sandbox/health
+              port: 8194
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service
@@ -96,30 +119,32 @@ spec:
   selector:
     app: sandbox
   ports:
-  - port: 8194
-    targetPort: 8194
-    name: http
+    - port: 8194
+      targetPort: 8194
+      name: http
   type: ClusterIP
 ---
+# NetworkPolicy: Sandbox Pod의 외부 통신 제한
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: sandbox-egress-restriction
+  name: sandbox-network-policy
 spec:
   podSelector:
     matchLabels:
       app: sandbox
   policyTypes:
-  - Egress
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8194
   egress:
-  # 1. 로컬 통신 허용 (Sandbox -> Proxy)
-  - to:
-    - podSelector:
-        matchLabels:
-          app: sandbox
-  # 2. DNS 조회를 위한 CoreDNS 허용
-  - ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

@@ -54,7 +54,11 @@ jobs:
       run: |
         aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
     
-    - name: Update Kubernetes deployment
+    - name: Apply deployment configuration
+      run: |
+        kubectl apply -f infra/k8s/namespaces/default/frontend-deployment.yaml
+    
+    - name: Update deployment image
       run: |
         kubectl set image deployment/$DEPLOYMENT_NAME \
           frontend=${{ steps.build-image.outputs.image }} \

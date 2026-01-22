@@ -42,7 +42,8 @@ def test_workflow_node_initialization():
     assert node.node_type == "workflowNode"
 
 
-def test_workflow_node_execution_with_input_mapping():
+@pytest.mark.asyncio
+async def test_workflow_node_execution_with_input_mapping():
     """WorkflowNode가 입력 매핑을 적용하여 서브 워크플로우를 실행하는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -106,7 +107,7 @@ def test_workflow_node_execution_with_input_mapping():
         }
 
         # When
-        result = node.execute(inputs)
+        result = await node.execute(inputs)
 
         # Then
         # 1. App과 Deployment 조회 확인
@@ -128,7 +129,8 @@ def test_workflow_node_execution_with_input_mapping():
         assert node.status == NodeStatus.COMPLETED
 
 
-def test_workflow_node_error_no_db_session():
+@pytest.mark.asyncio
+async def test_workflow_node_error_no_db_session():
     """DB 세션이 없을 때 ValueError를 발생시키는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -139,10 +141,11 @@ def test_workflow_node_error_no_db_session():
 
     # When / Then
     with pytest.raises(ValueError, match="DB session required"):
-        node.execute({})
+        await node.execute({})
 
 
-def test_workflow_node_error_app_not_found():
+@pytest.mark.asyncio
+async def test_workflow_node_error_app_not_found():
     """타겟 App을 찾을 수 없을 때 ValueError를 발생시키는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -157,10 +160,11 @@ def test_workflow_node_error_app_not_found():
 
     # When / Then
     with pytest.raises(ValueError, match="Target App .* not found"):
-        node.execute({})
+        await node.execute({})
 
 
-def test_workflow_node_error_no_active_deployment():
+@pytest.mark.asyncio
+async def test_workflow_node_error_no_active_deployment():
     """활성 배포가 없을 때 ValueError를 발생시키는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -180,10 +184,11 @@ def test_workflow_node_error_no_active_deployment():
 
     # When / Then
     with pytest.raises(ValueError, match="has no active deployment"):
-        node.execute({})
+        await node.execute({})
 
 
-def test_workflow_node_nested_value_extraction():
+@pytest.mark.asyncio
+async def test_workflow_node_nested_value_extraction():
     """중첩된 값 선택자가 올바르게 동작하는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -235,10 +240,11 @@ def test_workflow_node_nested_value_extraction():
         }
 
         # When
-        node.execute(inputs)
+        await node.execute(inputs)
 
         # Then
         call_args = MockEngine.call_args
         sub_workflow_inputs = call_args[0][1]
         assert sub_workflow_inputs["user_name"] == "Alice"
         assert sub_workflow_inputs["user_age"] == 30
+

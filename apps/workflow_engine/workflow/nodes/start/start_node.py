@@ -48,7 +48,7 @@ class StartNode(Node[StartNodeData]):
 
     node_type = "startNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         사용자 입력을 다음 노드로 전달합니다.
 

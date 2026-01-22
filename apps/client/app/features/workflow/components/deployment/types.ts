@@ -1,12 +1,6 @@
 import { InputSchema, OutputSchema } from '../../types/Deployment';
 
 export type DeploymentStep = 'input' | 'success' | 'error';
-export type DeploymentType =
-  | 'api'
-  | 'webapp'
-  | 'widget'
-  | 'workflow_node'
-  | 'SCHEDULE';
 
 export interface DeploymentResult {
   success: boolean;

@@ -1,14 +1,17 @@
 """Webhook 수신 및 캡처 엔드포인트"""
 
+import logging
 from typing import Any, Dict
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
 
 from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App
 from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 from apps.shared.db.session import get_db
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # 캡처 세션용 메모리 저장소 (서버 메모리)
@@ -78,13 +81,10 @@ def run_webhook_workflow(
             "workflow.execute_by_deployment",
             args=[deployment_id, payload, execution_context],
         )
-        print(f"[Webhook Success] Celery task sent for deployment: {deployment_id}")
 
     except Exception as e:
-        print(f"[Webhook Error] Failed to send Celery task: {str(e)}")
-        import traceback
-
-        traceback.print_exc()
+        logger.error(f"[Webhook Error] Failed to send Celery task: {str(e)}")
+        logger.exception("Failed to send Celery task")
 
 
 @router.post("/hooks/{url_slug}")

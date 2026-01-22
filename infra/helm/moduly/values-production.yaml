@@ -1,0 +1,433 @@
+# =============================================================================
+# Moduly Helm Chart - Production Values (AWS EKS Reference)
+# =============================================================================
+# This file contains example configuration for AWS EKS production deployment.
+# Use this as a reference and override specific values for your environment.
+#
+# Usage:
+#   helm install moduly ./infra/helm/moduly -f values-production.yaml
+
+# Global settings
+global:
+  imagePullPolicy: Always  # Always pull latest images in production
+  storageClass: "gp3"      # AWS EBS gp3 storage class
+
+# =============================================================================
+# Application Services
+# =============================================================================
+
+# Gateway (API Server)
+gateway:
+  enabled: true
+  replicaCount: 2  # Higher replica count for production
+  
+  image:
+    repository: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-gateway
+    tag: latest  # Use specific version tags in production
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  env:
+    # Database configuration (using external RDS)
+    DB_HOST: "moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com"
+    DB_PORT: "5432"
+    DB_NAME: "moduly"
+    DB_USER: "postgres"
+    # DB_PASSWORD is in secrets
+    
+    # Redis configuration (using external ElastiCache)
+    REDIS_HOST: "redis-master.default.svc.cluster.local"
+    REDIS_PORT: "6379"
+    REDIS_DB: "0"
+    # REDIS_PASSWORD is in secrets
+    
+    # CORS and Security
+    CORS_ORIGINS: "https://moduly-ai.cloud,https://www.moduly-ai.cloud,http://localhost:3000"
+    # SECRET_KEY is in secrets
+    
+    # Sandbox configuration
+    SANDBOX_URL: "http://{{ .Release.Name }}-sandbox:8194"
+    # SANDBOX_API_KEY is in secrets
+    
+    # Encryption keys for external DB connections
+    # MASTER_KEY and ENCRYPTION_KEY are in secrets
+    
+    # Storage configuration (using S3 with IRSA)
+    STORAGE_TYPE: "CLOUD"
+    S3_BUCKET_NAME: "moduly-dev-file-upload"
+    AWS_REGION: "ap-northeast-2"
+    
+    # Google OAuth (optional)
+    # GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are in secrets
+    
+    # Node environment
+    NODE_ENV: "production"
+  
+  # Service Account with IRSA for S3 access
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::912894834396:role/moduly-gateway-role"
+
+# Worker (Workflow Engine)
+worker:
+  enabled: true
+  replicaCount: 4  # More workers for production workload
+  
+  image:
+    repository: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-workflow-engine
+    tag: latest
+    pullPolicy: Always
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  env:
+    # Database configuration
+    DB_HOST: "moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com"
+    DB_PORT: "5432"
+    DB_NAME: "moduly"
+    DB_USER: "postgres"
+    
+    # Redis configuration
+    REDIS_HOST: "redis-master.default.svc.cluster.local"
+    REDIS_PORT: "6379"
+    REDIS_DB: "0"
+    
+    # Sandbox configuration
+    SANDBOX_URL: "http://{{ .Release.Name }}-sandbox:8194"
+    
+    # Storage configuration
+    S3_BUCKET_NAME: "moduly-dev-file-upload"
+    AWS_REGION: "ap-northeast-2"
+
+# Logger (Logging System)
+logger:
+  enabled: true
+  replicaCount: 2  # More replicas for production
+  
+  image:
+    repository: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-logger
+    tag: latest
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  env:
+    # Database configuration
+    DB_HOST: "moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com"
+    DB_PORT: "5432"
+    DB_NAME: "moduly"
+    DB_USER: "postgres"
+    
+    # Redis configuration
+    REDIS_HOST: "redis-master.default.svc.cluster.local"
+    REDIS_PORT: "6379"
+    REDIS_DB: "0"
+
+# Frontend (Next.js Client)
+frontend:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-client
+    tag: latest
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 3000
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  env:
+    # Next.js backend API URL (internal service)
+    NEXT_PUBLIC_API_URL: "http://{{ .Release.Name }}-gateway:8000"
+    API_URL: "http://{{ .Release.Name }}-gateway:8000"
+
+# Sandbox (Code Execution)
+sandbox:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-sandbox
+    tag: latest
+    pullPolicy: Always
+  
+  # NSJail security context
+  securityContext:
+    privileged: true
+  
+  service:
+    type: ClusterIP
+    port: 8194
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  probes:
+    liveness:
+      path: /v1/sandbox/health
+    readiness:
+      path: /v1/sandbox/health
+
+  env:
+    # Timezone
+    TZ: "Asia/Seoul"
+
+    # Worker Pool Settings
+    SANDBOX_MIN_WORKERS: "2"
+    SANDBOX_MAX_WORKERS: "8"
+    SANDBOX_WORKER_IDLE_TIMEOUT: "30"
+
+    # Dynamic Scaling (EMA)
+    SANDBOX_SCALING_INTERVAL: "1"
+    SANDBOX_EMA_ALPHA: "0.2"
+    SANDBOX_TARGET_RPS_PER_WORKER: "2.0"
+    SANDBOX_SCALE_DOWN_COOLDOWN: "30"
+    SANDBOX_SCALE_DOWN_IDLE_TIME: "30"
+
+    # Execution Limits
+    SANDBOX_DEFAULT_TIMEOUT: "10"
+    SANDBOX_MAX_TIMEOUT: "60"
+    SANDBOX_MAX_MEMORY_MB: "128"
+
+    # Queue Settings
+    SANDBOX_MAX_QUEUE_SIZE: "1000"
+
+    # Fair Scheduler
+    SANDBOX_MAX_PER_TENANT: "3"
+    SANDBOX_AGING_INTERVAL: "5"
+    SANDBOX_AGING_THRESHOLD_LOW: "15"
+    SANDBOX_AGING_THRESHOLD_NORMAL: "30"
+    SANDBOX_QUEUE_CLEANUP_INTERVAL: "300"
+    SANDBOX_QUEUE_IDLE_TIMEOUT: "600"
+  
+  networkPolicy:
+    enabled: true
+
+# =============================================================================
+# Secrets Configuration
+# =============================================================================
+# IMPORTANT: In production, use external secrets management (AWS Secrets Manager, etc.)
+# These should NOT be committed to git.
+
+secrets:
+  # Database password (from AWS Secrets Manager)
+  dbPassword: ""  # Override with --set or external secrets
+  
+  # Redis password
+  redisPassword: ""
+  
+  # JWT secret key
+  secretKey: ""
+  
+  # Master encryption keys
+  masterKey: ""
+  encryptionKey: ""
+  
+  # Sandbox API key
+  sandboxApiKey: ""
+  
+  # Google OAuth
+  googleClientId: ""
+  googleClientSecret: ""
+
+# =============================================================================
+# PostgreSQL (Disabled - Using External RDS)
+# =============================================================================
+postgresql:
+  enabled: false  # Using external AWS RDS instead
+  
+  # External database configuration
+  # Set these via --set flags or external secrets
+  # externalHost: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
+  # externalPort: 5432
+  # externalDatabase: moduly
+  # externalUser: postgres
+  # externalPassword: <from secrets>
+
+# =============================================================================
+# Redis (In-cluster deployment)
+# =============================================================================
+redis:
+  enabled: true  # Using Redis deployed within the cluster
+  
+  architecture: standalone  # Using standalone for now, can upgrade to "replication" for HA
+  
+  auth:
+    enabled: true
+    password: ""  # Override with --set or external secrets
+  
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: "gp3"
+    
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+  
+  # Note: If migrating to external ElastiCache in the future:
+  # 1. Set enabled: false
+  # 2. Update REDIS_HOST in all service env vars to ElastiCache endpoint
+  # 3. Configure external Redis settings as needed
+
+# =============================================================================
+# Ingress (ALB)
+# =============================================================================
+ingress:
+  enabled: true  # Enable for production
+  
+  className: alb  # AWS ALB Ingress Controller
+  
+  annotations:
+    # ALB configuration
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    
+    # HTTPS configuration
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:ap-northeast-2:912894834396:certificate/621853e1-ec5a-4334-9c21-d774be44d965"
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    
+    # Health check
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/success-codes: "200"
+  
+  hosts:
+    - host: moduly-ai.cloud
+      paths:
+        - path: /api
+          pathType: Prefix
+          backend: gateway
+        - path: /static
+          pathType: Prefix
+          backend: gateway
+        - path: /
+          pathType: Prefix
+          backend: frontend
+    
+    - host: www.moduly-ai.cloud
+      paths:
+        - path: /api
+          pathType: Prefix
+          backend: gateway
+        - path: /static
+          pathType: Prefix
+          backend: gateway
+        - path: /
+          pathType: Prefix
+          backend: frontend
+  
+  tls: []  # TLS handled by ACM certificate
+
+# =============================================================================
+# Service Account (IRSA)
+# =============================================================================
+serviceAccount:
+  create: true
+  annotations:
+    # IRSA for S3 access
+    eks.amazonaws.com/role-arn: "arn:aws:iam::912894834396:role/moduly-api-server-role"
+  name: "api-server-sa"
+
+# =============================================================================
+# Pod Security Context
+# =============================================================================
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+
+# =============================================================================
+# Node Selection & Scheduling
+# =============================================================================
+nodeSelector:
+  # Example: Use specific node groups
+  # node.kubernetes.io/instance-type: t3.medium
+
+tolerations: []
+  # Example: Tolerate specific taints
+  # - key: "workload"
+  #   operator: "Equal"
+  #   value: "api"
+  #   effect: "NoSchedule"
+
+affinity:
+  # Example: Pod anti-affinity for HA
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - moduly
+        topologyKey: kubernetes.io/hostname
+
+# =============================================================================
+# Autoscaling (Optional)
+# =============================================================================
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80

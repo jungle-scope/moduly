@@ -1,11 +1,11 @@
 import json
+import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
 import requests
 from sqlalchemy.orm import Session, joinedload
 
-from apps.gateway.services.llm_client.factory import get_llm_client
 from apps.shared.db.models.llm import (
     LLMCredential,
     LLMModel,
@@ -19,6 +19,9 @@ from apps.shared.schemas.llm import (
     LLMModelResponse,
     LLMProviderResponse,
 )
+from apps.shared.services.llm_client import get_llm_client
+
+logger = logging.getLogger(__name__)
 
 
 class LLMService:
@@ -271,6 +274,13 @@ class LLMService:
                 # 네트워크/타임아웃 오류 처리
                 raise ValueError(f"Network error verifying {provider} key: {str(e)}")
 
+            if provider == "google" and remote_models:
+                remote_models = LLMService._filter_google_models(
+                    base_url=base_url,
+                    api_key=api_key,
+                    remote_models=remote_models,
+                )
+
         # Anthropic (앤트로픽)
         elif provider == "anthropic":
             url = base_url.rstrip("/") + "/models"
@@ -332,6 +342,61 @@ class LLMService:
             pass
 
         return remote_models
+
+    @staticmethod
+    def _filter_google_models(
+        base_url: str, api_key: str, remote_models: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Google ListModels 결과를 기반으로 접근 가능한 모델만 남깁니다.
+        - generateContent/embedContent 지원 여부를 확인합니다.
+        - 실패 시 원본 목록을 그대로 반환합니다.
+        """
+        if not remote_models:
+            return remote_models
+
+        native_base = base_url.rstrip("/")
+        if native_base.endswith("/openai"):
+            native_base = native_base[: -len("/openai")]
+        native_url = native_base.rstrip("/") + "/models"
+
+        try:
+            resp = requests.get(
+                native_url,
+                headers={"x-goog-api-key": api_key},
+                timeout=10,
+            )
+        except Exception:
+            return remote_models
+
+        if resp.status_code != 200:
+            return remote_models
+
+        try:
+            payload = resp.json()
+        except ValueError:
+            return remote_models
+
+        allowed_ids = set()
+        for model in payload.get("models", []):
+            name = model.get("name") or ""
+            if not name:
+                continue
+            methods = model.get("supportedGenerationMethods") or []
+            if "generateContent" in methods or "embedContent" in methods:
+                allowed_ids.add(name.replace("models/", ""))
+
+        if not allowed_ids:
+            return remote_models
+
+        filtered = []
+        for rm in remote_models:
+            mid = rm.get("id") or ""
+            clean_id = mid.replace("models/", "")
+            if clean_id in allowed_ids:
+                filtered.append(rm)
+
+        return filtered
 
     @staticmethod
     def _sync_models_to_db(
@@ -546,12 +611,98 @@ class LLMService:
         return True
 
     @staticmethod
+    def sync_credential_models(
+        db: Session,
+        user_id: uuid.UUID,
+        credential_id: uuid.UUID,
+        purge_unverified: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        특정 크리덴셜 기준으로 모델 매핑을 재동기화합니다.
+        - 원격 모델 목록을 가져와 DB 모델을 동기화
+        - 해당 크리덴셜의 모든 매핑을 unverified 처리 후,
+          원격 모델에 포함된 것만 verified로 설정 (fail-closed)
+        """
+        cred = (
+            db.query(LLMCredential)
+            .options(joinedload(LLMCredential.provider))
+            .filter(
+                LLMCredential.id == credential_id,
+                LLMCredential.user_id == user_id,
+            )
+            .first()
+        )
+
+        if not cred:
+            raise ValueError("Credential not found")
+
+        if not cred.is_valid:
+            raise ValueError("Credential is not valid")
+
+        try:
+            cfg = json.loads(cred.encrypted_config)
+            api_key = cfg.get("apiKey")
+            base_url = cfg.get("baseUrl")
+        except Exception:
+            raise ValueError("Invalid credential config")
+
+        remote_models = LLMService._fetch_remote_models(
+            base_url=base_url, api_key=api_key, provider_type=cred.provider.name
+        )
+        db_models = LLMService._sync_models_to_db(db, cred.provider, remote_models)
+
+        # 기존 매핑은 모두 비활성화 (fail-closed)
+        db.query(LLMRelCredentialModel).filter(
+            LLMRelCredentialModel.credential_id == cred.id
+        ).update({LLMRelCredentialModel.is_verified: False}, synchronize_session=False)
+
+        existing_links = {
+            rel.model_id: rel
+            for rel in db.query(LLMRelCredentialModel)
+            .filter(LLMRelCredentialModel.credential_id == cred.id)
+            .all()
+        }
+
+        for model in db_models:
+            rel = existing_links.get(model.id)
+            if rel:
+                rel.is_verified = True
+            else:
+                db.add(
+                    LLMRelCredentialModel(
+                        credential_id=cred.id, model_id=model.id, is_verified=True
+                    )
+                )
+
+        db.flush()
+
+        purged = 0
+        if purge_unverified:
+            purged = (
+                db.query(LLMRelCredentialModel)
+                .filter(
+                    LLMRelCredentialModel.credential_id == cred.id,
+                    LLMRelCredentialModel.is_verified == False,
+                )
+                .delete(synchronize_session=False)
+            )
+
+        db.commit()
+
+        return {
+            "credential_id": str(cred.id),
+            "provider": cred.provider.name,
+            "remote_models": len(remote_models),
+            "verified_models": len(db_models),
+            "purged_models": purged,
+        }
+
+    @staticmethod
     def get_client_for_user(db: Session, user_id: uuid.UUID, model_id: str):
         """
         주어진 model_id를 지원하는 유효한 크리덴셜을 찾습니다.
         우선순위:
-        1. llm_rel_credential_models에서 명시적 권한 확인 (TODO)
-        2. 대체: 해당 model_id를 가진 프로바이더의 유효 크리덴셜 사용
+        1. llm_rel_credential_models에서 명시적 권한 확인 (fail-closed)
         """
         # TODO: Tenant 스키마 도입 시 tenant_id 지원 추가.
         # 현재는 user_id만 필터링합니다.
@@ -563,25 +714,43 @@ class LLMService:
 
         target_model = (
             db.query(LLMModel)
+            .options(joinedload(LLMModel.provider))
             .filter(LLMModel.model_id_for_api_call == model_id)
             .first()
         )
         if not target_model:
-            # 시스템에 없는 모델명이라면? 사용자 크리덴셜 아무거나로 폴백
-            # 위험할 수 있지만 "custom model name" 입력과의 호환을 위한 처리
-            pass
+            # raise ValueError(f"Unknown model_id: {model_id}")
+            # 시스템에 없는 모델명일 경우 처리 (커스텀 모델명 호환성)
+            # 일단 에러 발생시키지 않고 진행하거나, Known 에러로 처리
+            raise ValueError(f"Unknown model_id: {model_id}")
 
+        # [SIMPLIFIED] rel 테이블 조인 대신 프로바이더 매칭으로 단순화
+        # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 유효한 크리덴셜을 찾음
         provider_id = target_model.provider_id if target_model else None
+        cred = LLMService._get_valid_credential_for_user(
+            db, user_id=user_id, provider_id=provider_id
+        )
 
-        cred = LLMService._get_valid_credential_for_user(db, user_id, provider_id)
+        # [FALLBACK] UUID 불일치 시 이름 기반 매칭 (서버/로컬 DB 차이 대응)
+        if not cred and target_model and target_model.provider:
+            cred = (
+                db.query(LLMCredential)
+                .join(LLMProvider)
+                .filter(
+                    LLMCredential.user_id == user_id,
+                    LLMCredential.is_valid == True,
+                    LLMProvider.name == target_model.provider.name,
+                )
+                .order_by(LLMCredential.updated_at.desc())
+                .first()
+            )
 
         if not cred:
-            # 개발 모드 검증 시 플레이스홀더 유저 폴백 시도
-            if user_id != LLMService.PLACEHOLDER_USER_ID:
-                return LLMService.get_client_for_user(
-                    db, LLMService.PLACEHOLDER_USER_ID, model_id
-                )
-
+            logger.error(
+                f"[LLMService] No valid credential found for user_id={user_id}, model_id='{model_id}'. "
+                f"TargetModel: {target_model.name if target_model else 'None'} (ID: {target_model.id if target_model else 'None'}), "
+                f"ProviderID: {provider_id}"
+            )
             raise ValueError(
                 f"유효한 API 키를 찾을 수 없습니다. [설정 > 모델 키 관리]에서 '{model_id}' 모델을 지원하는 API Key를 등록해주세요."
             )
@@ -606,36 +775,11 @@ class LLMService:
     @staticmethod
     def get_client_with_any_credential(db: Session, model_id: Optional[str] = None):
         """
-        [DEPRECATED] 호환/개발 모드: 첫 번째 유효 크리덴셜로 클라이언트를 생성합니다.
-        user_id가 없는 LLMNode 경로에서 사용됩니다.
-        TODO: 모든 워크플로우가 유효한 유저 컨텍스트로 실행되면 제거.
+        [DEPRECATED] 안전성 문제로 비활성화되었습니다.
+        user_id 없는 실행은 허용하지 않습니다.
         """
-        # 1. 유효한 크리덴셜 1개 조회
-        cred = db.query(LLMCredential).filter(LLMCredential.is_valid == True).first()
-        if not cred:
-            raise ValueError(
-                "No valid LLM credential found in system. Please register one via API."
-            )
-
-        # 2. 설정 로드
-        try:
-            cfg = json.loads(cred.encrypted_config)
-            api_key = cfg.get("apiKey")
-            base_url = cfg.get("baseUrl")
-        except:
-            raise ValueError("Invalid credential config")
-
-        # 3. 프로바이더/모델 결정
-        # 프로바이더 타입 조회
-        db.refresh(cred)
-        provider_type = cred.provider.name  # 예: openai
-
-        target_model = model_id if model_id else "gpt-4o"
-
-        return get_llm_client(
-            provider=provider_type,
-            model_id=target_model,
-            credentials={"apiKey": api_key, "baseUrl": base_url},
+        raise ValueError(
+            "Deprecated API: user_id 컨텍스트 없이 LLM 클라이언트를 생성할 수 없습니다."
         )
 
     @staticmethod
@@ -658,26 +802,26 @@ class LLMService:
     ) -> List[LLMModelResponse]:
         """
         사용자의 등록된 크리덴셜을 기반으로 사용 가능한 모든 모델을 반환합니다.
-        프로바이더 ID를 기준으로 조회하므로 별도의 연결 테이블 조인이 필요하지 않습니다.
+        llm_rel_credential_models 기준으로 허용된 모델만 반환합니다.
         """
-        # 1. 해당 사용자의 모든 유효한 크리덴셜 조회
-        user_creds = (
-            db.query(LLMCredential)
-            .filter(LLMCredential.user_id == user_id, LLMCredential.is_valid == True)
-            .all()
-        )
-
-        if not user_creds:
-            return []
-
-        # 2. 프로바이더 ID 추출
-        provider_ids = list({c.provider_id for c in user_creds})
-
-        # 3. 해당 프로바이더에 속한 모델 조회
         models = (
             db.query(LLMModel)
+            .join(
+                LLMRelCredentialModel,
+                LLMRelCredentialModel.model_id == LLMModel.id,
+            )
+            .join(
+                LLMCredential,
+                LLMRelCredentialModel.credential_id == LLMCredential.id,
+            )
             .options(joinedload(LLMModel.provider))
-            .filter(LLMModel.provider_id.in_(provider_ids), LLMModel.is_active == True)
+            .filter(
+                LLMCredential.user_id == user_id,
+                LLMCredential.is_valid == True,
+                LLMRelCredentialModel.is_verified == True,
+                LLMModel.is_active == True,
+            )
+            .distinct()
             .order_by(LLMModel.name)
             .all()
         )
@@ -692,27 +836,23 @@ class LLMService:
         사용자의 크리덴셜에 기반하여 사용 가능한 임베딩 모델 목록을 반환합니다.
         get_my_available_models와 동일하지만 type='embedding'으로 필터링됩니다.
         """
-        # 1. 해당 사용자의 모든 유효한 크리덴셜 조회
-        user_creds = (
-            db.query(LLMCredential)
-            .filter(LLMCredential.user_id == user_id, LLMCredential.is_valid == True)
-            .all()
-        )
-
-        if not user_creds:
-            return []
-
-        # 2. 프로바이더 ID 추출
-        provider_ids = list({c.provider_id for c in user_creds})
-
-        # 3. 해당 프로바이더의 임베딩 모델 조회
         models = (
             db.query(LLMModel)
+            .join(
+                LLMRelCredentialModel,
+                LLMRelCredentialModel.model_id == LLMModel.id,
+            )
+            .join(
+                LLMCredential,
+                LLMRelCredentialModel.credential_id == LLMCredential.id,
+            )
             .options(joinedload(LLMModel.provider))
             .filter(
-                LLMModel.provider_id.in_(provider_ids),
+                LLMCredential.user_id == user_id,
+                LLMCredential.is_valid == True,
+                LLMRelCredentialModel.is_verified == True,
                 LLMModel.is_active == True,
-                LLMModel.type == "embedding",  # 임베딩 모델만
+                LLMModel.type == "embedding",
             )
             .distinct()
             .all()
@@ -765,9 +905,6 @@ class LLMService:
         ):
             input_price = float(model.input_price_1k)
             output_price = float(model.output_price_1k)
-            print(
-                f"[calculate_cost] DB pricing found for '{model_id}': in={input_price}, out={output_price}"
-            )
         else:
             # 2. KNOWN_MODEL_PRICES로 폴백 (정규화된 ID로 시도)
             clean_id = model_id.replace("models/", "")  # Google 접두사 제거
@@ -777,22 +914,10 @@ class LLMService:
             if not pricing:
                 normalized_id = LLMService._normalize_model_id(model_id)
                 pricing = LLMService.KNOWN_MODEL_PRICES.get(normalized_id)
-                if pricing:
-                    print(
-                        f"[calculate_cost] Normalized fallback for '{model_id}' -> '{normalized_id}': in={pricing['input']}, out={pricing['output']}"
-                    )
 
             if pricing:
                 input_price = pricing["input"]
                 output_price = pricing["output"]
-                if clean_id in LLMService.KNOWN_MODEL_PRICES:
-                    print(
-                        f"[calculate_cost] Fallback pricing for '{model_id}' (clean: '{clean_id}'): in={input_price}, out={output_price}"
-                    )
-            else:
-                print(
-                    f"[calculate_cost] NO PRICING FOUND for '{model_id}'. Tried: '{clean_id}', '{LLMService._normalize_model_id(model_id)}'"
-                )
 
         # 3. 가격이 없으면 0 반환
         if input_price is None or output_price is None:
@@ -835,18 +960,18 @@ class LLMService:
                 .first()
             )
         if not model:
-            print(f"[LLMService] Usage log skipped: model '{model_id}' not found.")
+            logger.error(
+                f"[LLMService] Usage log skipped: model '{model_id}' not found."
+            )
             return None
 
         credential = LLMService._get_valid_credential_for_user(
             db, user_id, model.provider_id
         )
-        if not credential and user_id != LLMService.PLACEHOLDER_USER_ID:
-            credential = LLMService._get_valid_credential_for_user(
-                db, LLMService.PLACEHOLDER_USER_ID, model.provider_id
-            )
         if not credential:
-            print(f"[LLMService] Usage log skipped: no credential for user {user_id}.")
+            logger.error(
+                f"[LLMService] Usage log skipped: no credential for user {user_id}."
+            )
             return None
 
         log = LLMUsageLog(

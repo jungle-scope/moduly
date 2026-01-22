@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import uuid
@@ -7,6 +8,8 @@ import boto3
 from fastapi import UploadFile
 
 from apps.gateway.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService(ABC):
@@ -26,7 +29,7 @@ class StorageService(ABC):
 
 
 class LocalStorageService(StorageService):
-    def __init__(self, upload_dir: str = "/tmp/uploads"):  # 컨테이너에서 쓰기 가능
+    def __init__(self, upload_dir: str = "/app/uploads"):  # 컨테이너에서 쓰기 가능
         self.upload_dir = upload_dir
         os.makedirs(self.upload_dir, exist_ok=True)
 
@@ -46,6 +49,25 @@ class LocalStorageService(StorageService):
     def delete(self, file_path: str):
         if os.path.exists(file_path):
             os.remove(file_path)
+
+    def generate_presigned_upload_url(
+        self,
+        filename: str,
+        content_type: str,
+        user_id: str,
+        expires_in: int = 3600,
+    ) -> dict:
+        """
+        LocalStorage를 사용하는 경우 Presigned URL을 지원하지 않으므로,
+        프론트엔드에서 직접 백엔드로 업로드하도록 유도하는 응답을 반환하거나,
+        적절한 예외를 던져서 핸들링하도록 합니다.
+
+        여기서는 None을 반환하여 프론트엔드가 일반 업로드를 수행하도록 합니다.
+        (프론트엔드 로직에 따라 수정 필요할 수 있음)
+        """
+        # 로컬 모드에서는 Presigned URL 생성이 불가능
+        # 프론트엔드가 이 응답을 보고 "일반 업로드"로 전환하도록 신호를 줍니다.
+        return {"use_backend_proxy": True, "url": None, "key": None, "method": None}
 
 
 class S3StorageService(StorageService):
@@ -77,7 +99,7 @@ class S3StorageService(StorageService):
                 },
             )
         except Exception as e:
-            print(f"[ERROR] S3 Upload failed: {e}")
+            logger.error(f"S3 Upload failed: {e}")
             raise e
         finally:
             # 포인터 초기화
@@ -135,7 +157,7 @@ class S3StorageService(StorageService):
                 "method": "PUT",
             }
         except Exception as e:
-            print(f"[ERROR] Presigned URL generation failed: {e}")
+            logger.error(f"Presigned URL generation failed: {e}")
             raise e
 
     def delete(self, file_path: str):
@@ -164,7 +186,7 @@ class S3StorageService(StorageService):
         try:
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=key)
         except Exception as e:
-            print(f"[ERROR] S3 Delete failed: {e}")
+            logger.error(f"S3 Delete failed: {e}")
 
 
 def get_storage_service() -> StorageService:
@@ -172,12 +194,10 @@ def get_storage_service() -> StorageService:
     mode = (settings.STORAGE_TYPE or "LOCAL").upper()
 
     if mode == "LOCAL":
-        print("[Storage] Initializing Local Storage (uploads/)")
         return LocalStorageService()
     elif mode == "CLOUD":
-        print(f"[Storage] Initializing S3 Storage ({settings.S3_BUCKET_NAME})")
         return S3StorageService()
     else:
         # 지원되지 않는 모드인 경우 경고 후 기본값(LOCAL) 사용
-        print(f"[Warning] Unknown STORAGE_TYPE '{mode}', falling back to LOCAL")
+        logger.warning(f"Unknown STORAGE_TYPE '{mode}', falling back to LOCAL")
         return LocalStorageService()

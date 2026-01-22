@@ -6,16 +6,13 @@ import {
   StickyNote,
   Play,
   Trash2,
-  Workflow,
-  ScrollText,
-  Activity,
   Settings,
 } from 'lucide-react';
-import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
 import { NodeSelector } from './NodeSelector';
 import { LogTab } from './tabs/LogTab';
 import { MonitoringTab } from './tabs/MonitoringTab';
 import NodeLibrarySidebar from './NodeLibrarySidebar';
+import { ViewMode } from './EditorViewSwitcher';
 import {
   type NodeDefinition,
   getNodeDefinition,
@@ -30,6 +27,11 @@ import { useDeployment } from '../../hooks/useDeployment';
 import { arrangeConditionNodeChildren } from '../../utils/arrangeConditionNodes';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useNodeCreation } from '../../hooks/useNodeCreation';
+import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { ClockIcon } from '@/app/features/workflow/components/nodes/icons';
+import { DeploymentFlowModal } from '../deployment/DeploymentFlowModal';
 
 import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -40,7 +42,6 @@ import {
   useReactFlow,
   type Viewport,
   type NodeTypes,
-  type Edge,
 } from '@xyflow/react';
 
 import '@xyflow/react/dist/style.css';
@@ -71,21 +72,26 @@ import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { App } from '@/app/features/app/api/appApi';
 import { workflowApi } from '@/app/features/workflow/api/workflowApi';
 import { FileExtractionNodePanel } from '../nodes/file_extraction/components/FileExtractionNodePanel';
+import { VariableExtractionNodePanel } from '../nodes/variable_extraction/components/VariableExtractionNodePanel';
 import { WebhookTriggerNodePanel } from '../nodes/webhook/components/WebhookTriggerNodePanel';
 import { ScheduleTriggerNodePanel } from '../nodes/schedule/components/ScheduleTriggerNodePanel';
 import { LLMParameterSidePanel } from '../nodes/llm/components/LLMParameterSidePanel';
 import { LLMReferenceSidePanel } from '../nodes/llm/components/LLMReferenceSidePanel';
 import { useDragConnectionPreview } from '../../hooks/useDragConnectionPreview';
 import { DragConnectionOverlay } from './DragConnectionOverlay';
-import { MemoryModeToggle, useMemoryMode } from './memory/MemoryModeControls';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { SettingsSidebar } from './SettingsSidebar';
 import { VersionHistorySidebar } from './VersionHistorySidebar';
 import { TestSidebar } from './TestSidebar';
-import { DeploymentFlowModal } from '../deployment/DeploymentFlowModal';
 
-export default function NodeCanvas() {
+interface NodeCanvasProps {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+}
+
+export default function NodeCanvas({
+  viewMode,
+  onViewModeChange,
+}: NodeCanvasProps) {
   const {
     nodes,
     edges,
@@ -113,8 +119,13 @@ export default function NodeCanvas() {
     selectedInnerNode,
   } = useWorkflowStore();
 
-  const { fitView, setViewport, getViewport, screenToFlowPosition, deleteElements } =
-    useReactFlow();
+  const {
+    fitView,
+    setViewport,
+    getViewport,
+    screenToFlowPosition,
+    deleteElements,
+  } = useReactFlow();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
   const [searchModalContext, setSearchModalContext] = useState<{
@@ -139,6 +150,7 @@ export default function NodeCanvas() {
     hasProviderKey,
     memoryModeDescription,
     toggleMemoryMode,
+    appendMemoryFlag,
     modals: memoryModeModals,
   } = useMemoryMode(router, toast);
 
@@ -158,6 +170,7 @@ export default function NodeCanvas() {
     handlePublishAsWidget,
     handlePublishAsWorkflowNode,
     handlePublishAsSchedule,
+    handlePublishAsWebhook,
     handleDeploy,
   } = useDeployment({
     nodes,
@@ -217,13 +230,14 @@ export default function NodeCanvas() {
   });
 
   // 전체화면 모드 변경 시 사이드바 자동 토글
+  // 전체화면 모드 변경 시 사이드바 자동 토글
   useEffect(() => {
-    if (isFullscreen) {
+    if (isFullscreen || viewMode !== 'edit') {
       setIsNodeLibraryOpen(false);
     } else {
       setIsNodeLibraryOpen(true);
     }
-  }, [isFullscreen]);
+  }, [isFullscreen, viewMode]);
 
   useKeyboardShortcut(
     ['Meta', 'k'],
@@ -255,7 +269,12 @@ export default function NodeCanvas() {
       setIsRefPanelOpen(false);
       setShowDeployDropdown(false);
     }
-  }, [isSettingsOpen, isVersionHistoryOpen, isTestPanelOpen]);
+  }, [
+    isSettingsOpen,
+    isVersionHistoryOpen,
+    isTestPanelOpen,
+    setShowDeployDropdown,
+  ]);
 
   const handleSelectApp = useCallback(
     async (app: App & { active_deployment_id?: string; version?: number }) => {
@@ -551,24 +570,13 @@ export default function NodeCanvas() {
     return () => window.removeEventListener('click', handleClick);
   }, [handleCloseContextMenu]);
 
-  // [NEW] 탭 상태
-  const [activeTab, setActiveTab] = useState<'editor' | 'logs' | 'monitoring'>(
-    'editor',
-  );
+  // [NEW] 탭 상태 (Deleted internal logic)
   const [initialLogRunId, setInitialLogRunId] = useState<string | null>(null);
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab');
+  // const tabParam = searchParams.get('tab'); // Moved to parent
   const runIdParam = searchParams.get('runId');
 
-  useEffect(() => {
-    if (tabParam === 'monitoring' || tabParam === 'logs') {
-      setActiveTab(tabParam);
-      setIsNodeLibraryOpen(false);
-    } else if (tabParam === 'editor') {
-      setActiveTab('editor');
-      setIsNodeLibraryOpen(true);
-    }
-  }, [tabParam]);
+  // useEffect for tabParam removed
 
   useEffect(() => {
     if (runIdParam) {
@@ -577,71 +585,26 @@ export default function NodeCanvas() {
   }, [runIdParam]);
 
   return (
-    <div className="flex-1 bg-gradient-to-r from-blue-50 via-white to-blue-50/30 p-2 relative flex flex-col overflow-hidden">
+    <div className="flex-1 bg-white p-2 relative flex flex-col overflow-hidden">
       {/* Main Content Area Container */}
       <div className="flex-1 h-full rounded-xl bg-gray-100 flex flex-col overflow-hidden">
-        {/* Tab Header */}
-        <div className="h-10 min-h-[40px] px-2 pt-2 bg-gray-100 flex items-end justify-between shrink-0">
-          {/* Left: Tab Buttons */}
-          <div className="flex items-end gap-2">
-            <button
-              onClick={() => {
-                setActiveTab('editor');
-                setIsNodeLibraryOpen(true);
-              }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
-                activeTab === 'editor'
-                  ? 'bg-white text-gray-900'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
-              }`}
-            >
-              <Workflow className="w-4 h-4" />
-              편집
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('logs');
-                setIsNodeLibraryOpen(false);
-              }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
-                activeTab === 'logs'
-                  ? 'bg-white text-gray-900'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
-              }`}
-            >
-              <ScrollText className="w-4 h-4" />
-              로그
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('monitoring');
-                setIsNodeLibraryOpen(false);
-              }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg relative z-10 transition-all ${
-                activeTab === 'monitoring'
-                  ? 'bg-white text-gray-900'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
-              }`}
-            >
-              <Activity className="w-4 h-4" />
-              모니터링
-            </button>
-          </div>
-        </div>
+        {/* Tab Header Removed */}
 
         {/* Content Area */}
         <div className="flex-1 relative overflow-hidden">
           {/* 1. Editor Tab Content */}
           <div
             className={`w-full h-full relative flex flex-row gap-2 ${
-              activeTab === 'editor' ? 'flex' : 'hidden'
+              viewMode === 'edit' ? 'flex' : 'hidden'
             }`}
           >
             {/* Node Library Sidebar */}
             <div className="pl-2 pt-2 h-full flex flex-col">
               <div
-                className={`flex-1 rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-in-out z-20 ${
-                  isNodeLibraryOpen ? 'w-64' : 'w-12'
+                className={`flex-1 rounded-xl bg-white transition-all duration-300 ease-in-out z-20 ${
+                  isNodeLibraryOpen
+                    ? 'w-64 border border-gray-200'
+                    : 'w-0 border-none'
                 }`}
               >
                 <NodeLibrarySidebar
@@ -709,10 +672,10 @@ export default function NodeCanvas() {
                   isRight={previewState.isRight}
                 />
 
-                {/* Right: Action Buttons (Moved to Canvas) */}
+                {/* Right: Action Buttons */}
                 <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
-                  {/* Group: Memory | Settings | Version | Test */}
-                  <div className="h-8 flex items-center p-0.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+                  {/* Group: Memory | Settings | Version | Publish */}
+                  <div className="h-9 flex items-center p-0.5 bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="h-full flex items-center px-2">
                       <MemoryModeToggle
                         isEnabled={isMemoryModeEnabled}
@@ -724,152 +687,154 @@ export default function NodeCanvas() {
                     <div className="w-px h-4 bg-gray-200 mx-1" />
                     <button
                       onClick={toggleSettings}
-                      className="h-full px-2 flex items-center gap-1.5 rounded-md transition-colors hover:bg-gray-100 text-gray-600 text-[13px] font-medium"
+                      className="h-full px-3 flex items-center gap-1.5 rounded-md transition-colors hover:bg-gray-100 text-gray-600 text-[13px] font-medium"
                     >
-                      <Settings className="w-3.5 h-3.5" />
+                      <Settings className="w-4 h-4" />
                       <span>설정</span>
                     </button>
                     <div className="w-px h-4 bg-gray-200 mx-1" />
                     <button
                       onClick={toggleVersionHistory}
-                      className="h-full px-2 flex items-center gap-1.5 rounded-md transition-colors hover:bg-gray-100 text-gray-600 text-[13px] font-medium"
+                      className="h-full px-3 flex items-center gap-1.5 rounded-md transition-colors hover:bg-gray-100 text-gray-600 text-[13px] font-medium"
                     >
-                      <ClockIcon className="w-3.5 h-3.5" />
+                      <ClockIcon className="w-4 h-4" />
                       <span>버전</span>
                     </button>
                     <div className="w-px h-4 bg-gray-200 mx-1" />
-                    <button
-                      onClick={toggleTestPanel}
-                      className="h-full px-2 flex items-center gap-1.5 rounded-md transition-colors hover:bg-gray-100 text-blue-600 font-medium text-[13px]"
-                    >
-                      <Play className="w-3.5 h-3.5" />
-                      <span>테스트</span>
-                    </button>
-                  </div>
-
-                  {/* Standalone: Publish */}
-                  <div className="relative">
-                    <button
-                      disabled={!canPublish}
-                      onClick={toggleDeployDropdown}
-                      className={`h-8 px-3.5 font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px] shadow-sm ${
-                        !canPublish
-                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
-                    >
-                      게시하기
-                      <svg
-                        className={`w-3.5 h-3.5 transition-transform ${
-                          showDeployDropdown ? 'rotate-180' : ''
+                    {/* Publish Button (Inside Group) */}
+                    <div className="relative h-full">
+                      <button
+                        disabled={!canPublish}
+                        onClick={toggleDeployDropdown}
+                        className={`h-full px-3 flex items-center gap-1.5 rounded-md transition-colors text-[13px] font-medium ${
+                          !canPublish
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'hover:bg-gray-100 text-gray-600'
                         }`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
+                        <span>게시하기</span>
+                        <svg
+                          className={`w-3.5 h-3.5 transition-transform ${
+                            showDeployDropdown ? 'rotate-180' : ''
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
 
-                    {/* Deployment Dropdown */}
-                    {showDeployDropdown && canPublish && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setShowDeployDropdown(false)}
-                        />
-                        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
-                          {/* Webhook Trigger Deployment */}
-                          {startNode?.type === 'webhookTrigger' && (
-                            <button
-                              onClick={handlePublishAsRestAPI}
-                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="font-medium text-gray-900">
-                                웹훅으로 개시하기
-                              </div>
-                              <div className="text-sm text-gray-500 mt-1">
-                                URL 호출로 실행
-                              </div>
-                            </button>
-                          )}
+                      {/* Deployment Dropdown Menu */}
+                      {showDeployDropdown && canPublish && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setShowDeployDropdown(false)}
+                          />
+                          <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 text-left">
+                            {/* Webhook Trigger Deployment */}
+                            {startNode?.type === 'webhookTrigger' && (
+                              <button
+                                onClick={handlePublishAsWebhook}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  웹훅으로 개시하기
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  URL 호출로 실행
+                                </div>
+                              </button>
+                            )}
 
-                          {/* Schedule Trigger Deployment */}
-                          {startNode?.type === 'scheduleTrigger' && (
-                            <button
-                              onClick={handlePublishAsSchedule}
-                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="font-medium text-gray-900">
-                                스케줄로 개시하기
-                              </div>
-                              <div className="text-sm text-gray-500 mt-1">
-                                설정된 주기에 따라 실행
-                              </div>
-                            </button>
-                          )}
+                            {/* Schedule Trigger Deployment */}
+                            {startNode?.type === 'scheduleTrigger' && (
+                              <button
+                                onClick={handlePublishAsSchedule}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  알람으로 개시하기
+                                </div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  설정된 주기에 따라 실행
+                                </div>
+                              </button>
+                            )}
 
-                          {/* Standard Start Node Deployment Options */}
-                          {(startNode?.type === 'startNode' || !startNode) && (
-                            <>
-                              <button
-                                onClick={handlePublishAsRestAPI}
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                              >
-                                <div className="font-medium text-gray-900">
-                                  REST API로 배포
-                                </div>
-                                <div className="text-sm text-gray-500 mt-1">
-                                  API 키로 접근
-                                </div>
-                              </button>
-                              <div className="border-t border-gray-100 my-1" />
-                              <button
-                                onClick={handlePublishAsWebApp}
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                              >
-                                <div className="font-medium text-gray-900">
-                                  웹 앱으로 배포
-                                </div>
-                                <div className="text-sm text-gray-500 mt-1">
-                                  링크 공유로 누구나 사용
-                                </div>
-                              </button>
-                              <div className="border-t border-gray-100 my-1" />
-                              <button
-                                onClick={handlePublishAsWidget}
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                              >
-                                <div className="font-medium text-gray-900">
-                                  웹사이트에 챗봇 추가하기
-                                </div>
-                                <div className="text-sm text-gray-500 mt-1">
-                                  복사 한 번으로 위젯 연동 완료
-                                </div>
-                              </button>
-                              <div className="border-t border-gray-100 my-1" />
-                              <button
-                                onClick={handlePublishAsWorkflowNode}
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                              >
-                                <div className="font-medium text-gray-900">
-                                  서브 모듈로 배포
-                                </div>
-                                <div className="text-sm text-gray-500 mt-1">
-                                  다른 워크플로우에서 재사용
-                                </div>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </>
-                    )}
+                            {/* Standard Start Node Deployment Options */}
+                            {(startNode?.type === 'startNode' ||
+                              !startNode) && (
+                              <>
+                                <button
+                                  onClick={handlePublishAsRestAPI}
+                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="font-medium text-gray-900">
+                                    REST API로 배포
+                                  </div>
+                                  <div className="text-sm text-gray-500 mt-1">
+                                    내 서비스나 백엔드 서버에서 호출
+                                  </div>
+                                </button>
+                                <div className="border-t border-gray-100 my-1" />
+                                <button
+                                  onClick={handlePublishAsWebApp}
+                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="font-medium text-gray-900">
+                                    공개 웹페이지 생성
+                                  </div>
+                                  <div className="text-sm text-gray-500 mt-1">
+                                    설치 없이 바로 쓸 수 있는 페이지 제공
+                                  </div>
+                                </button>
+                                <div className="border-t border-gray-100 my-1" />
+                                <button
+                                  onClick={handlePublishAsWidget}
+                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="font-medium text-gray-900">
+                                    사이트에 임베드
+                                  </div>
+                                  <div className="text-sm text-gray-500 mt-1">
+                                    스크립트 코드로 내 웹사이트에 삽입
+                                  </div>
+                                </button>
+                                <div className="border-t border-gray-100 my-1" />
+                                <button
+                                  onClick={handlePublishAsWorkflowNode}
+                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="font-medium text-gray-900">
+                                    서브 모듈로 배포
+                                  </div>
+                                  <div className="text-sm text-gray-500 mt-1">
+                                    다른 모듈에서 재사용
+                                  </div>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Standalone: Test Button (Primary) */}
+                  <button
+                    onClick={toggleTestPanel}
+                    className="h-9 px-4 font-medium rounded-lg transition-colors flex items-center gap-1.5 text-[13px] shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    테스트
+                  </button>
                 </div>
 
                 {/* 플로팅 하단 패널 */}
@@ -975,6 +940,13 @@ export default function NodeCanvas() {
                     {selectedNode &&
                       selectedNodeType === 'fileExtractionNode' && (
                         <FileExtractionNodePanel
+                          nodeId={selectedNode.id}
+                          data={selectedNode.data as any}
+                        />
+                      )}
+                    {selectedNode &&
+                      selectedNodeType === 'variableExtractionNode' && (
+                        <VariableExtractionNodePanel
                           nodeId={selectedNode.id}
                           data={selectedNode.data as any}
                         />
@@ -1124,7 +1096,7 @@ export default function NodeCanvas() {
           </div>
 
           {/* 2. Logs Tab Content */}
-          {activeTab === 'logs' && (
+          {viewMode === 'log' && (
             <LogTab
               workflowId={String(activeWorkflowId)}
               initialRunId={initialLogRunId}
@@ -1132,25 +1104,21 @@ export default function NodeCanvas() {
           )}
 
           {/* 3. Monitoring Tab Content */}
-          {activeTab === 'monitoring' && (
+          {viewMode === 'monitoring' && (
             <MonitoringTab
               workflowId={String(activeWorkflowId)}
               onNavigateToLog={(runId) => {
                 setInitialLogRunId(runId);
-                setActiveTab('logs');
+                onViewModeChange('log');
               }}
             />
           )}
         </div>
       </div>
-
-      {/* Memory Mode Modals */}
-      {memoryModeModals}
-
       {/* Sidebars */}
       <SettingsSidebar />
       <VersionHistorySidebar />
-      <TestSidebar />
+      <TestSidebar appendMemoryFlag={appendMemoryFlag} />
 
       {/* Deployment Flow Modal */}
       <DeploymentFlowModal
@@ -1159,6 +1127,9 @@ export default function NodeCanvas() {
         deploymentType={deploymentType}
         onDeploy={handleDeploy}
       />
+
+      {/* Memory Mode Modals */}
+      {memoryModeModals}
     </div>
   );
 }

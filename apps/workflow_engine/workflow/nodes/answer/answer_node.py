@@ -1,9 +1,12 @@
+import logging
 from typing import Any, Dict
 
 from apps.workflow_engine.workflow.core.utils import get_nested_value
 from apps.workflow_engine.workflow.nodes.base.node import Node
 
 from .entities import AnswerNodeData
+
+logger = logging.getLogger(__name__)
 
 
 class AnswerNode(Node[AnswerNodeData]):
@@ -14,7 +17,7 @@ class AnswerNode(Node[AnswerNodeData]):
 
     node_type = "answerNode"
 
-    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         설정된 outputs에 따라 값을 수집하여 반환합니다.
 
@@ -27,20 +30,18 @@ class AnswerNode(Node[AnswerNodeData]):
         """
         result = {}
 
-        print(f"[{self.data.title}] 입력 데이터 수신: {inputs.keys()}")
-
         for output_config in self.data.outputs:
             variable_name = output_config.variable
             selector = output_config.value_selector
 
             # P2: 빈 변수명 검증
             if not variable_name or not variable_name.strip():
-                print(f"[{self.data.title}] 경고: 빈 변수명 - 건너뜀")
+                logger.warning(f"[{self.data.title}] 빈 변수명 - 건너뜀")
                 continue
 
             if not selector or len(selector) < 2:
-                print(
-                    f"[{self.data.title}] 경고: 잘못된 selector 형식 - {variable_name}"
+                logger.warning(
+                    f"[{self.data.title}] 잘못된 selector 형식 - {variable_name}"
                 )
                 result[variable_name] = None
                 continue
@@ -51,8 +52,8 @@ class AnswerNode(Node[AnswerNodeData]):
             source_data = inputs.get(target_node_id)
 
             if source_data is None:
-                print(
-                    f"[{self.data.title}] 경고: 데이터를 찾을 수 없음 - Node: {target_node_id}"
+                logger.warning(
+                    f"[{self.data.title}] 데이터를 찾을 수 없음 - Node: {target_node_id}"
                 )
                 result[variable_name] = None
                 continue
@@ -62,8 +63,8 @@ class AnswerNode(Node[AnswerNodeData]):
                 value = get_nested_value(source_data, selector[1:])
                 result[variable_name] = value
             else:
-                print(
-                    f"[{self.data.title}] 참고: 소스 데이터가 Dict가 아님 - {target_node_id}"
+                logger.warning(
+                    f"[{self.data.title}] 소스 데이터가 Dict가 아님 - {target_node_id}"
                 )
                 result[variable_name] = source_data
 

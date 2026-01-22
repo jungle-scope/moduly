@@ -1,0 +1,21 @@
+{{- if .Values.frontend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "moduly.fullname" . }}-frontend
+  labels:
+    {{- include "moduly.componentLabels" (dict "component" "frontend" "context" .) | nindent 4 }}
+  annotations:
+    {{- with .Values.frontend.service.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.frontend.service.type }}
+  ports:
+  - port: {{ .Values.frontend.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "moduly.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 4 }}
+{{- end }}

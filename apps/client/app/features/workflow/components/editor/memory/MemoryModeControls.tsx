@@ -116,7 +116,7 @@ export function MemoryModeToggle({
 }: MemoryModeToggleProps) {
   return (
     <>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 mr-2">
         <span className="text-xs font-semibold text-gray-700 hidden lg:inline">
           기억모드
         </span>
