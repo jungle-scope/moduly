@@ -164,9 +164,9 @@ class FairScheduler:
             # 트리거 유형에 따른 fallback 우선순위
             fallback_map = {
                 "manual": Priority.HIGH,    # 사용자가 테스트 실행 중 (대기 중)
-                "webhook": Priority.HIGH,   # 외부 시스템 응답 대기
+                "app": Priority.HIGH,       # 웹 앱 호출 (사용자 대기)
                 "api": Priority.NORMAL,     # API 호출 (일반)
-                "app": Priority.NORMAL,     # 웹 앱 호출 (일반)
+                "webhook": Priority.LOW,    # Webhook (비동기 백그라운드)
                 "schedule": Priority.LOW,   # 스케줄 트리거 (백그라운드)
             }
             fallback = fallback_map.get(trigger_mode, Priority.NORMAL)
