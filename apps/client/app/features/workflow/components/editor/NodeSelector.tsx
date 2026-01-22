@@ -25,7 +25,7 @@ export const NodeSelector = ({ onSelect }: NodeSelectorProps) => {
   const hasTriggerNode = startNodeCount > 0;
   const disabledNodeTypes = hasTriggerNode
     ? ['startNode', 'webhookTrigger', 'scheduleTrigger']
-    : [];
+    : ['loopNode'];
 
   const handleHoverNode = (
     nodeId: string | null,

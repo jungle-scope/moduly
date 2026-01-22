@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 질문하기
+    url: https://github.com/jungle-scope/moduly/discussions/new?category=q-a
+    about: 일반적인 질문은 Discussions를 이용해주세요
+
+  - name: 💡 기능 제안
+    url: https://github.com/jungle-scope/moduly/discussions/new?category=ideas
+    about: 새로운 기능 아이디어가 있으신가요?
+
+  - name: 🙌 사용 사례 공유
+    url: https://github.com/jungle-scope/moduly/discussions/new?category=show-and-tell
+    about: Moduly로 만든 것을 공유해주세요!
