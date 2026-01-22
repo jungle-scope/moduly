@@ -302,7 +302,7 @@ class DeploymentService:
         user_inputs: Dict[str, Any],
         auth_token: Optional[str] = None,
         require_auth: bool = True,  # 인증 필요 여부 (기본값: 필요)
-        trigger_mode: str,  # [NEW] 실행 모드 (필수)
+        trigger_mode: str,
     ) -> Dict[str, Any]:
         """
         배포된 워크플로우를 실행합니다.
@@ -363,7 +363,7 @@ class DeploymentService:
 
         # 6. 워크플로우 실행 (Celery 태스크로 위임)
         try:
-            # [NEW] 로깅을 위한 컨텍스트 주입
+            # 로깅을 위한 컨텍스트 주입
             execution_context = {
                 "user_id": str(app.created_by),  # UUID를 문자열로 변환 (JSON 직렬화)
                 "workflow_id": str(app.workflow_id) if app.workflow_id else None,
@@ -379,7 +379,7 @@ class DeploymentService:
                 kwargs={"is_deployed": True},
             )
 
-            # [FIX] 비동기 폴링 패턴으로 결과 대기 (스레드 풀 고갈 방지)
+            # 비동기 폴링 패턴으로 결과 대기 (스레드 풀 고갈 방지)
             import asyncio
             import time
 
