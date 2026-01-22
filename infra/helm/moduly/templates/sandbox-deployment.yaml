@@ -1,0 +1,66 @@
+{{- if .Values.sandbox.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moduly.fullname" . }}-sandbox
+  labels:
+    {{- include "moduly.componentLabels" (dict "component" "sandbox" "context" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.sandbox.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "moduly.componentSelectorLabels" (dict "component" "sandbox" "context" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "moduly.componentSelectorLabels" (dict "component" "sandbox" "context" .) | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml .Values | sha256sum }}
+        checksum/secret: {{ toYaml .Values.secrets | sha256sum }}
+    spec:
+      containers:
+      # Main Container: Sandbox (Code Execution)
+      - name: sandbox
+        image: "{{ .Values.sandbox.image.repository }}:{{ .Values.sandbox.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.sandbox.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.sandbox.service.port }}
+          protocol: TCP
+        
+        # NSJail security context
+        securityContext:
+          {{- toYaml .Values.sandbox.securityContext | nindent 10 }}
+        
+        env:
+        {{- range $key, $value := .Values.sandbox.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        
+        # Sandbox API key (from secrets)
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "moduly.secretName" . }}
+              key: SANDBOX_API_KEY
+
+        resources:
+          {{- toYaml .Values.sandbox.resources | nindent 10 }}
+        
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.sandbox.probes.liveness.path }}
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.sandbox.probes.readiness.path }}
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 3
+{{- end }}

@@ -1,0 +1,85 @@
+# Logger Deployment
+# 
+# 역할: 로깅 및 모니터링 처리
+# 
+# Worker와 동일한 기본 설정:
+# 1. 실행 명령어: 추후 정의
+# 2. 포트: 8080
+# 3. Service: ClusterIP (logger-service)
+# 4. Health Check: 추후 추가 가능
+# 5. 리소스: 100m/128Mi → 200m/256Mi
+# 6. Replicas: 1개
+# 
+# 나중에 수정할 부분:
+# - command와 args (로깅 애플리케이션에 맞게 수정)
+# - 필요시 Health Check 추가
+# - 작업량에 따라 replicas 증가
+# - 리소스 조정 (resources.requests/limits)
+# 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logger
+  labels:
+    app: logger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logger
+  template:
+    metadata:
+      labels:
+        app: logger
+    spec:
+      containers:
+      - name: logger
+        image: 912894834396.dkr.ecr.ap-northeast-2.amazonaws.com/moduly-logger:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DB_HOST
+          value: moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: moduly
+        - name: DB_USER
+          value: postgres
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        - name: REDIS_HOST
+          value: redis-master.default.svc.cluster.local
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_DB
+          value: "0"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: REDIS_PASSWORD
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logger-service
+spec:
+  selector:
+    app: logger
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  type: ClusterIP

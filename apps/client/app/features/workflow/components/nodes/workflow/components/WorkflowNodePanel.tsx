@@ -1,0 +1,266 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useWorkflowStore } from '@/app/features/workflow/store/useWorkflowStore';
+import {
+  WorkflowNodeData,
+  WorkflowVariable,
+  WorkflowNodeInput,
+} from '../../../../types/Nodes';
+import { workflowApi } from '@/app/features/workflow/api/workflowApi';
+import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
+import { RoundedSelect } from '../../../ui/RoundedSelect';
+
+interface WorkflowNodePanelProps {
+  nodeId: string;
+  data: WorkflowNodeData;
+}
+
+export const WorkflowNodePanel: React.FC<WorkflowNodePanelProps> = ({
+  nodeId,
+  data,
+}) => {
+  const { nodes, edges, updateNodeData } = useWorkflowStore();
+  const [targetVariables, setTargetVariables] = useState<WorkflowVariable[]>(
+    [],
+  );
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 1. 대상 워크플로우 정보 가져오기 (배포된 버전 기준)
+  useEffect(() => {
+    const loadTargetDeployment = async () => {
+      // deployment_id가 있으면 우선 사용
+      const targetDeploymentId = data.deployment_id;
+
+      if (!targetDeploymentId) {
+        // deployment_id가 없으면 workflowId로 fallback 시도하지 않음 (버전 불일치 위험)
+        // 하지만 기존 데이터 호환성을 위해 경고만 표시하거나,
+        // workflowId가 있으면 최신 draft라도 보여줄지는 기획적 결정.
+        // 여기서는 배포 ID가 필수라고 가정하고 에러 처리.
+        // (단, 마이그레이션 과도기라면 workflowId로 draft 조회하는 로직을 남겨둘 수도 있음.
+        //  일단 사용자가 "불러온 노드"라고 했으므로 deployment_id가 있을 것임)
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      try {
+        const deployment = await workflowApi.getDeployment(targetDeploymentId);
+
+        if (deployment) {
+          // 1. Output Schema 처리
+          const outputKeys =
+            deployment.output_schema?.outputs?.map((o) => o.variable) || [];
+
+          // 변경사항이 있다면 outputs 업데이트
+          if (JSON.stringify(data.outputs) !== JSON.stringify(outputKeys)) {
+            updateNodeData(nodeId, { outputs: outputKeys });
+          }
+
+          // 2. Input Schema 처리 -> targetVariables
+          if (deployment.input_schema?.variables) {
+            // InputVariable -> WorkflowVariable 변환
+            const mappedVars: WorkflowVariable[] =
+              deployment.input_schema.variables.map((v, idx) => ({
+                id: v.name || `var-${idx}`,
+                name: v.name,
+                label: v.label || v.name,
+                type: (v.type as any) || 'text',
+                required: true, // 배포된 입력은 기본적으로 required라고 가정하거나, 스키마에 required 필드 추가 필요
+              }));
+            setTargetVariables(mappedVars);
+          } else {
+            setTargetVariables([]);
+          }
+        }
+      } catch (err: any) {
+        console.error('Failed to load target deployment:', err);
+        setError('배포 정보를 불러오지 못했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTargetDeployment();
+  }, [data.deployment_id, nodeId, updateNodeData]);
+
+  // 2. 매핑을 위한 상위 노드 목록 (Upstream Nodes)
+  const upstreamNodes = useMemo(() => {
+    return getUpstreamNodes(nodeId, nodes, edges);
+  }, [nodeId, nodes, edges]);
+
+  // 3. 선택자(Selector) 업데이트 처리
+  const handleSelectorUpdate = (
+    targetVarName: string,
+    position: 0 | 1,
+    value: string,
+  ) => {
+    const currentInputs = [...(data.inputs || [])];
+    const existingIdx = currentInputs.findIndex(
+      (i) => i.name === targetVarName,
+    );
+
+    let newInput: WorkflowNodeInput;
+
+    if (existingIdx !== -1) {
+      // Update existing
+      newInput = { ...currentInputs[existingIdx] };
+      const selector = [...newInput.value_selector];
+
+      // Ensure array size
+      if (selector.length < 2) {
+        selector[0] = selector[0] || '';
+        selector[1] = selector[1] || '';
+      }
+
+      selector[position] = value;
+      // 노드 변경 시 출력값 초기화
+      if (position === 0) {
+        selector[1] = '';
+      }
+      newInput.value_selector = selector;
+      currentInputs[existingIdx] = newInput;
+    } else {
+      // Create new
+      const selector = ['', ''];
+      selector[position] = value;
+      newInput = {
+        name: targetVarName,
+        value_selector: selector,
+      };
+      currentInputs.push(newInput);
+    }
+
+    updateNodeData(nodeId, { inputs: currentInputs });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-4 text-sm text-gray-500">
+        Loading target workflow info...
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-4 text-sm text-red-500">{error}</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <CollapsibleSection title="Input Parameters">
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-gray-500 mb-2">
+            대상 워크플로우의 <b>입력 노드</b>에 정의된 변수에 값을 전달합니다.
+          </p>
+
+          {targetVariables.length === 0 ? (
+            <div className="text-center text-xs text-gray-400 py-4 border border-dashed border-gray-300 rounded">
+              입력 변수가 없는 워크플로우입니다.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {targetVariables.map((targetVar) => {
+                // 현재 매핑 찾기
+                const mapping = data.inputs?.find(
+                  (i) => i.name === targetVar.name,
+                );
+                const selectedNodeId = mapping?.value_selector?.[0] || '';
+                const selectedOutputKey = mapping?.value_selector?.[1] || '';
+
+                const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+                const availableOutputs = selectedNode
+                  ? getNodeOutputs(selectedNode)
+                  : [];
+
+                return (
+                  <div
+                    key={targetVar.id}
+                    className="flex flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-700">
+                          {targetVar.name}
+                        </span>
+                        <span className="text-[10px] text-gray-500 px-1.5 py-0.5 bg-gray-200 rounded-full">
+                          {targetVar.type}
+                        </span>
+                      </div>
+                      {targetVar.required && (
+                        <span className="text-[10px] text-red-500">
+                          *Required
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-row gap-2 items-center">
+                      {/* 노드 선택 */}
+                      <div className="flex-[1]">
+                        <RoundedSelect
+                          value={selectedNodeId}
+                          onChange={(val) =>
+                            handleSelectorUpdate(
+                              targetVar.name,
+                              0,
+                              val as string,
+                            )
+                          }
+                          options={[
+                            { label: '노드 선택', value: '' },
+                            ...upstreamNodes.map((n) => ({
+                              label: (n.data.title as string) || n.type,
+                              value: n.id,
+                            })),
+                          ]}
+                          placeholder="노드 선택"
+                          className="p-1.5 text-xs"
+                        />
+                      </div>
+
+                      {/* 출력 선택 */}
+                      <div className="flex-[1] relative">
+                        <RoundedSelect
+                          value={selectedOutputKey}
+                          onChange={(val) =>
+                            handleSelectorUpdate(
+                              targetVar.name,
+                              1,
+                              val as string,
+                            )
+                          }
+                          options={[
+                            {
+                              label: !selectedNodeId
+                                ? '변수 선택'
+                                : '출력 선택',
+                              value: '',
+                            },
+                            ...availableOutputs.map((outKey) => ({
+                              label: outKey,
+                              value: outKey,
+                            })),
+                          ]}
+                          disabled={!selectedNodeId}
+                          placeholder={
+                            !selectedNodeId ? '변수 선택' : '출력 선택'
+                          }
+                          className={`p-1.5 text-xs ${
+                            !selectedNodeId
+                              ? 'bg-gray-100 text-gray-400 border-gray-200'
+                              : 'border-gray-300 bg-white'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+};

@@ -1,0 +1,88 @@
+/* 임베딩된 챗봇을 위한 CSS 입니다. 외부의 (삽입되는 웹사이트) css가 iframe 내용에 영향을 끼치는 것을 방지합니다. */
+
+/* Box sizing reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Prevent external styles from cascading into iframe */
+#embed-chat-root {
+  all: initial;
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reset common elements */
+#embed-chat-root h1,
+#embed-chat-root h2,
+#embed-chat-root h3,
+#embed-chat-root h4,
+#embed-chat-root h5,
+#embed-chat-root h6,
+#embed-chat-root p,
+#embed-chat-root ul,
+#embed-chat-root ol,
+#embed-chat-root li,
+#embed-chat-root blockquote,
+#embed-chat-root pre,
+#embed-chat-root code,
+#embed-chat-root input,
+#embed-chat-root textarea,
+#embed-chat-root button {
+  all: unset;
+  box-sizing: border-box;
+}
+
+/* Ensure proper display values */
+#embed-chat-root div {
+  display: block;
+}
+
+#embed-chat-root span {
+  display: inline;
+}
+
+#embed-chat-root button {
+  cursor: pointer;
+  display: inline-block;
+}
+
+#embed-chat-root input,
+#embed-chat-root textarea {
+  display: block;
+  outline: none;
+}
+
+/* Remove default list styles */
+#embed-chat-root ul,
+#embed-chat-root ol {
+  list-style: none;
+}
+
+/* Ensure links are styled properly if needed */
+#embed-chat-root a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Prevent text selection where not needed */
+#embed-chat-root button,
+#embed-chat-root .no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Allow text selection in input areas */
+#embed-chat-root input,
+#embed-chat-root textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}

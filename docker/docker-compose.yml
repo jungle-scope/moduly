@@ -1,0 +1,339 @@
+version: "3.8"
+
+services:
+  # PostgreSQL Database with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: moduly-postgres
+    environment:
+      POSTGRES_DB: moduly_local
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d moduly_local"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - moduly-network
+
+  # Redis (Celery Broker & Pub/Sub)
+  redis:
+    image: redis:7-alpine
+    container_name: moduly-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - moduly-network
+
+  # Gateway API (FastAPI)
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/gateway/Dockerfile
+    container_name: moduly-gateway
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: moduly_local
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      REDIS_URL: redis://redis:6379/0
+
+      # JWT Secret
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+      # Storage
+      STORAGE_TYPE: ${STORAGE_TYPE:-LOCAL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
+
+      # Proxy
+      HTTP_PROXY: http://proxy:3128
+      HTTPS_PROXY: http://proxy:3128
+      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,redis,workflow_engine,log_system,proxy"
+
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+    # Gateway는 Nginx를 통해서만 접근 (포트 노출 제거)
+    # ports:
+    #   - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      sandbox:
+        condition: service_started
+    volumes:
+      - gateway_uploads:/app/uploads
+    networks:
+      - moduly-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # Workflow Engine (Celery Worker)
+  workflow_engine:
+    build:
+      context: ..
+      dockerfile: docker/workflow_engine/Dockerfile
+    container_name: moduly-workflow-engine
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: moduly_local
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      REDIS_URL: redis://redis:6379/0
+
+      # Security
+      MASTER_KEY: ${MASTER_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+      # Sandbox
+      SANDBOX_URL: http://sandbox:8194
+
+      # Storage
+      STORAGE_TYPE: ${STORAGE_TYPE:-LOCAL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
+
+      # Proxy
+      HTTP_PROXY: http://proxy:3128
+      HTTPS_PROXY: http://proxy:3128
+      NO_PROXY: "localhost,127.0.0.1,sandbox,postgres,redis,gateway,log_system,proxy"
+
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - gateway_uploads:/app/uploads
+    networks:
+      - moduly-network
+
+  # Log System (Celery Worker)
+  log_system:
+    build:
+      context: ..
+      dockerfile: docker/log_system/Dockerfile
+    container_name: moduly-log-system
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: moduly_local
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      REDIS_URL: redis://redis:6379/0
+
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - moduly-network
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/client/Dockerfile
+      args:
+        # Nginx를 통한 API 접근 (브라우저에서 접근 가능)
+        NEXT_PUBLIC_API_URL: http://localhost
+    container_name: moduly-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost
+      API_URL: http://gateway:8000
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: 1
+    depends_on:
+      - gateway
+    networks:
+      - moduly-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000",
+        ]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # Code Execution Sandbox (NSJail-based)
+  sandbox:
+    build:
+      context: ..
+      dockerfile: docker/sandbox/Dockerfile
+    container_name: moduly-sandbox
+    privileged: true # NSJail에 필요 (Namespace 사용)
+    environment:
+      TZ: Asia/Seoul
+      
+      # 네트워크 허용 여부
+      SANDBOX_ENABLE_NETWORK: "${SANDBOX_ENABLE_NETWORK:-false}"
+
+      # 워커 설정
+      SANDBOX_MIN_WORKERS: "${SANDBOX_MIN_WORKERS:-2}"
+      SANDBOX_MAX_WORKERS: "${SANDBOX_MAX_WORKERS:-8}"
+      SANDBOX_WORKER_IDLE_TIMEOUT: 30
+
+      # 동적 스케일링 (EMA)
+      SANDBOX_SCALING_INTERVAL: 1
+      SANDBOX_EMA_ALPHA: 0.2
+      SANDBOX_TARGET_RPS_PER_WORKER: 2.0
+      SANDBOX_SCALE_DOWN_COOLDOWN: 30
+      SANDBOX_SCALE_DOWN_IDLE_TIME: 30
+
+      # 실행 제한
+      SANDBOX_DEFAULT_TIMEOUT: "${SANDBOX_DEFAULT_TIMEOUT:-10}"
+      SANDBOX_MAX_TIMEOUT: 60
+      SANDBOX_MAX_MEMORY_MB: 256
+
+      # 큐 설정
+      SANDBOX_MAX_QUEUE_SIZE: 100
+
+      # Fair Scheduler
+      SANDBOX_MAX_PER_TENANT: "${SANDBOX_MAX_PER_TENANT:-3}"
+      SANDBOX_AGING_INTERVAL: 5
+      SANDBOX_AGING_THRESHOLD_LOW: 15
+      SANDBOX_AGING_THRESHOLD_NORMAL: 30
+    ports:
+      - "8194:8194"
+    networks:
+      - moduly-network
+    mem_limit: 512m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8194/v1/sandbox/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ============================================================================
+  # Nginx Reverse Proxy - 단일 진입점
+  # ============================================================================
+  # 역할: 프론트엔드와 백엔드를 하나의 포트(80)로 통합 제공
+  # - / → Frontend (Next.js)
+  # - /api → Backend (FastAPI)
+  # ============================================================================
+  nginx:
+    build:
+      context: ..
+      dockerfile: docker/nginx/Dockerfile
+    container_name: moduly-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      frontend:
+        condition: service_started
+      gateway:
+        condition: service_started
+    networks:
+      - moduly-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ============================================================================
+  # HTTP Proxy (Squid) - 선택사항
+  # ============================================================================
+  # 역할: 외부 API 호출 시 보안 필터링 (AWS 메타데이터, 사설 IP 차단)
+  #
+  # ⚠️  Proxy를 비활성화하려면:
+  # 1. 아래 proxy 서비스 전체를 주석 처리하세요
+  # 2. gateway, workflow_engine, sandbox의 HTTP_PROXY 환경변수도 주석 처리하세요
+  #
+  # ⚠️  주의: Code 노드에서 외부 URL을 호출하는 경우 보안상 Proxy 사용을 권장합니다.
+  # ============================================================================
+  proxy:
+    build:
+      context: ..
+      dockerfile: docker/proxy/Dockerfile
+    container_name: moduly-proxy
+    ports:
+      - "3128:3128"
+    networks:
+      - moduly-network
+    volumes:
+      - ./proxy/squid.conf:/etc/squid/squid.conf:ro
+    healthcheck:
+      test: ["CMD", "squid", "-k", "check"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  gateway_uploads:
+
+networks:
+  moduly-network:
+    driver: bridge

@@ -1,16 +1,22 @@
-# Python
-apps/server/.venv/
-apps/server/venv
+# Python - 모든 앱의 가상환경 무시
+**/.venv/
+**/venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+*.egg-info/
+**/*.egg-info/
 
 # Node
-apps/client/node_modules/
 apps/client/.next/
+**/node_modules/
 
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
+!**/.env.example
+!docker/.env.example
 
 # 1. .vscode 폴더 전체를 무시합니다.
 .vscode/*
@@ -18,3 +24,75 @@ apps/client/.next/
 # 2. 하지만 아래 파일들은 예외로 관리합니다. (느낌표 ! 사용)
 !.vscode/launch.json
 !.vscode/settings.json
+
+# 프롬프트 규칙 (anti-gravity)
+.agent
+TODO.md
+
+# 맥 관련
+.DS_Store
+
+# 참고자료 파일업로드 관련
+**/uploads/
+
+# Terraform 관련 제외
+# 로컬 바이너리 및 플러그인 폴더
+.terraform/
+
+# 테라폼 상태 파일 (가장 중요: 보안 및 충돌 방지)
+# 나중에 Remote State(S3 등)를 쓰더라도 로컬에 생성될 수 있으므로 차단
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+
+# 변수 파일 (비밀번호, API 키 등이 담길 곳)
+*.tfvars
+*.tfvars.json
+
+# 테라폼 크래시 로그
+crash.log
+crash.*.log
+
+# 테라폼 로컬 설정 파일
+.terraform.rc
+terraform.rc
+
+# --- Kubernetes ---
+# 클러스터 접속 정보 (노출 시 클러스터 장악당함)
+kubeconfig
+.kube/
+
+# Helm 관련
+charts/*/charts/
+charts/*/tmp/
+
+# AWS 관련 인증 파일 (로컬에 생성했을 경우)
+.aws/
+credentials
+access_key
+
+# 암호
+apps/infra/k8s/secrets.yaml
+infra/k8s/secrets.yaml
+*.secret.yaml
+
+# Alembic
+alembic/__pycache__/
+alembic/versions/__pycache__/
+*.pyc
+
+# Python Build Artifacts
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# 테스트 유저와 관련 데이터 삭제 스크립트 (개발시 DB CRUD 확인용)
+scripts/cleanup_users.py
+
+# 부하 테스트 리포트
+tests/load/reports/
+
+# Helm 패키징 파일 (빌드 결과물) - 무시
+*.tgz
+*.tar.gz
