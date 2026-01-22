@@ -24,7 +24,7 @@ export const NodeSelector = ({ onSelect }: NodeSelectorProps) => {
   // 시작 노드가 1개 이상 있으면 모든 Trigger 노드 비활성화
   const hasTriggerNode = startNodeCount > 0;
   const disabledNodeTypes = hasTriggerNode
-    ? ['startNode', 'webhookTrigger', 'scheduleTrigger']
+    ? ['startNode', 'webhookTrigger', 'scheduleTrigger', 'loopNode']
     : ['loopNode'];
 
   const handleHoverNode = (
