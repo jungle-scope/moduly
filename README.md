@@ -44,6 +44,8 @@ Drag & Drop으로 나만의 AI 워크플로우를 설계하고 실행하세요.
 #### Prerequisites
 *   [Docker](https://www.docker.com/) & Docker Compose
 *   Git
+*   Python 3.11+
+*   Node.js 18+
 
 #### Installation
 
@@ -157,27 +159,7 @@ Moduly는 최신 기술 스택을 활용하여 안정성과 확장성을 보장�
 *   **CI/CD**: GitHub Actions
 
 ## Project Structure
-
-```
-moduly/
-├── apps/                    # 마이크로서비스 애플리케이션
-│   ├── client/             # Next.js 프론트엔드
-│   ├── gateway/            # FastAPI 게이트웨이 (API 서버)
-│   ├── workflow_engine/    # Celery 워크플로우 엔진 (작업 처리)
-│   ├── sandbox/            # NSJail 코드 실행 환경
-│   ├── log_system/         # 로그 수집 및 처리 시스템
-│   └── shared/             # 공통 라이브러리 (DB, 유틸리티)
-├── infra/                   # 인프라 설정
-│   ├── helm/               # Kubernetes Helm 차트
-│   ├── k8s/                # Kubernetes 매니페스트
-│   └── terraform/          # Terraform 인프라 코드
-├── docker/                  # Docker 설정
-│   ├── docker-compose.yml  # 로컬 실행 용 compose 파일
-│   └── */                  # 각 서비스별 Dockerfile
-├── scripts/                 # 빌드 및 배포 스크립트
-├── tests/                   # 테스트 코드
-└── docs/                    # 문서 및 이미지
-```
+![Project-Structure](./docs/images/project_structure.png)
 
 ## How to use
 
