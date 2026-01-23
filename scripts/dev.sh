@@ -49,7 +49,7 @@ cleanup() {
     fi
     
     # Docker Compose 종료
-    docker compose down 2>/dev/null || true
+    docker compose -f dev/docker-compose.yml down 2>/dev/null || true
     
     echo -e "${GREEN}✅ 모든 서비스 종료 완료${NC}"
     exit 0
@@ -60,13 +60,13 @@ trap cleanup SIGINT SIGTERM
 
 # 1. Docker Compose (PostgreSQL + Redis + Sandbox) - detached 모드로 시작
 echo -e "${GREEN}📦 인프라 시작 (PostgreSQL + Redis + Sandbox)...${NC}"
-docker compose up -d postgres redis pgadmin
-docker compose up -d --build sandbox # 최신 코드를 반영하기 위해 빌드
+docker compose -f dev/docker-compose.yml up -d postgres redis pgadmin
+docker compose -f dev/docker-compose.yml up -d --build sandbox # 최신 코드를 반영하기 위해 빌드
 
 # PostgreSQL이 준비될 때까지 대기 (최대 30초)
 echo "⏳ PostgreSQL 준비 대기 중..."
 for i in {1..30}; do
-    if docker compose exec -T postgres pg_isready -U admin -d moduly_local > /dev/null 2>&1; then
+    if docker compose -f dev/docker-compose.yml exec -T postgres pg_isready -U admin -d moduly_local > /dev/null 2>&1; then
         echo -e "${GREEN}✓ PostgreSQL 준비 완료${NC}"
         break
     fi
@@ -80,7 +80,7 @@ done
 # Redis가 준비될 때까지 대기 (최대 10초)
 echo "⏳ Redis 준비 대기 중..."
 for i in {1..10}; do
-    if docker compose exec -T redis redis-cli ping > /dev/null 2>&1; then
+    if docker compose -f dev/docker-compose.yml exec -T redis redis-cli ping > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Redis 준비 완료${NC}"
         break
     fi
@@ -105,7 +105,7 @@ for i in {1..60}; do
 done
 
 # Docker Compose 로그를 백그라운드에서 표시
-docker compose logs -f postgres redis sandbox &
+docker compose -f dev/docker-compose.yml logs -f postgres redis sandbox &
 DOCKER_PID=$!
 
 # 2. Celery Worker (Log-System)
