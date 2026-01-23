@@ -7,6 +7,7 @@ import {
   Hash,
   CheckSquare,
   List,
+  FileText,
 } from 'lucide-react';
 import { WorkflowVariable, VariableType } from '../../../../types/Nodes';
 
@@ -32,6 +33,7 @@ const TYPE_OPTIONS: Array<{
   { value: 'paragraph', label: '장문', icon: AlignLeft },
   { value: 'checkbox', label: '체크박스', icon: CheckSquare },
   { value: 'select', label: '선택', icon: List },
+  { value: 'file', label: '파일 업로드', icon: FileText },
 ];
 
 export const VariableRow = ({
