@@ -12,9 +12,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.dependencies import get_current_user
-from apps.shared.db.models.llm import LLMCredential, LLMProvider
-from apps.shared.db.models.user import User
-from apps.shared.db.session import get_db
 from apps.gateway.services.llm_service import LLMService
 from apps.gateway.utils.template_utils import (
     extract_jinja_variables,
@@ -22,6 +19,9 @@ from apps.gateway.utils.template_utils import (
     format_jinja_variable_list,
     strip_unregistered_jinja_variables,
 )
+from apps.shared.db.models.llm import LLMCredential, LLMProvider
+from apps.shared.db.models.user import User
+from apps.shared.db.session import get_db
 
 router = APIRouter()
 
@@ -65,7 +65,8 @@ System Prompt의 목적:
 2. 일관된 톤과 스타일 지시
 3. 제한사항과 금지 행동 명시
 4. 출력 형식 가이드 (필요시)
-5. 원본에 포함된 {{ 변수명 }} 이외의 새로운 변수를 추가하지 마세요
+5. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
+6. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
 
 개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
     "user": """당신은 프롬프트 엔지니어링 전문가입니다.
@@ -80,8 +81,9 @@ User Prompt의 목적:
 2. 필요한 맥락/배경 정보 포함
 3. 출력 형식이나 길이 지정
 4. 기존 {{ 변수명 }} 형식 유지
-5. 원본에 포함된 {{ 변수명 }} 이외의 새로운 변수를 추가하지 마세요
-6. 단계별 지시로 복잡한 작업 분해
+5. 단계별 지시로 복잡한 작업 분해
+6. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
+7. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
 
 개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
     "assistant": """당신은 프롬프트 엔지니어링 전문가입니다.
@@ -95,10 +97,37 @@ Assistant Prompt의 목적:
 1. 자연스러운 시작 문구
 2. 원하는 출력 형식 유도
 3. 간결하지만 효과적인 프라이밍
-4. 원본에 포함된 {{ 변수명 }} 이외의 새로운 변수를 추가하지 마세요
+4. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
+5. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
 
 개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
 }
+
+
+_VAR_PATTERN = re.compile(r"{{\s*([^}]+?)\s*}}")
+
+
+def _normalize_braces(text: str) -> str:
+    text = re.sub(r"\{\s+\{", "{{", text)
+    text = re.sub(r"\}\s+\}", "}}", text)
+    return text
+
+
+def _extract_placeholders(text: str) -> set[str]:
+    return {
+        match.group(1).strip()
+        for match in _VAR_PATTERN.finditer(text)
+        if match.group(1).strip()
+    }
+
+
+def _strip_unapproved_placeholders(text: str, allowed: set[str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        var_name = match.group(1).strip()
+        return match.group(0) if var_name in allowed else ""
+
+    return _VAR_PATTERN.sub(replace, text)
+
 
 # === Provider별 효율적인 모델 매핑 ===
 # LLMService.EFFICIENT_MODELS 참조
@@ -116,7 +145,9 @@ def _build_variable_guardrail(allowed_vars: Set[str]) -> str:
             "- 위 목록 외 변수는 {{}}로 추가하지 마세요.\n"
             "- 허용 변수의 이름/형식을 변경하지 마세요."
         )
-    return "[변수 규칙]\n- 원본 프롬프트에 {{}} 변수가 없으므로 새 변수를 추가하지 마세요."
+    return (
+        "[변수 규칙]\n- 원본 프롬프트에 {{}} 변수가 없으므로 새 변수를 추가하지 마세요."
+    )
 
 
 def _resolve_model_id(
@@ -227,16 +258,16 @@ async def improve_prompt(
             )
 
         provider_name = provider.name
-        model_id = _resolve_model_id(db, current_user.id, request.model_id, provider_name)
+        model_id = _resolve_model_id(
+            db, current_user.id, request.model_id, provider_name
+        )
 
         client = LLMService.get_client_for_user(db, current_user.id, model_id)
 
         # 4. 메시지 구성
         original_vars = extract_jinja_variables(request.original_prompt)
         registered_vars = {
-            v.strip()
-            for v in (request.registered_variables or [])
-            if v and v.strip()
+            v.strip() for v in (request.registered_variables or []) if v and v.strip()
         }
         allowed_vars = (
             original_vars & registered_vars if registered_vars else original_vars
@@ -264,6 +295,10 @@ async def improve_prompt(
 
         if not improved_prompt:
             raise HTTPException(status_code=500, detail="AI 응답을 파싱할 수 없습니다.")
+
+        allowed_vars = _extract_placeholders(_normalize_braces(request.original_prompt))
+        improved_prompt = _normalize_braces(improved_prompt)
+        improved_prompt = _strip_unapproved_placeholders(improved_prompt, allowed_vars)
 
         improved_prompt = improved_prompt.strip()
         improved_prompt = re.sub(r"\{\s+\{", "{{", improved_prompt)
