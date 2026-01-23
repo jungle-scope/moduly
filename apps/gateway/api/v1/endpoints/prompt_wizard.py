@@ -4,6 +4,7 @@
 사용자의 프롬프트를 AI가 개선해주는 기능을 제공합니다.
 """
 
+import re
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -56,6 +57,8 @@ System Prompt의 목적:
 2. 일관된 톤과 스타일 지시
 3. 제한사항과 금지 행동 명시
 4. 출력 형식 가이드 (필요시)
+5. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
+6. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
 
 개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
     "user": """당신은 프롬프트 엔지니어링 전문가입니다.
@@ -71,6 +74,8 @@ User Prompt의 목적:
 3. 출력 형식이나 길이 지정
 4. 기존 {{ 변수명 }} 형식 유지
 5. 단계별 지시로 복잡한 작업 분해
+6. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
+7. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
 
 개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
     "assistant": """당신은 프롬프트 엔지니어링 전문가입니다.
@@ -84,9 +89,36 @@ Assistant Prompt의 목적:
 1. 자연스러운 시작 문구
 2. 원하는 출력 형식 유도
 3. 간결하지만 효과적인 프라이밍
+4. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
+5. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
 
 개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
 }
+
+
+_VAR_PATTERN = re.compile(r"{{\s*([^}]+?)\s*}}")
+
+
+def _normalize_braces(text: str) -> str:
+    text = re.sub(r"\{\s+\{", "{{", text)
+    text = re.sub(r"\}\s+\}", "}}", text)
+    return text
+
+
+def _extract_placeholders(text: str) -> set[str]:
+    return {
+        match.group(1).strip()
+        for match in _VAR_PATTERN.finditer(text)
+        if match.group(1).strip()
+    }
+
+
+def _strip_unapproved_placeholders(text: str, allowed: set[str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        var_name = match.group(1).strip()
+        return match.group(0) if var_name in allowed else ""
+
+    return _VAR_PATTERN.sub(replace, text)
 
 # === Provider별 효율적인 모델 매핑 ===
 # LLMService.EFFICIENT_MODELS 참조
@@ -196,6 +228,12 @@ async def improve_prompt(
 
         if not improved_prompt:
             raise HTTPException(status_code=500, detail="AI 응답을 파싱할 수 없습니다.")
+
+        allowed_vars = _extract_placeholders(_normalize_braces(request.original_prompt))
+        improved_prompt = _normalize_braces(improved_prompt)
+        improved_prompt = _strip_unapproved_placeholders(
+            improved_prompt, allowed_vars
+        )
 
         return {"improved_prompt": improved_prompt.strip()}
 
