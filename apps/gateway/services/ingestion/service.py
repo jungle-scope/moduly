@@ -168,8 +168,14 @@ class IngestionOrchestrator:
 
                 raw_blocks = result.chunks
                 if not raw_blocks:
-                    logger.info("[DEBUG] raw_blocks가 비어있음 - 완료 처리")
-                    self._update_status(document_id, "completed")
+                    logger.warning(
+                        f"[IngestionOrchestrator] Document {document_id}의 raw_blocks가 비어있음."
+                    )
+                    self._update_status(
+                        document_id,
+                        "completed",
+                        error_message="추출 가능한 콘텐츠가 없습니다.",
+                    )
                     return
 
                 full_text = "".join([b["content"] for b in raw_blocks])
@@ -213,9 +219,9 @@ class IngestionOrchestrator:
                 )
                 logger.info(f"[DEBUG] 필터링 후 청크 개수: {len(filtered_chunks)}")
 
-                logger.info(f"[DEBUG] _save_to_vector_db 호출 시작")
+                logger.info("[DEBUG] _save_to_vector_db 호출 시작")
                 self._save_to_vector_db(doc, filtered_chunks)
-                logger.info(f"[DEBUG] _save_to_vector_db 완료")
+                logger.info("[DEBUG] _save_to_vector_db 완료")
                 self._update_status(document_id, "completed")
                 self._update_progress_redis(
                     document_id, 100, expire=True
