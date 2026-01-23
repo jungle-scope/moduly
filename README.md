@@ -58,17 +58,44 @@ Drag & Drop으로 나만의 AI 워크플로우를 설계하고 실행하세요.
 2. **환경 변수 설정**
    제공된 예제 파일을 복사하여 `.env` 파일을 생성합니다.
    ```bash
-   cp dev/.env.example .env
+   cp .env.example .env
    ```
    *`.env` 파일을 열어 `OPENAI_API_KEY`나 `ENCRYPTION_KEY` 등 필요한 키 값을 입력하세요.*
 
 3. **Docker 서비스 실행**
    ```bash
-   docker-compose -f dev/docker-compose.yml up -d --build
+   docker-compose up -d --build
    ```
    *최초 실행 시 이미지를 빌드하느라 시간이 조금 걸릴 수 있습니다.*
 
-4. **의존성 설치 및 실행**
+4. **접속**
+   브라우저를 열고 `http://localhost`으로 접속하여 Moduly를 시작하세요.
+   API 문서는 `http://localhost/api/docs`에서 확인할 수 있습니다.
+
+### Option 2: Kubernetes (Helm)
+
+Kubernetes 클러스터에 프로덕션 수준의 배포를 원한다면 Helm 차트를 사용하세요.
+
+#### Prerequisites
+*   Kubernetes 클러스터 (v1.24+)
+*   [Helm](https://helm.sh/) (v3.0+)
+*   [kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+#### Installation
+
+1. **저장소 클론**
+   ```bash
+   git clone https://github.com/jungle-scope/moduly.git
+   cd moduly
+   ```
+
+2. **의존성 업데이트**
+   ```bash
+   cd infra/helm/moduly
+   helm dependency update
+   ```
+
+3. **values.yaml 생성 및 설정**
    ```bash
    helm show values ./infra/helm/moduly > values.yaml
    ```
@@ -80,12 +107,12 @@ Drag & Drop으로 나만의 AI 워크플로우를 설계하고 실행하세요.
    - 리소스 제한
    - 환경 변수 (API 키 등)
 
-5. **Helm 차트 설치**
+4. **Helm 차트 설치**
    ```bash
    helm upgrade --install moduly ./infra/helm/moduly -f values.yaml
    ```
 
-6. **배포 확인**
+5. **배포 확인**
    ```bash
    kubectl get pods -n moduly
    kubectl get ingress -n moduly
@@ -132,27 +159,7 @@ Moduly는 최신 기술 스택을 활용하여 안정성과 확장성을 보장�
 *   **CI/CD**: GitHub Actions
 
 ## Project Structure
-
-```
-moduly/
-├── apps/                    # 마이크로서비스 애플리케이션
-│   ├── client/             # Next.js 프론트엔드
-│   ├── gateway/            # FastAPI 게이트웨이 (API 서버)
-│   ├── workflow_engine/    # Celery 워크플로우 엔진 (작업 처리)
-│   ├── sandbox/            # NSJail 코드 실행 환경
-│   ├── log_system/         # 로그 수집 및 처리 시스템
-│   └── shared/             # 공통 라이브러리 (DB, 유틸리티)
-├── infra/                   # 인프라 설정
-│   ├── helm/               # Kubernetes Helm 차트
-│   ├── k8s/                # Kubernetes 매니페스트
-│   └── terraform/          # Terraform 인프라 코드
-├── docker/                  # Docker 설정
-│   ├── docker-compose.yml  # 로컬 실행 용 compose 파일
-│   └── */                  # 각 서비스별 Dockerfile
-├── scripts/                 # 빌드 및 배포 스크립트
-├── tests/                   # 테스트 코드
-└── docs/                    # 문서 및 이미지
-```
+![Project-Structure](./docs/images/project_structure.png)
 
 ## How to use
 
