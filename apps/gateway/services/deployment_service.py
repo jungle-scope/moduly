@@ -370,12 +370,18 @@ class DeploymentService:
         # 6. 워크플로우 실행 (Celery 태스크로 위임)
         try:
             # [NEW] 로깅을 위한 컨텍스트 주입
+            # [FIX] memory_mode 추가 (챗봇 기억 모드 지원)
+            memory_mode_enabled = user_inputs.pop("memory_mode", False)
+            if isinstance(memory_mode_enabled, str):
+                memory_mode_enabled = memory_mode_enabled.lower() == "true"
+            
             execution_context = {
                 "user_id": str(app.created_by),  # UUID를 문자열로 변환 (JSON 직렬화)
                 "workflow_id": str(app.workflow_id) if app.workflow_id else None,
                 "trigger_mode": "app",  # [NEW] 실행 모드 (앱 배포 실행)
                 "deployment_id": str(deployment.id),
                 "workflow_version": deployment.version,
+                "memory_mode": memory_mode_enabled,  # [FIX] 기억 모드 추가
             }
 
             # Celery 태스크 호출 (workflow.execute)
