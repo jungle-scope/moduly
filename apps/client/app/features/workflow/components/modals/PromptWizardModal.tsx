@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Sparkles, Copy, Check, Loader2, ArrowRight, Info } from 'lucide-react';
-import { WizardModelSelect } from './WizardModelSelect';
 import { useWizardCredentials } from '@/app/features/workflow/hooks/useWizardCredentials';
-import { useWizardModels } from '@/app/features/workflow/hooks/useWizardModels';
 
 interface PromptWizardModalProps {
   isOpen: boolean;
@@ -20,12 +18,6 @@ const PROMPT_TYPE_LABELS = {
   user: 'User Prompt',
   assistant: 'Assistant Prompt',
 };
-
-const DEFAULT_MODEL_IDS = [
-  'gpt-4o-mini',
-  'gemini-1.5-flash',
-  'claude-3-haiku-20240307',
-];
 
 export function PromptWizardModal({
   isOpen,
@@ -45,13 +37,6 @@ export function PromptWizardModal({
     isOpen,
     '/api/v1/prompt-wizard/check-credentials',
   );
-  const {
-    loadingModels,
-    selectedModelId,
-    setSelectedModelId,
-    chatModelOptions,
-    groupedModelOptions,
-  } = useWizardModels(isOpen, DEFAULT_MODEL_IDS);
 
   // 모달 열릴 때 credential 확인 및 상태 초기화
   useEffect(() => {
@@ -77,7 +62,6 @@ export function PromptWizardModal({
       const payload: Record<string, unknown> = {
         prompt_type: promptType,
         original_prompt: currentPrompt,
-        model_id: selectedModelId || null,
       };
       if (registeredVariables.length > 0) {
         payload.registered_variables = registeredVariables;
@@ -126,10 +110,7 @@ export function PromptWizardModal({
   };
 
   if (!isOpen) return null;
-  const disableImprove =
-    isLoading ||
-    !currentPrompt.trim() ||
-    (!loadingModels && chatModelOptions.length === 0);
+  const disableImprove = isLoading || !currentPrompt.trim();
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
@@ -169,15 +150,6 @@ export function PromptWizardModal({
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽: 원본 프롬프트 */}
           <div className="w-1/2 p-5 border-r border-gray-200 flex flex-col">
-            <WizardModelSelect
-              containerClassName="mb-3"
-              value={selectedModelId}
-              onChange={setSelectedModelId}
-              models={chatModelOptions}
-              groupedModels={groupedModelOptions}
-              loading={loadingModels}
-              disabled={hasCredentials === false}
-            />
             <label className="text-sm font-semibold text-gray-700 mb-2">
               원본 프롬프트
             </label>

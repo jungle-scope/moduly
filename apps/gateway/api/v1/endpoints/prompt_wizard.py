@@ -4,29 +4,23 @@
 사용자의 프롬프트를 AI가 개선해주는 기능을 제공합니다.
 """
 
-import re
-from typing import List, Literal, Optional, Set
+from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from apps.gateway.auth.dependencies import get_current_user
-from apps.gateway.services.llm_service import LLMService
-from apps.gateway.utils.template_utils import (
-    extract_jinja_variables,
-    find_unregistered_jinja_variables,
-    format_jinja_variable_list,
-    strip_unregistered_jinja_variables,
+from apps.gateway.services.prompt_wizard_service import (
+    check_credentials as check_prompt_wizard_credentials,
 )
-from apps.shared.db.models.llm import LLMCredential, LLMProvider
+from apps.gateway.services.prompt_wizard_service import (
+    improve_prompt as improve_prompt_service,
+)
 from apps.shared.db.models.user import User
 from apps.shared.db.session import get_db
 
 router = APIRouter()
-
-
-# === Request/Response Schemas ===
 
 
 class PromptImproveRequest(BaseModel):
@@ -50,146 +44,6 @@ class CredentialCheckResponse(BaseModel):
     has_credentials: bool
 
 
-# === 시스템 프롬프트 템플릿 ===
-
-WIZARD_SYSTEM_PROMPTS = {
-    "system": """당신은 프롬프트 엔지니어링 전문가입니다. 
-사용자가 제공한 System Prompt를 분석하고 개선해주세요.
-
-System Prompt의 목적:
-- AI의 역할, 성격, 행동 규칙을 정의
-- 모든 대화에 일관되게 적용되는 지침
-
-개선 시 고려사항:
-1. 명확하고 구체적인 역할 정의
-2. 일관된 톤과 스타일 지시
-3. 제한사항과 금지 행동 명시
-4. 출력 형식 가이드 (필요시)
-5. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
-6. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
-
-개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
-    "user": """당신은 프롬프트 엔지니어링 전문가입니다.
-사용자가 제공한 User Prompt를 분석하고 개선해주세요.
-
-User Prompt의 목적:
-- AI에게 전달하는 구체적인 질문/요청
-- 동적 변수를 포함할 수 있음 ({{ 변수명 }} 형식)
-
-개선 시 고려사항:
-1. 목표와 기대 결과 명확히 기술
-2. 필요한 맥락/배경 정보 포함
-3. 출력 형식이나 길이 지정
-4. 기존 {{ 변수명 }} 형식 유지
-5. 단계별 지시로 복잡한 작업 분해
-6. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
-7. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
-
-개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
-    "assistant": """당신은 프롬프트 엔지니어링 전문가입니다.
-사용자가 제공한 Assistant Prompt를 분석하고 개선해주세요.
-
-Assistant Prompt의 목적:
-- AI 응답의 시작 부분을 미리 지정
-- 특정 형식이나 톤으로 응답을 유도
-
-개선 시 고려사항:
-1. 자연스러운 시작 문구
-2. 원하는 출력 형식 유도
-3. 간결하지만 효과적인 프라이밍
-4. 입력에 있는 {{ 변수명 }}를 삭제하거나 변경하지 말고 그대로 유지하기
-5. 입력에 없는 {{ 변수명 }}를 새로 추가하지 않기
-
-개선된 프롬프트만 출력하세요. 설명이나 부연은 불필요합니다.""",
-}
-
-
-_VAR_PATTERN = re.compile(r"{{\s*([^}]+?)\s*}}")
-
-
-def _normalize_braces(text: str) -> str:
-    text = re.sub(r"\{\s+\{", "{{", text)
-    text = re.sub(r"\}\s+\}", "}}", text)
-    return text
-
-
-def _extract_placeholders(text: str) -> set[str]:
-    return {
-        match.group(1).strip()
-        for match in _VAR_PATTERN.finditer(text)
-        if match.group(1).strip()
-    }
-
-
-def _strip_unapproved_placeholders(text: str, allowed: set[str]) -> str:
-    def replace(match: re.Match[str]) -> str:
-        var_name = match.group(1).strip()
-        return match.group(0) if var_name in allowed else ""
-
-    return _VAR_PATTERN.sub(replace, text)
-
-
-# === Provider별 효율적인 모델 매핑 ===
-# LLMService.EFFICIENT_MODELS 참조
-
-
-# === Endpoints ===
-
-
-def _build_variable_guardrail(allowed_vars: Set[str]) -> str:
-    if allowed_vars:
-        allowed_list = format_jinja_variable_list(allowed_vars)
-        return (
-            "[변수 규칙]\n"
-            f"- 허용 변수: {allowed_list}\n"
-            "- 위 목록 외 변수는 {{}}로 추가하지 마세요.\n"
-            "- 허용 변수의 이름/형식을 변경하지 마세요."
-        )
-    return (
-        "[변수 규칙]\n- 원본 프롬프트에 {{}} 변수가 없으므로 새 변수를 추가하지 마세요."
-    )
-
-
-def _resolve_model_id(
-    db: Session, user_id: str, requested_model_id: Optional[str], provider_name: str
-) -> str:
-    available_models = LLMService.get_my_available_models(db, user_id)
-    allowed_ids = {
-        model.model_id_for_api_call
-        for model in available_models
-        if model.type != "embedding"
-    }
-    requested = (requested_model_id or "").strip()
-    if requested:
-        if requested not in allowed_ids:
-            raise HTTPException(
-                status_code=400,
-                detail="선택한 모델을 사용할 수 없습니다. 모델 목록에서 다시 선택해주세요.",
-            )
-        return requested
-
-    preferred_ids = list(LLMService.EFFICIENT_MODELS.values())
-    for preferred_id in preferred_ids:
-        if preferred_id in allowed_ids:
-            return preferred_id
-        prefixed = (
-            preferred_id
-            if preferred_id.startswith("models/")
-            else f"models/{preferred_id}"
-        )
-        if prefixed in allowed_ids:
-            return prefixed
-
-    normalized_provider = provider_name.lower()
-    model_id = LLMService.EFFICIENT_MODELS.get(normalized_provider)
-    if not model_id:
-        raise HTTPException(
-            status_code=400,
-            detail=f"현재 '{provider_name}'에서는 프롬프트 마법사 기능을 사용할 수 없습니다. OpenAI, Google, Anthropic Provider를 이용해주세요.",
-        )
-    return model_id
-
-
 @router.get("/check-credentials", response_model=CredentialCheckResponse)
 def check_credentials(
     db: Session = Depends(get_db),
@@ -198,15 +52,7 @@ def check_credentials(
     """
     현재 사용자가 유효한 LLM credential을 가지고 있는지 확인합니다.
     """
-    credential = (
-        db.query(LLMCredential)
-        .filter(
-            LLMCredential.user_id == current_user.id, LLMCredential.is_valid == True
-        )
-        .first()
-    )
-
-    return {"has_credentials": credential is not None}
+    return {"has_credentials": check_prompt_wizard_credentials(db, current_user)}
 
 
 @router.post("/improve", response_model=PromptImproveResponse)
@@ -221,109 +67,11 @@ async def improve_prompt(
     사용자의 등록된 LLM credential을 사용하여 프롬프트 개선을 수행합니다.
     credential이 없으면 400 에러를 반환합니다.
     """
-    # 1. 유효한 credential 확인
-    credential = (
-        db.query(LLMCredential)
-        .filter(
-            LLMCredential.user_id == current_user.id, LLMCredential.is_valid == True
-        )
-        .first()
+    improved_prompt = await improve_prompt_service(
+        prompt_type=request.prompt_type,
+        original_prompt=request.original_prompt,
+        model_id=request.model_id,
+        db=db,
+        current_user=current_user,
     )
-
-    if not credential:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "LLM Provider가 등록되지 않았습니다. 설정에서 API Key를 등록해주세요.",
-                "credentials_required": True,
-            },
-        )
-
-    # 2. 원본 프롬프트가 비어있으면 에러
-    # (최후의최후의최후 방어: 프론트에서 버튼 disabled로 이미 막아둠)
-    if not request.original_prompt.strip():
-        raise HTTPException(status_code=400, detail="개선할 프롬프트를 입력해주세요.")
-
-    try:
-        # 3. Provider 정보 조회 후 효율적인 모델 선택
-        provider = (
-            db.query(LLMProvider)
-            .filter(LLMProvider.id == credential.provider_id)
-            .first()
-        )
-
-        if not provider:
-            raise HTTPException(
-                status_code=400, detail="Provider 정보를 찾을 수 없습니다."
-            )
-
-        provider_name = provider.name
-        model_id = _resolve_model_id(
-            db, current_user.id, request.model_id, provider_name
-        )
-
-        client = LLMService.get_client_for_user(db, current_user.id, model_id)
-
-        # 4. 메시지 구성
-        original_vars = extract_jinja_variables(request.original_prompt)
-        registered_vars = {
-            v.strip() for v in (request.registered_variables or []) if v and v.strip()
-        }
-        allowed_vars = (
-            original_vars & registered_vars if registered_vars else original_vars
-        )
-        system_prompt = WIZARD_SYSTEM_PROMPTS.get(
-            request.prompt_type, WIZARD_SYSTEM_PROMPTS["user"]
-        )
-        system_prompt = f"{system_prompt}\n\n{_build_variable_guardrail(allowed_vars)}"
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": f"다음 프롬프트를 개선해주세요:\n\n{request.original_prompt}",
-            },
-        ]
-
-        # 5. LLM 호출
-        response = await client.invoke(messages, temperature=0.7, max_tokens=2000)
-
-        # 6. 응답 파싱
-        improved_prompt = (
-            response.get("choices", [{}])[0].get("message", {}).get("content", "")
-        )
-
-        if not improved_prompt:
-            raise HTTPException(status_code=500, detail="AI 응답을 파싱할 수 없습니다.")
-
-        allowed_vars = _extract_placeholders(_normalize_braces(request.original_prompt))
-        improved_prompt = _normalize_braces(improved_prompt)
-        improved_prompt = _strip_unapproved_placeholders(improved_prompt, allowed_vars)
-
-        improved_prompt = improved_prompt.strip()
-        improved_prompt = re.sub(r"\{\s+\{", "{{", improved_prompt)
-        improved_prompt = re.sub(r"\}\s+\}", "}}", improved_prompt)
-        invalid_vars = find_unregistered_jinja_variables(improved_prompt, allowed_vars)
-
-        if invalid_vars:
-            improved_prompt = strip_unregistered_jinja_variables(
-                improved_prompt, invalid_vars
-            ).strip()
-            invalid_vars = find_unregistered_jinja_variables(
-                improved_prompt, allowed_vars
-            )
-            if invalid_vars:
-                improved_prompt = strip_unregistered_jinja_variables(
-                    improved_prompt, invalid_vars
-                ).strip()
-
-        return {"improved_prompt": improved_prompt}
-
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"프롬프트 개선 중 오류 발생: {str(e)}"
-        )
+    return {"improved_prompt": improved_prompt}

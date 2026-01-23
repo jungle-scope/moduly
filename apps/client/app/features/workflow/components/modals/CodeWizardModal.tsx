@@ -4,9 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Wand2, Copy, Check, Loader2, ArrowRight, Info, Code } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { WizardModelSelect } from './WizardModelSelect';
 import { useWizardCredentials } from '@/app/features/workflow/hooks/useWizardCredentials';
-import { useWizardModels } from '@/app/features/workflow/hooks/useWizardModels';
 
 // 서버 에러 응답 타입 정의 (개선점 1: 에러 스키마 명확화)
 interface ApiErrorResponse {
@@ -32,12 +30,6 @@ interface CodeWizardModalProps {
   onApply: (generatedCode: string) => void;
 }
 
-const DEFAULT_MODEL_IDS = [
-  'gpt-4o-mini',
-  'gemini-1.5-flash',
-  'claude-3-5-sonnet-20240620',
-];
-
 export function CodeWizardModal({
   isOpen,
   onClose,
@@ -53,13 +45,6 @@ export function CodeWizardModal({
     isOpen,
     '/api/v1/code-wizard/check-credentials',
   );
-  const {
-    loadingModels,
-    selectedModelId,
-    setSelectedModelId,
-    chatModelOptions,
-    groupedModelOptions,
-  } = useWizardModels(isOpen, DEFAULT_MODEL_IDS);
 
   // 모달 열릴 때 credential 확인 및 상태 초기화
   useEffect(() => {
@@ -89,7 +74,6 @@ export function CodeWizardModal({
         body: JSON.stringify({
           description: description,
           input_variables: inputVariables,
-          model_id: selectedModelId || null,
         }),
       });
 
@@ -127,10 +111,7 @@ export function CodeWizardModal({
   };
 
   if (!isOpen) return null;
-  const disableGenerate =
-    isLoading ||
-    !description.trim() ||
-    (!loadingModels && chatModelOptions.length === 0);
+  const disableGenerate = isLoading || !description.trim();
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
@@ -170,22 +151,13 @@ export function CodeWizardModal({
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽: 설명 입력 */}
           <div className="w-1/2 p-5 border-r border-gray-200 flex flex-col">
-            <WizardModelSelect
-              containerClassName="mb-3"
-              value={selectedModelId}
-              onChange={setSelectedModelId}
-              models={chatModelOptions}
-              groupedModels={groupedModelOptions}
-              loading={loadingModels}
-              disabled={hasCredentials === false}
-            />
             <label className="text-sm font-semibold text-gray-700 mb-2">
               원하는 기능 설명
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="예: 두 숫자를 더해서 반환하는 코드&#10;예: 텍스트에서 이메일 주소를 추출하는 코드&#10;예: JSON 데이터를 파싱해서 특정 필드만 반환"
+              placeholder="예: 입력 변수 num1, num2를 더해 반환&#10;예: 텍스트에서 이메일 주소 추출 (변수명: raw_data)&#10;예: JSON 문자열을 파싱해 특정 필드 반환 (json 변수명: payload, 필드명: name)&#10;예: 입력 변수가 없다면 숫자 1과 4를 더해 반환"
               className="flex-1 w-full p-3 text-sm border border-gray-300 rounded-lg resize-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
             />
             

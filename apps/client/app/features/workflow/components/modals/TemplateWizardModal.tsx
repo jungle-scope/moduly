@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Sparkles, Copy, Check, Loader2, ArrowRight, Info, ChevronDown, Code } from 'lucide-react';
-import { WizardModelSelect } from './WizardModelSelect';
 import { useWizardCredentials } from '@/app/features/workflow/hooks/useWizardCredentials';
-import { useWizardModels } from '@/app/features/workflow/hooks/useWizardModels';
 
 
 // 템플릿 타입 정의
@@ -23,12 +21,6 @@ const TEMPLATE_TYPE_OPTIONS: { value: TemplateType; label: string; description: 
   { value: 'message', label: '챗봇/메시지', description: '챗봇 응답, 알림 메시지' },
   { value: 'report', label: '보고서/문서', description: '보고서, 문서, 마크다운' },
   { value: 'custom', label: '직접 설명', description: '원하는 개선 방향을 직접 설명' },
-];
-
-const DEFAULT_MODEL_IDS = [
-  'gpt-4o-mini',
-  'gemini-1.5-flash',
-  'claude-3-haiku-20240307',
 ];
 
 export function TemplateWizardModal({
@@ -53,13 +45,6 @@ export function TemplateWizardModal({
     isOpen,
     '/api/v1/template-wizard/check-credentials',
   );
-  const {
-    loadingModels,
-    selectedModelId,
-    setSelectedModelId,
-    chatModelOptions,
-    groupedModelOptions,
-  } = useWizardModels(isOpen, DEFAULT_MODEL_IDS);
 
   // 모달 열릴 때 상태 초기화
   useEffect(() => {
@@ -95,7 +80,6 @@ export function TemplateWizardModal({
           original_template: currentTemplate,
           registered_variables: registeredVariables,
           custom_instructions: templateType === 'custom' ? customInstructions : null,
-          model_id: selectedModelId || null,
         }),
       });
 
@@ -138,10 +122,7 @@ export function TemplateWizardModal({
   };
 
   if (!isOpen) return null;
-  const disableImprove =
-    isLoading ||
-    !currentTemplate.trim() ||
-    (!loadingModels && chatModelOptions.length === 0);
+  const disableImprove = isLoading || !currentTemplate.trim();
 
   const selectedType = TEMPLATE_TYPE_OPTIONS.find(t => t.value === templateType);
 
@@ -219,16 +200,6 @@ export function TemplateWizardModal({
                 )}
               </div>
             </div>
-            <WizardModelSelect
-              layout="inline"
-              containerClassName="flex-1 min-w-0"
-              value={selectedModelId}
-              onChange={setSelectedModelId}
-              models={chatModelOptions}
-              groupedModels={groupedModelOptions}
-              loading={loadingModels}
-              disabled={hasCredentials === false}
-            />
           </div>
           
           {/* custom 타입일 때 추가 설명 입력 */}
