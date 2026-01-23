@@ -130,16 +130,10 @@ class IngestionOrchestrator:
             self.db = session
 
             try:
-                logger.info(
-                    f"[DEBUG] process_document 시작 - document_id: {document_id}"
-                )
                 doc = self.db.query(Document).get(document_id)
                 if not doc:
                     logger.warning(f"Document {document_id} not found")
                     return
-                logger.info(
-                    f"[DEBUG] 문서 조회 성공 - filename: {doc.filename}, status: {doc.status}"
-                )
 
                 # 초기 상태 저장 (업데이트 전)
                 initial_status = doc.status
@@ -159,9 +153,6 @@ class IngestionOrchestrator:
                 source_config = self._build_config(doc)
 
                 result = processor.process(source_config)
-                logger.info(
-                    f"[DEBUG] 프로세서 처리 완료 - chunks 개수: {len(result.chunks) if result.chunks else 0}"
-                )
 
                 if result.metadata.get("error"):
                     raise Exception(result.metadata["error"])
@@ -206,7 +197,29 @@ class IngestionOrchestrator:
                     preprocessed_blocks = [
                         {"content": preprocessed_text, "metadata": {}}
                     ]
-                    final_chunks = self._refine_chunks(preprocessed_blocks)
+
+                    # [동적 Splitter 생성] 문서 설정 적용
+                    chunk_size = doc.chunk_size
+                    chunk_overlap = doc.chunk_overlap
+                    meta = doc.meta_info or {}
+                    segment_identifier = meta.get("segment_identifier", "\\n\\n")
+
+                    separators = ["\n\n", "\n", ".", " ", ""]
+                    if segment_identifier:
+                        identifier = segment_identifier.replace("\\n", "\n")
+                        if identifier not in separators:
+                            separators.insert(0, identifier)
+
+                    doc_specific_splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=chunk_size,
+                        chunk_overlap=chunk_overlap,
+                        separators=separators,
+                        keep_separator=True,  # [수정] 원복
+                    )
+
+                    final_chunks = self._refine_chunks(
+                        preprocessed_blocks, splitter=doc_specific_splitter
+                    )
 
                 # 필터링 적용
                 meta = doc.meta_info or {}
@@ -217,11 +230,8 @@ class IngestionOrchestrator:
                 filtered_chunks = self._filter_chunks(
                     final_chunks, selection_mode, chunk_range, keyword_filter
                 )
-                logger.info(f"[DEBUG] 필터링 후 청크 개수: {len(filtered_chunks)}")
 
-                logger.info("[DEBUG] _save_to_vector_db 호출 시작")
                 self._save_to_vector_db(doc, filtered_chunks)
-                logger.info("[DEBUG] _save_to_vector_db 완료")
                 self._update_status(document_id, "completed")
                 self._update_progress_redis(
                     document_id, 100, expire=True
@@ -498,22 +508,26 @@ class IngestionOrchestrator:
         return config
 
     def _refine_chunks(
-        self, raw_blocks: List[Dict[str, Any]], override_chunk_size: int = None
+        self,
+        raw_blocks: List[Dict[str, Any]],
+        override_chunk_size: int = None,
+        splitter: Any = None,
     ) -> List[Dict[str, Any]]:
         refined = []
 
+        target_splitter = splitter if splitter else self.text_splitter
+
         # 청크 사이즈 오버라이드 (DB 대형 Row 처리 등)
-        splitter = self.text_splitter
         if override_chunk_size is not None:
-            splitter = RecursiveCharacterTextSplitter(
+            target_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=override_chunk_size,
-                chunk_overlap=self.text_splitter._chunk_overlap,
+                hunk_overlap=self.text_splitter._chunk_overlap,
                 separators=self.text_splitter._separators,
                 keep_separator=self.text_splitter._keep_separator,
             )
 
         for block in raw_blocks:
-            splits = splitter.split_text(block["content"])
+            splits = target_splitter.split_text(block["content"])
             original_meta = block.get("metadata", {})
             for split in splits:
                 new_meta = original_meta.copy()
@@ -683,25 +697,17 @@ class IngestionOrchestrator:
 
         # !!! CRITICAL: 기존 청크 삭제를 맨 마지막에 수행 (Atomic-like behavior) !!!
         # 임베딩 생성 중 실패하면 삭제되지 않음.
-        logger.info(f"[DEBUG] 기존 청크 삭제 시작 - document_id: {doc.id}")
-        deleted_count = (
-            self.db.query(DocumentChunk)
-            .filter(DocumentChunk.document_id == doc.id)
-            .delete()
-        )
-        logger.info(f"[DEBUG] 기존 청크 삭제 완료 - 삭제된 개수: {deleted_count}")
+        self.db.query(DocumentChunk).filter(
+            DocumentChunk.document_id == doc.id
+        ).delete()
 
-        logger.info(f"[DEBUG] 새 청크 저장 시작 - 저장할 개수: {len(new_chunks)}")
         self.db.bulk_save_objects(new_chunks)
-        logger.info("[DEBUG] bulk_save_objects 완료")
 
         # 임베딩 생성 시 사용한 모델명 저장
         doc.embedding_model = self.ai_model
         self.db.add(doc)
 
-        logger.info("[DEBUG] DB commit 시작")
         self.db.commit()
-        logger.info(f"[DEBUG] DB commit 완료 - 청크 {len(new_chunks)}개 저장됨")
 
     def _update_status(
         self,
