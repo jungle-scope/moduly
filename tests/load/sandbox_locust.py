@@ -205,6 +205,183 @@ def main(args):
             response.failure(str(e))
 
 
+class ConvoyEffectTest(HttpUser):
+    """
+    Convoy Effect 테스트 - SJF 스케줄러 효과 증명용
+    
+    실행 방법:
+        locust -f tests/load/sandbox_locust.py --host=http://localhost:8001 \\
+               --headless -u 50 -r 10 -t 3m --csv=results/convoy \\
+               ConvoyEffectTest
+    
+    핵심 시나리오:
+        - SLOW 작업(70%)이 큐를 채운 상태에서
+        - FAST 작업(30%)이 얼마나 빨리 처리되는지 측정
+        
+    기대 결과:
+        - FIFO: FAST Job이 SLOW Job 뒤에서 대기 → 긴 응답 시간
+        - SJF:  FAST Job이 먼저 처리됨 → 짧은 응답 시간
+    """
+    
+    # 요청 간격 짧게 (큐에 많이 쌓이도록)
+    wait_time = between(0.02, 0.08)
+    
+    def on_start(self):
+        """테스트 시작"""
+        self.tenant_id = f"convoy_tenant_{random.randint(1, 3)}"
+        self.request_count = 0
+    
+    @tag('convoy', 'slow')
+    @task(7)  # 70% - SLOW 작업으로 큐 채우기
+    def run_blocking_slow_job(self):
+        """
+        [SLOW] 큐를 채우는 긴 작업 (2초)
+        - 이 작업들이 앞에 많이 쌓여서 FAST를 블로킹해야 함
+        """
+        payload = {
+            "code": "import time\ndef main(args): time.sleep(2); return {'blocked': True}",
+            "inputs": {},
+            "trigger_type": "schedule",  # LOW priority fallback
+            "timeout": 10,
+            "tenant_id": self.tenant_id,
+        }
+        
+        with self.client.post(
+            "/v1/sandbox/execute",
+            json=payload,
+            name="[CONVOY-SLOW] Block 2s",
+            catch_response=True
+        ) as response:
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    response.success()
+                else:
+                    response.failure(data.get("error", "Unknown error"))
+            else:
+                response.failure(f"HTTP {response.status_code}")
+    
+    @tag('convoy', 'fast')
+    @task(3)  # 30% - FAST 작업 (SJF에서는 우선 처리되어야 함)
+    def run_priority_fast_job(self):
+        """
+        [FAST] 우선 처리되어야 하는 짧은 작업
+        - FIFO: SLOW 뒤에서 대기 → 응답 시간 수 초
+        - SJF:  먼저 처리 → 응답 시간 < 100ms
+        
+        핵심 지표: 이 작업의 P50, P95, P99
+        """
+        payload = {
+            "code": "def main(args): return {'fast': True, 'value': args.get('x', 0) * 2}",
+            "inputs": {"x": random.randint(1, 100)},
+            "trigger_type": "manual",  # HIGH priority fallback
+            "timeout": 5,
+            "tenant_id": self.tenant_id,
+        }
+        
+        with self.client.post(
+            "/v1/sandbox/execute",
+            json=payload,
+            name="[CONVOY-FAST] Quick Calc",
+            catch_response=True
+        ) as response:
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    # 응답 시간 로깅 (선택)
+                    exec_time = data.get("execution_time_ms", 0)
+                    response.success()
+                else:
+                    response.failure(data.get("error", "Unknown error"))
+            else:
+                response.failure(f"HTTP {response.status_code}")
+
+
+class WarmupThenMeasureTest(HttpUser):
+    """
+    Warmup + Measure 테스트 - SJF 학습 효과 측정
+    
+    실행 방법:
+        locust -f tests/load/sandbox_locust.py --host=http://localhost:8001 \\
+               --headless -u 30 -r 5 -t 4m --csv=results/warmup \\
+               WarmupThenMeasureTest
+    
+    테스트 단계:
+        1. Warmup (0-60초): 동일 코드 반복 실행 → SJF가 실행 시간 학습
+        2. Measure (60-240초): 학습된 SJF로 스케줄링 → 성능 측정
+    
+    핵심: 같은 코드를 반복 사용하여 SJF가 과거 기록을 활용하도록 함
+    """
+    
+    wait_time = between(0.05, 0.15)
+    
+    # 고정된 코드 (SJF가 학습할 수 있도록)
+    FAST_CODE = "def main(args): return {'sum': args.get('a', 0) + args.get('b', 0)}"
+    SLOW_CODE = "import time\ndef main(args): time.sleep(1.5); return {'waited': 1.5}"
+    
+    def on_start(self):
+        self.tenant_id = f"warmup_tenant_{random.randint(1, 5)}"
+        self.start_time = time.time()
+    
+    def is_warmup_phase(self) -> bool:
+        """Warmup 단계인지 확인 (첫 60초)"""
+        return (time.time() - self.start_time) < 60
+    
+    @tag('warmup')
+    @task(5)
+    def run_fast_job(self):
+        """[FAST] 고정 코드 - SJF가 학습함"""
+        phase = "WARMUP" if self.is_warmup_phase() else "MEASURE"
+        
+        payload = {
+            "code": self.FAST_CODE,
+            "inputs": {"a": random.randint(1, 50), "b": random.randint(1, 50)},
+            "trigger_type": "manual",
+            "timeout": 5,
+            "tenant_id": self.tenant_id,
+        }
+        
+        with self.client.post(
+            "/v1/sandbox/execute",
+            json=payload,
+            name=f"[{phase}] FAST Fixed Code",
+            catch_response=True
+        ) as response:
+            self._handle_response(response)
+    
+    @tag('warmup')
+    @task(5)
+    def run_slow_job(self):
+        """[SLOW] 고정 코드 - SJF가 학습함"""
+        phase = "WARMUP" if self.is_warmup_phase() else "MEASURE"
+        
+        payload = {
+            "code": self.SLOW_CODE,
+            "inputs": {},
+            "trigger_type": "schedule",
+            "timeout": 10,
+            "tenant_id": self.tenant_id,
+        }
+        
+        with self.client.post(
+            "/v1/sandbox/execute",
+            json=payload,
+            name=f"[{phase}] SLOW Fixed Code",
+            catch_response=True
+        ) as response:
+            self._handle_response(response)
+    
+    def _handle_response(self, response):
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                response.success()
+            else:
+                response.failure(data.get("error", "Unknown error"))
+        else:
+            response.failure(f"HTTP {response.status_code}")
+
+
 class MetricsCollector(HttpUser):
     """
     메트릭 수집 전용 유저
@@ -265,10 +442,12 @@ def on_test_stop(environment, **kwargs):
     
     stats = environment.stats
     
-    # 주요 엔드포인트별 통계
-    for name in ["[FAST] Simple Calc (manual)", "[SLOW] Sleep 1.5s (schedule)", "[HEAVY] Memory Alloc (api)"]:
-        entry = stats.get(name, "POST")
-        if entry:
+    # 실행된 모든 엔드포인트 통계 출력
+    sorted_stats = sorted(stats.entries.keys(), key=lambda x: x[1])  # 이름순 정렬
+    
+    for method, name in sorted_stats:
+        entry = stats.get(name, method)
+        if entry and entry.num_requests > 0 and name != "Aggregated":
             print(f"\n{name}:")
             print(f"   Requests: {entry.num_requests} | Failures: {entry.num_failures}")
             print(f"   Avg: {entry.avg_response_time:.0f}ms | P50: {entry.get_response_time_percentile(0.50):.0f}ms | P95: {entry.get_response_time_percentile(0.95):.0f}ms | P99: {entry.get_response_time_percentile(0.99):.0f}ms")
