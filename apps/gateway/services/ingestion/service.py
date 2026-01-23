@@ -595,7 +595,7 @@ class IngestionOrchestrator:
             batches.append(current_batch)
 
         # ========================================
-        # 배치별 임베딩 생성ㅗ
+        # 배치별 임베딩 생성
         # ========================================
         all_embeddings = {}  # {chunk_index: embedding}
 
