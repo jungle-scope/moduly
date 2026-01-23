@@ -3,7 +3,7 @@ name: Deploy to EKS (Sandbox)
 on:
   push:
     branches:
-      - develop
+      - main
     paths:
       - "apps/sandbox/**"
       - "docker/sandbox/**"
