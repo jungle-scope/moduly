@@ -521,7 +521,7 @@ class IngestionOrchestrator:
         if override_chunk_size is not None:
             target_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=override_chunk_size,
-                hunk_overlap=self.text_splitter._chunk_overlap,
+                chunk_overlap=self.text_splitter._chunk_overlap,
                 separators=self.text_splitter._separators,
                 keep_separator=self.text_splitter._keep_separator,
             )
