@@ -4,7 +4,8 @@
 사용자의 프롬프트를 AI가 개선해주는 기능을 제공합니다.
 """
 
-from typing import Literal, Optional, Set
+import re
+from typing import List, Literal, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -33,6 +34,7 @@ class PromptImproveRequest(BaseModel):
 
     prompt_type: Literal["system", "user", "assistant"]
     original_prompt: str
+    registered_variables: Optional[List[str]] = None
     model_id: Optional[str] = None
 
 
@@ -115,20 +117,6 @@ def _build_variable_guardrail(allowed_vars: Set[str]) -> str:
             "- 허용 변수의 이름/형식을 변경하지 마세요."
         )
     return "[변수 규칙]\n- 원본 프롬프트에 {{}} 변수가 없으므로 새 변수를 추가하지 마세요."
-
-
-def _build_retry_message(
-    allowed_vars: Set[str], invalid_vars: Set[str], candidate_text: str
-) -> str:
-    allowed_list = format_jinja_variable_list(allowed_vars)
-    invalid_list = format_jinja_variable_list(invalid_vars)
-    return (
-        "아래 결과에 등록되지 않은 변수가 포함되어 있습니다.\n"
-        f"- 허용 변수: {allowed_list}\n"
-        f"- 발견된 변수: {invalid_list}\n"
-        "허용 변수만 사용해서 아래 결과를 수정한 뒤 프롬프트만 출력하세요.\n\n"
-        f"[기존 결과]\n{candidate_text}"
-    )
 
 
 def _resolve_model_id(
@@ -244,7 +232,15 @@ async def improve_prompt(
         client = LLMService.get_client_for_user(db, current_user.id, model_id)
 
         # 4. 메시지 구성
-        allowed_vars = extract_jinja_variables(request.original_prompt)
+        original_vars = extract_jinja_variables(request.original_prompt)
+        registered_vars = {
+            v.strip()
+            for v in (request.registered_variables or [])
+            if v and v.strip()
+        }
+        allowed_vars = (
+            original_vars & registered_vars if registered_vars else original_vars
+        )
         system_prompt = WIZARD_SYSTEM_PROMPTS.get(
             request.prompt_type, WIZARD_SYSTEM_PROMPTS["user"]
         )
@@ -270,25 +266,9 @@ async def improve_prompt(
             raise HTTPException(status_code=500, detail="AI 응답을 파싱할 수 없습니다.")
 
         improved_prompt = improved_prompt.strip()
+        improved_prompt = re.sub(r"\{\s+\{", "{{", improved_prompt)
+        improved_prompt = re.sub(r"\}\s+\}", "}}", improved_prompt)
         invalid_vars = find_unregistered_jinja_variables(improved_prompt, allowed_vars)
-
-        if invalid_vars:
-            retry_message = _build_retry_message(
-                allowed_vars, invalid_vars, improved_prompt
-            )
-            retry_messages = messages + [{"role": "user", "content": retry_message}]
-            response = client.invoke(retry_messages, temperature=0.2, max_tokens=2000)
-            improved_prompt = (
-                response.get("choices", [{}])[0].get("message", {}).get("content", "")
-            )
-            if not improved_prompt:
-                raise HTTPException(
-                    status_code=500, detail="AI 응답을 파싱할 수 없습니다."
-                )
-            improved_prompt = improved_prompt.strip()
-            invalid_vars = find_unregistered_jinja_variables(
-                improved_prompt, allowed_vars
-            )
 
         if invalid_vars:
             improved_prompt = strip_unregistered_jinja_variables(

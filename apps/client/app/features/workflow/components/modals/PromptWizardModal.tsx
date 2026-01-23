@@ -11,6 +11,7 @@ interface PromptWizardModalProps {
   onClose: () => void;
   promptType: 'system' | 'user' | 'assistant';
   originalPrompt: string;
+  registeredVariables?: string[];
   onApply: (improvedPrompt: string) => void;
 }
 
@@ -31,6 +32,7 @@ export function PromptWizardModal({
   onClose,
   promptType,
   originalPrompt,
+  registeredVariables = [],
   onApply,
 }: PromptWizardModalProps) {
 
@@ -72,15 +74,19 @@ export function PromptWizardModal({
     setImprovedPrompt('');
 
     try {
+      const payload: Record<string, unknown> = {
+        prompt_type: promptType,
+        original_prompt: currentPrompt,
+        model_id: selectedModelId || null,
+      };
+      if (registeredVariables.length > 0) {
+        payload.registered_variables = registeredVariables;
+      }
       const res = await fetch('/api/v1/prompt-wizard/improve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          prompt_type: promptType,
-          original_prompt: currentPrompt,
-          model_id: selectedModelId || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {

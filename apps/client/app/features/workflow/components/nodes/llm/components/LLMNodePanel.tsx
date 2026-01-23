@@ -315,6 +315,12 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
     data.referenced_variables,
   ]);
 
+  const registeredVariableNames = useMemo(() => {
+    return (data.referenced_variables || [])
+      .map((v) => v.name?.trim())
+      .filter(Boolean) as string[];
+  }, [data.referenced_variables]);
+
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
     [data.referenced_variables],
@@ -885,6 +891,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
               ? data.user_prompt || ''
               : data.assistant_prompt || ''
         }
+        registeredVariables={registeredVariableNames}
         onApply={handleApplyImproved}
       />
     </div>

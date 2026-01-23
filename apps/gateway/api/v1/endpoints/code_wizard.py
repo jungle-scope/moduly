@@ -160,29 +160,6 @@ def _build_input_guardrail(allowed_vars: Set[str]) -> str:
     )
 
 
-def _build_retry_message(
-    allowed_vars: Set[str],
-    invalid_vars: Set[str],
-    has_dynamic: bool,
-    candidate_text: str,
-) -> str:
-    allowed_list = ", ".join(sorted(allowed_vars)) if allowed_vars else "(없음)"
-    invalid_list = ", ".join(sorted(invalid_vars)) if invalid_vars else "(없음)"
-    dynamic_note = (
-        "- 동적 키 접근이 발견되었습니다. 문자열 리터럴로만 접근하세요.\n"
-        if has_dynamic
-        else ""
-    )
-    return (
-        "아래 코드에 허용되지 않은 inputs 키 접근이 포함되어 있습니다.\n"
-        f"- 허용 키: {allowed_list}\n"
-        f"- 발견된 키: {invalid_list}\n"
-        f"{dynamic_note}"
-        "허용 키만 사용해서 아래 코드를 수정한 뒤 코드만 출력하세요.\n\n"
-        f"[기존 코드]\n{candidate_text}"
-    )
-
-
 def _resolve_model_id(
     db: Session, user_id: str, requested_model_id: Optional[str], provider_name: str
 ) -> str:
@@ -491,23 +468,6 @@ async def generate_code(
         invalid_keys, has_dynamic = _find_invalid_input_keys(
             generated_code, allowed_vars
         )
-        if invalid_keys or has_dynamic:
-            retry_message = _build_retry_message(
-                allowed_vars, invalid_keys, has_dynamic, generated_code
-            )
-            retry_messages = messages + [{"role": "user", "content": retry_message}]
-            response = client.invoke(retry_messages, temperature=0.2, max_tokens=2000)
-            generated_code = _parse_code_response(response)
-            if not generated_code:
-                print(f"[code_wizard] Unknown response format: {response}")
-                raise HTTPException(
-                    status_code=500, detail="AI 응답을 파싱할 수 없습니다."
-                )
-            generated_code = _clean_code_response(generated_code)
-            invalid_keys, has_dynamic = _find_invalid_input_keys(
-                generated_code, allowed_vars
-            )
-
         if invalid_keys or has_dynamic:
             generated_code = _sanitize_input_accesses(generated_code, allowed_vars)
 
