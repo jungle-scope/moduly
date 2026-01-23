@@ -1,6 +1,18 @@
-import { 
-  Play, MessageSquare, GitFork, Code, Globe, Webhook, Calendar, Database,
-  Sparkles, FileText, Bot, BrainCircuit, Mail
+import {
+  Play,
+  MessageSquare,
+  GitFork,
+  Code,
+  Globe,
+  Webhook,
+  Calendar,
+  Database,
+  Sparkles,
+  FileText,
+  Bot,
+  BrainCircuit,
+  Mail,
+  BookOpen,
 } from 'lucide-react';
 import React from 'react';
 
@@ -55,6 +67,7 @@ export const getNodeDisplayInfo = (nodeIdentifier: string): NodeDisplayInfo => {
     email: { label: '이메일', icon: <Mail className="w-4 h-4" />, color: 'text-red-600 bg-red-50' },
     workflow: { label: '워크플로우', icon: <Bot className="w-4 h-4" />, color: 'text-violet-600 bg-violet-50' },
     template: { label: '템플릿', icon: <FileText className="w-4 h-4" />, color: 'text-teal-600 bg-teal-50' },
+    variableextraction: { label: '변수 추출', icon: <BookOpen className="w-4 h-4" />, color: 'text-cyan-600 bg-cyan-50' },
   };
   
   // Try exact match first

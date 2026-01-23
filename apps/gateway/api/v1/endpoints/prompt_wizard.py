@@ -191,7 +191,7 @@ def check_credentials(
 
 
 @router.post("/improve", response_model=PromptImproveResponse)
-def improve_prompt(
+async def improve_prompt(
     request: PromptImproveRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -259,7 +259,7 @@ def improve_prompt(
         ]
 
         # 5. LLM 호출
-        response = client.invoke(messages, temperature=0.7, max_tokens=2000)
+        response = await client.invoke(messages, temperature=0.7, max_tokens=2000)
 
         # 6. 응답 파싱
         improved_prompt = (

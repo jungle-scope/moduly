@@ -121,7 +121,7 @@ class IngestionOrchestrator:
 
         with lock.lock() as acquired:
             if not acquired:
-                print(
+                logger.error(
                     f"[IngestionOrchestrator] Document {document_id} is already being processed by another worker"
                 )
                 return
@@ -140,9 +140,6 @@ class IngestionOrchestrator:
 
                 # 이미 처리 완료된 문서 건너뛰기
                 if doc.status == "completed":
-                    print(
-                        f"[INFO] Document {document_id} already completed, skipping..."
-                    )
                     return
 
                 self._update_progress_redis(document_id, 0)
@@ -231,6 +228,7 @@ class IngestionOrchestrator:
         """
         진행률을 Redis에 저장 (DB 과부하 방지)
         이전 값보다 작으면 업데이트하지 않음
+        expire=True: 완료/실패 시 100을 저장하고 짧은 TTL로 자동 만료
         """
         from apps.shared.pubsub import get_redis_client
 
@@ -239,7 +237,8 @@ class IngestionOrchestrator:
             key = f"knowledge_progress:{document_id}"
 
             if expire:
-                redis_client.delete(key)
+                # 완료/실패 시 100을 저장하고 30초 후 자동 삭제
+                redis_client.set(key, str(progress), ex=30)
                 return
 
             current_val = redis_client.get(key)
@@ -352,12 +351,10 @@ class IngestionOrchestrator:
                         est_page_start = max(0, (first_chunk_idx - 1) // 2)
                         est_page_end = est_page_start + 4
                         target_pages = f"{est_page_start}-{est_page_end}"
-                        print(
-                            f"[Preview] Adjusted target_pages to {target_pages} based on chunk_range {chunk_range}"
-                        )
+
                     except Exception as e:
-                        print(
-                            f"[Preview] Failed to parse chunk_range for page targeting: {e}"
+                        logger.error(
+                            f"Failed to parse chunk_range for page targeting: {e}"
                         )
 
                 source_config["target_pages"] = target_pages
@@ -388,7 +385,7 @@ class IngestionOrchestrator:
 
         # Check for errors from processor
         if result.metadata and "error" in result.metadata:
-            raise Exception(f"Processor Error: {result.metadata['error']}")
+            raise ValueError(result.metadata['error'])
 
         raw_blocks = result.chunks
 
@@ -579,7 +576,15 @@ class IngestionOrchestrator:
 
             if llm_client:
                 # 배치 임베딩 호출 - 실패 시 즉시 에러 발생 (Raise)
-                batch_embeddings = llm_client.embed_batch(batch_texts)
+                import asyncio
+                import inspect
+
+                # embed_batch가 async 함수이므로 동기적으로 결과 실행
+                embeddings_result = llm_client.embed_batch(batch_texts)
+                if inspect.iscoroutine(embeddings_result):
+                    batch_embeddings = asyncio.run(embeddings_result)
+                else:
+                    batch_embeddings = embeddings_result
 
                 # 인덱스 매핑
                 for idx, embedding in zip(batch_indices, batch_embeddings):
@@ -591,6 +596,7 @@ class IngestionOrchestrator:
         # ========================================
         # content 암호화 & DB 저장
         # ========================================
+        keyword_error_logged = False
         for i, chunk in enumerate(chunks):
             # 10개마다 진행률 업데이트 (나머지 20% 비중)
             if (i + 1) % 10 == 0 or (i + 1) == len(chunks):
@@ -625,7 +631,9 @@ class IngestionOrchestrator:
                 keywords = r.get_ranked_phrases()[:10]
             except Exception as e:
                 # 키워드 추출 실패는 치명적이지 않음 (로그만 남김)
-                logger.warning(f"Keyword extraction failed: {e}")
+                if not keyword_error_logged:
+                    logger.warning(f"Keyword extraction failed: {e}")
+                    keyword_error_logged = True
 
             # 메타데이터에 키워드 추가
             chunk_metadata = chunk.get("metadata", {}) or {}

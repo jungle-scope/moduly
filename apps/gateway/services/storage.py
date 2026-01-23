@@ -29,7 +29,7 @@ class StorageService(ABC):
 
 
 class LocalStorageService(StorageService):
-    def __init__(self, upload_dir: str = "/tmp/uploads"):  # 컨테이너에서 쓰기 가능
+    def __init__(self, upload_dir: str = "/app/uploads"):  # 컨테이너에서 쓰기 가능
         self.upload_dir = upload_dir
         os.makedirs(self.upload_dir, exist_ok=True)
 
@@ -49,6 +49,25 @@ class LocalStorageService(StorageService):
     def delete(self, file_path: str):
         if os.path.exists(file_path):
             os.remove(file_path)
+
+    def generate_presigned_upload_url(
+        self,
+        filename: str,
+        content_type: str,
+        user_id: str,
+        expires_in: int = 3600,
+    ) -> dict:
+        """
+        LocalStorage를 사용하는 경우 Presigned URL을 지원하지 않으므로,
+        프론트엔드에서 직접 백엔드로 업로드하도록 유도하는 응답을 반환하거나,
+        적절한 예외를 던져서 핸들링하도록 합니다.
+
+        여기서는 None을 반환하여 프론트엔드가 일반 업로드를 수행하도록 합니다.
+        (프론트엔드 로직에 따라 수정 필요할 수 있음)
+        """
+        # 로컬 모드에서는 Presigned URL 생성이 불가능
+        # 프론트엔드가 이 응답을 보고 "일반 업로드"로 전환하도록 신호를 줍니다.
+        return {"use_backend_proxy": True, "url": None, "key": None, "method": None}
 
 
 class S3StorageService(StorageService):

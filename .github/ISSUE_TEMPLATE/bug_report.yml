@@ -1,0 +1,109 @@
+name: 🐛 버그 리포트
+description: 발견한 버그를 알려주세요
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > ⚠️ 이 폼은 버그 리포트 전용입니다.
+        > ❌ 일반적인 질문이나 기능 요청에는 사용하지 마세요.
+        > 💬 도움이 필요하시면 [GitHub Discussions](https://github.com/jungle-scope/moduly/discussions)를 이용해주세요.
+        ---
+        Moduly 개선에 도움을 주셔서 감사합니다!
+        가능한 한 자세히 작성해주시면 빠르게 해결할 수 있습니다.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 버그 설명
+      description: 발생한 버그에 대해 명확하게 설명해주세요
+      placeholder: 어떤 문제가 발생했나요?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 재현 단계
+      description: 버그를 재현하기 위한 단계를 알려주세요
+      placeholder: |
+        1. '...'로 이동
+        2. '...'을 클릭
+        3. '...'까지 스크롤
+        4. 오류 발생
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+      description: 정상적으로 동작했다면 어떻게 되어야 하는지 설명해주세요
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 스크린샷
+      description: 해당되는 경우, 문제를 설명하는 스크린샷을 추가해주세요
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: '## 환경 정보'
+
+  - type: input
+    id: os
+    attributes:
+      label: 운영체제
+      placeholder: 예) macOS 14.0, Windows 11, Ubuntu 22.04
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: 브라우저
+      placeholder: 예) Chrome 120, Safari 17, Firefox 121
+    validations:
+      required: true
+
+  - type: input
+    id: moduly-version
+    attributes:
+      label: Moduly 버전
+      placeholder: 예) v1.0.0 또는 commit hash
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hosting
+    attributes:
+      label: 배포 환경
+      options:
+        - Docker Compose (로컬)
+        - Kubernetes
+        - SaaS (moduly-ai.cloud)
+        - 기타
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 에러 로그 (선택사항)
+      description: 관련 에러 로그가 있다면 붙여넣어주세요
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 추가 정보
+      description: 버그에 대한 추가 컨텍스트가 있다면 작성해주세요
+    validations:
+      required: false

@@ -10,6 +10,7 @@ import os
 from typing import Any, Dict, Generator, Optional
 
 import redis
+import redis.asyncio as aioredis  # [NEW] 비동기 Redis 클라이언트
 
 # Redis 연결 설정 (개별 환경변수로 URL 동적 생성)
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
@@ -25,21 +26,30 @@ else:
 
 # Redis 클라이언트 (지연 초기화)
 _redis_client: Optional[redis.Redis] = None
+_async_redis_client: Optional[aioredis.Redis] = None  # [NEW] 비동기 클라이언트
 
 
 def get_redis_client() -> redis.Redis:
-    """Redis 클라이언트 싱글톤 반환"""
+    """Redis 클라이언트 싱글톤 반환 (동기)"""
     global _redis_client
     if _redis_client is None:
         _redis_client = redis.from_url(REDIS_URL)
     return _redis_client
 
 
+def get_async_redis_client() -> aioredis.Redis:
+    """Redis 클라이언트 싱글톤 반환 (비동기)"""
+    global _async_redis_client
+    if _async_redis_client is None:
+        _async_redis_client = aioredis.from_url(REDIS_URL)
+    return _async_redis_client
+
+
 def publish_workflow_event(
     workflow_run_id: str, event_type: str, data: Dict[str, Any]
 ) -> None:
     """
-    워크플로우 이벤트 발행
+    워크플로우 이벤트 발행 (동기)
 
     Args:
         workflow_run_id: 워크플로우 실행 ID
@@ -55,6 +65,30 @@ def publish_workflow_event(
         }
     )
     client.publish(channel, message)
+
+
+async def publish_workflow_event_async(
+    workflow_run_id: str, event_type: str, data: Dict[str, Any]
+) -> None:
+    """
+    워크플로우 이벤트 발행 (비동기)
+    [PERF] 이벤트 루프 차단을 방지하기 위해 비동기 Redis 클라이언트 사용
+
+    Args:
+        workflow_run_id: 워크플로우 실행 ID
+        event_type: 이벤트 타입
+        data: 이벤트 데이터
+    """
+    client = get_async_redis_client()
+    channel = f"workflow:{workflow_run_id}"
+    message = json.dumps(
+        {
+            "type": event_type,
+            "data": data,
+        }
+    )
+    # await로 비동기 발행
+    await client.publish(channel, message)
 
 
 def subscribe_workflow_events(
@@ -85,3 +119,14 @@ def subscribe_workflow_events(
     finally:
         pubsub.unsubscribe(channel)
         pubsub.close()
+
+
+async def close_async_redis_client() -> None:
+    """
+    비동기 Redis 클라이언트 연결 종료
+    [FIX] Celery 태스크 종료 시 이벤트 루프와 함께 클라이언트를 정리하기 위함
+    """
+    global _async_redis_client
+    if _async_redis_client is not None:
+        await _async_redis_client.close()
+        _async_redis_client = None

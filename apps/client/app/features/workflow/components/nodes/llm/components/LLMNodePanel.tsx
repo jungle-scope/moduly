@@ -643,7 +643,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
         )}
       </CollapsibleSection>
 
-      {/* 2.5 참고 자료 버튼 (참고 자료 그룹 통합) */}
+      {/* 2.5 지식 베이스 버튼 (지식 베이스 그룹 통합) */}
       <div className="my-2 group">
         <button
           type="button"
@@ -677,7 +677,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
           {/* 텍스트 내용 */}
           <div className="flex flex-col items-start flex-1 gap-0.5">
             <span className="font-bold text-sm tracking-tight">
-              참고 자료 그룹 설정
+              지식 베이스 설정
             </span>
             <span
               className={`text-xs transition-colors duration-300 ${
@@ -699,7 +699,7 @@ export function LLMNodePanel({ nodeId, data }: LLMNodePanelProps) {
         </button>
       </div>
 
-      {/* 참고자료-프롬프트 구분선 */}
+      {/* 지식 베이스-프롬프트 구분선 */}
       <div className="border-b border-gray-200" />
 
       {/* 3. 프롬프트 */}

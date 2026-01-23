@@ -78,11 +78,6 @@ spec:
             configMapKeyRef:
               name: {{ include "moduly.configMapName" . }}
               key: SANDBOX_URL
-        - name: SANDBOX_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "moduly.secretName" . }}
-              key: SANDBOX_API_KEY
         
         # Storage configuration (for file processing)
         - name: STORAGE_TYPE

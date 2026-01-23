@@ -13,6 +13,11 @@ interface RAGResponse {
     filename: string;
     similarity_score: number;
     page_number?: number;
+    metadata?: {
+      rrf_score?: number;
+      rerank_score?: number;
+      search_method?: string;
+    };
   }[];
 }
 
@@ -147,7 +152,7 @@ export default function KnowledgeSearchModal({
           <div className="flex items-center justify-between p-4 pb-2">
             <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <Bot className="w-5 h-5 text-blue-600" />
-              참고자료 테스트
+              지식 테스트
             </h3>
             <button
               onClick={onClose}
@@ -250,7 +255,7 @@ export default function KnowledgeSearchModal({
             <div className="flex flex-col items-center justify-center h-full text-blue-600">
               <Loader2 className="w-8 h-8 animate-spin mb-2" />
               <p className="text-sm font-medium">
-                지식베이스 검색 및 답변 생성 중...
+                지식 베이스 검색 및 답변 생성 중...
               </p>
             </div>
           )}
@@ -267,8 +272,8 @@ export default function KnowledgeSearchModal({
                     <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                       AI 답변
                     </p>
-                    <div className="text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                      {response.answer}
+                    <div className="text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-gray-800 p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 whitespace-pre-wrap">
+                      {response.answer.replace(/\n{2,}/g, '\n')}
                     </div>
                   </div>
                 </div>
@@ -290,9 +295,11 @@ export default function KnowledgeSearchModal({
                         <span className="font-medium text-blue-600 dark:text-blue-400 text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-full border border-blue-100 dark:border-blue-800">
                           {ref.filename}
                         </span>
-                        {/* <span className="text-xs text-gray-400">
-                          유사도: {(ref.similarity_score * 100).toFixed(1)}%
-                        </span> */}
+                        {ref.metadata?.rrf_score !== undefined && (
+                          <span className="text-xs text-gray-400">
+                            RRF: {ref.metadata.rrf_score.toFixed(3)}
+                          </span>
+                        )}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed text-xs">
                         {ref.content}
@@ -314,7 +321,7 @@ export default function KnowledgeSearchModal({
               placeholder={
                 activeTab === 'search'
                   ? '검색어를 입력하세요...'
-                  : '지식베이스에 대해 질문해보세요...'
+                  : '지식 베이스에 대해 질문해보세요...'
               }
               className="w-full pr-14 min-h-[60px] max-h-[120px] resize-none p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-black transition-all shadow-inner"
               onKeyDown={(e) => {

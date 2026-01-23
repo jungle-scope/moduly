@@ -21,6 +21,10 @@ from apps.workflow_engine.workflow.nodes.template.template_node import TemplateN
 from apps.workflow_engine.workflow.nodes.webhook import WebhookTriggerNode, WebhookTriggerNodeData
 from apps.workflow_engine.workflow.nodes.workflow.entities import WorkflowNodeData
 from apps.workflow_engine.workflow.nodes.workflow.workflow_node import WorkflowNode
+from apps.workflow_engine.workflow.nodes.variable_extraction import (
+    VariableExtractionNode,
+    VariableExtractionNodeData,
+)
 
 
 class NodeFactory:
@@ -46,6 +50,7 @@ class NodeFactory:
         "templateNode": (TemplateNode, TemplateNodeData),
         "workflowNode": (WorkflowNode, WorkflowNodeData),
         "fileExtractionNode": (FileExtractionNode, FileExtractionNodeData),
+        "variableExtractionNode": (VariableExtractionNode, VariableExtractionNodeData),
         "loopNode": (LoopNode, LoopNodeData),
     }
 

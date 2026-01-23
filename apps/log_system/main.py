@@ -13,7 +13,7 @@ import os
 import sys
 
 # ===================================================
-# 로깅 설정 (Celery Worker 시작 전)
+# 로깅 설정 (Celery Worker 시작 전 )
 # ===================================================
 # Python 표준 logger (logger.info, logger.error 등)가
 # stdout으로 출력되도록 설정 → Promtail이 수집 → Loki로 전송

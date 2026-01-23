@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import axios from 'axios';
 import {
   knowledgeApi,
   DocumentPreviewRequest,
@@ -144,10 +145,12 @@ export function useDocumentProcess({
       } else {
         toast.success('데이터 처리를 시작합니다.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Debug] Save failed:', error);
-      console.error('[Debug] Error details:', error.response?.data);
-      toast.error('저장에 실패했습니다.');
+      const errorMessage = axios.isAxiosError(error)
+        ? error.response?.data?.detail || '저장에 실패했습니다.'
+        : '저장에 실패했습니다.';
+      toast.error(errorMessage);
     }
   };
 
@@ -168,9 +171,12 @@ export function useDocumentProcess({
       // 서버에서 필터링된 결과를 그대로 사용 (클라이언트 필터링 로직 제거)
       setPreviewSegments(response.segments);
       toast.success(`청킹 미리보기 완료 (${response.segments.length}개 청크)`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error('미리보기 생성 실패');
+      const errorMessage = axios.isAxiosError(error)
+        ? error.response?.data?.detail || '미리보기 생성 실패'
+        : '미리보기 생성 실패';
+      toast.error(errorMessage);
     } finally {
       setIsPreviewLoading(false);
     }

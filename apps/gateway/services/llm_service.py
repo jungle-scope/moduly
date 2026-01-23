@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 import requests
 from sqlalchemy.orm import Session, joinedload
 
-from apps.gateway.services.llm_client.factory import get_llm_client
 from apps.shared.db.models.llm import (
     LLMCredential,
     LLMModel,
@@ -20,6 +19,7 @@ from apps.shared.schemas.llm import (
     LLMModelResponse,
     LLMProviderResponse,
 )
+from apps.shared.services.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -714,32 +714,43 @@ class LLMService:
 
         target_model = (
             db.query(LLMModel)
+            .options(joinedload(LLMModel.provider))
             .filter(LLMModel.model_id_for_api_call == model_id)
             .first()
         )
         if not target_model:
+            # raise ValueError(f"Unknown model_id: {model_id}")
+            # 시스템에 없는 모델명일 경우 처리 (커스텀 모델명 호환성)
+            # 일단 에러 발생시키지 않고 진행하거나, Known 에러로 처리
             raise ValueError(f"Unknown model_id: {model_id}")
 
-        cred = (
-            db.query(LLMCredential)
-            .join(
-                LLMRelCredentialModel,
-                LLMRelCredentialModel.credential_id == LLMCredential.id,
-            )
-            .filter(
-                LLMCredential.user_id == user_id,
-                LLMCredential.is_valid == True,
-                LLMRelCredentialModel.model_id == target_model.id,
-                LLMRelCredentialModel.is_verified == True,
-            )
-            .order_by(
-                LLMRelCredentialModel.priority.desc(),
-                LLMCredential.updated_at.desc(),
-            )
-            .first()
+        # [SIMPLIFIED] rel 테이블 조인 대신 프로바이더 매칭으로 단순화
+        # 모델의 프로바이더(OpenAI, Anthropic 등)와 일치하는 유효한 크리덴셜을 찾음
+        provider_id = target_model.provider_id if target_model else None
+        cred = LLMService._get_valid_credential_for_user(
+            db, user_id=user_id, provider_id=provider_id
         )
 
+        # [FALLBACK] UUID 불일치 시 이름 기반 매칭 (서버/로컬 DB 차이 대응)
+        if not cred and target_model and target_model.provider:
+            cred = (
+                db.query(LLMCredential)
+                .join(LLMProvider)
+                .filter(
+                    LLMCredential.user_id == user_id,
+                    LLMCredential.is_valid == True,
+                    LLMProvider.name == target_model.provider.name,
+                )
+                .order_by(LLMCredential.updated_at.desc())
+                .first()
+            )
+
         if not cred:
+            logger.error(
+                f"[LLMService] No valid credential found for user_id={user_id}, model_id='{model_id}'. "
+                f"TargetModel: {target_model.name if target_model else 'None'} (ID: {target_model.id if target_model else 'None'}), "
+                f"ProviderID: {provider_id}"
+            )
             raise ValueError(
                 f"유효한 API 키를 찾을 수 없습니다. [설정 > 모델 키 관리]에서 '{model_id}' 모델을 지원하는 API Key를 등록해주세요."
             )

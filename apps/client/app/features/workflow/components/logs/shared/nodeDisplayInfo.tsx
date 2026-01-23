@@ -131,6 +131,11 @@ const nodeDisplayMapping: Record<string, NodeDisplayInfo> = {
     icon: <FileOutput className="w-4 h-4" />,
     color: 'text-emerald-600 bg-emerald-50',
   },
+  variableExtractionNode: {
+    label: '변수 추출',
+    icon: <FileText className="w-4 h-4" />,
+    color: 'text-cyan-600 bg-cyan-50',
+  },
   knowledgeNode: {
     label: '지식 검색',
     icon: <Database className="w-4 h-4" />,

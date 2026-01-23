@@ -10,7 +10,16 @@ spec:
     matchLabels:
       {{- include "moduly.componentSelectorLabels" (dict "component" "sandbox" "context" .) | nindent 6 }}
   policyTypes:
+  - Ingress
   - Egress
+  
+  ingress:
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8194
+  
   egress:
   # 1. DNS 허용 (필수)
   - ports:
@@ -18,15 +27,5 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-
-  # 2. 외부 인터넷 허용하되, 내부망(Private IP)은 차단
-  # 프록시가 인터넷에서 데이터를 가져올 수 있어야 함!
-  - to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-        except:
-          - 10.0.0.0/8      # AWS VPC 내부망 등
-          - 172.16.0.0/12   # 쿠버네티스 서비스망 등
-          - 192.168.0.0/16  # 공유기/사설망 등
-          - 169.254.169.254/32 # AWS 메타데이터 (필요시 추가 차단)
+  # 2. 나머지는 모두 차단 (기본 Deny)
 {{- end }}

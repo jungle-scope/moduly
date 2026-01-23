@@ -57,10 +57,17 @@ class WorkflowLogger:
                 serialized[key] = value
         return serialized
 
-    def _submit_log(self, task_name: str, data: Dict[str, Any]):
-        """Celery 태스크로 로그 작업 제출"""
+    def _submit_log(self, task_name: str, data: Dict[str, Any], countdown: float = 0):
+        """
+        Celery 태스크로 로그 작업 제출 (비동기)
+
+        Args:
+            task_name: Celery 태스크 이름
+            data: 전송할 데이터
+            countdown: 태스크 실행 전 대기 시간(초). 부모 레코드 생성 대기용.
+        """
         serialized_data = self._serialize_for_celery(data)
-        celery_app.send_task(task_name, args=[serialized_data])
+        celery_app.send_task(task_name, args=[serialized_data], countdown=countdown)
 
     def __enter__(self):
         """Context Manager 진입"""
@@ -142,12 +149,16 @@ class WorkflowLogger:
         node_type: str,
         inputs: Dict[str, Any],
         process_data: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> Optional[uuid.UUID]:
         """노드 실행 로그 생성"""
         if not self.workflow_run_id:
-            return
+            return None
+
+        # [FIX] Deterministic Log ID 생성
+        log_id = uuid.uuid4()
 
         data = {
+            "id": log_id,  # [NEW] PK를 미리 생성하여 전달
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "node_type": node_type,
@@ -155,30 +166,64 @@ class WorkflowLogger:
             "process_data": process_data or {},
             "started_at": datetime.now(timezone.utc),
         }
-        self._submit_log("log.create_node", data)
+        # [FIX] 0.3초 딜레이: 부모 WorkflowRun이 먼저 생성되도록 대기
+        self._submit_log("log.create_node", data, countdown=0.3)
+        return log_id
 
-    def update_node_log_finish(self, node_id: str, outputs: Any):
-        """노드 실행 완료 로그 업데이트"""
-        if not self.workflow_run_id:
+    def update_node_log_finish(
+        self,
+        log_id: uuid.UUID,
+        node_id: str,
+        outputs: Any,
+        node_type: str = None,
+        inputs: Dict[str, Any] = None,
+        process_data: Dict[str, Any] = None,
+        started_at: datetime = None,
+    ):
+        """노드 실행 완료 로그 업데이트 (Upsert 패턴 지원)"""
+        if not self.workflow_run_id or not log_id:
             return
 
         data = {
+            "log_id": log_id,
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "outputs": outputs,
             "finished_at": datetime.now(timezone.utc),
+            # [NEW] Upsert용 추가 정보 (레코드가 없을 때 생성에 사용)
+            "node_type": node_type,
+            "inputs": inputs or {},
+            "process_data": process_data or {},
+            "started_at": started_at,
         }
-        self._submit_log("log.update_node_finish", data)
+        # [FIX] 0.3초 딜레이: 부모 WorkflowRun이 먼저 생성되도록 대기
+        self._submit_log("log.update_node_finish", data, countdown=0.3)
 
-    def update_node_log_error(self, node_id: str, error_message: str):
-        """노드 실행 에러 로그 업데이트"""
-        if not self.workflow_run_id:
+    def update_node_log_error(
+        self,
+        log_id: uuid.UUID,
+        node_id: str,
+        error_message: str,
+        node_type: str = None,
+        inputs: Dict[str, Any] = None,
+        process_data: Dict[str, Any] = None,
+        started_at: datetime = None,
+    ):
+        """노드 실행 에러 로그 업데이트 (Upsert 패턴 지원)"""
+        if not self.workflow_run_id or not log_id:
             return
 
         data = {
+            "log_id": log_id,
             "workflow_run_id": self.workflow_run_id,
             "node_id": node_id,
             "error_message": error_message,
             "finished_at": datetime.now(timezone.utc),
+            # [NEW] Upsert용 추가 정보 (레코드가 없을 때 생성에 사용)
+            "node_type": node_type,
+            "inputs": inputs or {},
+            "process_data": process_data or {},
+            "started_at": started_at,
         }
-        self._submit_log("log.update_node_error", data)
+        # [FIX] 0.3초 딜레이: 부모 WorkflowRun이 먼저 생성되도록 대기
+        self._submit_log("log.update_node_error", data, countdown=0.3)

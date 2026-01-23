@@ -69,6 +69,7 @@ class ChunkPreview(BaseModel):
     filename: str
     page_number: Optional[int] = None
     similarity_score: float
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class RAGResponse(BaseModel):

@@ -61,7 +61,7 @@ interface SlackPostNodePanelProps {
 
 export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
   const { updateNodeData, nodes, edges } = useWorkflowStore();
-  const mode = data.slackMode || 'webhook';
+  const mode = data.slackMode || 'api';
   const messageRef = useRef<HTMLTextAreaElement>(null);
   const blocksRef = useRef<HTMLTextAreaElement>(null);
 
@@ -89,7 +89,7 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
       updateNodeData(nodeId, { method: 'POST' });
     }
     if (!data.slackMode) {
-      updateNodeData(nodeId, { slackMode: 'webhook' });
+      updateNodeData(nodeId, { slackMode: 'api' });
     }
   }, [data.method, data.slackMode, nodeId, updateNodeData]);
 
@@ -139,10 +139,9 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
     return Array.from(missing);
   }, [data.message, data.blocks, availableVariables]);
 
-
   const incompleteVariables = useMemo(
     () => getIncompleteVariables(data.referenced_variables),
-    [data.referenced_variables]
+    [data.referenced_variables],
   );
 
   const trimmedUrl = (data.url || '').trim();
@@ -422,7 +421,10 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
               <ValidationAlert message="⚠️ Web Hook URL이 필요합니다." />
             )}
             {mode === 'webhook' && trimmedUrl && !isWebhookUrlValid && (
-              <ValidationAlert message="⚠️ Web Hook URL 형식이 올바르지 않습니다." type="warning" />
+              <ValidationAlert
+                message="⚠️ Web Hook URL 형식이 올바르지 않습니다."
+                type="warning"
+              />
             )}
             <div className="mt-2 border-b border-gray-200" />
           </div>
@@ -431,7 +433,6 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
             chat.postMessage 기본값입니다. 필요하면 다른 Slack API로 변경하세요.
           </p>
         )}
-
 
         {mode === 'api' && !trimmedUrl && (
           <ValidationAlert message="⚠️ Slack API 엔드포인트가 필요합니다." />
@@ -488,92 +489,8 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
               )}
             </div>
           </CollapsibleSection>
-
-
         </>
       )}
-
-      <CollapsibleSection
-        title="헤더 / 타임아웃"
-        showDivider
-        icon={
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddHeader();
-            }}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="헤더 추가"
-          >
-            <Plus className="w-3.5 h-3.5 text-gray-600" />
-          </button>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <p className="text-[10px] text-gray-500">
-            기본 <code>Content-Type: application/json</code> 이 자동 적용됩니다.
-            추가로 필요한 헤더만 입력하세요.
-          </p>
-          <div className="flex flex-col gap-2">
-            {data.headers?.map((header, index) => (
-              <div key={index} className="flex gap-2 items-center">
-                <input
-                  className="h-8 w-1/3 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-[#4A154B]"
-                  placeholder="키"
-                  value={header.key}
-                  onChange={(e) =>
-                    handleUpdateHeader(index, 'key', e.target.value)
-                  }
-                />
-                <input
-                  className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-[#4A154B]"
-                  placeholder="값"
-                  value={header.value}
-                  onChange={(e) =>
-                    handleUpdateHeader(index, 'value', e.target.value)
-                  }
-                />
-                <button
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
-                  onClick={() => handleRemoveHeader(index)}
-                  title="삭제"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-            {(!data.headers || data.headers.length === 0) && (
-              <div className="text-center text-xs text-gray-400 py-2 border border-dashed border-gray-200 rounded">
-                기본 Content-Type: application/json 이 자동 적용됩니다.
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1">
-              <label className="text-xs font-medium text-gray-700">
-                타임아웃 (ms)
-              </label>
-              <div className="group relative inline-block">
-                <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
-                <div className="absolute z-50 hidden group-hover:block w-56 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
-                  요청이 이 시간 내에 끝나지 않으면 자동으로 실패 처리됩니다.
-                  <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
-                </div>
-              </div>
-            </div>
-            <input
-              type="number"
-              className="h-8 w-full rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-[#4A154B]"
-              placeholder="5000"
-              value={data.timeout || 5000}
-              onChange={(e) =>
-                handleUpdateData('timeout', parseInt(e.target.value) || 0)
-              }
-            />
-          </div>
-        </div>
-      </CollapsibleSection>
 
       <CollapsibleSection title="입력변수" showDivider>
         <ReferencedVariablesControl
@@ -585,11 +502,111 @@ export function SlackPostNodePanel({ nodeId, data }: SlackPostNodePanelProps) {
           title=""
           description="메시지/블록에서 사용할 입력변수를 정의하고, 이전 노드의 출력값과 연결하세요."
         />
-        
 
         {incompleteVariables.length > 0 && (
           <IncompleteVariablesAlert variables={incompleteVariables} />
         )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="헤더 / 타임아웃"
+        showDivider
+        icon={(expand) => (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              expand();
+              handleAddHeader();
+            }}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="헤더 추가"
+          >
+            <Plus className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+        )}
+      >
+        <div className="flex flex-col gap-4">
+          {/* 헤더 설정 영역 */}
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
+              {data.headers?.map((header, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <input
+                    className="h-8 w-1/3 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-[#4A154B]"
+                    placeholder="키"
+                    value={header.key}
+                    onChange={(e) =>
+                      handleUpdateHeader(index, 'key', e.target.value)
+                    }
+                  />
+                  <input
+                    className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-mono focus:outline-none focus:border-[#4A154B]"
+                    placeholder="값"
+                    value={header.value}
+                    onChange={(e) =>
+                      handleUpdateHeader(index, 'value', e.target.value)
+                    }
+                  />
+                  <button
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                    onClick={() => handleRemoveHeader(index)}
+                    title="삭제"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              {(!data.headers || data.headers.length === 0) && (
+                <div className="text-center text-xs text-gray-400 py-3 border border-dashed border-gray-200 rounded bg-gray-50/50">
+                  <span className="block mb-1">
+                    등록된 추가 헤더가 없습니다.
+                  </span>
+                  <span className="text-[10px] text-gray-400 opacity-80">
+                    기본 <code>Content-Type: application/json</code> 은 자동
+                    적용됩니다.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {data.headers && data.headers.length > 0 && (
+              <p className="text-[10px] text-gray-500 px-1">
+                기본 <code>Content-Type: application/json</code> 이 자동
+                적용됩니다. 추가로 필요한 헤더만 입력하세요.
+              </p>
+            )}
+          </div>
+
+          {/* 구분선 */}
+          <div className="h-px bg-gray-100" />
+
+          {/* 타임아웃 설정 영역 */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <label className="text-xs font-medium text-gray-700">
+                  타임아웃 (ms)
+                </label>
+                <div className="group relative inline-block">
+                  <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                  <div className="absolute z-50 hidden group-hover:block w-56 p-2 text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg shadow-lg left-0 top-5">
+                    요청이 이 시간 내에 끝나지 않으면 자동으로 실패 처리됩니다.
+                    <div className="absolute -top-1 left-2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45" />
+                  </div>
+                </div>
+              </div>
+              <input
+                type="number"
+                className="w-24 h-8 px-2 text-sm text-right border border-gray-300 rounded focus:outline-none focus:border-[#4A154B]"
+                placeholder="5000"
+                value={data.timeout || 5000}
+                onChange={(e) =>
+                  handleUpdateData('timeout', parseInt(e.target.value) || 0)
+                }
+              />
+            </div>
+          </div>
+        </div>
       </CollapsibleSection>
 
       <CollapsibleSection title="메시지" defaultOpen={true} showDivider>

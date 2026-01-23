@@ -24,7 +24,8 @@ interface LogTabProps {
 
 // [BEST PRACTICE] 순수 함수는 컴포넌트 외부에 정의
 const isValidUUID = (id: string): boolean => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(id);
 };
 
@@ -50,7 +51,7 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     reset: resetABTest,
     selectRun: selectABRun,
     startCompare: startABHookCompare,
-    setSelectionTarget, 
+    setSelectionTarget,
   } = useABTestComparison(workflowId);
 
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
@@ -58,17 +59,20 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
   // ========================
   // 1. 데이터 로딩 (Data Fetching)
   // ========================
-  const fetchAndSelectRun = useCallback(async (runId: string) => {
-    if (!isValidUUID(workflowId)) return;
-    try {
-      const run = await workflowApi.getWorkflowRun(workflowId, runId);
-      setSelectedLog(run);
-      setViewMode('detail');
-    } catch (err) {
-      console.error('Failed to fetch initial run:', err);
-      setViewMode('list');
-    }
-  }, [workflowId]);
+  const fetchAndSelectRun = useCallback(
+    async (runId: string) => {
+      if (!isValidUUID(workflowId)) return;
+      try {
+        const run = await workflowApi.getWorkflowRun(workflowId, runId);
+        setSelectedLog(run);
+        setViewMode('detail');
+      } catch (err) {
+        console.error('Failed to fetch initial run:', err);
+        setViewMode('list');
+      }
+    },
+    [workflowId],
+  );
 
   const loadLogs = useCallback(async () => {
     try {
@@ -86,60 +90,65 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
   // ========================
   // 2. 리스트 필터링 (Filtering)
   // ========================
-  const handleFilterChange = useCallback((filters: LogFilters) => {
-    let result = [...logs];
+  const handleFilterChange = useCallback(
+    (filters: LogFilters) => {
+      let result = [...logs];
 
-    if (filters.status !== 'all') {
-      result = result.filter((log) => log.status === filters.status);
-    }
+      if (filters.status !== 'all') {
+        result = result.filter((log) => log.status === filters.status);
+      }
 
-    if (filters.dateRange.start) {
-      result = result.filter(
-        (log) => new Date(log.started_at) >= filters.dateRange.start!,
-      );
-    }
-    if (filters.dateRange.end) {
-      result = result.filter(
-        (log) => new Date(log.started_at) <= filters.dateRange.end!,
-      );
-    }
-
-    // 정렬 적용
-    switch (filters.sortBy) {
-      case 'latest':
-        result.sort(
-          (a, b) =>
-            new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+      if (filters.dateRange.start) {
+        result = result.filter(
+          (log) => new Date(log.started_at) >= filters.dateRange.start!,
         );
-        break;
-      case 'oldest':
-        result.sort(
-          (a, b) =>
-            new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
+      }
+      if (filters.dateRange.end) {
+        result = result.filter(
+          (log) => new Date(log.started_at) <= filters.dateRange.end!,
         );
-        break;
-      case 'tokens_high':
-        result.sort((a, b) => (b.total_tokens || 0) - (a.total_tokens || 0));
-        break;
-      case 'tokens_low':
-        result.sort((a, b) => (a.total_tokens || 0) - (b.total_tokens || 0));
-        break;
-      case 'cost_high':
-        result.sort((a, b) => (b.total_cost || 0) - (a.total_cost || 0));
-        break;
-      case 'cost_low':
-        result.sort((a, b) => (a.total_cost || 0) - (b.total_cost || 0));
-        break;
-      case 'duration_long':
-        result.sort((a, b) => (b.duration || 0) - (a.duration || 0));
-        break;
-      case 'duration_short':
-        result.sort((a, b) => (a.duration || 0) - (b.duration || 0));
-        break;
-    }
+      }
 
-    setFilteredLogs(result);
-  }, [logs]);
+      // 정렬 적용
+      switch (filters.sortBy) {
+        case 'latest':
+          result.sort(
+            (a, b) =>
+              new Date(b.started_at).getTime() -
+              new Date(a.started_at).getTime(),
+          );
+          break;
+        case 'oldest':
+          result.sort(
+            (a, b) =>
+              new Date(a.started_at).getTime() -
+              new Date(b.started_at).getTime(),
+          );
+          break;
+        case 'tokens_high':
+          result.sort((a, b) => (b.total_tokens || 0) - (a.total_tokens || 0));
+          break;
+        case 'tokens_low':
+          result.sort((a, b) => (a.total_tokens || 0) - (b.total_tokens || 0));
+          break;
+        case 'cost_high':
+          result.sort((a, b) => (b.total_cost || 0) - (a.total_cost || 0));
+          break;
+        case 'cost_low':
+          result.sort((a, b) => (a.total_cost || 0) - (b.total_cost || 0));
+          break;
+        case 'duration_long':
+          result.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+          break;
+        case 'duration_short':
+          result.sort((a, b) => (a.duration || 0) - (b.duration || 0));
+          break;
+      }
+
+      setFilteredLogs(result);
+    },
+    [logs],
+  );
 
   // ========================
   // 3. 로그 선택 및 네비게이션 (Navigation)
@@ -175,20 +184,26 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     setIsCompareModalOpen(true);
   }, []);
 
-  const handleCompareSelect = useCallback(async (targetRun: WorkflowRun) => {
-    setIsCompareModalOpen(false);
-    try {
-      // 비교 대상의 상세 정보(node_runs 포함) 가져오기
-      const detailedRun = await workflowApi.getWorkflowRun(workflowId, targetRun.id);
-      setCompareLog(detailedRun);
-      setViewMode('compare');
-    } catch (err) {
-      console.error('Failed to fetch compare run details:', err);
-      // 실패 시 기존 데이터로 진행
-      setCompareLog(targetRun);
-      setViewMode('compare');
-    }
-  }, [workflowId]);
+  const handleCompareSelect = useCallback(
+    async (targetRun: WorkflowRun) => {
+      setIsCompareModalOpen(false);
+      try {
+        // 비교 대상의 상세 정보(node_runs 포함) 가져오기
+        const detailedRun = await workflowApi.getWorkflowRun(
+          workflowId,
+          targetRun.id,
+        );
+        setCompareLog(detailedRun);
+        setViewMode('compare');
+      } catch (err) {
+        console.error('Failed to fetch compare run details:', err);
+        // 실패 시 기존 데이터로 진행
+        setCompareLog(targetRun);
+        setViewMode('compare');
+      }
+    },
+    [workflowId],
+  );
 
   const startABCompare = useCallback(async () => {
     const result = await startABHookCompare();
@@ -202,7 +217,7 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
   // ========================
   // 이펙트 (함수 선언 후 배치)
   // ========================
-  
+
   // 초기 로드
   useEffect(() => {
     if (workflowId && isValidUUID(workflowId)) {
@@ -258,13 +273,11 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
     );
   };
 
-
-
   return (
     <div className="h-full w-full bg-gray-100 flex flex-col overflow-hidden">
       {/* 상세/비교 헤더 네비게이션 */}
       {(viewMode === 'detail' || viewMode === 'compare') && (
-        <div className="px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-2">
+        <div className="px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-2 mt-14">
           <button
             onClick={handleBackToList}
             className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
@@ -280,36 +293,41 @@ export const LogTab = ({ workflowId, initialRunId }: LogTabProps) => {
       <div className="flex-1 overflow-hidden relative">
         {/* 뷰: 목록 모드 */}
         <div
-          className={`h-full w-full ${viewMode === 'list' ? 'block' : 'hidden'}`}
+          className={`h-full w-full flex flex-col ${viewMode === 'list' ? 'flex' : 'hidden'}`}
         >
-          <div className="h-full max-w-5xl mx-auto p-6 overflow-y-auto scroll-smooth pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <LogFilterBar
-              onFilterChange={handleFilterChange}
-              availableVersions={[]}
-            />
+          {/* Header Spacer */}
+          <div className="h-14 shrink-0" />
 
-            <div
-              ref={abSectionRef}
-              className="scroll-mt-4 transition-all duration-300 mb-4"
-            >
-              <LogABTestBar
-                isOpen={isABTestOpen}
-                onToggle={() => setIsABTestOpen(!isABTestOpen)}
-                runA={abRunA}
-                runB={abRunB}
-                selectionTarget={selectionTarget}
-                onSelectTarget={setSelectionTarget}
-                onCompare={startABCompare}
-                onReset={resetABTest}
+          <div className="flex-1 w-full overflow-y-auto scroll-smooth">
+            <div className="max-w-5xl mx-auto p-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <LogFilterBar
+                onFilterChange={handleFilterChange}
+                availableVersions={[]}
               />
-            </div>
 
-            {/* 로그 목록 컨테이너 */}
-            <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm relative min-h-[400px]">
-              {/* 선택 오버레이 */}
-              <LogSelectionOverlay selectionTarget={selectionTarget} />
+              <div
+                ref={abSectionRef}
+                className="scroll-mt-4 transition-all duration-300 mb-4"
+              >
+                <LogABTestBar
+                  isOpen={isABTestOpen}
+                  onToggle={() => setIsABTestOpen(!isABTestOpen)}
+                  runA={abRunA}
+                  runB={abRunB}
+                  selectionTarget={selectionTarget}
+                  onSelectTarget={setSelectionTarget}
+                  onCompare={startABCompare}
+                  onReset={resetABTest}
+                />
+              </div>
 
-              {renderLogListContent()}
+              {/* 로그 목록 컨테이너 */}
+              <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm relative min-h-[400px]">
+                {/* 선택 오버레이 */}
+                <LogSelectionOverlay selectionTarget={selectionTarget} />
+
+                {renderLogListContent()}
+              </div>
             </div>
           </div>
         </div>

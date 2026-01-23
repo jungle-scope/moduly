@@ -10,13 +10,13 @@ import {
   Globe,
   LayoutTemplate,
   Plug,
-  BookOpen,
   Webhook,
   Github,
   Mail,
   Clock,
   Slack,
   Repeat,
+  BookOpen,
 } from 'lucide-react';
 import React, { ReactNode } from 'react';
 
@@ -220,6 +220,21 @@ export const nodeRegistry: NodeDefinition[] = [
     }),
   },
   {
+    id: 'variable-extraction',
+    type: 'variableExtractionNode',
+    name: '변수 추출',
+    category: 'logic',
+    color: '#0891b2', // cyan-600 색상
+    icon: <BookOpen className="w-3.5 h-3.5 text-white" />,
+    implemented: true,
+    description: 'JSON 데이터에서 필요한 값을 추출해 변수로 만듭니다.',
+    defaultData: () => ({
+      title: '변수 추출',
+      source_selector: [],
+      mappings: [],
+    }),
+  },
+  {
     id: 'answer',
     type: 'answerNode',
     name: '응답',
@@ -283,7 +298,7 @@ export const nodeRegistry: NodeDefinition[] = [
     defaultData: () => ({
       title: 'slack',
       method: 'POST',
-      url: '',
+      url: 'https://slack.com/api/chat.postMessage',
       headers: [{ key: 'Content-Type', value: 'application/json' }],
       body: JSON.stringify(
         {
@@ -293,13 +308,13 @@ export const nodeRegistry: NodeDefinition[] = [
         2,
       ),
       timeout: 5000,
-      authType: 'none',
+      authType: 'bearer',
       authConfig: {},
       referenced_variables: [],
       message: '',
       channel: '',
       blocks: '',
-      slackMode: 'webhook',
+      slackMode: 'api',
     }),
   },
   {

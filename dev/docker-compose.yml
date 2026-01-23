@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: moduly-dev-postgres
+    environment:
+      POSTGRES_DB: moduly_local
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d moduly_local"]
+      interval: 60s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: moduly-dev-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: moduly-dev-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+  # Code Execution Sandbox (NSJail-based)
+  sandbox:
+    build:
+      context: .
+      dockerfile: docker/sandbox/Dockerfile
+    container_name: moduly-dev-sandbox
+    privileged: true # NSJail에 필요 (Namespace 사용)
+    environment:
+      TZ: Asia/Seoul
+      SANDBOX_MIN_WORKERS: 2
+      SANDBOX_MAX_WORKERS: 8
+      SANDBOX_DEFAULT_TIMEOUT: 10
+    ports:
+      - "8194:8194"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8194/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:

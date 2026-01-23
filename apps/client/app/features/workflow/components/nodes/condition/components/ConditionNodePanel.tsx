@@ -8,6 +8,7 @@ import {
   StartNodeData,
 } from '../../../../types/Nodes';
 import { getUpstreamNodes } from '../../../../utils/getUpstreamNodes';
+import { getNodeOutputs } from '../../../../utils/getNodeOutputs';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { RoundedSelect } from '../../../ui/RoundedSelect';
 
@@ -263,24 +264,37 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                         selectedSourceNode &&
                         (selectedSourceNode.type as string) === 'startNode';
 
-                      if (isStartNode && selectedSourceNode) {
-                        const startData =
-                          selectedSourceNode.data as unknown as StartNodeData;
-                        /**
-                         * [중요] 변수 ID를 value로 저장하는 이유:
-                         * - 사용자가 변수 이름을 변경해도 참조가 깨지지 않도록 함
-                         * - 예: 변수명 "name" → "username" 변경 시
-                         *   - 이름 기반: "name"을 찾음 → 없음 ❌
-                         *   - ID 기반: "45af2b51-..."를 찾음 → 정상 동작 ✅
-                         * - ID는 변경되지 않으므로 참조 안정성 보장
-                         */
-                        sourceVariables = (startData.variables || []).map(
-                          (v) => ({
-                            label: v.name, // 드롭다운에는 이름 표시 (사용자 가독성)
-                            value: v.id, // 저장할 때는 ID 사용 (참조 안정성)
-                          }),
-                        );
+                      if (selectedSourceNode) {
+                        if (isStartNode) {
+                          const startData =
+                            selectedSourceNode.data as unknown as StartNodeData;
+                          /**
+                           * [중요] 변수 ID를 value로 저장하는 이유:
+                           * - 사용자가 변수 이름을 변경해도 참조가 깨지지 않도록 함
+                           * - 예: 변수명 "name" → "username" 변경 시
+                           *   - 이름 기반: "name"을 찾음 → 없음 ❌
+                           *   - ID 기반: "45af2b51-..."를 찾음 → 정상 동작 ✅
+                           * - ID는 변경되지 않으므로 참조 안정성 보장
+                           */
+                          sourceVariables = (startData.variables || []).map(
+                            (v) => ({
+                              label: v.name, // 드롭다운에는 이름 표시 (사용자 가독성)
+                              value: v.id, // 저장할 때는 ID 사용 (참조 안정성)
+                            }),
+                          );
+                        } else {
+                          // StartNode가 아닌 경우 getNodeOutputs 유틸리티를 사용하여 출력 변수 목록을 가져옵니다.
+                          const outputs = getNodeOutputs(selectedSourceNode);
+                          sourceVariables = outputs.map((name) => ({
+                            label: name,
+                            value: name,
+                          }));
+                        }
                       }
+
+                      // 드롭다운을 사용해야 하는 경우: StartNode이거나 선택 가능한 변수가 있는 경우
+                      const shouldUseDropdown =
+                        isStartNode || sourceVariables.length > 0;
 
                       return (
                         <div
@@ -328,7 +342,7 @@ export function ConditionNodePanel({ nodeId, data }: ConditionNodePanelProps) {
                               />
                             </div>
 
-                            {isStartNode ? (
+                            {shouldUseDropdown ? (
                               <div className="flex-1">
                                 <RoundedSelect
                                   value={condition.variable_selector?.[1] || ''}

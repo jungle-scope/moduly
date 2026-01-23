@@ -7,7 +7,7 @@ metadata:
     app: api-server
     env: dev
 spec:
-  replicas: 0 # dev는 1개만
+  replicas: 1
   selector:
     matchLabels:
       app: api-server
@@ -43,13 +43,17 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: REDIS_PASSWORD
-            # Redis 설정 (default namespace의 Redis 공유, DB 1번 사용)
+            # Dev 전용 Redis DB
             - name: REDIS_HOST
               value: redis-master.default.svc.cluster.local
             - name: REDIS_PORT
               value: "6379"
+            - name: REDIS_BROKER_DB
+              value: "3"
+            - name: REDIS_BACKEND_DB
+              value: "4"
             - name: REDIS_DB
-              value: "2" # 분산 락 전용 DB (Celery와 분리)
+              value: "5"
             # CORS 설정 (로컬 테스트용)
             - name: CORS_ORIGINS
               value: "http://localhost:3000,http://127.0.0.1:3000"
@@ -58,11 +62,6 @@ spec:
             # Sandbox 설정
             - name: SANDBOX_URL
               value: "http://sandbox-service.default.svc.cluster.local:8194"
-            - name: SANDBOX_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: SANDBOX_API_KEY
             # 외부 DB 연동 설정
             - name: MASTER_KEY
               valueFrom:

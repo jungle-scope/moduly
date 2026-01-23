@@ -4,7 +4,7 @@ from typing import Any, Dict
 import requests
 
 from apps.gateway.services.ingestion.parsers.json_parser import JsonParser
-from apps.gateway.services.ingestion.processors.base import (
+from apps.shared.services.ingestion.processors.base import (
     BaseProcessor,
     ProcessingResult,
 )

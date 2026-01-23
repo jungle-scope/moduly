@@ -54,6 +54,10 @@ RUN useradd -m appuser && chown -R appuser:appuser /app
 # Entrypoint 스크립트 실행 권한 설정
 RUN chmod +x /docker-entrypoint.sh
 
+# app/uploads 생성
+RUN mkdir -p /app/uploads && \
+    chown -R appuser:appuser /app/uploads
+
 USER appuser
 
 # 헬스 체크 설정

@@ -66,9 +66,9 @@ class RetrievalService:
             logger.error(f"Model selection error, using default: {e}")
             return "gpt-4o-mini"
 
-    def _rewrite_query(self, query: str) -> str:
+    async def _rewrite_query(self, query: str) -> str:
         """
-        LLM을 사용하여 검색 쿼리를 최적화합니다. (Query Rewriting)
+        LLM을 사용하여 검색 쿼리를 최적화합니다. (Query Rewriting, 비동기)
         """
         try:
             rewrite_model_id = self._get_efficient_rewrite_model()
@@ -91,7 +91,7 @@ class RetrievalService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Original Query: {query}"},
             ]
-            response = client.invoke(messages, max_tokens=200)
+            response = await client.invoke(messages, max_tokens=200)
             rewritten_query = response["choices"][0]["message"]["content"].strip()
 
             if rewritten_query.startswith('"') and rewritten_query.endswith('"'):
@@ -103,9 +103,11 @@ class RetrievalService:
             logger.error(f"Query rewrite failed: {e}")
             return query
 
-    def _generate_multi_queries(self, query: str, num_variations: int = 3) -> list[str]:
+    async def _generate_multi_queries(
+        self, query: str, num_variations: int = 3
+    ) -> list[str]:
         """
-        Multi-Query Expansion: LLM을 사용하여 원본 질문의 다양한 변형을 생성합니다.
+        Multi-Query Expansion: LLM을 사용하여 원본 질문의 다양한 변형을 생성합니다 (비동기).
         """
         try:
             rewrite_model_id = self._get_efficient_rewrite_model()
@@ -127,7 +129,7 @@ class RetrievalService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Original Question: {query}"},
             ]
-            response = client.invoke(messages, max_tokens=500)
+            response = await client.invoke(messages, max_tokens=500)
             content = response["choices"][0]["message"]["content"].strip()
 
             queries = []
@@ -142,7 +144,7 @@ class RetrievalService:
                         queries.append(query_text)
 
             if len(queries) < num_variations:
-                queries.append(self._rewrite_query(query))
+                queries.append(await self._rewrite_query(query))
 
             return queries[:num_variations]
 
@@ -150,7 +152,7 @@ class RetrievalService:
             logger.error(
                 f"Multi-query generation failed, falling back to single query: {e}"
             )
-            return [self._rewrite_query(query)]
+            return [await self._rewrite_query(query)]
 
     def _vector_search(self, query_vector: list, knowledge_base_id: str, top_k: int):
         distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label(
@@ -262,7 +264,7 @@ class RetrievalService:
             logger.error(f"Reranking failed, falling back to original order: {e}")
             return candidates[:top_k]
 
-    def search_documents(
+    async def search_documents(
         self,
         query: str,
         knowledge_base_id: str = None,
@@ -270,20 +272,20 @@ class RetrievalService:
         threshold: float = 0.15,
         use_rewrite: bool = False,
         hybrid_search: bool = True,
-        use_rerank: bool = False,
+        use_rerank: bool = True,
         use_multi_query: bool = False,
     ) -> list[ChunkPreview]:
         """
-        [Public API] Hybrid Search (Vector + Keyword) with optional Multi-Query and Reranking
+        [Public API] Hybrid Search (Vector + Keyword) with optional Multi-Query and Reranking (비동기)
         """
         if not knowledge_base_id:
             logger.warning("Search called without knowledge_base_id")
             return []
 
         if use_multi_query:
-            queries = self._generate_multi_queries(query, num_variations=3)
+            queries = await self._generate_multi_queries(query, num_variations=3)
         elif use_rewrite:
-            queries = [self._rewrite_query(query)]
+            queries = [await self._rewrite_query(query)]
         else:
             queries = [query]
 
@@ -312,7 +314,7 @@ class RetrievalService:
             )
 
             for i, q in enumerate(queries):
-                query_vector = embed_client.embed(q)
+                query_vector = await embed_client.embed(q)
                 vector_results = self._vector_search(
                     query_vector, knowledge_base_id, top_k * 10
                 )
@@ -359,12 +361,14 @@ class RetrievalService:
                     chunk = item["chunk"]
                     doc = item["doc"]
                     rerank_score = item.get("rerank_score", 0.0)
+                    rrf_score = item.get("score", 0.0)  # 원본 RRF 점수
 
                     meta = chunk.metadata_.copy() if chunk.metadata_ else {}
                     meta["search_method"] = (
                         "hybrid+rerank" if hybrid_search else "multi_query+rerank"
                     )
                     meta["rerank_score"] = float(rerank_score)
+                    meta["rrf_score"] = float(rrf_score)  # RRF 점수도 저장
                     if use_multi_query:
                         meta["num_queries"] = len(queries)
 
@@ -459,25 +463,25 @@ class RetrievalService:
 
         return re.sub(encrypted_pattern, decrypt_match, content)
 
-    def retrieve_context(
+    async def retrieve_context(
         self, query: str, knowledge_base_id: str, top_k: int = 5
     ) -> str:
         """
-        [Public API] 검색된 문서들의 내용을 하나의 문자열로 합쳐서 반환합니다.
+        [Public API] 검색된 문서들의 내용을 하나의 문자열로 합쳐서 반환합니다 (비동기).
         """
-        chunks = self.search_documents(query, knowledge_base_id, top_k)
+        chunks = await self.search_documents(query, knowledge_base_id, top_k)
         if not chunks:
             return ""
 
         return "\n\n".join([c.content for c in chunks])
 
-    def generate_answer(
+    async def generate_answer(
         self, query: str, knowledge_base_id: str, model_id: str = "gpt-4o"
     ) -> RAGResponse:
         """
-        [Public API] 검색 + 답변 생성 (Chat Interface용)
+        [Public API] 검색 + 답변 생성 (Chat Interface용, 비동기)
         """
-        relevant_chunks = self.search_documents(query, knowledge_base_id)
+        relevant_chunks = await self.search_documents(query, knowledge_base_id)
 
         if not relevant_chunks:
             return RAGResponse(
@@ -516,7 +520,66 @@ class RetrievalService:
         ]
 
         try:
-            result = self.llm_client.invoke(messages)
+            result = await self.llm_client.invoke(messages)
+            answer = result["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(f"LLM generation failed: {e}")
+            answer = f"오류가 발생하여 답변을 생성할 수 없습니다. ({str(e)})"
+
+        return RAGResponse(answer=answer, references=relevant_chunks)
+
+    async def generate_answer_for_test(
+        self, query: str, knowledge_base_id: str, model_id: str = "gpt-4o"
+    ) -> RAGResponse:
+        """
+        [Public API] 검색 + 답변 생성 (테스트 전용 - 가독성 개선)
+        AI 답변 테스트 화면에서 사용하며, 답변 형식을 더 읽기 쉽게 만듭니다.
+        """
+        relevant_chunks = await self.search_documents(query, knowledge_base_id)
+
+        if not relevant_chunks:
+            return RAGResponse(
+                answer="해당 질문에 답변할 수 있는 문서를 찾지 못했습니다.",
+                references=[],
+            )
+
+        context_text = "\n\n".join([c.content for c in relevant_chunks])
+
+        if self.llm_client and self.llm_client.model_id == model_id:
+            pass
+        else:
+            try:
+                self.llm_client = LLMService.get_client_for_user(
+                    self.db, self.user_id, model_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to load generation model {model_id}: {e}")
+                self.llm_client = None
+
+        if not self.llm_client:
+            return RAGResponse(
+                answer=f"⚠️ 답변 생성을 위한 모델({model_id})을 찾을 수 없습니다. (Credential 등록 필요)",
+                references=[],
+            )
+
+        # 테스트 전용: 가독성 개선 프롬프트
+        system_prompt = (
+            "You are a helpful assistant. Use the following context to answer the user's question.\n"
+            "If the answer is not in the context, say you don't know.\n\n"
+            "**답변 형식 규칙 (CRITICAL - MUST FOLLOW):**\n"
+            "- 여러 항목을 나열할 때는 반드시 번호(1. 2. 3.)를 사용하여 목록 형태로 작성하세요.\n"
+            "- 항목 사이에는 빈 줄(Extra newline)을 넣지 말고, 촘촘하게 배치하세요.\n"
+            "- 마크다운 표는 사용하지 마세요 (일반 텍스트로만 작성)\n"
+            f"Context:\n{context_text}"
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query},
+        ]
+
+        try:
+            result = await self.llm_client.invoke(messages)
             answer = result["choices"][0]["message"]["content"]
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")

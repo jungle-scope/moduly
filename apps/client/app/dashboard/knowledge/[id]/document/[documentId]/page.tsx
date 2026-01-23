@@ -119,21 +119,6 @@ export default function DocumentSettingsPage() {
   const [rangeEnd, setRangeEnd] = useState<string>('');
   const [keywordFilter, setKeywordFilter] = useState<string>('');
 
-  // Alias 자동 생성 핸들러
-  const handleAliasGenerate = (
-    table: string,
-    column: string,
-    alias: string,
-  ) => {
-    setAliases((prev) => ({
-      ...prev,
-      [table]: {
-        ...(prev[table] || {}),
-        [column]: alias,
-      },
-    }));
-  };
-
   // SSE 연결 (Indexing 상태일 때)
   useEffect(() => {
     if (status !== 'indexing' || !documentId) return;
@@ -448,7 +433,6 @@ export default function DocumentSettingsPage() {
           selectedColumns={selectedDbItems}
           value={template}
           onChange={setTemplate}
-          onAliasGenerate={handleAliasGenerate}
           placeholder="예: {{mock_inventory.name}} 상품은 현재 {{mock_inventory.quantity}}개 남아있으며, 정상가는 {{mock_inventory.price}}원입니다."
           className="w-full flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono overflow-y-auto"
         />
@@ -525,7 +509,7 @@ export default function DocumentSettingsPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="flex-none bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         {/* Breadcrumb - Top Bar */}
@@ -547,7 +531,7 @@ export default function DocumentSettingsPage() {
             className="hover:text-blue-600 max-w-[150px] truncate"
             title={kbName}
           >
-            {kbName || '지식베이스'}
+            {kbName || '지식 베이스'}
           </Link>
           <ChevronRight className="w-3 h-3 text-gray-300" />
           <span
@@ -681,9 +665,9 @@ export default function DocumentSettingsPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* 1. Left Panel: Settings - DB가 아닐 때만 표시 */}
         {document?.source_type !== 'DB' && (
-          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+          <div className="w-80 relative bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
             {/* 스크롤 가능한 콘텐츠 영역 */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 pb-24">
               {/* FILE일 때만 파싱 전략 노출 */}
               {(document?.source_type === 'FILE' || !document?.source_type) && (
                 <ParsingStrategySettings
@@ -812,7 +796,7 @@ export default function DocumentSettingsPage() {
               </div>
             </div>
             {/* 하단 고정 버튼 영역 */}
-            <div className="flex-none p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="absolute bottom-0 left-0 right-0 z-10 p-4 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-gray-800 dark:via-gray-800/80 dark:to-transparent">
               <button
                 onClick={handlePreviewClick}
                 disabled={isActionDisabled || isPreviewLoading || isAnalyzing}

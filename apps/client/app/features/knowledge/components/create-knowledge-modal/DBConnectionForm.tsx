@@ -32,7 +32,7 @@ export default function DBConnectionForm({
     'idle',
   );
   const [config, setConfig] = useState<DBConfig>({
-    connectionName: initialConfig?.connectionName || '외부DB 테스트',
+    connectionName: initialConfig?.connectionName || '실시간 재고 데이터',
     type: initialConfig?.type || 'postgres',
     host: initialConfig?.host || '127.0.0.1',
     port: initialConfig?.port || 5432,

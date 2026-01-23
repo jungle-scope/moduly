@@ -4,7 +4,9 @@ from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy.orm import Session
 
-from apps.shared.pubsub import publish_workflow_event  # [NEW] Redis Pub/Sub
+from apps.shared.pubsub import (
+    publish_workflow_event_async,  # [NEW] Async Redis Pub/Sub
+)
 from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
 from apps.workflow_engine.workflow.core.workflow_logger import (
     WorkflowLogger,  # [NEW] 로깅 유틸리티
@@ -208,28 +210,44 @@ class WorkflowEngine:
         elif external_run_id:
             # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
-            # create_run_log 호출하여 DB에 기록 (run_id 전달)
-            self.logger.create_run_log(
-                workflow_id=self.execution_context.get("workflow_id"),
-                user_id=self.execution_context.get("user_id"),
-                user_input=self.user_input,
-                is_deployed=self.is_deployed,
-                execution_context=self.execution_context,
-                external_run_id=external_run_id,  # [NEW] 외부 run_id 전달
+            # [PERF] 로깅 비동기 실행 (스레드 풀)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.logger.create_run_log(
+                    workflow_id=self.execution_context.get("workflow_id"),
+                    user_id=self.execution_context.get("user_id"),
+                    user_input=self.user_input,
+                    is_deployed=self.is_deployed,
+                    execution_context=self.execution_context,
+                    external_run_id=external_run_id,  # [NEW] 외부 run_id 전달
+                ),
             )
         elif self.parent_run_id:
             # 서브 워크플로우인 경우 부모의 run_id를 재사용 (레거시 지원)
             self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
             self.execution_context["workflow_run_id"] = self.parent_run_id
         else:
-            # 새로운 run_id 생성
-            workflow_run_id = self.logger.create_run_log(
-                workflow_id=self.execution_context.get("workflow_id"),
-                user_id=self.execution_context.get("user_id"),
-                user_input=self.user_input,
-                is_deployed=self.is_deployed,
-                execution_context=self.execution_context,
-            )
+            # 새로운 run_id 생성 (비동기 처리 불가 - run_id가 필요함)
+            # 하지만 create_run_log 내부의 Celery 호출만 비동기화하고, UUID 생성은 동기 처리 가능
+            # 여기서는 편의상 동기로 처리하되, Celery 호출이 블로킹되지 않도록 주의해야 함.
+            # WorkflowLogger는 내부적으로 동기 Celery 호출을 하므로,
+            # run_id를 먼저 생성하고 로깅은 나중에 하거나, run_in_executor에서 반환값을 받아야 함.
+
+            # [FIX] run_id 생성을 위해 run_in_executor 사용 및 결과 대기
+            loop = asyncio.get_running_loop()
+
+            def _create_log():
+                return self.logger.create_run_log(
+                    workflow_id=self.execution_context.get("workflow_id"),
+                    user_id=self.execution_context.get("user_id"),
+                    user_input=self.user_input,
+                    is_deployed=self.is_deployed,
+                    execution_context=self.execution_context,
+                )
+
+            workflow_run_id = await loop.run_in_executor(None, _create_log)
+
             if workflow_run_id:
                 self.execution_context["workflow_run_id"] = str(workflow_run_id)
         # ============================================================
@@ -358,18 +376,28 @@ class WorkflowEngine:
             if stream_mode:
                 final_context = dict(results)
                 if not self.is_subworkflow:
-                    self.logger.update_run_log_finish(final_context)
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(
+                        None, lambda: self.logger.update_run_log_finish(final_context)
+                    )
                 # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵 (조기 종료 방지)
                 if run_id and not self.is_subworkflow:
-                    publish_workflow_event(run_id, "workflow_finish", final_context)
+                    await publish_workflow_event_async(
+                        run_id, "workflow_finish", final_context
+                    )
                 yield {"type": "workflow_finish", "data": final_context}
             else:
                 final_result = self._get_answer_node_result(results)
                 if not self.is_subworkflow:
-                    self.logger.update_run_log_finish(final_result)
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(
+                        None, lambda: self.logger.update_run_log_finish(final_result)
+                    )
                 # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
                 if run_id and not self.is_subworkflow:
-                    publish_workflow_event(run_id, "workflow_finish", final_result)
+                    await publish_workflow_event_async(
+                        run_id, "workflow_finish", final_result
+                    )
                 # 배포 모드에서도 결과 전달을 위해 이벤트 사용
                 yield {"type": "workflow_finish", "data": final_result}
 
@@ -377,18 +405,28 @@ class WorkflowEngine:
             run_id = self.execution_context.get("workflow_run_id")
             if not stream_mode:
                 if not self.is_subworkflow:
-                    self.logger.update_run_log_error(str(e))
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(
+                        None, lambda: self.logger.update_run_log_error(str(e))
+                    )
                 # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
                 if run_id and not self.is_subworkflow:
-                    publish_workflow_event(run_id, "error", {"message": str(e)})
+                    await publish_workflow_event_async(
+                        run_id, "error", {"message": str(e)}
+                    )
                 raise e
             else:
                 error_msg = str(e)
                 if not self.is_subworkflow:
-                    self.logger.update_run_log_error(error_msg)
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(
+                        None, lambda: self.logger.update_run_log_error(error_msg)
+                    )
                 # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
                 if run_id and not self.is_subworkflow:
-                    publish_workflow_event(run_id, "error", {"message": error_msg})
+                    await publish_workflow_event_async(
+                        run_id, "error", {"message": error_msg}
+                    )
                 yield {"type": "error", "data": {"message": error_msg}}
         # 참고: self.logger.shutdown() 호출 제거됨
         # 이제 공유 LogWorkerPool을 사용하므로 인스턴스별 종료 불필요
@@ -413,20 +451,34 @@ class WorkflowEngine:
 
         # [실시간 스트리밍] node_start 이벤트를 Task 생성 시점(실행 시작 전)에 즉시 전송
         # [FIX] 서브 워크플로우에서는 노드 로깅도 스킵 (UI 간섭 방지)
+        # [NEW] Upsert 패턴을 위해 started_at 기록 (Race Condition 해결용)
+        from datetime import datetime, timezone
+        started_at = datetime.now(timezone.utc)
+
+        # [NEW] 노드 옵션 스냅샷 추출 (서브워크플로우 아닐 때만)
+        node_options_snapshot = None
+        log_id = None
+
         if not self.is_subworkflow:
-            # [NEW] 노드 옵션 스냅샷 추출 (실행 시점 설정 기록용)
             node_options_snapshot = self._extract_node_options(node_schema)
-            self.logger.create_node_log(
-                node_id,
-                node_schema.type,
-                inputs,
-                process_data=node_options_snapshot,
-            )
+            
+            # [FIX] create_node_log가 반환하는 log_id 캡처
+            def _create_log():
+                return self.logger.create_node_log(
+                    node_id,
+                    node_schema.type,
+                    inputs,
+                    process_data=node_options_snapshot,
+                )
+
+            loop = asyncio.get_running_loop()
+            log_id = await loop.run_in_executor(None, _create_log)
 
         # [FIX] Redis Pub/Sub으로 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
+        # [PERF] 비동기 발행 사용
         run_id = self.execution_context.get("workflow_run_id")
         if run_id and not self.is_subworkflow:
-            publish_workflow_event(
+            await publish_workflow_event_async(
                 run_id,
                 "node_start",
                 {
@@ -445,15 +497,15 @@ class WorkflowEngine:
 
         async def _task_wrapper():
             async with semaphore:
-                loop = asyncio.get_running_loop()
-                # 동기 노드 실행을 스레드 풀에서 실행하여 이벤트 루프 블로킹 방지
-                return await loop.run_in_executor(
-                    None,
-                    self._execute_node_task_sync,
+                # 비동기 노드 실행 + Upsert용 추가 정보 전달
+                return await self._execute_node_task_async(
                     node_id,
                     node_schema,
                     node_instance,
                     inputs,
+                    log_id,
+                    node_options_snapshot,  # [NEW] Upsert용
+                    started_at,  # [NEW] Upsert용
                 )
 
         # [NEW] 노드별 타임아웃 적용 (asyncio.wait_for)
@@ -471,9 +523,10 @@ class WorkflowEngine:
                 )
 
             # [FIX] Redis Pub/Sub으로 node_finish 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
+            # [PERF] 비동기 발행 사용
             run_id = self.execution_context.get("workflow_run_id")
             if run_id and not self.is_subworkflow:
-                publish_workflow_event(
+                await publish_workflow_event_async(
                     run_id,
                     "node_finish",
                     {
@@ -502,26 +555,62 @@ class WorkflowEngine:
         task = asyncio.create_task(_task_wrapper_with_event())
         running_tasks[task] = node_id
 
-    def _execute_node_task_sync(self, node_id, node_schema, node_instance, inputs):
+    async def _execute_node_task_async(
+        self,
+        node_id,
+        node_schema,
+        node_instance,
+        inputs,
+        log_id=None,
+        node_options_snapshot=None,
+        started_at=None,
+    ):
         """
-        개별 노드를 실행하는 작업 (Worker Thread에서 실행됨)
+        개별 노드를 실행하는 작업 (비동기 실행)
         [실시간 스트리밍] 이벤트는 _submit_node에서 처리하므로 결과만 반환
+        [Upsert 패턴] 추가 정보를 전달하여 Race Condition 해결
         반환값: 노드 실행 결과 (Dict)
         """
         try:
-            # 노드 실행 (핵심) - 동기 실행
-            result = node_instance.execute(inputs)
+            # 노드 실행 (핵심) - 비동기 실행
+            result = await node_instance.execute(inputs)
 
             # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
+            # [FIX] Upsert용 추가 정보 전달
             if not self.is_subworkflow:
-                self.logger.update_node_log_finish(node_id, result)
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(
+                    None,
+                    lambda: self.logger.update_node_log_finish(
+                        log_id,
+                        node_id,
+                        result,
+                        node_type=node_schema.type,
+                        inputs=inputs,
+                        process_data=node_options_snapshot,
+                        started_at=started_at,
+                    ),
+                )
 
             return result
 
         except Exception as e:
             error_msg = str(e)
+            # [FIX] Upsert용 추가 정보 전달
             if not self.is_subworkflow:
-                self.logger.update_node_log_error(node_id, error_msg)
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(
+                    None,
+                    lambda: self.logger.update_node_log_error(
+                        log_id,
+                        node_id,
+                        error_msg,
+                        node_type=node_schema.type,
+                        inputs=inputs,
+                        process_data=node_options_snapshot,
+                        started_at=started_at,
+                    ),
+                )
             raise e
 
     # ================================================================
