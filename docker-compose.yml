@@ -45,7 +45,7 @@ services:
   # Code Execution Sandbox (NSJail-based)
   sandbox:
     build:
-      context: .
+      context: ..
       dockerfile: docker/sandbox/Dockerfile
     container_name: moduly-dev-sandbox
     privileged: true # NSJail에 필요 (Namespace 사용)

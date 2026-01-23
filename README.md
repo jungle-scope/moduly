@@ -67,6 +67,8 @@ Moduly는 최신 기술 스택을 활용하여 안정성과 확장성을 보장�
 설치 전 다음 도구들이 필요합니다.
 *   [Docker](https://www.docker.com/) & Docker Compose
 *   Git
+*   Python 3.11+
+*   Node.js 18+
 
 ### Installation
 
@@ -79,17 +81,38 @@ Moduly는 최신 기술 스택을 활용하여 안정성과 확장성을 보장�
 2. **환경 변수 설정**
    제공된 예제 파일을 복사하여 `.env` 파일을 생성합니다.
    ```bash
-   cp .env.example .env
+   cp dev/.env.example .env
    ```
    *`.env` 파일을 열어 `OPENAI_API_KEY`나 `ENCRYPTION_KEY` 등 필요한 키 값을 입력하세요.*
 
 3. **Docker 서비스 실행**
    ```bash
-   docker-compose up -d --build
+   docker-compose -f dev/docker-compose.yml up -d --build
    ```
    *최초 실행 시 이미지를 빌드하느라 시간이 조금 걸릴 수 있습니다.*
 
-4. **의존성 설치 및 실행**
+4. **의존성 설치 및 실행***
+   ```bash
+   cd dev
+   make all
+   ```
+
+5. **접속**
+   브라우저를 열고 `http://localhost`으로 접속하여 Moduly를 시작하세요.
+   API 문서는 `http://localhost/api/docs`에서 확인할 수 있습니다.
+
+### Option 2: Kubernetes (Helm)
+
+Kubernetes 클러스터에 프로덕션 수준의 배포를 원한다면 Helm 차트를 사용하세요.
+
+#### Prerequisites
+*   Kubernetes 클러스터 (v1.24+)
+*   [Helm](https://helm.sh/) (v3.0+)
+*   [kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+#### Installation
+
+1. **저장소 클론**
    ```bash
    make all
    ```
