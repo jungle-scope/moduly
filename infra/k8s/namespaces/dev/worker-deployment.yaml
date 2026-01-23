@@ -58,6 +58,11 @@ spec:
               value: "moduly-dev-file-upload"
             - name: AWS_REGION
               value: "ap-northeast-2"
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: ENCRYPTION_KEY
             # Sandbox 설정
             - name: SANDBOX_URL
               value: "http://sandbox-service.dev.svc.cluster.local:8194"
