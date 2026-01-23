@@ -102,7 +102,10 @@ class FairScheduler:
         self._aging_task = asyncio.create_task(self._aging_loop())
         self._cleanup_task = asyncio.create_task(self._cleanup_loop())
         
-        logger.info(f"Fair Scheduler started with {self._current_workers}/{settings.MAX_WORKERS} workers (MLFQ + Round-Robin + Aging)")
+        if settings.FORCE_FIFO:
+            logger.info(f"Fair Scheduler started in [FIFO MODE] (Priority Ignored) with {self._current_workers}/{settings.MAX_WORKERS} workers")
+        else:
+            logger.info(f"Fair Scheduler started in [SJF MODE] (MLFQ + Round-Robin) with {self._current_workers}/{settings.MAX_WORKERS} workers")
     
     async def stop(self):
         """스케줄러 중지"""
@@ -166,7 +169,7 @@ class FairScheduler:
                 "manual": Priority.HIGH,    # 사용자가 테스트 실행 중 (대기 중)
                 "app": Priority.HIGH,       # 웹 앱 호출 (사용자 대기)
                 "api": Priority.NORMAL,     # API 호출 (일반)
-                "webhook": Priority.LOW,    # Webhook (비동기 백그라운드)
+                "webhook": Priority.LOW,    # Webhook (백그라운드)
                 "schedule": Priority.LOW,   # 스케줄 트리거 (백그라운드)
             }
             fallback = fallback_map.get(trigger_mode, Priority.NORMAL)
@@ -204,17 +207,16 @@ class FairScheduler:
         
         while self._running:
             try:
+                # 워커 가용성 체크 
+                if self._running_count >= self._current_workers:
+                    await asyncio.sleep(0.05)
+                    continue
+                
+                # 워커가 있을 때만 작업 꺼내기
                 job = await self._get_next_job()
                 
                 if job is None:
                     await asyncio.sleep(0.1)
-                    continue
-                
-                # 워커 제한 체크
-                if self._running_count >= self._current_workers:
-                    # 다시 버킷에 넣기
-                    await self._buckets[Priority(job.priority)].add(job)
-                    await asyncio.sleep(0.05)
                     continue
                 
                 # 실행
