@@ -86,7 +86,7 @@ Kubernetes 클러스터에 프로덕션 수준의 배포를 원한다면 Helm �
 1. **저장소 클론**
    ```bash
    git clone https://github.com/jungle-scope/moduly.git
-   cd moduly
+   cd docker
    ```
 
 2. **의존성 업데이트**
