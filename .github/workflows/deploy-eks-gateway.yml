@@ -3,7 +3,7 @@ name: Deploy to EKS (Gateway)
 on:
   push:
     branches:
-      - develop  # develop 브랜치 푸시 시 자동 배포
+      - main 
     paths:
       - 'apps/gateway/**'
       - 'apps/shared/**'

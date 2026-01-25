@@ -1,0 +1,12 @@
+# .dockerignore
+.git
+**/.venv
+**/venv
+__pycache__
+*.pyc
+.env
+**/node_modules
+**/.next
+
+# 지식 베이스 파일업로드 관련
+**/uploads

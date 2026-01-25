@@ -159,7 +159,14 @@ class IngestionOrchestrator:
 
                 raw_blocks = result.chunks
                 if not raw_blocks:
-                    self._update_status(document_id, "completed")
+                    logger.warning(
+                        f"[IngestionOrchestrator] Document {document_id}의 raw_blocks가 비어있음."
+                    )
+                    self._update_status(
+                        document_id,
+                        "completed",
+                        error_message="추출 가능한 콘텐츠가 없습니다.",
+                    )
                     return
 
                 full_text = "".join([b["content"] for b in raw_blocks])
@@ -190,7 +197,29 @@ class IngestionOrchestrator:
                     preprocessed_blocks = [
                         {"content": preprocessed_text, "metadata": {}}
                     ]
-                    final_chunks = self._refine_chunks(preprocessed_blocks)
+
+                    # [동적 Splitter 생성] 문서 설정 적용
+                    chunk_size = doc.chunk_size
+                    chunk_overlap = doc.chunk_overlap
+                    meta = doc.meta_info or {}
+                    segment_identifier = meta.get("segment_identifier", "\\n\\n")
+
+                    separators = ["\n\n", "\n", ".", " ", ""]
+                    if segment_identifier:
+                        identifier = segment_identifier.replace("\\n", "\n")
+                        if identifier not in separators:
+                            separators.insert(0, identifier)
+
+                    doc_specific_splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=chunk_size,
+                        chunk_overlap=chunk_overlap,
+                        separators=separators,
+                        keep_separator=True,  # [수정] 원복
+                    )
+
+                    final_chunks = self._refine_chunks(
+                        preprocessed_blocks, splitter=doc_specific_splitter
+                    )
 
                 # 필터링 적용
                 meta = doc.meta_info or {}
@@ -207,6 +236,9 @@ class IngestionOrchestrator:
                 self._update_progress_redis(
                     document_id, 100, expire=True
                 )  # 완료 시 키 만료 또는 100 유지 후 만료
+                logger.info(
+                    f"[DEBUG] process_document 완료 - document_id: {document_id}"
+                )
 
             except Exception as e:
                 logger.error(
@@ -385,7 +417,7 @@ class IngestionOrchestrator:
 
         # Check for errors from processor
         if result.metadata and "error" in result.metadata:
-            raise Exception(f"Processor Error: {result.metadata['error']}")
+            raise ValueError(result.metadata["error"])
 
         raw_blocks = result.chunks
 
@@ -476,14 +508,18 @@ class IngestionOrchestrator:
         return config
 
     def _refine_chunks(
-        self, raw_blocks: List[Dict[str, Any]], override_chunk_size: int = None
+        self,
+        raw_blocks: List[Dict[str, Any]],
+        override_chunk_size: int = None,
+        splitter: Any = None,
     ) -> List[Dict[str, Any]]:
         refined = []
 
+        target_splitter = splitter if splitter else self.text_splitter
+
         # 청크 사이즈 오버라이드 (DB 대형 Row 처리 등)
-        splitter = self.text_splitter
         if override_chunk_size is not None:
-            splitter = RecursiveCharacterTextSplitter(
+            target_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=override_chunk_size,
                 chunk_overlap=self.text_splitter._chunk_overlap,
                 separators=self.text_splitter._separators,
@@ -491,7 +527,7 @@ class IngestionOrchestrator:
             )
 
         for block in raw_blocks:
-            splits = splitter.split_text(block["content"])
+            splits = target_splitter.split_text(block["content"])
             original_meta = block.get("metadata", {})
             for split in splits:
                 new_meta = original_meta.copy()
@@ -596,6 +632,7 @@ class IngestionOrchestrator:
         # ========================================
         # content 암호화 & DB 저장
         # ========================================
+        keyword_error_logged = False
         for i, chunk in enumerate(chunks):
             # 10개마다 진행률 업데이트 (나머지 20% 비중)
             if (i + 1) % 10 == 0 or (i + 1) == len(chunks):
@@ -630,7 +667,9 @@ class IngestionOrchestrator:
                 keywords = r.get_ranked_phrases()[:10]
             except Exception as e:
                 # 키워드 추출 실패는 치명적이지 않음 (로그만 남김)
-                logger.warning(f"Keyword extraction failed: {e}")
+                if not keyword_error_logged:
+                    logger.warning(f"Keyword extraction failed: {e}")
+                    keyword_error_logged = True
 
             # 메타데이터에 키워드 추가
             chunk_metadata = chunk.get("metadata", {}) or {}

@@ -1,10 +1,11 @@
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import Integer
+from sqlalchemy import Date, Integer, cast, func
 from sqlalchemy.orm import Session, noload, selectinload
 
 # from sqlalchemy.orm import Session, noload, selectinload
@@ -105,13 +106,40 @@ def get_workflow_run_detail(
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
+    # [FIX] 중복 실행 로그 정리 (Celery Retry 등으로 인한 중복 제거)
+    # node_id별로 가장 최신(started_at 기준) 로그만 필터링하여 반환
+    if run.node_runs:
+        latest_logs = {}
+        for node_run in run.node_runs:
+            node_id = node_run.node_id
+            # 기존에 저장된 로그가 없거나, 현재 로그가 더 최신이면 업데이트
+            if node_id not in latest_logs:
+                latest_logs[node_id] = node_run
+            else:
+                existing = latest_logs[node_id]
+                # started_at 비교 (None일 수 있으므로 안전하게 처리)
+                current_start = node_run.started_at
+                existing_start = existing.started_at
+
+                if current_start and existing_start:
+                    if current_start > existing_start:
+                        latest_logs[node_id] = node_run
+                elif current_start and not existing_start:
+                    latest_logs[node_id] = node_run
+                # 둘 다 없거나 기존만 있는 경우는 유지
+
+        # 필터링된 로그 리스트로 교체 (started_at 순으로 정렬)
+        run.node_runs = sorted(
+            latest_logs.values(),
+            key=lambda x: x.started_at
+            if x.started_at
+            else datetime.min.replace(tzinfo=timezone.utc),
+        )
+
     return run
 
 
 # [NEW] 모니터링 대시보드 통계 API
-from datetime import datetime, timedelta
-
-from sqlalchemy import Date, cast, func
 
 
 @router.get("/{workflow_id}/stats", response_model=DashboardStatsResponse)

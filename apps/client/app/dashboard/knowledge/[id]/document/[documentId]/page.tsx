@@ -361,10 +361,9 @@ export default function DocumentSettingsPage() {
 
           if (doc.status === 'completed' || doc.status === 'failed') {
             clearInterval(intervalId);
+            // completed/failed 모두 error_message 업데이트 (경고성 메시지 포함)
+            setErrorMessage(doc.error_message || null);
             if (doc.status === 'failed') {
-              setErrorMessage(
-                doc.error_message || '처리 중 오류가 발생했습니다.',
-              );
               toast.error(doc.error_message || '처리 실패');
             }
           }
@@ -509,7 +508,7 @@ export default function DocumentSettingsPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="flex-none bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         {/* Breadcrumb - Top Bar */}
@@ -602,17 +601,23 @@ export default function DocumentSettingsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* 에러 메시지 */}
-            {status === 'failed' && (
+            {/* 에러/경고 메시지 */}
+            {(status === 'failed' || errorMessage) && (
               <div className="relative group mr-2 cursor-help flex items-center">
-                <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-200 dark:border-red-800 flex items-center gap-2">
+                <div
+                  className={`px-3 py-2 text-sm rounded-lg border flex items-center gap-2 ${
+                    status === 'failed'
+                      ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800'
+                      : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                  }`}
+                >
                   <AlertTriangle className="w-4 h-4" />
                   <span className="font-medium max-w-[200px] truncate">
                     {errorMessage || '처리 실패'}
                   </span>
                 </div>
                 <div className="absolute top-full right-0 mt-2 w-max max-w-[400px] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                  {errorMessage}
+                  {errorMessage || '처리 실패'}
                 </div>
               </div>
             )}
@@ -665,9 +670,9 @@ export default function DocumentSettingsPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* 1. Left Panel: Settings - DB가 아닐 때만 표시 */}
         {document?.source_type !== 'DB' && (
-          <div className="w-80 flex-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+          <div className="w-80 relative bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
             {/* 스크롤 가능한 콘텐츠 영역 */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 pb-24">
               {/* FILE일 때만 파싱 전략 노출 */}
               {(document?.source_type === 'FILE' || !document?.source_type) && (
                 <ParsingStrategySettings
@@ -796,7 +801,7 @@ export default function DocumentSettingsPage() {
               </div>
             </div>
             {/* 하단 고정 버튼 영역 */}
-            <div className="flex-none p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="absolute bottom-0 left-0 right-0 z-10 p-4 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-gray-800 dark:via-gray-800/80 dark:to-transparent">
               <button
                 onClick={handlePreviewClick}
                 disabled={isActionDisabled || isPreviewLoading || isAnalyzing}

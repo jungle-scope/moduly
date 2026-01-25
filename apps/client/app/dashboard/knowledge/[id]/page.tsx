@@ -341,7 +341,7 @@ export default function KnowledgeDetailPage() {
   }
 
   return (
-    <div className="p-8 bg-gray-50/30 dark:bg-gray-900 min-h-screen">
+    <div className="p-8 bg-gray-50/30 dark:bg-gray-900 min-h-full">
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 mb-6">
         <Link

@@ -28,6 +28,26 @@ if config.config_file_name is not None:
 # db.base 모듈을 찾기 위해 sys.path 설정이 선행되어야 함
 from apps.shared.db.base import Base
 
+# models/__init__.py에서 모든 모델을 한 번에 import
+from apps.shared.db.models import (  # noqa: F401
+    App,
+    Connection,
+    Document,
+    DocumentChunk,
+    KnowledgeBase,
+    LLMCredential,
+    LLMModel,
+    LLMProvider,
+    LLMRelCredentialModel,
+    LLMUsageLog,
+    Schedule,
+    User,
+    Workflow,
+    WorkflowDeployment,
+    WorkflowNodeRun,
+    WorkflowRun,
+)
+
 # 모든 모델을 임포트해야 Alembic이 테이블을 인식합니다
 
 # MetaData 설정
