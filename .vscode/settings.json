@@ -3,7 +3,7 @@
   "python.analysis.extraPaths": ["${workspaceFolder}/apps/server"],
 
   // 기본 인터프리터 경로 고정
-  "python.defaultInterpreterPath": "${workspaceFolder}/apps/server/.venv/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/apps/workflow_engine/.venv/bin/python",
 
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
