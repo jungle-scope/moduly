@@ -80,7 +80,6 @@ def create_knowledge_base(
     )
 
 
-# TODO: is_active column 추가해서 LLM노드와 지식 베이스 목록에서 모두 사용할 수 있도록 한다
 @router.get("", response_model=List[KnowledgeBaseResponse])
 def list_knowledge_bases(
     db: Session = Depends(get_db),
@@ -90,10 +89,6 @@ def list_knowledge_bases(
     사용자의 자료 목록을 조회합니다.
     각 지식 베이스 그룹에 포함된 문서 개수도 함께 반환합니다.
     """
-    # 완료된 문서만 카운트
-    # completed_count = func.sum(
-    #     case((Document.status == "completed", 1), else_=0)
-    # ).label("document_count")
 
     results = (
         db.query(
@@ -527,6 +522,7 @@ async def process_document(
             "segment_identifier": request.segment_identifier,
             "remove_urls_emails": request.remove_urls_emails,
             "remove_whitespace": request.remove_whitespace,
+            "strategy": request.strategy,  # LlamaParse 등 파싱 전략 저장
             "db_config": request.db_config,
             # 필터링 설정 저장
             "selection_mode": request.selection_mode,
@@ -540,12 +536,11 @@ async def process_document(
     if doc.source_type == "DB" and request.db_config:
         selections = request.db_config.get("selections", [])
         join_config = request.db_config.get("join_config", {})
-        
+
         # 2개 테이블 선택 시 FK 관계 필수
         if len(selections) == 2 and not join_config.get("enabled", False):
             raise HTTPException(
-                status_code=400,
-                detail="선택한 테이블 간 FK 관계가 없습니다."
+                status_code=400, detail="선택한 테이블 간 FK 관계가 없습니다."
             )
 
     # 상태 업데이트 (처리 시작 전)

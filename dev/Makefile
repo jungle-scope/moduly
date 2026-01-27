@@ -10,10 +10,10 @@ else
 endif
 
 # 2. 경로 변수 설정
-GATEWAY_PIP := apps/gateway/.venv/$(VENV_BIN)/pip
-WORKFLOW_PIP := apps/workflow_engine/.venv/$(VENV_BIN)/pip
-CLIENT_DIR := apps/client
-SHARED_DIR := apps/shared
+GATEWAY_PIP := ../apps/gateway/.venv/$(VENV_BIN)/pip
+WORKFLOW_PIP := ../apps/workflow_engine/.venv/$(VENV_BIN)/pip
+CLIENT_DIR := ../apps/client
+SHARED_DIR := ../apps/shared
 
 .PHONY: all setup-gateway setup-workflow setup-client migrate test dev
 
@@ -24,14 +24,14 @@ all: setup-gateway setup-workflow setup-client migrate test dev
 # 1. Gateway Service 설치
 setup-gateway:
 	@echo ">>> [1/6] Gateway 설치 시작..."
-	@$(GATEWAY_PIP) install -e $(SHARED_DIR) && $(GATEWAY_PIP) install -e apps/gateway \
+	@$(GATEWAY_PIP) install -e $(SHARED_DIR) && $(GATEWAY_PIP) install -e ../apps/gateway \
 		|| (echo "❌ Gateway 에러"; exit 1)
 	@echo "✅ Gateway 완료."
 
 # 2. Workflow Engine Service 설치
 setup-workflow:
 	@echo ">>> [2/6] Workflow Engine 설치 시작..."
-	@$(WORKFLOW_PIP) install -e $(SHARED_DIR) && $(WORKFLOW_PIP) install -e apps/workflow_engine \
+	@$(WORKFLOW_PIP) install -e $(SHARED_DIR) && $(WORKFLOW_PIP) install -e ../apps/workflow_engine \
 		|| (echo "❌ Workflow Engine 에러"; exit 1)
 	@echo "✅ Workflow Engine 완료."
 
@@ -52,11 +52,11 @@ migrate:
 # 5. 테스트 실행
 test:
 	@echo ">>> [5/6] 테스트 코드 실행..."
-	@./scripts/test.sh \
+	@../scripts/test.sh \
 		|| (echo "❌ 테스트 에러"; exit 1)
 	@echo "✅ 테스트 통과."
 
 # 6. 프로젝트 실행
 dev:
 	@echo ">>> [6/6] 프로젝트 실행..."
-	@./scripts/dev.sh || (echo "❌ 실행 에러"; exit 1)
+	@../scripts/dev.sh || (echo "❌ 실행 에러"; exit 1)

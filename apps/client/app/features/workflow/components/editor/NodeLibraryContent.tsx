@@ -129,9 +129,16 @@ export const NodeLibraryContent = ({
             {filteredNodes.map((node) => (
               <div
                 key={node.id}
-                draggable={!!onDragStart && !isNodeDisabled(node.type)}
+                draggable={
+                  !!onDragStart &&
+                  !isNodeDisabled(node.type) &&
+                  node.category !== 'workflow'
+                }
                 onDragStart={(e) => {
-                  if (!isNodeDisabled(node.type)) {
+                  if (
+                    !isNodeDisabled(node.type) &&
+                    node.category !== 'workflow'
+                  ) {
                     onDragStart?.(e, node.type, node);
                   }
                 }}
