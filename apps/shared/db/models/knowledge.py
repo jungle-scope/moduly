@@ -160,3 +160,42 @@ class DocumentChunk(Base):
 
     # Relationships
     document: Mapped["Document"] = relationship("Document", back_populates="chunks")
+
+
+class ParsingRegistry(Base):
+    """
+    글로벌 문서 파싱 캐시 레지스트리 (Global Document Parsing Cache Registry).
+    중복 처리를 방지하고 비용을 절감하기 위해 파싱된 콘텐츠를 중앙에서 관리합니다.
+    SHA-256 다이제스트를 통해 콘텐츠의 고유성을 식별합니다.
+    """
+
+    __tablename__ = "parsing_registry"
+
+    # === Primary Identifier ===
+    # 원본 파일 콘텐츠의 SHA-256 해시.
+    # 시스템 전반에 걸쳐 데이터 무결성과 고유성을 보장합니다.
+    content_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+    # === Storage Information ===
+    # 스토리지에서 파싱된 마크다운을 검색하기 위한 논리적 키 또는 경로.
+    # 물리적 파일 경로에 대한 추상화입니다.
+    storage_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+
+    # === Parsing Meta Info ===
+    # 사용된 파싱 엔진의 이름
+    provider: Mapped[str] = mapped_column(
+        String(50), default="llamaparse", nullable=False
+    )
+
+    # 파싱된 총 페이지 수. 과금 및 사용량 추적에 필수적입니다.
+    page_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # 추가 메타데이터 (예: 파싱 옵션, 모델 버전 등).
+    meta_info: Mapped[dict] = mapped_column(JSONB, default={}, nullable=False)
+
+    # === Timestamps ===
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
