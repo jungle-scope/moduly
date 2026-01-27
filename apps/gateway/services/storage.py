@@ -27,6 +27,33 @@ class StorageService(ABC):
         """
         pass
 
+    @abstractmethod
+    def persist_content(self, content: str, file_ext: str = "md") -> str:
+        """
+        텍스트 콘텐츠(문자열)를 저장소에 영구 저장하고, 접근 키(Storage Key)를 반환합니다.
+
+        Args:
+            content: 저장할 텍스트 내용
+            file_ext: 파일 확장자 (기본값: md)
+
+        Returns:
+            str: 나중에 retrieve_content로 조회할 수 있는 스토리지 키 (또는 경로)
+        """
+        pass
+
+    @abstractmethod
+    def retrieve_content(self, storage_key: str) -> str:
+        """
+        스토리지 키를 사용하여 저장된 텍스트 콘텐츠를 불러옵니다.
+
+        Args:
+            storage_key: persist_content에서 반환된 키
+
+        Returns:
+            str: 저장된 텍스트 내용
+        """
+        pass
+
 
 class LocalStorageService(StorageService):
     def __init__(self, upload_dir: str = "/app/uploads"):  # 컨테이너에서 쓰기 가능
@@ -68,6 +95,31 @@ class LocalStorageService(StorageService):
         # 로컬 모드에서는 Presigned URL 생성이 불가능
         # 프론트엔드가 이 응답을 보고 "일반 업로드"로 전환하도록 신호를 줍니다.
         return {"use_backend_proxy": True, "url": None, "key": None, "method": None}
+
+    def persist_content(self, content: str, file_ext: str = "md") -> str:
+        import hashlib
+
+        # 콘텐츠 기반으로 고유 파일명 생성
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        filename = f"{content_hash}.{file_ext}"
+
+        # 파싱된 파일은 별도 하위 디렉토리(parsed)에 격리
+        save_dir = os.path.join(self.upload_dir, "parsed")
+        os.makedirs(save_dir, exist_ok=True)
+
+        file_path = os.path.join(save_dir, filename)
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        return file_path
+
+    def retrieve_content(self, storage_key: str) -> str:
+        if not os.path.exists(storage_key):
+            raise FileNotFoundError(f"Content not found at {storage_key}")
+
+        with open(storage_key, "r", encoding="utf-8") as f:
+            return f.read()
 
 
 class S3StorageService(StorageService):
@@ -187,6 +239,38 @@ class S3StorageService(StorageService):
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=key)
         except Exception as e:
             logger.error(f"S3 Delete failed: {e}")
+
+    def persist_content(self, content: str, file_ext: str = "md") -> str:
+        import hashlib
+
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        s3_key = f"parsed/{content_hash}.{file_ext}"
+
+        try:
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=s3_key,
+                Body=content.encode("utf-8"),
+                ContentType="text/markdown; charset=utf-8"
+                if file_ext == "md"
+                else "text/plain",
+            )
+        except Exception as e:
+            logger.error(f"S3 Persist Content failed: {e}")
+            raise e
+
+        return s3_key
+
+    def retrieve_content(self, storage_key: str) -> str:
+        # S3 Key로 간주
+        try:
+            response = self.s3_client.get_object(
+                Bucket=self.bucket_name, Key=storage_key
+            )
+            return response["Body"].read().decode("utf-8")
+        except Exception as e:
+            logger.error(f"S3 Retrieve Content failed: {e}")
+            raise e
 
 
 def get_storage_service() -> StorageService:
