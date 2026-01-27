@@ -54,6 +54,7 @@ services:
       SANDBOX_MIN_WORKERS: 2
       SANDBOX_MAX_WORKERS: 8
       SANDBOX_DEFAULT_TIMEOUT: 10
+      SANDBOX_FORCE_FIFO: ${SANDBOX_FORCE_FIFO:-false}
     ports:
       - "8194:8194"
     healthcheck:

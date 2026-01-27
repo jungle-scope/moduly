@@ -17,6 +17,9 @@ cd "$PROJECT_ROOT"
 echo "🚀 Moduly 개발 환경 시작..."
 echo "프로젝트 루트: $PROJECT_ROOT"
 
+# Docker Compose 파일 경로 설정 (dev 환경)
+export COMPOSE_FILE="$PROJECT_ROOT/dev/docker-compose.yml"
+
 # 가상환경 체크 및 자동 설정
 if [ ! -d "apps/gateway/.venv" ] || [ ! -d "apps/log_system/.venv" ] || [ ! -d "apps/workflow_engine/.venv" ]; then
     echo -e "${YELLOW}⚠️ 일부 가상환경이 발견되지 않았습니다. 초기 설정을 진행합니다...${NC}"
