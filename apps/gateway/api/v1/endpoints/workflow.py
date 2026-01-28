@@ -630,9 +630,10 @@ async def stream_workflow(
         "user_id": str(current_user.id),
         "workflow_id": workflow_id,
         "memory_mode": memory_mode_enabled,
+        "trigger_mode": "manual",  # 테스트 실행
     }
 
-    # 6. [FIX] Redis Pub/Sub 구독 및 SSE 스트리밍
+    # 6. Redis Pub/Sub 구독 및 SSE 스트리밍
     # Race Condition 방지: 구독 완료 후 Celery 태스크 시작
     def event_generator():
         """Redis Pub/Sub을 구독하여 SSE 이벤트로 변환"""

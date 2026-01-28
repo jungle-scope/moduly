@@ -22,7 +22,9 @@ class RunStatus(str, Enum):
 class RunTriggerMode(str, Enum):
     MANUAL = "manual"
     API = "api"
-    # SCHEDULER = "scheduler" # 추후 필요시 추가
+    WEBHOOK = "webhook"
+    SCHEDULER = "scheduler"
+    APP = "app"
 
 
 class NodeRunStatus(str, Enum):

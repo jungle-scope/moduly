@@ -36,6 +36,7 @@ async def run_workflow(
         user_inputs=request_body.get("inputs", {}),
         auth_token=auth_token,
         require_auth=True,  # 인증 필수
+        trigger_mode="api",  # REST API 호출
     )
 
 
@@ -64,4 +65,5 @@ async def run_workflow_public(
         user_inputs=request_body.get("inputs", {}),
         auth_token=None,
         require_auth=False,  # 인증 불필요
+        trigger_mode="app",  # 웹 앱/임베딩 호출
     )
