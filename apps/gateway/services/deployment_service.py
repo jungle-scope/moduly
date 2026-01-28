@@ -300,6 +300,7 @@ class DeploymentService:
         db: Session,
         url_slug: str,
         user_inputs: Dict[str, Any],
+        trigger_mode: str,
         auth_token: Optional[str] = None,
         require_auth: bool = True,  # 인증 필요 여부 (기본값: 필요)
     ) -> Dict[str, Any]:
@@ -344,14 +345,7 @@ class DeploymentService:
             raise HTTPException(status_code=404, detail="Deployment is inactive")
 
         # 4. 인증 검증 (App의 auth_secret 사용)
-        # 배포 타입에 따른 인증 검증
-        if (
-            deployment.type == DeploymentType.WEBAPP
-            or deployment.type == DeploymentType.WIDGET
-        ):
-            # 웹 앱 및 위젯: 공개 접근 허용 (require_auth는 이미 False)
-            pass
-        elif require_auth:
+        if require_auth:
             # 인증이 필요한 경우 (REST API 등)
             if not app.auth_secret:
                 raise HTTPException(
@@ -362,7 +356,7 @@ class DeploymentService:
                 raise HTTPException(
                     status_code=401, detail="Invalid authentication secret"
                 )
-        # require_auth가 False면 인증 스킵
+        # require_auth가 False면 인증 스킵 (웹 앱/위젯)
 
         # 5. 그래프 데이터 준비
         graph_data = deployment.graph_snapshot
@@ -391,7 +385,7 @@ class DeploymentService:
                 kwargs={"is_deployed": True},
             )
 
-            # [FIX] 비동기 폴링 패턴으로 결과 대기 (스레드 풀 고갈 방지)
+            # 비동기 폴링 패턴으로 결과 대기 (스레드 풀 고갈 방지)
             import asyncio
             import time
 
