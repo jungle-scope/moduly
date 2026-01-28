@@ -41,6 +41,19 @@ def parse_document(self, document_id: UUID):
     Args:
         document_id: 처리할 문서 ID
     """
+    try:
+        return _run_ingestion_process(document_id)
+    except Exception as e:
+        logger.error(f"[Ingestion] 파싱 태스크 실패: {e}")
+        # db 세션은 조회용이므로 롤백 불필요 (읽기 전용)
+        # 재시도 가능한 에러인 경우 재시도 로직 추가 가능
+        raise self.retry(exc=e, countdown=60)  # 1분 후 재시도
+
+
+def _run_ingestion_process(document_id: UUID):
+    """
+    실제 파싱 로직을 수행하는 내부 함수 (테스트 용이성 확보)
+    """
     from apps.gateway.services.ingestion.service import IngestionOrchestrator
 
     db = SessionLocal()
@@ -59,7 +72,7 @@ def parse_document(self, document_id: UUID):
 
         if not doc:
             logger.warning(f"[Ingestion] 문서를 찾을 수 없음: {document_id}")
-            return
+            return None
 
         user_id = doc.knowledge_base.user_id
 
@@ -73,12 +86,6 @@ def parse_document(self, document_id: UUID):
 
         logger.info(f"[Ingestion] 파싱 태스크 완료: {document_id}")
         return {"status": "success", "document_id": str(document_id)}
-
-    except Exception as e:
-        logger.error(f"[Ingestion] 파싱 태스크 실패: {e}")
-        # db 세션은 조회용이므로 롤백 불필요 (읽기 전용)
-        # 재시도 가능한 에러인 경우 재시도 로직 추가 가능
-        raise self.retry(exc=e, countdown=60)  # 1분 후 재시도
 
     finally:
         db.close()

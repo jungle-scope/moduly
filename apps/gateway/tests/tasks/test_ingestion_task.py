@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.gateway.tasks.ingestion import parse_document
-from apps.shared.db.models.knowledge import Document, KnowledgeBase
+# Celery Task 객체가 아닌 내부 로직 함수를 직접 테스트
+from apps.gateway.tasks.ingestion import _run_ingestion_process as parse_document
 
 
 @pytest.fixture
@@ -23,9 +23,10 @@ def test_parse_document_success(mock_orchestrator_cls, mock_db_session):
     user_id = uuid.uuid4()
 
     # Mock DB Query Result
-    mock_doc = MagicMock(spec=Document)
+    # spec=Document 등을 사용하면 metaclass conflict가 발생할 수 있으므로 제거
+    mock_doc = MagicMock()
     mock_doc.id = document_id
-    mock_doc.knowledge_base = MagicMock(spec=KnowledgeBase)
+    mock_doc.knowledge_base = MagicMock()
     mock_doc.knowledge_base.user_id = user_id
 
     mock_db_session.query.return_value.join.return_value.filter.return_value.first.return_value = mock_doc
