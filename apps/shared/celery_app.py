@@ -57,12 +57,12 @@ celery_app.conf.update(
     task_soft_time_limit=540,  # 소프트 타임아웃 (9분)
     # 워커 설정
     worker_prefetch_multiplier=1,  # [FIX] 공정한 작업 분배를 위해 1로 설정 (Long-running task 최적화)
-    worker_concurrency=4,  # [FIX] 메모리 안정성을 위해 동시성 감소 (16 → 4)
+    worker_concurrency=100,  # [NEW] gevent pool: 높은 동시성 (4 → 100)
     # 결과 설정
     result_expires=3600,  # 결과 만료 시간 (1시간)
     # [NEW] 메모리 누수 방지 설정 (워커 재시작)
-    worker_max_tasks_per_child=100,  # 100개 태스크 처리 후 워커 재시작
-    worker_max_memory_per_child=300000,  # 300MB 초과 시 재시작 (KB 단위)
+    worker_max_tasks_per_child=1000,  # [UPDATE] gevent: 1000개 태스크 처리 후 재시작
+    worker_max_memory_per_child=500000,  # [UPDATE] gevent: 500MB 초과 시 재시작 (단일 프로세스)
     # Heartbeat 설정 (LLM/Code 노드 실행 시 안정성 향상)
     broker_heartbeat=120,  # 브로커 heartbeat 간격 (기본 60초 → 120초)
     worker_send_task_events=True,  # 워커 이벤트 전송
@@ -77,16 +77,18 @@ celery_app.conf.update(
 
 
 # [FIX] 워커 프로세스 초기화 시 DB 커넥션 풀 리셋
-# Fork 방식 사용 시 부모 프로세스의 커넥션 풀을 상속받아 발생하는 충돌 방지
+# gevent pool은 단일 프로세스지만 greenlet 간 DB 연결 공유 이슈 방지
 from celery.signals import worker_process_init  # noqa: E402
 
 
 @worker_process_init.connect
 def init_worker_process(**kwargs):
     """
-    워커 프로세스(자식)가 생성될 때 실행됩니다.
+    워커 프로세스가 시작될 때 실행됩니다.
     1. .env 환경 변수를 다시 로드 (override=True)
     2. 상속받은 SQL Engine의 커넥션 풀 폐기 (DB 연결 초기화)
+
+    Note: gevent pool은 단일 프로세스지만 초기화 시 DB 연결 리셋 필요
     """
     import os
     from pathlib import Path
