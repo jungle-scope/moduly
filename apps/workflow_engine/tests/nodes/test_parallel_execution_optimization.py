@@ -312,8 +312,8 @@ class TestBackwardCompatibility:
 
     def test_nodes_without_value_selector_use_graph_edges(self):
         """
-        Nodes without value_selector should fall back to waiting for
-        all graph predecessors (safe default).
+        Nodes without value_selector should have empty data dependencies,
+        allowing them to execute immediately (not waiting for graph predecessors).
         """
         graph = {
             "nodes": [
@@ -341,13 +341,12 @@ class TestBackwardCompatibility:
 
         engine = WorkflowEngine(graph=graph)
 
-        # code-1 should not be in data_dependencies (no value_selector)
-        # So it falls back to reverse_graph
-        assert "code-1" not in engine.data_dependencies
+        # [FIX] code-1 should be in data_dependencies with empty set
+        assert "code-1" in engine.data_dependencies
+        assert len(engine.data_dependencies["code-1"]) == 0
 
-        # _is_ready should still work correctly (using reverse_graph)
-        assert not engine._is_ready("code-1", {})
-        assert engine._is_ready("code-1", {"start-1": {}})
+        # _is_ready should work correctly (no dependencies = ready immediately)
+        assert engine._is_ready("code-1", {})
 
 
 class TestComplexWorkflows:

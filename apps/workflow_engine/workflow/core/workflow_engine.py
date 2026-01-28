@@ -853,8 +853,10 @@ class WorkflowEngine:
             if referenced_nodes:
                 # 데이터 의존성이 명시적으로 있는 경우
                 self.data_dependencies[node_id] = referenced_nodes
-            # else: referenced_nodes가 비어있으면 data_dependencies에 추가하지 않음
-            # -> _is_ready()에서 None 체크로 fallback 처리
+            else:
+                # [FIX] value_selector가 없는 노드는 데이터 의존성이 없음
+                # 빈 set으로 명시하여 그래프 엣지에 의존하지 않고 즉시 실행 가능
+                self.data_dependencies[node_id] = set()
 
     def _extract_value_selectors(self, schema: NodeSchema) -> set:
         """
