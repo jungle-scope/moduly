@@ -15,7 +15,7 @@ except ImportError as e:
     sys.exit(1)
 
 # 기본 설정값
-DEFAULT_HOST = "https://moduly-ai.cloud/modules/"
+DEFAULT_HOST = "https://moduly-ai.cloud/"
 DEFAULT_USERS = 50
 DEFAULT_SPAWN_RATE = 5
 DEFAULT_RUN_TIME = "40s"
@@ -28,6 +28,8 @@ REPORTS_DIR = Path(__file__).parent / "reports"
 def run_locust(host, users, spawn_rate, run_time, csv_prefix, locustfile):
     """Locust를 헤드리스(Headless) 모드로 실행하여 부하를 생성합니다."""
     cmd = [
+        sys.executable,
+        "-m",
         "locust",
         "-f",
         str(locustfile),
