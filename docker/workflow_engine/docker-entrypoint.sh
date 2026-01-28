@@ -59,12 +59,13 @@ echo ""
 echo "Starting Celery worker for workflow execution..."
 echo "================================================"
 
-# Celery 워커 실행
+# Celery 워커 실행 (gevent pool for async I/O)
 cd /app
 exec celery -A apps.workflow_engine.main worker \
+    --pool=gevent \
+    --concurrency=100 \
     --loglevel=info \
     --queues=workflow \
-    --concurrency=4 \
-    --max-tasks-per-child=100
+    --max-tasks-per-child=1000
 
 
