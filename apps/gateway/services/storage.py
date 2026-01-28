@@ -99,7 +99,6 @@ class LocalStorageService(StorageService):
     def persist_content(self, content: str, file_ext: str = "md") -> str:
         import hashlib
 
-        # 콘텐츠 기반으로 고유 파일명 생성
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         filename = f"{content_hash}.{file_ext}"
 

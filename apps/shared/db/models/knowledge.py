@@ -164,8 +164,7 @@ class DocumentChunk(Base):
 
 class ParsingRegistry(Base):
     """
-    글로벌 문서 파싱 캐시 레지스트리 (Global Document Parsing Cache Registry).
-    중복 처리를 방지하고 비용을 절감하기 위해 파싱된 콘텐츠를 중앙에서 관리합니다.
+    문서 파싱시 중복 처리를 방지하고 비용을 절감하기 위해 파싱된 콘텐츠를 중앙에서 관리합니다.
     SHA-256 다이제스트를 통해 콘텐츠의 고유성을 식별합니다.
     """
 
