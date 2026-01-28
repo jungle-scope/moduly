@@ -72,6 +72,9 @@ class IngestionOrchestrator:
         import hashlib
 
         # 1. SHA-256 다이제스트 계산
+        logger.info(f"[_resolve_parsing_workflow] Start. Path: {file_path}")
+        start_time = datetime.now()
+
         sha256 = hashlib.sha256()
 
         if file_path.startswith("http://") or file_path.startswith("https://"):
@@ -85,8 +88,8 @@ class IngestionOrchestrator:
             with open(file_path, "rb") as f:
                 for chunk in iter(lambda: f.read(4096), b""):
                     sha256.update(chunk)
-
         content_digest = sha256.hexdigest()
+        logger.debug(f"[_resolve_parsing_workflow] File Hash: {content_digest}")
 
         # 2. 레지스트리 조회 (Cache Hit 확인)
         cached_registry = (
@@ -103,6 +106,10 @@ class IngestionOrchestrator:
             storage = get_storage_service()
             try:
                 markdown_content = storage.retrieve_content(cached_registry.storage_key)
+                duration = (datetime.now() - start_time).total_seconds()
+                logger.info(
+                    f"[_resolve_parsing_workflow] Completed (Cache Hit). Duration: {duration:.2f}s"
+                )
                 return {
                     "content": markdown_content,
                     "is_cached": True,
@@ -137,9 +144,9 @@ class IngestionOrchestrator:
         config = {
             "file_path": file_path,
             "strategy": strategy,
-            "target_pages": "all",
             **(meta_info or {}),
         }
+        logger.info(f"[Cache Miss] Config prepared: {config}")
 
         result = processor.process(config)
 
@@ -179,6 +186,11 @@ class IngestionOrchestrator:
             )
             self.db.rollback()
             # 이미 저장된 것으로 간주하고 진행 (필요하다면 다시 조회해서 검증 가능)
+
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(
+            f"[_resolve_parsing_workflow] Completed (Full Parse). Duration: {duration:.2f}s"
+        )
 
         return {
             "content": full_markdown,
@@ -373,7 +385,7 @@ class IngestionOrchestrator:
                         raw_blocks, override_chunk_size=8000
                     )
 
-                    # [Restored] DB 데이터도 해시 비교를 위해 full_text 생성
+                    # DB 데이터도 해시 비교를 위해 full_text 생성
                     full_text = "".join([b["content"] for b in raw_blocks])
                     new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
                     # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
@@ -388,56 +400,6 @@ class IngestionOrchestrator:
 
                     doc.content_hash = new_hash
                     self.db.commit()
-
-                if doc.source_type == "DB":
-                    final_chunks = self._refine_chunks(
-                        raw_blocks, override_chunk_size=8000
-                    )
-                else:
-                    # 전처리 적용 (FILE, API 타입)
-                    full_text = "\n".join([b["content"] for b in raw_blocks])
-                    new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
-
-                    if (
-                        doc.content_hash == new_hash
-                        and doc.embedding_model == self.ai_model
-                        and initial_status != "failed"
-                    ):
-                        self._update_status(document_id, "completed")
-                        return
-
-                    doc.content_hash = new_hash
-                    self.db.commit()
-
-                    preprocessed_text = self.preprocess_text(
-                        full_text, doc.meta_info or {}
-                    )
-                    preprocessed_blocks = [
-                        {"content": preprocessed_text, "metadata": {}}
-                    ]
-
-                    # [동적 Splitter 생성]
-                    chunk_size = doc.chunk_size
-                    chunk_overlap = doc.chunk_overlap
-                    meta = doc.meta_info or {}
-                    segment_identifier = meta.get("segment_identifier", "\\n\\n")
-
-                    separators = ["\n\n", "\n", ".", " ", ""]
-                    if segment_identifier:
-                        identifier = segment_identifier.replace("\\n", "\n")
-                        if identifier not in separators:
-                            separators.insert(0, identifier)
-
-                    doc_specific_splitter = RecursiveCharacterTextSplitter(
-                        chunk_size=chunk_size,
-                        chunk_overlap=chunk_overlap,
-                        separators=separators,
-                        keep_separator=True,  # [수정] 원복
-                    )
-
-                    final_chunks = self._refine_chunks(
-                        preprocessed_blocks, splitter=doc_specific_splitter
-                    )
 
                 # 필터링 적용
                 meta = doc.meta_info or {}
@@ -520,14 +482,67 @@ class IngestionOrchestrator:
 
         self.process_document(document_id)
 
-    async def analyze_document(self, document_id: UUID) -> Dict[str, Any]:
+    async def analyze_document(
+        self, document_id: UUID, strategy: str = "llamaparse"
+    ) -> Dict[str, Any]:
         """
         문서 분석 (비용 예측)
+        - 글로벌 파싱 캐시(ParsingRegistry)에 해당 파일이 이미 있으면 is_cached=True 반환
+        - strategy: UI에서 선택한 파싱 전략
         """
+        import hashlib
+
         doc = self.db.query(Document).get(document_id)
         if not doc:
             raise ValueError("Document not found")
 
+        # 1. 파일 해시 계산 (캐시 조회용)
+        content_digest = None
+        if doc.file_path:
+            try:
+                sha256 = hashlib.sha256()
+                if doc.file_path.startswith("http://") or doc.file_path.startswith(
+                    "https://"
+                ):
+                    import requests
+
+                    with requests.get(doc.file_path, stream=True) as r:
+                        r.raise_for_status()
+                        for chunk in r.iter_content(chunk_size=8192):
+                            sha256.update(chunk)
+                else:
+                    with open(doc.file_path, "rb") as f:
+                        for chunk in iter(lambda: f.read(4096), b""):
+                            sha256.update(chunk)
+                content_digest = sha256.hexdigest()
+            except Exception as e:
+                logger.warning(f"[analyze_document] Failed to calculate hash: {e}")
+
+        # 2. 캐시 조회 (UI에서 선택한 strategy로 조회)
+        if content_digest:
+            cached_registry = (
+                self.db.query(ParsingRegistry)
+                .filter(
+                    ParsingRegistry.content_digest == content_digest,
+                    ParsingRegistry.provider == strategy,
+                )
+                .first()
+            )
+            if cached_registry:
+                logger.info(
+                    f"[analyze_document] Cache hit for digest: {content_digest}"
+                )
+                return {
+                    "cost_estimate": {
+                        "pages": cached_registry.page_count,
+                        "credits": 0,  # 캐시 사용 시 비용 없음
+                        "cost_usd": 0.0,
+                    },
+                    "filename": doc.filename,
+                    "is_cached": True,
+                }
+
+        # 3. Cache Miss - 기존 비용 예측 로직 실행
         processor = IngestionFactory.get_processor(
             doc.source_type, self.db, self.user_id
         )

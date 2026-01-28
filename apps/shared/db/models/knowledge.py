@@ -183,7 +183,7 @@ class ParsingRegistry(Base):
     # === Parsing Meta Info ===
     # 사용된 파싱 엔진의 이름
     provider: Mapped[str] = mapped_column(
-        String(50), default="llamaparse", nullable=False
+        String(50), primary_key=True, default="llamaparse", nullable=False
     )
 
     # 파싱된 총 페이지 수. 과금 및 사용량 추적에 필수적입니다.
