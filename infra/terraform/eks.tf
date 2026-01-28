@@ -17,8 +17,8 @@ module "eks" {
   # 노드 그룹: addon보다 나중에 생성되도록 depends_on 설정
   eks_managed_node_groups = {
     moduly_nodes = {
-      min_size     = 2
-      max_size     = 5
+      min_size     = 1
+      max_size     = 4
       desired_size = 2
 
       instance_types = ["t3.large"]
