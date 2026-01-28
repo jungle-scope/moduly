@@ -73,9 +73,19 @@ class IngestionOrchestrator:
 
         # 1. SHA-256 다이제스트 계산
         sha256 = hashlib.sha256()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                sha256.update(chunk)
+
+        if file_path.startswith("http://") or file_path.startswith("https://"):
+            import requests
+
+            with requests.get(file_path, stream=True) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=8192):
+                    sha256.update(chunk)
+        else:
+            with open(file_path, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    sha256.update(chunk)
+
         content_digest = sha256.hexdigest()
 
         # 2. 레지스트리 조회 (Cache Hit 확인)
@@ -159,9 +169,16 @@ class IngestionOrchestrator:
             meta_info=meta_info or {},
         )
         self.db.add(new_registry)
-        self.db.commit()
-
-        logger.info(f"[Cache Created] Digest: {content_digest}, Key: {storage_key}")
+        try:
+            self.db.commit()
+            logger.info(f"[Cache Created] Digest: {content_digest}, Key: {storage_key}")
+        except Exception as e:
+            # Race Condition: 동시에 다른 요청이 먼저 저장했을 수 있음
+            logger.warning(
+                f"[Cache Register Warning] Failed to commit registry (Duplicate?): {e}"
+            )
+            self.db.rollback()
+            # 이미 저장된 것으로 간주하고 진행 (필요하다면 다시 조회해서 검증 가능)
 
         return {
             "content": full_markdown,
