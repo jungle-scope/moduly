@@ -69,6 +69,7 @@ class WorkflowEngine:
         self.adjacency_list = {}  # source -> [targets]
         self.reverse_graph = {}  # target -> [sources]
         self.edge_handles = {}  # (source, handle) -> [targets]
+        self.data_dependencies = {}  # [NEW] node_id -> set of nodes it depends on for data
         self._build_optimized_graph()
 
         # [PERF] 타입별 노드 인덱스 (answerNode 등 빠른 조회를 위해)
@@ -453,6 +454,7 @@ class WorkflowEngine:
         # [FIX] 서브 워크플로우에서는 노드 로깅도 스킵 (UI 간섭 방지)
         # [NEW] Upsert 패턴을 위해 started_at 기록 (Race Condition 해결용)
         from datetime import datetime, timezone
+
         started_at = datetime.now(timezone.utc)
 
         # [NEW] 노드 옵션 스냅샷 추출 (서브워크플로우 아닐 때만)
@@ -461,7 +463,7 @@ class WorkflowEngine:
 
         if not self.is_subworkflow:
             node_options_snapshot = self._extract_node_options(node_schema)
-            
+
             # [FIX] create_node_log가 반환하는 log_id 캡처
             def _create_log():
                 return self.logger.create_node_log(
@@ -774,8 +776,16 @@ class WorkflowEngine:
         현재 노드에 선행되는 노드가 모두 완료되었는지 확인
 
         [PERF] reverse_graph 캐시를 사용하여 O(1) 조회 (기존: O(E) 순회)
+        [NEW] data_dependencies를 우선 사용하여 실제 데이터 의존성만 확인
         """
-        required_inputs = self.reverse_graph.get(node_id, [])
+        # [NEW] 데이터 의존성이 분석된 경우 우선 사용
+        if node_id in self.data_dependencies:
+            required_inputs = self.data_dependencies[node_id]
+        else:
+            # 데이터 의존성이 없는 경우 (분석 실패 또는 value_selector 미사용)
+            # 안전을 위해 모든 선행 노드를 기다림 (기존 동작)
+            required_inputs = self.reverse_graph.get(node_id, [])
+
         return all(inp in results for inp in required_inputs)
 
     def _build_optimized_graph(self):
@@ -797,6 +807,9 @@ class WorkflowEngine:
                 self.edge_handles[key] = []
             self.edge_handles[key].append(edge.target)
 
+        # [NEW] 데이터 의존성 분석 (value_selector 기반)
+        self._analyze_data_dependencies()
+
     def _build_node_instances(self):
         """NodeSchema를 실제 Node 인스턴스로 변환 (NodeFactory 사용)"""
         for node_id, schema in self.node_schemas.items():
@@ -813,6 +826,82 @@ class WorkflowEngine:
                 raise NotImplementedError(
                     f"Cannot create node '{node_id}': {str(e)}"
                 ) from e
+
+    def _analyze_data_dependencies(self):
+        """
+        [NEW] 각 노드의 value_selector를 분석하여 실제 데이터 의존성을 추출합니다.
+
+        이 메서드는 노드가 실제로 참조하는 선행 노드만 식별하여,
+        그래프 구조상 연결되어 있지만 데이터를 사용하지 않는 경우
+        병렬 실행을 가능하게 합니다.
+
+        결과는 self.data_dependencies에 저장됩니다:
+        {
+            "node-id": {"predecessor-1", "predecessor-2"},  # 실제 데이터 의존성
+            ...
+        }
+        """
+        for node_id, schema in self.node_schemas.items():
+            # 시작 노드는 의존성 없음
+            if schema.type in ["startNode", "webhookTrigger", "scheduleTrigger"]:
+                self.data_dependencies[node_id] = set()
+                continue
+
+            # value_selector에서 참조하는 노드 ID 추출
+            referenced_nodes = self._extract_value_selectors(schema)
+
+            if referenced_nodes:
+                # 데이터 의존성이 명시적으로 있는 경우
+                self.data_dependencies[node_id] = referenced_nodes
+            else:
+                # [FIX] value_selector가 없는 노드는 데이터 의존성이 없음
+                # 빈 set으로 명시하여 그래프 엣지에 의존하지 않고 즉시 실행 가능
+                self.data_dependencies[node_id] = set()
+
+    def _extract_value_selectors(self, schema: NodeSchema) -> set:
+        """
+        [NEW] NodeSchema의 data에서 모든 value_selector를 추출하여
+        참조하는 노드 ID 집합을 반환합니다.
+
+        value_selector 형식: [node_id, variable_key, ...]
+        첫 번째 요소가 참조하는 노드 ID입니다.
+
+        Args:
+            schema: 분석할 노드 스키마
+
+        Returns:
+            참조하는 노드 ID의 집합 (set)
+        """
+        referenced_nodes = set()
+
+        if not schema.data:
+            return referenced_nodes
+
+        # data를 dict로 변환 (Pydantic 모델인 경우)
+        data_dict = schema.data if isinstance(schema.data, dict) else schema.data.dict()
+
+        # 재귀적으로 value_selector 찾기
+        def extract_from_value(value):
+            if isinstance(value, dict):
+                # value_selector 키가 있는지 확인
+                if "value_selector" in value:
+                    selector = value["value_selector"]
+                    if isinstance(selector, list) and len(selector) > 0:
+                        # 첫 번째 요소가 노드 ID
+                        node_id = selector[0]
+                        if isinstance(node_id, str) and node_id in self.node_schemas:
+                            referenced_nodes.add(node_id)
+
+                # 다른 키들도 재귀 탐색
+                for v in value.values():
+                    extract_from_value(v)
+
+            elif isinstance(value, list):
+                for item in value:
+                    extract_from_value(item)
+
+        extract_from_value(data_dict)
+        return referenced_nodes
 
     def _get_context(self, node_id: str, results: Dict) -> Dict[str, Any]:
         """
