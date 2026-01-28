@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+import requests
 import tiktoken
 from fastapi import UploadFile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -45,6 +46,39 @@ class IngestionOrchestrator:
             keep_separator=True,
         )
 
+    def _compute_file_hash(self, file_path: str) -> Optional[str]:
+        """
+        파일의 SHA-256 해시를 계산합니다.
+        로컬 파일과 URL 모두 지원합니다.
+
+        Args:
+            file_path: 로컬 파일 경로 또는 URL
+
+        Returns:
+            SHA-256 해시 문자열 또는 실패 시 None
+        """
+        try:
+            sha256 = hashlib.sha256()
+            if file_path.startswith("http://") or file_path.startswith("https://"):
+                with requests.get(file_path, stream=True) as r:
+                    r.raise_for_status()
+                    for chunk in r.iter_content(chunk_size=8192):
+                        sha256.update(chunk)
+            else:
+                with open(file_path, "rb") as f:
+                    for chunk in iter(lambda: f.read(4096), b""):
+                        sha256.update(chunk)
+            return sha256.hexdigest()
+        except FileNotFoundError as e:
+            logger.warning(f"[_compute_file_hash] File not found: {e}")
+            return None
+        except requests.RequestException as e:
+            logger.warning(f"[_compute_file_hash] Network error: {e}")
+            return None
+        except Exception as e:
+            logger.warning(f"[_compute_file_hash] Unexpected error: {e}")
+            return None
+
     def _resolve_parsing_workflow(
         self,
         file_path: str,
@@ -69,26 +103,13 @@ class IngestionOrchestrator:
             - pages: 페이지 수 (가능한 경우)
             - content_digest: SHA-256 해시
         """
-        import hashlib
-
         # 1. SHA-256 다이제스트 계산
         logger.info(f"[_resolve_parsing_workflow] Start. Path: {file_path}")
         start_time = datetime.now()
 
-        sha256 = hashlib.sha256()
-
-        if file_path.startswith("http://") or file_path.startswith("https://"):
-            import requests
-
-            with requests.get(file_path, stream=True) as r:
-                r.raise_for_status()
-                for chunk in r.iter_content(chunk_size=8192):
-                    sha256.update(chunk)
-        else:
-            with open(file_path, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    sha256.update(chunk)
-        content_digest = sha256.hexdigest()
+        content_digest = self._compute_file_hash(file_path)
+        if not content_digest:
+            raise ValueError(f"Failed to compute hash for file: {file_path}")
         logger.debug(f"[_resolve_parsing_workflow] File Hash: {content_digest}")
 
         # 2. 레지스트리 조회 (Cache Hit 확인)
@@ -157,12 +178,9 @@ class IngestionOrchestrator:
         full_markdown = "\n\n".join([b["content"] for b in result.chunks])
 
         # 2. LlamaParse v1 메타데이터 기반 페이지 수 추출
-        page_count = result.metadata.get("pages")
-
-        # 만약 metadata에 없다면, 결과 조각(chunks) 중 첫 번째 요소의 메타데이터를 확인하거나 0으로 설정
-        if page_count is None:
-            # Fallback: 개별 청크의 메타데이터 확인 또는 청킹된 리스트의 특성 활용
-            page_count = result.metadata.get("page_count", 0)
+        page_count = result.metadata.get("pages") or result.metadata.get(
+            "page_count", 0
+        )
 
         # 4. 저장 및 등록 (Persist & Register)
         storage = get_storage_service()
@@ -490,33 +508,19 @@ class IngestionOrchestrator:
         - 글로벌 파싱 캐시(ParsingRegistry)에 해당 파일이 이미 있으면 is_cached=True 반환
         - strategy: UI에서 선택한 파싱 전략
         """
-        import hashlib
-
         doc = self.db.query(Document).get(document_id)
         if not doc:
             raise ValueError("Document not found")
 
         # 1. 파일 해시 계산 (캐시 조회용)
-        content_digest = None
-        if doc.file_path:
-            try:
-                sha256 = hashlib.sha256()
-                if doc.file_path.startswith("http://") or doc.file_path.startswith(
-                    "https://"
-                ):
-                    import requests
-
-                    with requests.get(doc.file_path, stream=True) as r:
-                        r.raise_for_status()
-                        for chunk in r.iter_content(chunk_size=8192):
-                            sha256.update(chunk)
-                else:
-                    with open(doc.file_path, "rb") as f:
-                        for chunk in iter(lambda: f.read(4096), b""):
-                            sha256.update(chunk)
-                content_digest = sha256.hexdigest()
-            except Exception as e:
-                logger.warning(f"[analyze_document] Failed to calculate hash: {e}")
+        content_digest = (
+            self._compute_file_hash(doc.file_path) if doc.file_path else None
+        )
+        if not content_digest:
+            logger.warning(
+                f"[analyze_document] Hash calculation failed, skipping cache check. "
+                f"document_id={document_id}, file_path={doc.file_path}"
+            )
 
         # 2. 캐시 조회 (UI에서 선택한 strategy로 조회)
         if content_digest:
