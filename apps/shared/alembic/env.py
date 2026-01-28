@@ -40,6 +40,7 @@ from apps.shared.db.models import (  # noqa: F401
     LLMProvider,
     LLMRelCredentialModel,
     LLMUsageLog,
+    ParsingRegistry,
     Schedule,
     User,
     Workflow,
