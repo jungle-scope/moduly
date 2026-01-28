@@ -2,6 +2,18 @@
 Workflow-Engine Celery 앱 설정
 """
 
+# ===================================================
+# [CRITICAL] Gevent Monkey Patching
+# ===================================================
+# gevent pool 사용 시 asyncio와의 호환성을 위해 반드시 필요
+# 모든 import 전에 실행되어야 함
+from gevent import monkey
+
+monkey.patch_all()
+
+# ===================================================
+# 환경 변수 로드 및 로깅 설정
+# ===================================================
 # [SY] Celery worker는 FastAPI와 달리 자동으로 .env를 로드하지 않음
 # ENCRYPTION_KEY 등 환경 변수를 사용하기 위해 반드시 다른 import 전에 로드 필요
 import logging
