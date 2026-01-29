@@ -16,9 +16,12 @@ Created: 2026-01-13
 """
 
 import argparse
+import asyncio
 import json
 import os
+import re
 import sys
+import unicodedata
 from typing import Any, Dict, List
 from uuid import UUID
 
@@ -27,6 +30,7 @@ sys.path.insert(
     0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
 from apps.gateway.services.llm_service import LLMService
@@ -57,7 +61,7 @@ def get_or_create_kb(
     )
 
     if kb:
-        print(f"[KB] 기존 Knowledge Base 사용: {kb.id}")
+        print(f"✅ Knowledge Base 생성: {kb.name}")
         return kb
 
     # 새 KB 생성
@@ -73,17 +77,65 @@ def get_or_create_kb(
     db.commit()
     db.refresh(kb)
 
-    print(f"[KB] 새 Knowledge Base 생성: {kb.id}")
+    print(f"✅ Knowledge Base 생성: {kb.name}")
     return kb
 
 
-def index_documents(
+def preprocess_text(text: str, options: Dict[str, Any]) -> str:
+    """
+    RAG를 위한 텍스트 전처리 (IngestionOrchestrator와 동일)
+    """
+    # === 필수 전처리 (항상 적용) ===
+    # 1. 유니코드 정규화 (한글 자모 분리 방지)
+    text = unicodedata.normalize("NFC", text)
+
+    # === 선택적 전처리 ===
+    # 2. 마크다운 구분자 처리
+    if options.get("remove_markdown_separators", True):
+        text = re.sub(r"^-{3,}$", "\n", text, flags=re.MULTILINE)
+        text = re.sub(r"^\*{3,}$", "\n", text, flags=re.MULTILINE)
+        text = re.sub(r"^={3,}$", "\n", text, flags=re.MULTILINE)
+
+    # 3. URL/이메일 제거
+    if options.get("remove_urls_emails", False):
+        text = re.sub(
+            r"(?:https?|ftps?)://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+            "",
+            text,
+        )
+        text = re.sub(r"[\w\.-]+@[\w\.-]+\.\w+", "", text)
+
+    # 4. 공백 정규화
+    if options.get("normalize_whitespace", True):
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        text = re.sub(r"[ \t]+\n", "\n", text)
+        text = re.sub(r"\n[ \t]+", "\n", text)
+
+    # 5. 제어 문자 제거 (탭, 줄바꿈 제외)
+    if options.get("remove_control_chars", True):
+        text = "".join(
+            char
+            for char in text
+            if unicodedata.category(char)[0] != "C" or char in "\n\t"
+        )
+
+    # === 필수 전처리 (마무리) ===
+    # 6. 앞뒤 공백 제거
+    text = text.strip()
+
+    return text
+
+
+async def index_documents(
     db: Session,
     kb: KnowledgeBase,
     documents: List[Dict[str, Any]],
     user_id: UUID,
     batch_size: int = 10,
-) -> int:
+    chunk_size: int = 500,
+    chunk_overlap: int = 50,
+) -> tuple[int, int]:
     """
     문서들을 Knowledge Base에 인덱싱
 
@@ -91,9 +143,10 @@ def index_documents(
         documents: [{"id": "", "title": "", "content": ""}, ...]
 
     Returns:
-        인덱싱된 청크 수
+        (인덱싱된 청크 수, 총 토큰 수)
     """
     total_chunks = 0
+    total_tokens = 0
     embedding_model = kb.embedding_model
 
     # LLM 클라이언트 획득
@@ -121,34 +174,35 @@ def index_documents(
             filename=f"{doc_id}.txt",
             source_type=SourceType.API,
             status="indexing",
-            chunk_size=500,
-            chunk_overlap=50,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
             meta_info={"source": doc.get("source", "evaluation"), "title": title},
         )
         db.add(document)
         db.flush()
 
-        # 청킹 (간단한 방식: 500자씩)
-        chunk_size = 500
-        overlap = 50
-        chunks = []
+        # 전처리 (서비스와 동일한 로직 적용)
+        options = {
+            "remove_urls_emails": False,  # HotpotQA는 URL/Email 제거 불필요
+            "normalize_whitespace": True,
+            "remove_markdown_separators": True,
+            "remove_control_chars": True,
+        }
+        content = preprocess_text(content, options)
 
-        start = 0
-        chunk_index = 0
-        while start < len(content):
-            end = min(start + chunk_size, len(content))
-            chunk_text = content[start:end]
+        # 청킹 (RecursiveCharacterTextSplitter 사용 - 서비스와 동일)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=["\n\n", "\n", ".", " ", ""],
+            keep_separator=True,
+        )
 
-            if chunk_text.strip():
-                chunks.append({"content": chunk_text, "index": chunk_index})
-                chunk_index += 1
-
-            start = end - overlap if end < len(content) else end
-
-        # 임베딩 생성 및 저장
+        split_texts = text_splitter.split_text(content)
+        chunks = [{"content": t, "index": idx} for idx, t in enumerate(split_texts)]
         for chunk in chunks:
             try:
-                embedding = embed_client.embed(chunk["content"])
+                embedding = await embed_client.embed(chunk["content"])
 
                 # 키워드 추출 (YAKE - entity/proper noun 중심)
                 keywords = []
@@ -178,6 +232,7 @@ def index_documents(
                 )
                 db.add(chunk_record)
                 total_chunks += 1
+                total_tokens += chunk_record.token_count
 
             except Exception as e:
                 print(
@@ -196,7 +251,7 @@ def index_documents(
     db.commit()
     print(f"[Index] 완료! 총 {total_chunks}개 청크 인덱싱됨")
 
-    return total_chunks
+    return total_chunks, total_tokens
 
 
 def main():
@@ -228,6 +283,12 @@ def main():
     )
     parser.add_argument(
         "--max-docs", type=int, default=None, help="최대 문서 수 (None=전체)"
+    )
+    parser.add_argument(
+        "--chunk-size", type=int, default=500, help="청크 크기 (기본값: 500)"
+    )
+    parser.add_argument(
+        "--chunk-overlap", type=int, default=50, help="청크 중복 크기 (기본값: 50)"
     )
 
     args = parser.parse_args()
@@ -285,12 +346,25 @@ def main():
         kb = get_or_create_kb(db, user.id, kb_name, args.embedding_model)
 
         # 인덱싱
-        chunk_count = index_documents(db, kb, documents, user.id)
+        chunk_count, total_tokens = asyncio.run(
+            index_documents(
+                db,
+                kb,
+                documents,
+                user.id,
+                chunk_size=args.chunk_size,
+                chunk_overlap=args.chunk_overlap,
+            )
+        )
+
+        avg_tokens = int(total_tokens / chunk_count) if chunk_count > 0 else 0
 
         print("\n" + "=" * 60)
-        print("인덱싱 완료!")
+        print(f"✅ Knowledge Base 생성: {kb.name}")
         print(f"Knowledge Base ID: {kb.id}")
+        print(f"총 문서 수: {len(documents)}")
         print(f"총 청크 수: {chunk_count}")
+        print(f"평균 청크당 토큰: {avg_tokens}")
         print("=" * 60)
         print("\n다음 단계: 평가 실행")
         print("  pytest tests/evaluation/test_rag_baseline.py::TestRAGBaseline -v")
