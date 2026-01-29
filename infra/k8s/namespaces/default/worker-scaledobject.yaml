@@ -13,8 +13,8 @@ spec:
   scaleTargetRef:
     name: worker  # worker deployment
   minReplicaCount: 4
-  maxReplicaCount: 20
-  pollingInterval: 15  # 15초마다 메트릭 확인
+  maxReplicaCount: 30  # 최대 30개까지 확장
+  pollingInterval: 5   # 5초마다 기민하게 체크
   cooldownPeriod: 300  # 스케일 다운 후 5분 대기 (기존 HPA와 동일)
   triggers:
   - type: redis
@@ -23,10 +23,10 @@ spec:
       address: redis-master.default.svc.cluster.local:6379
       # Celery workflow 큐 모니터링 (Redis List 타입)
       listName: workflow  # Celery 큐 이름
-      listLength: "10"  # 큐 길이 10 이상일 때 스케일 아웃
+      listLength: "2"     # 큐 길이 2개당 파드 1개 추가 (매우 공격적)
       databaseIndex: "0"  # Redis DB 0 (브로커)
       # 활성화 임계값 (큐 길이 0이면 minReplicas로 유지)
-      activationListLength: "1"
+      activationListLength: "0"
     authenticationRef:
       name: redis-auth  # Secret 참조 (비밀번호)
   advanced:

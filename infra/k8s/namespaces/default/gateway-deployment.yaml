@@ -5,7 +5,7 @@ metadata:
   labels:
     app: api-server
 spec:
-  replicas: 1
+  replicas: 2  # [REALISTIC] 초기 2개로 시작 (오토스케일링 테스트용)
   selector:
     matchLabels:
       app: api-server
@@ -88,11 +88,11 @@ spec:
                   key: GOOGLE_CLIENT_SECRET
           resources:
             requests:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 250m     # [DOWN] 절반으로 축소
+              memory: 256Mi # [DOWN] 절반으로 축소
             limits:
-              cpu: 1000m
-              memory: 1Gi
+              cpu: 500m     # [DOWN] 절반으로 축소
+              memory: 512Mi # [DOWN] 절반으로 축소
           livenessProbe:
             httpGet:
               path: /api/v1/health

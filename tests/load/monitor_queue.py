@@ -13,7 +13,7 @@ import time
 from datetime import datetime
 
 # 설정
-OUTPUT_FILE = "redis_task_count_user100.md"
+OUTPUT_FILE = "redis_task_count_user3232350.md"
 REDIS_PASSWORD = "moduly-redis-pass-2026"
 INTERVAL = 2
 
