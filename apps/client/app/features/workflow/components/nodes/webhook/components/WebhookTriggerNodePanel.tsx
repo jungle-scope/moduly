@@ -461,13 +461,11 @@ export function WebhookTriggerNodePanel({
 
             {/* 캡처된 Payload 상태 표시 */}
             {data.captured_payload && (
-              <div className="p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700 flex items-center justify-between">
-                <span>
-                  ✅ 테스트용 Payload 저장됨 (테스트 버튼으로 즉시 실행 가능)
-                </span>
+              <div className="px-3 py-2 bg-green-50 border border-green-200 rounded text-xs text-green-700 flex items-center justify-between gap-2 whitespace-nowrap">
+                <span>✅ Payload 저장됨 (테스트 입력으로 사용 가능)</span>
                 <button
                   onClick={() => setIsModalOpen(true)}
-                  className="px-2 py-0.5 bg-white border border-green-200 rounded text-[10px] hover:bg-green-50 transition-colors"
+                  className="px-2 py-0.5 bg-white border border-green-200 rounded text-[10px] hover:bg-green-50 transition-colors flex-shrink-0"
                 >
                   보기
                 </button>
