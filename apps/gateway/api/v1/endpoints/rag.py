@@ -244,15 +244,17 @@ def _prepare_db_source(db: Session, user: User, connection_id: Optional[UUID]):
 @router.post("/document/{document_id}/analyze", response_model=DocumentAnalyzeResponse)
 async def analyze_document(
     document_id: UUID,
+    strategy: str = "llamaparse",  # UI에서 선택한 파싱 전략
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     문서 분석 API: 페이지 수 및 LlamaParse 비용 예측 반환
+    - strategy: 사용자가 UI에서 선택한 파싱 전략 (general 또는 llamaparse)
     """
     ingestion_service = IngestionService(db, user_id=current_user.id)
     try:
-        result = await ingestion_service.analyze_document(document_id)
+        result = await ingestion_service.analyze_document(document_id, strategy)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -261,14 +263,15 @@ async def analyze_document(
 @router.post("/document/{document_id}/confirm")
 async def confirm_document_parsing(
     document_id: UUID,
-    background_tasks: BackgroundTasks,
     strategy: str = "llamaparse",  # "llamaparse" or "general"
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    비용 승인 대기 중인 문서의 파싱을 재개합니다.
+    비용 승인 대기 중인 문서의 파싱을 재개합니다. (비동기 처리)
     """
+    from apps.shared.celery_app import celery_app
+
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -276,18 +279,20 @@ async def confirm_document_parsing(
     if doc.status != "waiting_for_approval":
         raise HTTPException(status_code=400, detail="Document remains in invalid state")
 
-    # 서비스 초기화 및 재개 (백그라운드)
-    # 기존 설정(청크 사이즈 등)은 DB doc에 저장되어 있으므로 불러와서 쓴다고 가정
-    ingestion_service = IngestionService(db, user_id=current_user.id)
+    # 전략 업데이트
+    new_meta = dict(doc.meta_info or {})
+    new_meta["strategy"] = strategy
+    doc.meta_info = new_meta
+    db.commit()
 
-    background_tasks.add_task(
-        ingestion_service.process_document,  # Was resume_processing, but process_document handles it if logic supports
-        document_id,
-    )
+    # Celery 태스크 호출 (비동기)
+    # queue='ingestion'은 라우팅 설정에 의해 자동 적용됨
+    task = celery_app.send_task("ingestion.parse_document", args=[str(document_id)])
 
     return {
-        "message": f"Parsing resumed with strategy: {strategy}",
+        "message": f"Parsing started in background with strategy: {strategy}",
         "status": "processing",
+        "task_id": task.id,
     }
 
 

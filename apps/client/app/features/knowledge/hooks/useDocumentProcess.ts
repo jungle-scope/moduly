@@ -186,12 +186,17 @@ export function useDocumentProcess({
   const handleAnalyzeAndProceed = async (action: 'preview' | 'save') => {
     setAnalyzingAction(action);
     try {
-      const result = await knowledgeApi.analyzeDocument(documentId);
+      // UI에서 선택한 파싱 전략을 전달
+      const result = await knowledgeApi.analyzeDocument(
+        documentId,
+        settings.parsingStrategy,
+      );
       setAnalyzeResult(result);
 
       if (result.is_cached) {
-        if (action === 'preview') await executePreview('llamaparse');
-        else await executeSave('llamaparse');
+        if (action === 'preview')
+          await executePreview(settings.parsingStrategy);
+        else await executeSave(settings.parsingStrategy);
         return;
       }
       setPendingAction(action);

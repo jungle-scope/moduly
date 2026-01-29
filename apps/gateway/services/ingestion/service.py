@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+import requests
 import tiktoken
 from fastapi import UploadFile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -13,7 +14,12 @@ from sqlalchemy.orm import Session
 
 from apps.gateway.services.ingestion.factory import IngestionFactory
 from apps.gateway.services.storage import get_storage_service
-from apps.shared.db.models.knowledge import Document, DocumentChunk, SourceType
+from apps.shared.db.models.knowledge import (
+    Document,
+    DocumentChunk,
+    ParsingRegistry,
+    SourceType,
+)
 from apps.shared.db.session import SessionLocal
 from apps.shared.distributed_lock import DistributedLock
 
@@ -39,6 +45,177 @@ class IngestionOrchestrator:
             separators=["\n\n", "\n", ".", " ", ""],
             keep_separator=True,
         )
+
+    def _compute_file_hash(self, file_path: str) -> Optional[str]:
+        """
+        파일의 SHA-256 해시를 계산합니다.
+        로컬 파일과 URL 모두 지원합니다.
+
+        Args:
+            file_path: 로컬 파일 경로 또는 URL
+
+        Returns:
+            SHA-256 해시 문자열 또는 실패 시 None
+        """
+        try:
+            sha256 = hashlib.sha256()
+            if file_path.startswith("http://") or file_path.startswith("https://"):
+                with requests.get(file_path, stream=True) as r:
+                    r.raise_for_status()
+                    for chunk in r.iter_content(chunk_size=8192):
+                        sha256.update(chunk)
+            else:
+                with open(file_path, "rb") as f:
+                    for chunk in iter(lambda: f.read(4096), b""):
+                        sha256.update(chunk)
+            return sha256.hexdigest()
+        except FileNotFoundError as e:
+            logger.warning(f"[_compute_file_hash] File not found: {e}")
+            return None
+        except requests.RequestException as e:
+            logger.warning(f"[_compute_file_hash] Network error: {e}")
+            return None
+        except Exception as e:
+            logger.warning(f"[_compute_file_hash] Unexpected error: {e}")
+            return None
+
+    def _resolve_parsing_workflow(
+        self,
+        file_path: str,
+        strategy: str = "llamaparse",
+        meta_info: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        1. 파일 해시 계산 (SHA-256).
+        2. ParsingRegistry 테이블에서 데이터 조회 (Cache Check).
+        3. Cache Hit -> 스토리지에서 콘텐츠 로드.
+        4. Cache Miss -> 전체 파싱 수행 -> 스토리지 저장 -> 레지스트리 등록.
+
+        Args:
+            file_path: 원본 파일 경로 (로컬).
+            strategy: 파싱 전략 이름.
+            meta_info: 추가 메타데이터.
+
+        Returns:
+            Dict containing:
+            - content: 전체 마크다운 콘텐츠
+            - is_cached: 캐시 적중 여부
+            - pages: 페이지 수 (가능한 경우)
+            - content_digest: SHA-256 해시
+        """
+        # 1. SHA-256 다이제스트 계산
+        logger.info(f"[_resolve_parsing_workflow] Start. Path: {file_path}")
+        start_time = datetime.now()
+
+        content_digest = self._compute_file_hash(file_path)
+        if not content_digest:
+            raise ValueError(f"Failed to compute hash for file: {file_path}")
+        logger.debug(f"[_resolve_parsing_workflow] File Hash: {content_digest}")
+
+        # 2. 레지스트리 조회 (Cache Hit 확인)
+        cached_registry = (
+            self.db.query(ParsingRegistry)
+            .filter(
+                ParsingRegistry.content_digest == content_digest,
+                ParsingRegistry.provider == strategy,  # 엔진 종류도 일치해야 함
+            )
+            .first()
+        )
+
+        if cached_registry:
+            logger.info(f"[Cache Hit] Digest: {content_digest}")
+            storage = get_storage_service()
+            try:
+                markdown_content = storage.retrieve_content(cached_registry.storage_key)
+                duration = (datetime.now() - start_time).total_seconds()
+                logger.info(
+                    f"[_resolve_parsing_workflow] Completed (Cache Hit). Duration: {duration:.2f}s"
+                )
+                return {
+                    "content": markdown_content,
+                    "is_cached": True,
+                    "pages": cached_registry.page_count,
+                    "content_digest": content_digest,
+                }
+            except Exception as e:
+                logger.error(f"[Cache Error] Failed to retrieve content: {e}")
+                # 스토리지 파일이 유실되었으므로, 잘못된 레지스트리 항목 삭제 (Self-Healing)
+                logger.warning(
+                    f"[Cache Cleanup] Removing stale registry entry for digest: {content_digest}"
+                )
+                try:
+                    self.db.delete(cached_registry)
+                    self.db.commit()
+                except Exception as db_e:
+                    logger.error(
+                        f"[Cache Cleanup Error] Failed to delete registry: {db_e}"
+                    )
+                    self.db.rollback()
+
+        # 3. Cache Miss - 전체 파싱(Full Parsing) 시작
+        logger.info(f"[Cache Miss] Starting Full Parsing. Digest: {content_digest}")
+
+        # IngestionFactory를 통해 프로세서 획득
+        # (주의: user_id가 필요하지만, Orchestrator는 self.user_id를 가짐)
+        processor = IngestionFactory.get_processor(
+            SourceType.FILE, self.db, self.user_id
+        )
+
+        # 파싱 설정 (전체 파싱)
+        config = {
+            "file_path": file_path,
+            "strategy": strategy,
+            **(meta_info or {}),
+        }
+        logger.info(f"[Cache Miss] Config prepared: {config}")
+
+        result = processor.process(config)
+
+        if result.metadata.get("error"):
+            raise Exception(result.metadata["error"])
+
+        # 청크 병합 -> 전체 마크다운 생성
+        full_markdown = "\n\n".join([b["content"] for b in result.chunks])
+
+        # 2. LlamaParse v1 메타데이터 기반 페이지 수 추출
+        page_count = result.metadata.get("pages") or result.metadata.get(
+            "page_count", 0
+        )
+
+        # 4. 저장 및 등록 (Persist & Register)
+        storage = get_storage_service()
+        storage_key = storage.persist_content(full_markdown, "md")
+
+        new_registry = ParsingRegistry(
+            content_digest=content_digest,
+            storage_key=storage_key,
+            provider=strategy,
+            page_count=page_count,
+            meta_info=meta_info or {},
+        )
+        self.db.add(new_registry)
+        try:
+            self.db.commit()
+            logger.info(f"[Cache Created] Digest: {content_digest}, Key: {storage_key}")
+        except Exception as e:
+            # Race Condition: 동시에 다른 요청이 먼저 저장했을 수 있음
+            logger.warning(
+                f"[Cache Register Warning] Failed to commit registry (Duplicate?): {e}"
+            )
+            self.db.rollback()
+            # 이미 저장된 것으로 간주하고 진행 (필요하다면 다시 조회해서 검증 가능)
+
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(
+            f"[_resolve_parsing_workflow] Completed (Full Parse). Duration: {duration:.2f}s"
+        )
+
+        return {
+            "content": full_markdown,
+            "is_cached": False,
+            "pages": page_count,
+            "content_digest": content_digest,
+        }
 
     def save_temp_file(self, file: UploadFile) -> str:
         """
@@ -145,58 +322,34 @@ class IngestionOrchestrator:
                 self._update_progress_redis(document_id, 0)
                 self._update_status(document_id, "indexing")
 
-                # 문서 소스 타입에 맞는 Processor 생성
-                processor = IngestionFactory.get_processor(
-                    doc.source_type, self.db, self.user_id
-                )
-
-                source_config = self._build_config(doc)
-
-                result = processor.process(source_config)
-
-                if result.metadata.get("error"):
-                    raise Exception(result.metadata["error"])
-
-                raw_blocks = result.chunks
-                if not raw_blocks:
-                    logger.warning(
-                        f"[IngestionOrchestrator] Document {document_id}의 raw_blocks가 비어있음."
+                if doc.source_type == SourceType.FILE:
+                    # FILE 타입만 캐싱 워크플로우 적용
+                    parsing_result = self._resolve_parsing_workflow(
+                        doc.file_path,
+                        doc.meta_info.get("strategy", "llamaparse"),
+                        doc.meta_info,
                     )
-                    self._update_status(
-                        document_id,
-                        "completed",
-                        error_message="추출 가능한 콘텐츠가 없습니다.",
-                    )
-                    return
+                    full_text = parsing_result["content"]
 
-                full_text = "".join([b["content"] for b in raw_blocks])
-                new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
-                # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
-                # 임베딩 모델이 변경된 경우에도 재처리
-                if (
-                    doc.content_hash == new_hash
-                    and doc.embedding_model == self.ai_model
-                    and initial_status != "failed"
-                ):
-                    self._update_status(document_id, "completed")
-                    return
+                    # Document 해시 업데이트 (변경된 경우)
+                    new_hash = parsing_result["content_digest"]
+                    # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
+                    # 임베딩 모델이 변경된 경우에도 재처리
+                    if (
+                        doc.content_hash == new_hash
+                        and doc.embedding_model == self.ai_model
+                        and initial_status != "failed"
+                    ):
+                        self._update_status(document_id, "completed")
+                        return
 
-                doc.content_hash = new_hash
-                self.db.commit()
+                    doc.content_hash = new_hash
+                    self.db.commit()
 
-                if doc.source_type == "DB":
-                    final_chunks = self._refine_chunks(
-                        raw_blocks, override_chunk_size=8000
-                    )
-                else:
-                    # 전처리 적용 (FILE, API 타입)
-                    full_text = "\n".join([b["content"] for b in raw_blocks])
+                    # 로컬 메모리 상에서 전처리 및 청킹 수행
                     preprocessed_text = self.preprocess_text(
                         full_text, doc.meta_info or {}
                     )
-                    preprocessed_blocks = [
-                        {"content": preprocessed_text, "metadata": {}}
-                    ]
 
                     # [동적 Splitter 생성] 문서 설정 적용
                     chunk_size = doc.chunk_size
@@ -214,12 +367,57 @@ class IngestionOrchestrator:
                         chunk_size=chunk_size,
                         chunk_overlap=chunk_overlap,
                         separators=separators,
-                        keep_separator=True,  # [수정] 원복
+                        keep_separator=True,
                     )
 
-                    final_chunks = self._refine_chunks(
-                        preprocessed_blocks, splitter=doc_specific_splitter
+                    # 메모리 상의 텍스트를 바로 청킹
+                    final_chunks = []
+                    splits = doc_specific_splitter.split_text(preprocessed_text)
+                    for split in splits:
+                        final_chunks.append({"content": split, "metadata": {}})
+
+                elif doc.source_type == "DB":
+                    # DB Processor 사용
+                    processor = IngestionFactory.get_processor(
+                        doc.source_type, self.db, self.user_id
                     )
+                    source_config = self._build_config(doc)
+                    result = processor.process(source_config)
+
+                    if result.metadata.get("error"):
+                        raise Exception(result.metadata["error"])
+                    raw_blocks = result.chunks
+
+                    if not raw_blocks:
+                        logger.warning(
+                            f"[IngestionOrchestrator] Document {document_id} (DB) raw_blocks is empty."
+                        )
+                        self._update_status(
+                            document_id,
+                            "completed",
+                            error_message="추출 가능한 콘텐츠가 없습니다.",
+                        )
+                        return
+
+                    final_chunks = self._refine_chunks(
+                        raw_blocks, override_chunk_size=8000
+                    )
+
+                    # DB 데이터도 해시 비교를 위해 full_text 생성
+                    full_text = "".join([b["content"] for b in raw_blocks])
+                    new_hash = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
+                    # 실패했던 문서는 내용이 같아도 재처리 (status != 'failed' 조건 추가)
+                    # 임베딩 모델이 변경된 경우에도 재처리
+                    if (
+                        doc.content_hash == new_hash
+                        and doc.embedding_model == self.ai_model
+                        and initial_status != "failed"
+                    ):
+                        self._update_status(document_id, "completed")
+                        return
+
+                    doc.content_hash = new_hash
+                    self.db.commit()
 
                 # 필터링 적용
                 meta = doc.meta_info or {}
@@ -302,14 +500,53 @@ class IngestionOrchestrator:
 
         self.process_document(document_id)
 
-    async def analyze_document(self, document_id: UUID) -> Dict[str, Any]:
+    async def analyze_document(
+        self, document_id: UUID, strategy: str = "llamaparse"
+    ) -> Dict[str, Any]:
         """
         문서 분석 (비용 예측)
+        - 글로벌 파싱 캐시(ParsingRegistry)에 해당 파일이 이미 있으면 is_cached=True 반환
+        - strategy: UI에서 선택한 파싱 전략
         """
         doc = self.db.query(Document).get(document_id)
         if not doc:
             raise ValueError("Document not found")
 
+        # 1. 파일 해시 계산 (캐시 조회용)
+        content_digest = (
+            self._compute_file_hash(doc.file_path) if doc.file_path else None
+        )
+        if not content_digest:
+            logger.warning(
+                f"[analyze_document] Hash calculation failed, skipping cache check. "
+                f"document_id={document_id}, file_path={doc.file_path}"
+            )
+
+        # 2. 캐시 조회 (UI에서 선택한 strategy로 조회)
+        if content_digest:
+            cached_registry = (
+                self.db.query(ParsingRegistry)
+                .filter(
+                    ParsingRegistry.content_digest == content_digest,
+                    ParsingRegistry.provider == strategy,
+                )
+                .first()
+            )
+            if cached_registry:
+                logger.info(
+                    f"[analyze_document] Cache hit for digest: {content_digest}"
+                )
+                return {
+                    "cost_estimate": {
+                        "pages": cached_registry.page_count,
+                        "credits": 0,  # 캐시 사용 시 비용 없음
+                        "cost_usd": 0.0,
+                    },
+                    "filename": doc.filename,
+                    "is_cached": True,
+                }
+
+        # 3. Cache Miss - 기존 비용 예측 로직 실행
         processor = IngestionFactory.get_processor(
             doc.source_type, self.db, self.user_id
         )
@@ -365,31 +602,56 @@ class IngestionOrchestrator:
 
         source_config = {}
         if source_type == SourceType.FILE:
-            source_config = {"file_path": file_path, "strategy": strategy}
-            # LlamaParse 미리보기 속도 개선을 위해 일부 페이지만 파싱
-            if strategy == "llamaparse":
-                target_pages = "0-4"  # Default (1-5p)
+            # 캐싱 워크플로우 사용 (Full Parse & Cache if miss)
+            # 캐시가 없으면 전체 파싱 후 저장, 있으면 로드하여 사용
+            parsing_result = self._resolve_parsing_workflow(
+                file_path, strategy, meta_info
+            )
+            full_text = parsing_result["content"]
 
-                # 사용자가 청크 범위를 지정한 경우, 해당 범위가 포함된 페이지를 파싱하도록 조정
-                # 예: chunk_range="6-10" -> 대략 1페이지당 3~5개 청크 가정 -> 2~3페이지부터 시작
-                # 정확한 매핑은 불가능하므로, "시작 청크 번호"를 기준으로 페이지를 추정
-                if selection_mode == "range" and chunk_range:
-                    try:
-                        # "5-35", "5", "5, 10" 등 다양한 형식에서 첫 번째 숫자 추출
-                        first_chunk_idx = int(re.split(r"[,-]", chunk_range)[0].strip())
+            # 2. 전처리 (메모리 상의 full_text 사용)
+            options = {
+                "remove_urls_emails": remove_urls_emails,
+                "normalize_whitespace": remove_whitespace,
+            }
+            full_text = self.preprocess_text(full_text, options)
 
-                        # 대략적인 페이지 추정 (1페이지 = 1000자, 청크=500자 가정 시 페이지당 2~3개 청크)
-                        # 보수적으로 1페이지당 2개 청크로 계산하여 페이지를 추정
-                        est_page_start = max(0, (first_chunk_idx - 1) // 2)
-                        est_page_end = est_page_start + 4
-                        target_pages = f"{est_page_start}-{est_page_end}"
+            # 3. 청킹
+            separators = ["\n\n", "\n", ".", " ", ""]
+            if segment_identifier:
+                identifier = segment_identifier.replace("\\n", "\n")
+                if identifier not in separators:
+                    separators.insert(0, identifier)
 
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to parse chunk_range for page targeting: {e}"
-                        )
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                separators=separators,
+                keep_separator=True,
+            )
 
-                source_config["target_pages"] = target_pages
+            splits = splitter.split_text(full_text)
+
+            # 4. 미리보기 형식 반환
+            try:
+                encoding = tiktoken.encoding_for_model(self.ai_model)
+            except Exception:
+                encoding = tiktoken.get_encoding("cl100k_base")
+
+            preview = []
+            for s in splits:
+                preview.append(
+                    {
+                        "content": s,
+                        "token_count": len(encoding.encode(s)),
+                        "char_count": len(s),
+                    }
+                )
+
+            return self._filter_chunks(
+                preview, selection_mode, chunk_range, keyword_filter
+            )
+
         elif source_type == SourceType.API:
             api_config = meta_info.get("api_config", {})
             # api_config가 JSON string일 수 있으므로 파싱
@@ -448,7 +710,7 @@ class IngestionOrchestrator:
                 preview, selection_mode, chunk_range, keyword_filter
             )
 
-        # 2. 전처리
+        # 2. 전처리 (API/DB 용)
         full_text = "\n".join([b["content"] for b in raw_blocks])
 
         options = {

@@ -41,6 +41,9 @@ cleanup() {
     if [ ! -z "$WORKFLOW_CELERY_PID" ]; then
         kill $WORKFLOW_CELERY_PID 2>/dev/null || true
     fi
+    if [ ! -z "$INGESTION_CELERY_PID" ]; then
+        kill $INGESTION_CELERY_PID 2>/dev/null || true
+    fi
     if [ ! -z "$FASTAPI_PID" ]; then
         kill $FASTAPI_PID 2>/dev/null || true
     fi
@@ -138,6 +141,23 @@ echo -e "${GREEN}⚙️ Workflow-Engine Celery Worker 시작...${NC}"
     PYTHONPATH="$PROJECT_ROOT" $VENV_PYTHON -m celery -A apps.workflow_engine.main worker -Q workflow -l info -P solo
 ) &
 WORKFLOW_CELERY_PID=$!
+
+sleep 1
+
+# 3.5 Celery Worker (Gateway - Ingestion)
+echo -e "${GREEN}📄 Ingestion Celery Worker (Gateway) 시작...${NC}"
+(
+    # OS별 Python 경로 설정
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        VENV_PYTHON="apps/gateway/.venv/Scripts/python"
+    else
+        VENV_PYTHON="apps/gateway/.venv/bin/python"
+    fi
+    export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+    # -A apps.shared.celery_app을 사용 (include 설정을 통해 태스크 로드)
+    PYTHONPATH="$PROJECT_ROOT" $VENV_PYTHON -m celery -A apps.shared.celery_app worker -Q ingestion -l info -P solo
+) &
+INGESTION_CELERY_PID=$!
 
 sleep 1
 
