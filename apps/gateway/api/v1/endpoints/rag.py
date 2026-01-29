@@ -244,15 +244,17 @@ def _prepare_db_source(db: Session, user: User, connection_id: Optional[UUID]):
 @router.post("/document/{document_id}/analyze", response_model=DocumentAnalyzeResponse)
 async def analyze_document(
     document_id: UUID,
+    strategy: str = "llamaparse",  # UI에서 선택한 파싱 전략
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     문서 분석 API: 페이지 수 및 LlamaParse 비용 예측 반환
+    - strategy: 사용자가 UI에서 선택한 파싱 전략 (general 또는 llamaparse)
     """
     ingestion_service = IngestionService(db, user_id=current_user.id)
     try:
-        result = await ingestion_service.analyze_document(document_id)
+        result = await ingestion_service.analyze_document(document_id, strategy)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

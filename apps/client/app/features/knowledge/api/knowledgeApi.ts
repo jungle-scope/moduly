@@ -235,8 +235,13 @@ export const knowledgeApi = {
   },
 
   // 문서 분석 (비용 예측)
-  analyzeDocument: async (documentId: string): Promise<AnalyzeResponse> => {
-    const response = await api.post(`/rag/document/${documentId}/analyze`);
+  analyzeDocument: async (
+    documentId: string,
+    strategy: 'general' | 'llamaparse' = 'llamaparse',
+  ): Promise<AnalyzeResponse> => {
+    const response = await api.post(
+      `/rag/document/${documentId}/analyze?strategy=${strategy}`,
+    );
     return response.data;
   },
 
