@@ -18,6 +18,7 @@ Created: 2026-01-13
 """
 
 import argparse
+import asyncio
 import os
 import sys
 from typing import List
@@ -45,6 +46,7 @@ def run_benchmark(
     dataset_name: str,
     samples: List[EvaluationSample],
     config: EvaluationConfig,
+    output_filename: str = None,
 ) -> dict:
     """
     벤치마크 실행
@@ -55,15 +57,17 @@ def run_benchmark(
     def retrieval_func(query: str, top_k: int) -> List[RetrievalResult]:
         """RetrievalService를 래핑하는 함수"""
         try:
-            chunks = retrieval_service.search_documents(
-                query=query,
-                knowledge_base_id=str(kb_id),
-                top_k=top_k,
-                threshold=0.0,  # 임계값 없이 모든 결과 반환
-                use_rewrite=config.use_rewrite,  # Config에서 플래그 확인
-                hybrid_search=config.hybrid_search,  # Hybrid Search Flag
-                use_rerank=config.use_rerank,  # Reranking Flag
-                use_multi_query=config.use_multi_query,  # [NEW] Multi-Query Flag
+            chunks = asyncio.run(
+                retrieval_service.search_documents(
+                    query=query,
+                    knowledge_base_id=str(kb_id),
+                    top_k=top_k,
+                    threshold=0.0,  # 임계값 없이 모든 결과 반환
+                    use_rewrite=config.use_rewrite,  # Config에서 플래그 확인
+                    hybrid_search=config.hybrid_search,  # Hybrid Search Flag
+                    use_rerank=config.use_rerank,  # Reranking Flag
+                    use_multi_query=config.use_multi_query,  # [NEW] Multi-Query Flag
+                )
             )
 
             return [
@@ -95,7 +99,8 @@ def run_benchmark(
     results = evaluator.evaluate(samples, retrieval_func, progress)
 
     # 리포트 저장
-    report_path = evaluator.save_report(results)
+    # 리포트 저장
+    report_path = evaluator.save_report(results, filename=output_filename)
 
     # 마크다운 리포트도 저장
     markdown = evaluator.generate_markdown_report(results)
@@ -157,6 +162,12 @@ def main():
         "--use-multi-query",
         action="store_true",
         help="Multi-Query Expansion 활성화 (3개 쿼리 변형)",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="결과 리포트 파일명 (예: result.json)",
     )
 
     args = parser.parse_args()
@@ -246,7 +257,15 @@ def main():
         print(f"[KB] {kb.name} (문서: {len(kb.documents)}개)")
 
         # 벤치마크 실행
-        run_benchmark(db, user.id, kb.id, dataset_tag, samples, config)
+        run_benchmark(
+            db,
+            user.id,
+            kb.id,
+            dataset_tag,
+            samples,
+            config,
+            output_filename=args.output,
+        )
 
     finally:
         db.close()
