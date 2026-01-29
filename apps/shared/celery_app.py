@@ -35,6 +35,7 @@ celery_app = Celery(
     "moduly",
     broker=REDIS_BROKER_URL,
     backend=REDIS_BACKEND_URL,
+    include=["apps.gateway.tasks.ingestion"],
 )
 
 # Celery 설정
@@ -50,6 +51,7 @@ celery_app.conf.update(
     task_routes={
         "workflow.*": {"queue": "workflow"},
         "log.*": {"queue": "log"},
+        "ingestion.*": {"queue": "ingestion"},
     },
     # 태스크 설정
     task_track_started=False,  # [FIX] STARTED 상태 추적 비활성화 (Protocol Error 방지)

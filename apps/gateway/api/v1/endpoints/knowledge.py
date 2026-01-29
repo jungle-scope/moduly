@@ -10,7 +10,6 @@ import requests
 from docx import Document as DocxDocument
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     HTTPException,
     Response,
@@ -183,13 +182,13 @@ def get_knowledge_base(
 def update_knowledge_base(
     kb_id: UUID,
     update_data: KnowledgeUpdate,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     지식 베이스의 설정을 수정합니다. (이름, 설명, 즐겨찾기 임베딩 모델)
     """
+
     kb = (
         db.query(KnowledgeBase)
         .filter(KnowledgeBase.id == kb_id, KnowledgeBase.user_id == current_user.id)
@@ -211,11 +210,10 @@ def update_knowledge_base(
     ):
         kb.embedding_model = update_data.embedding_model
 
-        # 재인덱싱 트리거
-        orchestrator = IngestionService(db, current_user.id)
-        background_tasks.add_task(
-            orchestrator.reindex_knowledge_base, kb.id, update_data.embedding_model
-        )
+        # TODO: 임베딩 모델 변경 시 재인덱싱(Reindexing) 필요
+        # 현재 재인덱싱을 위한 Celery Task가 구현되지 않아 동작하지 않음.
+        # 추후 'ingestion.reindex_knowledge_base' 태스크 구현 후 연결 필요.
+        pass
 
     db.commit()
     db.refresh(kb)
@@ -488,13 +486,13 @@ async def process_document(
     kb_id: UUID,
     document_id: UUID,
     request: DocumentPreviewRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     문서 설정(청킹 등)을 저장하고 백그라운드 처리를 시작합니다.
     """
+    from apps.shared.celery_app import celery_app  # 늦은 임포트
 
     # 1. 문서 조회 (권한 확인)
     doc = (
@@ -549,21 +547,14 @@ async def process_document(
     )
     db.commit()
 
-    # 3. 백그라운드 작업 시작
-    ingestion_service = IngestionService(
-        db,
-        user_id=current_user.id,
-        chunk_size=request.chunk_size,
-        chunk_overlap=request.chunk_overlap,
-        ai_model=doc.knowledge_base.embedding_model,
-    )
+    # 3. Celery 태스크 호출 (비동기)
+    task = celery_app.send_task("ingestion.parse_document", args=[str(document_id)])
 
-    background_tasks.add_task(
-        ingestion_service.process_document,
-        document_id,
-    )
-
-    return {"status": "processing", "message": "Document processing started"}
+    return {
+        "status": "processing",
+        "message": "Document processing started",
+        "task_id": task.id,
+    }
 
 
 @router.post(
@@ -579,6 +570,9 @@ def preview_document_chunking(
     """
     문서 청킹 설정을 미리보기 합니다. DB를 업데이트하지 않고 결과만 반환합니다.
     """
+    # ... (기존 로직 유지 - 동기 수행)
+    # Preview 속도 개선은 별도 아키텍처 변경 필요 (현재는 Gateway에서 수행)
+
     # 1. 문서 존재 및 권한 확인
     doc = (
         db.query(Document)
@@ -634,7 +628,6 @@ def preview_document_chunking(
 async def sync_document(
     kb_id: UUID,
     document_id: UUID,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -642,6 +635,8 @@ async def sync_document(
     문서를 동기화합니다. (API 소스 등 재위)
     기존 설정을 유지하면서 처리를 다시 시작합니다.
     """
+    from apps.shared.celery_app import celery_app
+
     # 1. 문서 조회
     doc = (
         db.query(Document)
@@ -661,18 +656,11 @@ async def sync_document(
     doc.status = "indexing"
     db.commit()
 
-    # 2. 백그라운드 작업 시작
-    ingestion_service = IngestionService(
-        db,
-        user_id=current_user.id,
-        chunk_size=doc.chunk_size,
-        chunk_overlap=doc.chunk_overlap,
-        ai_model=doc.knowledge_base.embedding_model,
-    )
+    # 2. Celery 태스크 호출 (비동기)
+    task = celery_app.send_task("ingestion.parse_document", args=[str(document_id)])
 
-    background_tasks.add_task(
-        ingestion_service.process_document,
-        document_id,
-    )
-
-    return {"status": "processing", "message": "Document sync started"}
+    return {
+        "status": "processing",
+        "message": "Document sync started",
+        "task_id": task.id,
+    }
