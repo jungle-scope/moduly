@@ -54,49 +54,14 @@ class PdfParser(BaseParser):
 
     def analyze(self, file_path: str) -> Dict[str, Any]:
         """
-        PDF 파일의 성격을 분석하여 적절한 처리 전략을 제안합니다.
-        (기존 _analyze_pdf_type 로직 이식)
+        PDF 파일의 페이지 수를 반환합니다.
+        전략은 사용자가 UI에서 직접 선택합니다.
         """
         doc = fitz.open(file_path)
         total_pages = len(doc)
-
-        # 샘플링 (앞3, 중간1, 뒤2)
-        sample_indices = set()
-        for i in range(min(3, total_pages)):
-            sample_indices.add(i)
-        if total_pages > 3:
-            sample_indices.add(total_pages // 2)
-        if total_pages > 1:
-            sample_indices.add(total_pages - 1)
-        if total_pages > 2:
-            sample_indices.add(total_pages - 2)
-
-        text_length = 0
-        image_count = 0
-        page_count = 0
-
-        for idx in sample_indices:
-            if idx >= total_pages:
-                continue
-            page = doc[idx]
-            page_count += 1
-            text_length += len(page.get_text().strip())
-            image_count += len(page.get_images(full=True))
-
         doc.close()
 
-        avg_text = text_length / page_count if page_count > 0 else 0
-        avg_imgs = image_count / page_count if page_count > 0 else 0
-
-        strategy = "general"
-        if avg_text < 50:
-            strategy = "llamaparse"  # OCR 필요
-        elif avg_imgs > 2:
-            strategy = "llamaparse"  # 혼합된 Layout
-
         return {
-            "strategy": strategy,
-            "stats": {"avg_text": avg_text, "avg_imgs": avg_imgs},
             "pages": total_pages,
         }
 
