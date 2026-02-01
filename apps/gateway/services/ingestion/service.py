@@ -618,7 +618,21 @@ class IngestionOrchestrator:
                 # embed_batch가 async 함수이므로 동기적으로 결과 실행
                 embeddings_result = llm_client.embed_batch(batch_texts)
                 if inspect.iscoroutine(embeddings_result):
-                    batch_embeddings = asyncio.run(embeddings_result)
+                    # [FIX] 중첩 이벤트 루프 문제 해결
+                    # 이미 실행 중인 루프가 있으면 별도 스레드에서 실행
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+
+                    if loop and loop.is_running():
+                        import concurrent.futures
+
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(asyncio.run, embeddings_result)
+                            batch_embeddings = future.result()
+                    else:
+                        batch_embeddings = asyncio.run(embeddings_result)
                 else:
                     batch_embeddings = embeddings_result
 
