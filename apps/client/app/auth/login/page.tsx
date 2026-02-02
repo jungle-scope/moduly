@@ -92,7 +92,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* 구글 로그인 버튼 */}
+        {/* 구글 로그인 버튼 
         <button
           onClick={handleGoogleLogin}
           type="button"
@@ -120,8 +120,9 @@ export default function LoginPage() {
             구글로 로그인
           </span>
         </button>
+        */}
 
-        {/* 구분선 */}
+        {/* 구분선 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
@@ -130,6 +131,7 @@ export default function LoginPage() {
             <span className="px-2 bg-white text-gray-500">또는</span>
           </div>
         </div>
+        */}
 
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
