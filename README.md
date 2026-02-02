@@ -177,6 +177,12 @@ Moduly의 향후 개발 계획입니다:
 *   [ ] **엔터프라이즈 기능** — SSO, RBAC, 감사 로그
 > 아이디어가 있으신가요? [Ideas](https://github.com/jungle-scope/moduly/discussions/categories/ideas)에 남겨주세요! 🙌
 
+## Deploy status 
+
+| Name | Status | Comment |
+|--------|------|-------------|
+| Namespace | [![Deploy to Dev Namespace (Manual)](https://github.com/jungle-scope/moduly/actions/workflows/deploy-dev-namespace.yml/badge.svg?branch=develop)](https://github.com/jungle-scope/moduly/actions/workflows/deploy-dev-namespace.yml) | - |
+
 ## Contributing
 
 Moduly는 오픈소스 커뮤니티의 참여를 환영합니다! 버그 수정, 기능 추가, 문서 개선 등 어떤 형태의 기여도 감사합니다.
