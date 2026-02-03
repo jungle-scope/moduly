@@ -187,7 +187,7 @@ Moduly의 향후 개발 계획입니다:
 
 Moduly는 오픈소스 커뮤니티의 참여를 환영합니다! 버그 수정, 기능 추가, 문서 개선 등 어떤 형태의 기여도 감사합니다.
 
-- 기여하기 전에 [CONTRIBUTING.md]([./CONTRIBUTING.md](https://github.com/jungle-scope/moduly/wiki/CONTRIBUTING#%EC%BD%94%EB%93%9C-%EC%8A%A4%ED%83%80%EC%9D%BC))를 읽어주세요
+- 기여하기 전에 [CONTRIBUTING.md](https://github.com/jungle-scope/moduly/wiki/CONTRIBUTING#%EC%BD%94%EB%93%9C-%EC%8A%A4%ED%83%80%EC%9D%BC)를 읽어주세요
 - 모든 참여자는 [행동 강령](https://github.com/jungle-scope/moduly/wiki/Contributor-Covenant-%ED%96%89%EB%8F%99-%EA%B0%95%EB%A0%B9)을 준수해 주세요
 - 보안 취약점 발견 시 [SECURITY.md](https://github.com/jungle-scope/moduly/wiki/%EB%B3%B4%EC%95%88-%EC%A0%95%EC%B1%85)를 참고해 주세요
 
