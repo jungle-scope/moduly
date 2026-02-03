@@ -1,36 +1,37 @@
+# [비활성화] EKS 제거됨 - Lightsail 배포로 전환
 name: Deploy to Dev Namespace (Manual)
 
-on:
-  push:
-    branches:
-      - develop
-    paths:
-      - "apps/gateway/**"
-      - "apps/workflow_engine/**"
-      - "apps/log_system/**"
-      - "apps/sandbox/**"
-      - "apps/shared/**"
-      - "docker/gateway/**"
-      - "docker/workflow_engine/**"
-      - "docker/log_system/**"
-      - "docker/sandbox/**"
-      - "infra/k8s/namespaces/dev/**"
-      - ".github/workflows/deploy-dev-namespace.yml"
+# on:
+#   push:
+#     branches:
+#       - develop
+#     paths:
+#       - "apps/gateway/**"
+#       - "apps/workflow_engine/**"
+#       - "apps/log_system/**"
+#       - "apps/sandbox/**"
+#       - "apps/shared/**"
+#       - "docker/gateway/**"
+#       - "docker/workflow_engine/**"
+#       - "docker/log_system/**"
+#       - "docker/sandbox/**"
+#       - "infra/k8s/namespaces/dev/**"
+#       - ".github/workflows/deploy-dev-namespace.yml"
 
-  workflow_dispatch: # 수동 실행도 여전히 가능
-    inputs:
-      services:
-        description: "Services to deploy (gateway, worker, logger, frontend, or all)"
-        required: true
-        default: "all"
-        type: choice
-        options:
-          - all
-          - gateway
-          - worker
-          - logger
-          - frontend
-          - sandbox
+#   workflow_dispatch: # 수동 실행도 여전히 가능
+#     inputs:
+#       services:
+#         description: "Services to deploy (gateway, worker, logger, frontend, or all)"
+#         required: true
+#         default: "all"
+#         type: choice
+#         options:
+#           - all
+#           - gateway
+#           - worker
+#           - logger
+#           - frontend
+#           - sandbox
 
 env:
   AWS_REGION: ap-northeast-2

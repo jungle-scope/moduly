@@ -1,15 +1,17 @@
+# [비활성화] EKS 제거됨 - Lightsail 배포로 전환
+
 name: Deploy to EKS (Workflow Engine)
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/workflow_engine/**'
-      - 'apps/shared/**'
-      - 'docker/workflow_engine/**'
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - 'apps/workflow_engine/**'
+#       - 'apps/shared/**'
+#       - 'docker/workflow_engine/**'
   
-  workflow_dispatch:
+#   workflow_dispatch:
 
 env:
   AWS_REGION: ap-northeast-2

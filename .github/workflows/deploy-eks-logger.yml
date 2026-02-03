@@ -1,15 +1,16 @@
+# [비활성화] EKS 제거됨 - Lightsail 배포로 전환
 name: Deploy to EKS (Log System)
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/log_system/**'
-      - 'apps/shared/**'
-      - 'docker/log_system/**'
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - 'apps/log_system/**'
+#       - 'apps/shared/**'
+#       - 'docker/log_system/**'
   
-  workflow_dispatch:
+#   workflow_dispatch:
 
 env:
   AWS_REGION: ap-northeast-2

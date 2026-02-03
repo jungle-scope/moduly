@@ -1,15 +1,16 @@
+# [비활성화] EKS 제거됨 - Lightsail 배포로 전환
 name: Deploy to EKS (Gateway)
 
-on:
-  push:
-    branches:
-      - main 
-    paths:
-      - 'apps/gateway/**'
-      - 'apps/shared/**'
-      - 'docker/gateway/**'
+# on:
+#   push:
+#     branches:
+#       - main 
+#     paths:
+#       - 'apps/gateway/**'
+#       - 'apps/shared/**'
+#       - 'docker/gateway/**'
   
-  workflow_dispatch:  # 수동 실행 가능
+#   workflow_dispatch: 
 
 env:
   AWS_REGION: ap-northeast-2

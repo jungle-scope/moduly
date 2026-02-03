@@ -1,14 +1,16 @@
+# [비활성화] EKS 제거됨 - Lightsail 배포로 전환
+
 name: Deploy to EKS (Sandbox)
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/sandbox/**"
-      - "docker/sandbox/**"
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - "apps/sandbox/**"
+#       - "docker/sandbox/**"
 
-  workflow_dispatch: # 수동 실행 가능
+#   workflow_dispatch:
 
 env:
   AWS_REGION: ap-northeast-2

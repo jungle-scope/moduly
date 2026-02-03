@@ -1,14 +1,15 @@
+# [비활성화] EKS 제거됨 - Lightsail 배포로 전환
 name: Deploy to EKS (Frontend)
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/client/**'
-      - 'docker/client/**'
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - 'apps/client/**'
+#       - 'docker/client/**'
   
-  workflow_dispatch:
+#   workflow_dispatch:
 
 env:
   AWS_REGION: ap-northeast-2
