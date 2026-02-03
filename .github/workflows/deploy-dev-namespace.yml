@@ -1,5 +1,5 @@
-# [비활성화] EKS 제거됨 - Lightsail 배포로 전환
-name: Deploy to Dev Namespace (Manual)
+# # [비활성화] EKS 제거됨 - Lightsail 배포로 전환
+# name: Deploy to Dev Namespace (Manual)
 
 # on:
 #   push:
@@ -33,277 +33,277 @@ name: Deploy to Dev Namespace (Manual)
 #           - frontend
 #           - sandbox
 
-env:
-  AWS_REGION: ap-northeast-2
-  EKS_CLUSTER_NAME: moduly-cluster
-  NAMESPACE: dev
+# env:
+#   AWS_REGION: ap-northeast-2
+#   EKS_CLUSTER_NAME: moduly-cluster
+#   NAMESPACE: dev
 
-jobs:
-  deploy-to-dev:
-    name: Deploy to Dev Namespace
-    runs-on: ubuntu-latest
+# jobs:
+#   deploy-to-dev:
+#     name: Deploy to Dev Namespace
+#     runs-on: ubuntu-latest
 
-    steps:
-      # 1. 코드 체크아웃
-      - name: Checkout code
-        uses: actions/checkout@v4
+#     steps:
+#       # 1. 코드 체크아웃
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      # 2. AWS 자격 증명 설정
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+#       # 2. AWS 자격 증명 설정
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
 
-      # 3. ECR 로그인
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+#       # 3. ECR 로그인
+#       - name: Login to Amazon ECR
+#         id: login-ecr
+#         uses: aws-actions/amazon-ecr-login@v2
 
-      # 4. kubectl 설정
-      - name: Configure kubectl
-        run: |
-          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+#       # 4. kubectl 설정
+#       - name: Configure kubectl
+#         run: |
+#           aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
 
-      # 5. Gateway 이미지 빌드 & 푸시
-      - name: Build and push Gateway image
-        if: github.event.inputs.services == 'gateway' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
-        id: build-gateway
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: dev-${{ github.sha }}
-        run: |
-          echo "Building Gateway image..."
-          docker build -t $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG -f docker/gateway/Dockerfile .
-          docker push $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG
+#       # 5. Gateway 이미지 빌드 & 푸시
+#       - name: Build and push Gateway image
+#         if: github.event.inputs.services == 'gateway' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
+#         id: build-gateway
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: dev-${{ github.sha }}
+#         run: |
+#           echo "Building Gateway image..."
+#           docker build -t $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG -f docker/gateway/Dockerfile .
+#           docker push $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG
 
-          docker tag $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG $ECR_REGISTRY/moduly-gateway:dev-latest
-          docker push $ECR_REGISTRY/moduly-gateway:dev-latest
+#           docker tag $ECR_REGISTRY/moduly-gateway:$IMAGE_TAG $ECR_REGISTRY/moduly-gateway:dev-latest
+#           docker push $ECR_REGISTRY/moduly-gateway:dev-latest
 
-          echo "image=$ECR_REGISTRY/moduly-gateway:$IMAGE_TAG" >> $GITHUB_OUTPUT
+#           echo "image=$ECR_REGISTRY/moduly-gateway:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # 6. Workflow Engine 이미지 빌드 & 푸시
-      - name: Build and push Workflow Engine image
-        if: github.event.inputs.services == 'worker' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
-        id: build-worker
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: dev-${{ github.sha }}
-        run: |
-          echo "Building Workflow Engine image..."
-          docker build -t $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG -f docker/workflow_engine/Dockerfile .
-          docker push $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG
+#       # 6. Workflow Engine 이미지 빌드 & 푸시
+#       - name: Build and push Workflow Engine image
+#         if: github.event.inputs.services == 'worker' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
+#         id: build-worker
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: dev-${{ github.sha }}
+#         run: |
+#           echo "Building Workflow Engine image..."
+#           docker build -t $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG -f docker/workflow_engine/Dockerfile .
+#           docker push $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG
 
-          docker tag $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG $ECR_REGISTRY/moduly-workflow-engine:dev-latest
-          docker push $ECR_REGISTRY/moduly-workflow-engine:dev-latest
+#           docker tag $ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG $ECR_REGISTRY/moduly-workflow-engine:dev-latest
+#           docker push $ECR_REGISTRY/moduly-workflow-engine:dev-latest
 
-          echo "image=$ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG" >> $GITHUB_OUTPUT
+#           echo "image=$ECR_REGISTRY/moduly-workflow-engine:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # 7. Log System 이미지 빌드 & 푸시
-      - name: Build and push Log System image
-        if: github.event.inputs.services == 'logger' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
-        id: build-logger
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: dev-${{ github.sha }}
-        run: |
-          echo "Building Log System image..."
-          docker build -t $ECR_REGISTRY/moduly-logger:$IMAGE_TAG -f docker/log_system/Dockerfile .
-          docker push $ECR_REGISTRY/moduly-logger:$IMAGE_TAG
+#       # 7. Log System 이미지 빌드 & 푸시
+#       - name: Build and push Log System image
+#         if: github.event.inputs.services == 'logger' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
+#         id: build-logger
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: dev-${{ github.sha }}
+#         run: |
+#           echo "Building Log System image..."
+#           docker build -t $ECR_REGISTRY/moduly-logger:$IMAGE_TAG -f docker/log_system/Dockerfile .
+#           docker push $ECR_REGISTRY/moduly-logger:$IMAGE_TAG
 
-          docker tag $ECR_REGISTRY/moduly-logger:$IMAGE_TAG $ECR_REGISTRY/moduly-logger:dev-latest
-          docker push $ECR_REGISTRY/moduly-logger:dev-latest
+#           docker tag $ECR_REGISTRY/moduly-logger:$IMAGE_TAG $ECR_REGISTRY/moduly-logger:dev-latest
+#           docker push $ECR_REGISTRY/moduly-logger:dev-latest
 
-          echo "image=$ECR_REGISTRY/moduly-logger:$IMAGE_TAG" >> $GITHUB_OUTPUT
+#           echo "image=$ECR_REGISTRY/moduly-logger:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # 8. Frontend 이미지 빌드 & 푸시
-      - name: Build and push Frontend image
-        if: github.event.inputs.services == 'frontend' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
-        id: build-frontend
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: dev-${{ github.sha }}
-        run: |
-          echo "Building Frontend image..."
-          docker build -t $ECR_REGISTRY/moduly-client:$IMAGE_TAG -f docker/client/Dockerfile .
-          docker push $ECR_REGISTRY/moduly-client:$IMAGE_TAG
+#       # 8. Frontend 이미지 빌드 & 푸시
+#       - name: Build and push Frontend image
+#         if: github.event.inputs.services == 'frontend' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
+#         id: build-frontend
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: dev-${{ github.sha }}
+#         run: |
+#           echo "Building Frontend image..."
+#           docker build -t $ECR_REGISTRY/moduly-client:$IMAGE_TAG -f docker/client/Dockerfile .
+#           docker push $ECR_REGISTRY/moduly-client:$IMAGE_TAG
 
-          docker tag $ECR_REGISTRY/moduly-client:$IMAGE_TAG $ECR_REGISTRY/moduly-client:dev-latest
-          docker push $ECR_REGISTRY/moduly-client:dev-latest
+#           docker tag $ECR_REGISTRY/moduly-client:$IMAGE_TAG $ECR_REGISTRY/moduly-client:dev-latest
+#           docker push $ECR_REGISTRY/moduly-client:dev-latest
 
-          echo "image=$ECR_REGISTRY/moduly-client:$IMAGE_TAG" >> $GITHUB_OUTPUT
+#           echo "image=$ECR_REGISTRY/moduly-client:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # 8-1. Sandbox 이미지 빌드 & 푸시
-      - name: Build and push Sandbox image
-        if: github.event.inputs.services == 'sandbox' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
-        id: build-sandbox
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: dev-${{ github.sha }}
-        run: |
-          echo "Building Sandbox image..."
-          docker build -t $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG -f docker/sandbox/Dockerfile .
-          docker push $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG
+#       # 8-1. Sandbox 이미지 빌드 & 푸시
+#       - name: Build and push Sandbox image
+#         if: github.event.inputs.services == 'sandbox' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
+#         id: build-sandbox
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: dev-${{ github.sha }}
+#         run: |
+#           echo "Building Sandbox image..."
+#           docker build -t $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG -f docker/sandbox/Dockerfile .
+#           docker push $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG
 
-          docker tag $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG $ECR_REGISTRY/moduly-sandbox:dev-latest
-          docker push $ECR_REGISTRY/moduly-sandbox:dev-latest
+#           docker tag $ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG $ECR_REGISTRY/moduly-sandbox:dev-latest
+#           docker push $ECR_REGISTRY/moduly-sandbox:dev-latest
 
-          echo "image=$ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG" >> $GITHUB_OUTPUT
+#           echo "image=$ECR_REGISTRY/moduly-sandbox:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # 9. dev namespace 생성 (없으면)
-      - name: Ensure dev namespace exists
-        run: |
-          kubectl create namespace dev --dry-run=client -o yaml | kubectl apply -f -
+#       # 9. dev namespace 생성 (없으면)
+#       - name: Ensure dev namespace exists
+#         run: |
+#           kubectl create namespace dev --dry-run=client -o yaml | kubectl apply -f -
 
-      # 10. K8s 매니페스트 적용 및 이미지 업데이트
-      - name: Deploy to dev namespace
-        run: |
-          echo "Deploying selected services to dev namespace..."
+#       # 10. K8s 매니페스트 적용 및 이미지 업데이트
+#       - name: Deploy to dev namespace
+#         run: |
+#           echo "Deploying selected services to dev namespace..."
 
-          # Gateway
-          if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "Deploying Gateway..."
-            kubectl apply -f infra/k8s/namespaces/dev/gateway-deployment.yaml
-            if [ -n "${{ steps.build-gateway.outputs.image }}" ]; then
-              kubectl set image deployment/api-server api-server=${{ steps.build-gateway.outputs.image }} -n dev
-            fi
-          fi
+#           # Gateway
+#           if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "Deploying Gateway..."
+#             kubectl apply -f infra/k8s/namespaces/dev/gateway-deployment.yaml
+#             if [ -n "${{ steps.build-gateway.outputs.image }}" ]; then
+#               kubectl set image deployment/api-server api-server=${{ steps.build-gateway.outputs.image }} -n dev
+#             fi
+#           fi
 
-          # Workflow Engine
-          if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "Deploying Workflow Engine..."
-            kubectl apply -f infra/k8s/namespaces/dev/worker-deployment.yaml
-            if [ -n "${{ steps.build-worker.outputs.image }}" ]; then
-              kubectl set image deployment/worker worker=${{ steps.build-worker.outputs.image }} -n dev
-            fi
-          fi
+#           # Workflow Engine
+#           if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "Deploying Workflow Engine..."
+#             kubectl apply -f infra/k8s/namespaces/dev/worker-deployment.yaml
+#             if [ -n "${{ steps.build-worker.outputs.image }}" ]; then
+#               kubectl set image deployment/worker worker=${{ steps.build-worker.outputs.image }} -n dev
+#             fi
+#           fi
 
-          # Log System
-          if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "Deploying Log System..."
-            kubectl apply -f infra/k8s/namespaces/dev/logger-deployment.yaml
-            if [ -n "${{ steps.build-logger.outputs.image }}" ]; then
-              kubectl set image deployment/logger logger=${{ steps.build-logger.outputs.image }} -n dev
-            fi
-          fi
+#           # Log System
+#           if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "Deploying Log System..."
+#             kubectl apply -f infra/k8s/namespaces/dev/logger-deployment.yaml
+#             if [ -n "${{ steps.build-logger.outputs.image }}" ]; then
+#               kubectl set image deployment/logger logger=${{ steps.build-logger.outputs.image }} -n dev
+#             fi
+#           fi
 
-          # Frontend
-          if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "Deploying Frontend..."
-            kubectl apply -f infra/k8s/namespaces/dev/frontend-deployment.yaml
-            if [ -n "${{ steps.build-frontend.outputs.image }}" ]; then
-              kubectl set image deployment/frontend frontend=${{ steps.build-frontend.outputs.image }} -n dev
-            fi
-          fi
+#           # Frontend
+#           if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "Deploying Frontend..."
+#             kubectl apply -f infra/k8s/namespaces/dev/frontend-deployment.yaml
+#             if [ -n "${{ steps.build-frontend.outputs.image }}" ]; then
+#               kubectl set image deployment/frontend frontend=${{ steps.build-frontend.outputs.image }} -n dev
+#             fi
+#           fi
 
-          # Sandbox
-          if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "Deploying Sandbox..."
-            kubectl apply -f infra/k8s/namespaces/dev/sandbox-deployment.yaml
-            if [ -n "${{ steps.build-sandbox.outputs.image }}" ]; then
-              kubectl set image deployment/sandbox sandbox=${{ steps.build-sandbox.outputs.image }} -n dev
-            fi
-          fi
+#           # Sandbox
+#           if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "Deploying Sandbox..."
+#             kubectl apply -f infra/k8s/namespaces/dev/sandbox-deployment.yaml
+#             if [ -n "${{ steps.build-sandbox.outputs.image }}" ]; then
+#               kubectl set image deployment/sandbox sandbox=${{ steps.build-sandbox.outputs.image }} -n dev
+#             fi
+#           fi
 
-      # 10-1. Database Migration (Gateway 배포 후)
-      - name: Run Alembic Migration
-        if: github.event.inputs.services == 'gateway' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
-        run: |
-          echo "Running database migration..."
+#       # 10-1. Database Migration (Gateway 배포 후)
+#       - name: Run Alembic Migration
+#         if: github.event.inputs.services == 'gateway' || github.event.inputs.services == 'all' || github.event.inputs.services == ''
+#         run: |
+#           echo "Running database migration..."
 
-          kubectl run alembic-migration-${{ github.run_id }} \
-            --image=${{ steps.build-gateway.outputs.image }} \
-            --namespace=dev \
-            --restart=Never \
-            --attach=true \
-            --overrides='{
-              "spec": {
-                "containers": [{
-                  "name": "alembic",
-                  "image": "${{ steps.build-gateway.outputs.image }}",
-                  "command": ["/bin/sh", "-c"],
-                  "args": ["cd /app/apps/shared && alembic upgrade head"],
-                  "env": [
-                    {"name": "DB_HOST", "value": "moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com"},
-                    {"name": "DB_PORT", "value": "5432"},
-                    {"name": "DB_NAME", "value": "moduly_dev"},
-                    {"name": "DB_USER", "value": "postgres"},
-                    {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "app-secrets", "key": "DB_PASSWORD"}}}
-                  ]
-                }]
-              }
-            }'
+#           kubectl run alembic-migration-${{ github.run_id }} \
+#             --image=${{ steps.build-gateway.outputs.image }} \
+#             --namespace=dev \
+#             --restart=Never \
+#             --attach=true \
+#             --overrides='{
+#               "spec": {
+#                 "containers": [{
+#                   "name": "alembic",
+#                   "image": "${{ steps.build-gateway.outputs.image }}",
+#                   "command": ["/bin/sh", "-c"],
+#                   "args": ["cd /app/apps/shared && alembic upgrade head"],
+#                   "env": [
+#                     {"name": "DB_HOST", "value": "moduly-postgresql.chimouss4wpm.ap-northeast-2.rds.amazonaws.com"},
+#                     {"name": "DB_PORT", "value": "5432"},
+#                     {"name": "DB_NAME", "value": "moduly_dev"},
+#                     {"name": "DB_USER", "value": "postgres"},
+#                     {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "app-secrets", "key": "DB_PASSWORD"}}}
+#                   ]
+#                 }]
+#               }
+#             }'
 
-          echo "Cleaning up migration pod..."
-          kubectl delete pod alembic-migration-${{ github.run_id }} --ignore-not-found=true -n dev
+#           echo "Cleaning up migration pod..."
+#           kubectl delete pod alembic-migration-${{ github.run_id }} --ignore-not-found=true -n dev
 
-      # 11. Rollout 확인
-      - name: Wait for rollout to complete
-        run: |
-          echo "Waiting for deployments to be ready..."
+#       # 11. Rollout 확인
+#       - name: Wait for rollout to complete
+#         run: |
+#           echo "Waiting for deployments to be ready..."
 
-          if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            kubectl rollout status deployment/api-server -n dev --timeout=5m || true
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             kubectl rollout status deployment/api-server -n dev --timeout=5m || true
+#           fi
 
-          if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            kubectl rollout status deployment/worker -n dev --timeout=5m || true
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             kubectl rollout status deployment/worker -n dev --timeout=5m || true
+#           fi
 
-          if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            kubectl rollout status deployment/logger -n dev --timeout=5m || true
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             kubectl rollout status deployment/logger -n dev --timeout=5m || true
+#           fi
 
-          if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            kubectl rollout status deployment/frontend -n dev --timeout=5m || true
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             kubectl rollout status deployment/frontend -n dev --timeout=5m || true
+#           fi
 
-          if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            kubectl rollout status deployment/sandbox -n dev --timeout=5m || true
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             kubectl rollout status deployment/sandbox -n dev --timeout=5m || true
+#           fi
 
-      # 12. 배포 검증
-      - name: Verify deployment
-        run: |
-          echo "========================================="
-          echo "Dev Namespace Deployment Status"
-          echo "========================================="
-          echo ""
+#       # 12. 배포 검증
+#       - name: Verify deployment
+#         run: |
+#           echo "========================================="
+#           echo "Dev Namespace Deployment Status"
+#           echo "========================================="
+#           echo ""
 
-          echo "📦 Pods:"
-          kubectl get pods -n dev
-          echo ""
+#           echo "📦 Pods:"
+#           kubectl get pods -n dev
+#           echo ""
 
-          echo "🌐 Services:"
-          kubectl get svc -n dev
-          echo ""
+#           echo "🌐 Services:"
+#           kubectl get svc -n dev
+#           echo ""
 
-          echo "📝 Recent Logs:"
-          if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "--- Gateway Logs ---"
-            kubectl logs -n dev -l app=api-server --tail=30 || echo "No gateway logs available"
-            echo ""
-          fi
+#           echo "📝 Recent Logs:"
+#           if [[ "${{ github.event.inputs.services }}" == "gateway" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "--- Gateway Logs ---"
+#             kubectl logs -n dev -l app=api-server --tail=30 || echo "No gateway logs available"
+#             echo ""
+#           fi
 
-          if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "--- Worker Logs ---"
-            kubectl logs -n dev -l app=worker --tail=30 || echo "No worker logs available"
-            echo ""
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "worker" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "--- Worker Logs ---"
+#             kubectl logs -n dev -l app=worker --tail=30 || echo "No worker logs available"
+#             echo ""
+#           fi
 
-          if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "--- Logger Logs ---"
-            kubectl logs -n dev -l app=logger --tail=30 || echo "No logger logs available"
-            echo ""
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "logger" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "--- Logger Logs ---"
+#             kubectl logs -n dev -l app=logger --tail=30 || echo "No logger logs available"
+#             echo ""
+#           fi
 
-          if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "--- Frontend Logs ---"
-            kubectl logs -n dev -l app=frontend --tail=30 || echo "No frontend logs available"
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "frontend" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "--- Frontend Logs ---"
+#             kubectl logs -n dev -l app=frontend --tail=30 || echo "No frontend logs available"
+#           fi
 
-          if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
-            echo "--- Sandbox Logs ---"
-            kubectl logs -n dev -l app=sandbox --tail=30 || echo "No sandbox logs available"
-          fi
+#           if [[ "${{ github.event.inputs.services }}" == "sandbox" || "${{ github.event.inputs.services }}" == "all" || "${{ github.event.inputs.services }}" == "" ]]; then
+#             echo "--- Sandbox Logs ---"
+#             kubectl logs -n dev -l app=sandbox --tail=30 || echo "No sandbox logs available"
+#           fi
