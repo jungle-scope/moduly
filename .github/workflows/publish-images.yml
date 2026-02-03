@@ -38,6 +38,9 @@ jobs:
           - name: ssrf-proxy
             dockerfile: docker/proxy/Dockerfile
             image: moduly-ssrf-proxy
+          - name: nginx
+            dockerfile: docker/nginx/Dockerfile
+            image: moduly-nginx
     
     steps:
       - name: Checkout code

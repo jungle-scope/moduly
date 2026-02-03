@@ -1,0 +1,345 @@
+version: "3.8"
+
+# =============================================================================
+# Moduly - Lightweight Docker Compose (2GB RAM Optimized)
+# =============================================================================
+# 목표: 2GB 메모리 환경에서도 안정적으로 실행
+# 
+# 메모리 할당 계획:
+# - PostgreSQL: 300MB
+# - Redis: 100MB
+# - Gateway: 300MB
+# - Worker (Workflow): 400MB
+# - Worker (Log): 200MB
+# - Frontend: 300MB
+# - Sandbox: 256MB
+# - Nginx: 50MB
+# - System Overhead: ~150MB
+# Total: ~2,056MB (약간의 스왑 사용 가능)
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # 1. PostgreSQL Database (pgvector)
+  # ===========================================================================
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: moduly-postgres
+    environment:
+      POSTGRES_DB: moduly_local
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      
+      # [경량화] PostgreSQL 메모리 최적화
+      POSTGRES_SHARED_BUFFERS: 64MB      # 기본 128MB -> 64MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 128MB  # 기본 4GB -> 128MB
+      POSTGRES_WORK_MEM: 4MB             # 기본 4MB 유지
+      POSTGRES_MAINTENANCE_WORK_MEM: 32MB   # 기본 64MB -> 32MB
+      POSTGRES_MAX_CONNECTIONS: 50       # 기본 100 -> 50
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - moduly-network
+    mem_limit: 300m
+    mem_reservation: 128m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d moduly_local"]
+      interval: 90s
+      timeout: 10s
+      retries: 5
+
+  # ===========================================================================
+  # 2. Redis (Celery Broker & Result Backend)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: moduly-redis
+    command: >
+      redis-server
+      --maxmemory 80mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    ports:
+      - "6379:6379"
+    networks:
+      - moduly-network
+    mem_limit: 100m
+    mem_reservation: 50m
+    cpus: 0.3
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # 3. Gateway API (FastAPI)
+  # ===========================================================================
+  gateway:
+    image: ghcr.io/jungle-scope/moduly-gateway:latest
+    container_name: moduly-gateway
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: moduly_local
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      REDIS_URL: redis://redis:6379/0
+
+      # JWT Secret
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+      # Storage (LOCAL only for lightweight)
+      STORAGE_TYPE: LOCAL
+
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+            
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      sandbox:
+        condition: service_started
+    volumes:
+      - gateway_uploads:/app/uploads
+    networks:
+      - moduly-network
+    mem_limit: 300m
+    mem_reservation: 150m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 120s  # 2분
+      timeout: 15s
+      start_period: 60s
+      retries: 3
+
+  # ===========================================================================
+  # 4. Workflow Engine (Celery Worker)
+  # ===========================================================================
+  workflow_engine:
+    image: ghcr.io/jungle-scope/moduly-workflow-engine:latest
+    container_name: moduly-workflow-engine
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: moduly_local
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      REDIS_URL: redis://redis:6379/0
+
+      # Security
+      MASTER_KEY: ${MASTER_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+      # Sandbox
+      SANDBOX_URL: http://sandbox:8194
+
+      # Storage
+      STORAGE_TYPE: LOCAL
+
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - gateway_uploads:/app/uploads
+    networks:
+      - moduly-network
+    mem_limit: 400m
+    mem_reservation: 200m
+    cpus: 0.7
+
+  # ===========================================================================
+  # 5. Log System (Celery Worker)
+  # ===========================================================================
+  log_system:
+    image: ghcr.io/jungle-scope/moduly-logger:latest
+    container_name: moduly-log-system
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: moduly_local
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      REDIS_URL: redis://redis:6379/0
+
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - moduly-network
+    mem_limit: 200m
+    mem_reservation: 100m
+    cpus: 0.3
+
+  # ===========================================================================
+  # 6. Frontend (Next.js)
+  # ===========================================================================
+  frontend:
+    image: ghcr.io/jungle-scope/moduly-client:latest
+    container_name: moduly-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost
+      API_URL: http://gateway:8000
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: 1
+      
+      # [경량화] Node.js 메모리 제한
+      NODE_OPTIONS: "--max-old-space-size=256"
+    depends_on:
+      - gateway
+    networks:
+      - moduly-network
+    mem_limit: 300m
+    mem_reservation: 150m
+    cpus: 0.4
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000",
+        ]
+      interval: 120s  # 2분
+      timeout: 15s
+      start_period: 60s
+      retries: 3
+
+  # ===========================================================================
+  # 7. Code Execution Sandbox
+  # ===========================================================================
+  sandbox:
+    image: ghcr.io/jungle-scope/moduly-sandbox:latest
+    container_name: moduly-sandbox
+    privileged: true
+    environment:
+      TZ: Asia/Seoul
+      
+      # 네트워크 비활성화 (보안 + 메모리 절약)
+      SANDBOX_ENABLE_NETWORK: "false"
+
+      # [경량화] Worker 최소화
+      SANDBOX_MIN_WORKERS: 1
+      SANDBOX_MAX_WORKERS: 3
+      SANDBOX_WORKER_IDLE_TIMEOUT: 30
+
+      # 동적 스케일링
+      SANDBOX_SCALING_INTERVAL: 2
+      SANDBOX_EMA_ALPHA: 0.2
+      SANDBOX_TARGET_RPS_PER_WORKER: 1.0
+      SANDBOX_SCALE_DOWN_COOLDOWN: 30
+      SANDBOX_SCALE_DOWN_IDLE_TIME: 20
+
+      # [경량화] 실행 제한 강화
+      SANDBOX_DEFAULT_TIMEOUT: 5
+      SANDBOX_MAX_TIMEOUT: 30
+      SANDBOX_MAX_MEMORY_MB: 128     # 256MB -> 128MB
+
+      # 큐 설정
+      SANDBOX_MAX_QUEUE_SIZE: 20
+
+      # Fair Scheduler
+      SANDBOX_MAX_PER_TENANT: 2
+      SANDBOX_AGING_INTERVAL: 5
+      SANDBOX_AGING_THRESHOLD_LOW: 10
+      SANDBOX_AGING_THRESHOLD_NORMAL: 20
+    ports:
+      - "8194:8194"
+    networks:
+      - moduly-network
+    mem_limit: 256m
+    mem_reservation: 128m
+    cpus: 0.4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8194/v1/sandbox/health"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # 8. Nginx Reverse Proxy
+  # ===========================================================================
+  nginx:
+    image: ghcr.io/jungle-scope/moduly-nginx:latest
+    container_name: moduly-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      frontend:
+        condition: service_started
+      gateway:
+        condition: service_started
+    networks:
+      - moduly-network
+    mem_limit: 50m
+    mem_reservation: 30m
+    cpus: 0.2
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/health",
+        ]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+  gateway_uploads:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  moduly-network:
+    driver: bridge
