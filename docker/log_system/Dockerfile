@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     postgresql-client \
     redis-tools \
+    tini \
     && rm -rf /var/lib/apt/lists/*
 
 # 빌더 스테이지에서 설치된 패키지 복사
@@ -57,4 +58,4 @@ RUN chmod +x /docker-entrypoint.sh
 USER appuser
 
 # Entrypoint 스크립트 실행
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/docker-entrypoint.sh"]

@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # 빌드 도구
     build-essential \
     git \
+    tini \
     # NSJail 빌드 의존성
     autoconf \
     bison \
@@ -85,4 +86,5 @@ ENV SANDBOX_PYTHON_PATH=/usr/bin/python3
 # =====================================
 EXPOSE 8194
 
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["uvicorn", "apps.sandbox.main:app", "--host", "0.0.0.0", "--port", "8194"]
