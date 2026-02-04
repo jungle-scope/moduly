@@ -70,9 +70,9 @@ export default function LoginPage() {
     });
   };
 
-  const handleGoogleLogin = () => {
-    authApi.googleLogin();
-  };
+  // const handleGoogleLogin = () => {
+  //   authApi.googleLogin();
+  // };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -92,7 +92,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* 구글 로그인 버튼 */}
+        {/* 구글 로그인 버튼
         <button
           onClick={handleGoogleLogin}
           type="button"
@@ -119,7 +119,7 @@ export default function LoginPage() {
           <span className="text-sm font-medium text-gray-700">
             구글로 로그인
           </span>
-        </button>
+        </button> */}
 
         {/* 구분선 */}
         <div className="relative">

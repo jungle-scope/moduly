@@ -347,8 +347,12 @@ def stream_workflow(
         )
 
         async def run_stream():
+            logger.info(
+                f"[Workflow-Engine] run_stream 시작 (run_id: {external_run_id})"
+            )
             final_result = {}
             async for event in engine.execute_stream():
+                logger.debug(f"[Workflow-Engine] 이벤트 수신: {event.get('type')}")
                 if event.get("type") == "workflow_finish":
                     final_result = event.get("data", {})
                 elif event.get("type") == "error":

@@ -5,11 +5,11 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session
 
 from apps.shared.pubsub import (
-    publish_workflow_event_async,  # [NEW] Async Redis Pub/Sub
+    publish_workflow_event,  # [FIX] 동기식 Redis Pub/Sub 사용 (gevent 충돌 방지)
 )
 from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
 from apps.workflow_engine.workflow.core.workflow_logger import (
-    WorkflowLogger,  # [NEW] 로깅 유틸리티
+    WorkflowLogger,
 )
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
 
@@ -212,18 +212,15 @@ class WorkflowEngine:
             # 외부 run_id 사용 (Gateway → Celery → WorkflowEngine)
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
             # [PERF] 로깅 비동기 실행 (스레드 풀)
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(
-                None,
-                lambda: self.logger.create_run_log(
+            if not self.is_subworkflow:
+                self.logger.create_run_log(
                     workflow_id=self.execution_context.get("workflow_id"),
                     user_id=self.execution_context.get("user_id"),
                     user_input=self.user_input,
                     is_deployed=self.is_deployed,
                     execution_context=self.execution_context,
-                    external_run_id=external_run_id,  # [NEW] 외부 run_id 전달
-                ),
-            )
+                    external_run_id=external_run_id,
+                )
         elif self.parent_run_id:
             # 서브 워크플로우인 경우 부모의 run_id를 재사용 (레거시 지원)
             self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
@@ -236,22 +233,16 @@ class WorkflowEngine:
             # run_id를 먼저 생성하고 로깅은 나중에 하거나, run_in_executor에서 반환값을 받아야 함.
 
             # [FIX] run_id 생성을 위해 run_in_executor 사용 및 결과 대기
-            loop = asyncio.get_running_loop()
-
-            def _create_log():
-                return self.logger.create_run_log(
-                    workflow_id=self.execution_context.get("workflow_id"),
-                    user_id=self.execution_context.get("user_id"),
-                    user_input=self.user_input,
-                    is_deployed=self.is_deployed,
-                    execution_context=self.execution_context,
-                )
-
-            workflow_run_id = await loop.run_in_executor(None, _create_log)
+            workflow_run_id = self.logger.create_run_log(
+                workflow_id=self.execution_context.get("workflow_id"),
+                user_id=self.execution_context.get("user_id"),
+                user_input=self.user_input,
+                is_deployed=self.is_deployed,
+                execution_context=self.execution_context,
+            )
 
             if workflow_run_id:
                 self.execution_context["workflow_run_id"] = str(workflow_run_id)
-        # ============================================================
 
         start_node = self._find_start_node()
         results = {}
@@ -282,7 +273,7 @@ class WorkflowEngine:
             )
 
             while running_tasks:
-                # [NEW] 전체 타임아웃 체크
+                # 전체 타임아웃 체크
                 elapsed_time = time.time() - self.start_time
                 if elapsed_time > self.workflow_timeout:
                     # 모든 실행 중인 태스크 취소
@@ -377,28 +368,16 @@ class WorkflowEngine:
             if stream_mode:
                 final_context = dict(results)
                 if not self.is_subworkflow:
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(
-                        None, lambda: self.logger.update_run_log_finish(final_context)
-                    )
-                # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵 (조기 종료 방지)
+                    self.logger.update_run_log_finish(final_context)
                 if run_id and not self.is_subworkflow:
-                    await publish_workflow_event_async(
-                        run_id, "workflow_finish", final_context
-                    )
+                    publish_workflow_event(run_id, "workflow_finish", final_context)
                 yield {"type": "workflow_finish", "data": final_context}
             else:
                 final_result = self._get_answer_node_result(results)
                 if not self.is_subworkflow:
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(
-                        None, lambda: self.logger.update_run_log_finish(final_result)
-                    )
-                # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
+                    self.logger.update_run_log_finish(final_result)
                 if run_id and not self.is_subworkflow:
-                    await publish_workflow_event_async(
-                        run_id, "workflow_finish", final_result
-                    )
+                    publish_workflow_event(run_id, "workflow_finish", final_result)
                 # 배포 모드에서도 결과 전달을 위해 이벤트 사용
                 yield {"type": "workflow_finish", "data": final_result}
 
@@ -406,28 +385,16 @@ class WorkflowEngine:
             run_id = self.execution_context.get("workflow_run_id")
             if not stream_mode:
                 if not self.is_subworkflow:
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(
-                        None, lambda: self.logger.update_run_log_error(str(e))
-                    )
-                # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
+                    self.logger.update_run_log_error(str(e))
                 if run_id and not self.is_subworkflow:
-                    await publish_workflow_event_async(
-                        run_id, "error", {"message": str(e)}
-                    )
+                    publish_workflow_event(run_id, "error", {"message": str(e)})
                 raise e
             else:
                 error_msg = str(e)
                 if not self.is_subworkflow:
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(
-                        None, lambda: self.logger.update_run_log_error(error_msg)
-                    )
-                # [FIX] 서브 워크플로우에서는 Redis 이벤트 발행 스킵
+                    self.logger.update_run_log_error(error_msg)
                 if run_id and not self.is_subworkflow:
-                    await publish_workflow_event_async(
-                        run_id, "error", {"message": error_msg}
-                    )
+                    publish_workflow_event(run_id, "error", {"message": error_msg})
                 yield {"type": "error", "data": {"message": error_msg}}
         # 참고: self.logger.shutdown() 호출 제거됨
         # 이제 공유 LogWorkerPool을 사용하므로 인스턴스별 종료 불필요
@@ -452,12 +419,12 @@ class WorkflowEngine:
 
         # [실시간 스트리밍] node_start 이벤트를 Task 생성 시점(실행 시작 전)에 즉시 전송
         # [FIX] 서브 워크플로우에서는 노드 로깅도 스킵 (UI 간섭 방지)
-        # [NEW] Upsert 패턴을 위해 started_at 기록 (Race Condition 해결용)
+        # Upsert 패턴을 위해 started_at 기록 (Race Condition 해결용)
         from datetime import datetime, timezone
 
         started_at = datetime.now(timezone.utc)
 
-        # [NEW] 노드 옵션 스냅샷 추출 (서브워크플로우 아닐 때만)
+        # 노드 옵션 스냅샷 추출 (서브워크플로우 아닐 때만)
         node_options_snapshot = None
         log_id = None
 
@@ -465,22 +432,18 @@ class WorkflowEngine:
             node_options_snapshot = self._extract_node_options(node_schema)
 
             # [FIX] create_node_log가 반환하는 log_id 캡처
-            def _create_log():
-                return self.logger.create_node_log(
-                    node_id,
-                    node_schema.type,
-                    inputs,
-                    process_data=node_options_snapshot,
-                )
-
-            loop = asyncio.get_running_loop()
-            log_id = await loop.run_in_executor(None, _create_log)
+            log_id = self.logger.create_node_log(
+                node_id=node_id,
+                node_type=node_schema.type,
+                inputs=inputs,
+                process_data=node_options_snapshot,
+            )
 
         # [FIX] Redis Pub/Sub으로 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
         # [PERF] 비동기 발행 사용
         run_id = self.execution_context.get("workflow_run_id")
         if run_id and not self.is_subworkflow:
-            await publish_workflow_event_async(
+            publish_workflow_event(
                 run_id,
                 "node_start",
                 {
@@ -506,11 +469,11 @@ class WorkflowEngine:
                     node_instance,
                     inputs,
                     log_id,
-                    node_options_snapshot,  # [NEW] Upsert용
-                    started_at,  # [NEW] Upsert용
+                    node_options_snapshot,  # Upsert용
+                    started_at,  # Upsert용
                 )
 
-        # [NEW] 노드별 타임아웃 적용 (asyncio.wait_for)
+        # 노드별 타임아웃 적용 (asyncio.wait_for)
         # 우선순위: 1. 노드 설정(node_schema.timeout) > 2. 기본값(300초)
         node_timeout = node_schema.timeout if node_schema.timeout is not None else 300
 
@@ -524,11 +487,9 @@ class WorkflowEngine:
                     f"Node '{node_id}' ({node_schema.type}) timed out after {node_timeout} seconds."
                 )
 
-            # [FIX] Redis Pub/Sub으로 node_finish 이벤트 발행 (run_id가 있고 서브워크플로우가 아닐 경우)
-            # [PERF] 비동기 발행 사용
             run_id = self.execution_context.get("workflow_run_id")
             if run_id and not self.is_subworkflow:
-                await publish_workflow_event_async(
+                publish_workflow_event(
                     run_id,
                     "node_finish",
                     {
@@ -578,20 +539,15 @@ class WorkflowEngine:
             result = await node_instance.execute(inputs)
 
             # 노드 완료 로깅 (서브 워크플로우에서는 스킵)
-            # [FIX] Upsert용 추가 정보 전달
             if not self.is_subworkflow:
-                loop = asyncio.get_running_loop()
-                await loop.run_in_executor(
-                    None,
-                    lambda: self.logger.update_node_log_finish(
-                        log_id,
-                        node_id,
-                        result,
-                        node_type=node_schema.type,
-                        inputs=inputs,
-                        process_data=node_options_snapshot,
-                        started_at=started_at,
-                    ),
+                self.logger.update_node_log_finish(
+                    log_id=log_id,
+                    node_id=node_id,
+                    outputs=result,
+                    node_type=node_schema.type,
+                    inputs=inputs,
+                    process_data=node_options_snapshot,
+                    started_at=started_at,
                 )
 
             return result
@@ -600,18 +556,14 @@ class WorkflowEngine:
             error_msg = str(e)
             # [FIX] Upsert용 추가 정보 전달
             if not self.is_subworkflow:
-                loop = asyncio.get_running_loop()
-                await loop.run_in_executor(
-                    None,
-                    lambda: self.logger.update_node_log_error(
-                        log_id,
-                        node_id,
-                        error_msg,
-                        node_type=node_schema.type,
-                        inputs=inputs,
-                        process_data=node_options_snapshot,
-                        started_at=started_at,
-                    ),
+                self.logger.update_node_log_error(
+                    log_id=log_id,
+                    node_id=node_id,
+                    error_message=error_msg,
+                    node_type=node_schema.type,
+                    inputs=inputs,
+                    process_data=node_options_snapshot,
+                    started_at=started_at,
                 )
             raise e
 
@@ -743,14 +695,14 @@ class WorkflowEngine:
 
         동작 방식:
         1. selected_handle is None (기본 동작):
-           - "특정 경로를 선택하지 않음"을 의미합니다.
-           - 연결된 모든 엣지를 따라 다음 노드들을 실행합니다. (Parallel 실행 가능)
-           - [PERF] 미리 구축된 self.graph를 사용하여 O(1) 조회
+        - "특정 경로를 선택하지 않음"을 의미합니다.
+        - 연결된 모든 엣지를 따라 다음 노드들을 실행합니다. (Parallel 실행 가능)
+        - [PERF] 미리 구축된 self.graph를 사용하여 O(1) 조회
 
         2. selected_handle has value (분기 동작):
-           - "특정 핸들(경로)만 선택함"을 의미합니다.
-           - 엣지의 sourceHandle이 selected_handle과 일치하는 경우에만 실행합니다.
-           - 예: IF 노드에서 조건에 따라 'True' 또는 'False' 경로 중 하나만 실행.
+        - "특정 핸들(경로)만 선택함"을 의미합니다.
+        - 엣지의 sourceHandle이 selected_handle과 일치하는 경우에만 실행합니다.
+        - 예: IF 노드에서 조건에 따라 'True' 또는 'False' 경로 중 하나만 실행.
 
         Args:
             node_id: 현재 노드 ID

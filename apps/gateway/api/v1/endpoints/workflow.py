@@ -647,6 +647,10 @@ async def stream_workflow(
             # 1. 먼저 Redis 채널 구독
             pubsub.subscribe(channel)
 
+            # [NEW] 연결 확인용 즉시 ping 이벤트 전송
+            # 클라이언트 타임아웃(BodyTimeoutError)을 방지하도록 함
+            yield f"data: {json.dumps({'type': 'ping', 'data': {'status': 'connected'}})}\n\n"
+
             # 2. 구독 완료 후 Celery 태스크 시작 (중요!)
             celery_app.send_task(
                 "workflow.stream",
@@ -655,10 +659,21 @@ async def stream_workflow(
             logger.info("[Gateway] Celery 태스크 시작됨")
 
             # 3. 이벤트 수신 및 SSE 전송
-            for message in pubsub.listen():
-                if message["type"] == "message":
+            logger.info(f"[Gateway] 구독 시작: {channel}")
+
+            import time
+
+            last_heartbeat = time.time()
+
+            # listen() 대신 get_message()를 반복 호출하여 하트비트 가능하게 함
+            while True:
+                message = pubsub.get_message(
+                    ignore_subscribe_messages=True, timeout=1.0
+                )
+
+                if message and message["type"] == "message":
                     event = json.loads(message["data"])
-                    # SSE 포맷: "data: {json_content}\n\n"
+                    logger.debug(f"[Gateway] 이벤트 수신: {event.get('type')}")
                     yield f"data: {json.dumps(event)}\n\n"
 
                     # workflow_finish 또는 error 시 종료
@@ -667,6 +682,13 @@ async def stream_workflow(
                             f"[Gateway] 스트리밍 종료 - type: {event.get('type')}"
                         )
                         break
+                else:
+                    # 데이터가 없을 때 주기적으로 빈 주석이나 ping을 보내 연결 유지
+                    # BodyTimeoutError 방지용
+                    now = time.time()
+                    if now - last_heartbeat > 30:
+                        yield ": heartbeat\n\n"
+                        last_heartbeat = now
         except Exception as e:
             # 구독 중 에러 발생 시 에러 이벤트 전송
             error_event = {"type": "error", "data": {"message": str(e)}}
