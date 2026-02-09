@@ -24,7 +24,7 @@ class BaseLLMClient(ABC):
     @abstractmethod
     async def invoke(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         """
-        LLM에 메시지를 전달하고 결과를 반환합니다.
+        LLM에 메시지를 전달하고 결과를 반환합니다 (비동기).
 
         Args:
             messages: role/content 형식의 메시지 리스트
@@ -34,6 +34,28 @@ class BaseLLMClient(ABC):
             모델 응답을 담은 딕셔너리
         """
         raise NotImplementedError
+
+    def invoke_sync(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+        """
+        LLM에 메시지를 전달하고 결과를 반환합니다 (동기).
+
+        [GEVENT] gevent 환경에서 사용하기 위한 동기 래퍼.
+        기본 구현은 새 이벤트 루프를 생성하여 async invoke를 실행합니다.
+
+        Args:
+            messages: role/content 형식의 메시지 리스트
+            **kwargs: 추가 옵션 (온도, 토큰 제한 등)
+
+        Returns:
+            모델 응답을 담은 딕셔너리
+        """
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(self.invoke(messages, **kwargs))
+        finally:
+            loop.close()
 
     @abstractmethod
     def get_num_tokens(self, messages: List[Dict[str, Any]]) -> int:
@@ -52,10 +74,10 @@ class BaseLLMClient(ABC):
     async def embed(self, text: str) -> List[float]:
         """
         단일 텍스트에 대한 임베딩 벡터를 반환합니다.
-        
+
         Args:
             text: 임베딩할 텍스트
-            
+
         Returns:
             float 리스트 형태의 벡터
         """
@@ -65,11 +87,32 @@ class BaseLLMClient(ABC):
         """
         (선택 구현) 다수 텍스트에 대한 임베딩 벡터 리스트를 반환합니다.
         기본 구현은 embed를 반복 호출합니다.
-        
+
         Args:
             texts: 임베딩할 텍스트 리스트
-            
+
         Returns:
             벡터 리스트의 리스트
         """
         return [await self.embed(t) for t in texts]
+
+    def embed_sync(self, text: str) -> List[float]:
+        """
+        단일 텍스트에 대한 임베딩 벡터를 반환합니다 (동기).
+
+        [GEVENT] gevent 환경에서 사용하기 위한 동기 래퍼.
+        기본 구현은 새 이벤트 루프를 생성하여 async embed를 실행합니다.
+
+        Args:
+            text: 임베딩할 텍스트
+
+        Returns:
+            float 리스트 형태의 벡터
+        """
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(self.embed(text))
+        finally:
+            loop.close()

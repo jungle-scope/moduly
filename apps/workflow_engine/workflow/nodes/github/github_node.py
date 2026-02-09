@@ -2,8 +2,6 @@
 
 from typing import Any, Dict, List, Optional
 
-import httpx
-import gidgethub.httpx
 from jinja2 import Environment
 
 from apps.workflow_engine.workflow.nodes.base.node import Node
@@ -32,11 +30,15 @@ class GithubNode(Node[GithubNodeData]):
 
     node_type = "githubNode"
 
-    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        GitHub API 요청을 실행하고 결과를 반환합니다 (비동기).
-        gidgethub 라이브러리를 사용하여 비동기 API 호출을 수행합니다.
+        GitHub API 요청을 실행하고 결과를 반환합니다.
+
+        [GEVENT] 동기 메서드로 변환 - gevent pool 호환성을 위해.
+        requests 라이브러리를 사용하여 동기 API 호출을 수행합니다.
         """
+        import requests
+
         data = self.data
 
         # 변수 치환 (referenced_variables 기반)
@@ -50,69 +52,90 @@ class GithubNode(Node[GithubNodeData]):
         except ValueError:
             raise ValueError(f"PR 번호가 유효하지 않습니다: {pr_number_str}")
 
-        # GitHub API 호출 (gidgethub 사용)
-        async with httpx.AsyncClient() as client:
-            gh = gidgethub.httpx.GitHubAPI(client, "moduly", oauth_token=token)
+        # GitHub API 호출 (requests 사용 - 동기)
+        headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "moduly",
+        }
+        base_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}"
 
-            try:
-                # Action에 따라 분기
-                action = data.action
+        try:
+            # Action에 따라 분기
+            action = data.action
 
-                if action == "get_pr":
-                    # PR 정보 가져오기
-                    pr = await gh.getitem(
-                        f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
-                    )
+            if action == "get_pr":
+                # PR 정보 가져오기
+                pr_response = requests.get(
+                    f"{base_url}/pulls/{pr_number}",
+                    headers=headers,
+                    timeout=30,
+                )
+                pr_response.raise_for_status()
+                pr = pr_response.json()
 
-                    # PR 파일 목록 가져오기
-                    files_url = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/files"
-                    files = []
-                    async for file in gh.getiter(files_url):
-                        files.append({
+                # PR 파일 목록 가져오기
+                files_response = requests.get(
+                    f"{base_url}/pulls/{pr_number}/files",
+                    headers=headers,
+                    timeout=30,
+                )
+                files_response.raise_for_status()
+                files_data = files_response.json()
+
+                files = []
+                for file in files_data:
+                    files.append(
+                        {
                             "filename": file["filename"],
                             "status": file["status"],
                             "additions": file["additions"],
                             "deletions": file["deletions"],
                             "changes": file["changes"],
                             "patch": file.get("patch", ""),
-                        })
-
-                    return {
-                        "pr_title": pr["title"],
-                        "pr_body": pr.get("body") or "",
-                        "pr_state": pr["state"],
-                        "pr_number": pr["number"],
-                        "files_count": len(files),
-                        "files": files,
-                        "diff_url": pr["diff_url"],
-                    }
-
-                elif action == "comment_pr":
-                    # PR에 댓글 달기
-                    comment_body = self._render_template(data.comment_body or "", inputs)
-
-                    if not comment_body:
-                        raise ValueError("댓글 내용이 비어있습니다.")
-
-                    # Issue comments API 사용 (PR은 내부적으로 Issue)
-                    comment = await gh.post(
-                        f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments",
-                        data={"body": comment_body}
+                        }
                     )
 
-                    return {
-                        "comment_id": comment["id"],
-                        "comment_url": comment["html_url"],
-                        "comment_body": comment["body"],
-                    }
+                return {
+                    "pr_title": pr["title"],
+                    "pr_body": pr.get("body") or "",
+                    "pr_state": pr["state"],
+                    "pr_number": pr["number"],
+                    "files_count": len(files),
+                    "files": files,
+                    "diff_url": pr["diff_url"],
+                }
 
-                else:
-                    raise ValueError(f"지원하지 않는 액션입니다: {action}")
+            elif action == "comment_pr":
+                # PR에 댓글 달기
+                comment_body = self._render_template(data.comment_body or "", inputs)
 
-            except gidgethub.BadRequest as e:
-                raise RuntimeError(f"GitHub API 오류 (Bad Request): {str(e)}")
-            except gidgethub.GitHubException as e:
-                raise RuntimeError(f"GitHub API 오류: {str(e)}")
+                if not comment_body:
+                    raise ValueError("댓글 내용이 비어있습니다.")
+
+                # Issue comments API 사용 (PR은 내부적으로 Issue)
+                comment_response = requests.post(
+                    f"{base_url}/issues/{pr_number}/comments",
+                    headers=headers,
+                    json={"body": comment_body},
+                    timeout=30,
+                )
+                comment_response.raise_for_status()
+                comment = comment_response.json()
+
+                return {
+                    "comment_id": comment["id"],
+                    "comment_url": comment["html_url"],
+                    "comment_body": comment["body"],
+                }
+
+            else:
+                raise ValueError(f"지원하지 않는 액션입니다: {action}")
+
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(f"GitHub API 오류 (HTTP Error): {str(e)}")
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"GitHub API 오류: {str(e)}")
 
     def _render_template(self, template: Optional[str], inputs: Dict[str, Any]) -> str:
         """

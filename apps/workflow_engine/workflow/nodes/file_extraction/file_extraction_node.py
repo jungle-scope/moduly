@@ -1,7 +1,7 @@
+import concurrent.futures
 import logging
 import os
 import tempfile
-import concurrent.futures
 from typing import Any, Dict, Optional
 
 import pymupdf4llm
@@ -31,11 +31,13 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
 
     node_type = "fileExtractionNode"
 
-    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        문서 파일에서 텍스트를 추출합니다 (비동기).
-        I/O 작업(다운로드)와 CPU 작업(PDF 변환)을 분리하여 처리합니다.
-        CPU 바운드 작업은 전용 Executor를 사용하여 이벤트 루프 블로킹을 방지합니다.
+        문서 파일에서 텍스트를 추출합니다.
+
+        [GEVENT] 동기 메서드로 변환 - gevent pool 호환성을 위해.
+        I/O 작업(다운로드)는 동기 requests를 사용하고,
+        CPU 작업(PDF 변환)은 ThreadPoolExecutor를 사용합니다.
 
         Args:
             inputs: 이전 노드 결과 (변수 풀)
@@ -47,10 +49,6 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                 "user_var2": "전체 텍스트..."
             }
         """
-        import asyncio
-
-        loop = asyncio.get_running_loop()
-
         if not self.data.referenced_variables:
             raise ValueError("파일 경로 변수를 선택해주세요.")
 
@@ -86,10 +84,8 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
 
             try:
                 if is_remote:
-                    # S3/HTTP URL에서 파일 다운로드 (I/O Bound -> Default Executor)
-                    temp_file_path = await loop.run_in_executor(
-                        None, self._download_file, file_path
-                    )
+                    # S3/HTTP URL에서 파일 다운로드 (동기)
+                    temp_file_path = self._download_file(file_path)
                     target_path = temp_file_path
                 else:
                     # 로컬 파일 확인
@@ -99,15 +95,15 @@ class FileExtractionNode(Node[FileExtractionNodeData]):
                         )
                     target_path = file_path
 
-                # 문서 텍스트 추출 (CPU Bound -> Dedicated Executor)
+                # 문서 텍스트 추출 (CPU Bound -> ThreadPoolExecutor)
                 # pymupdf4llm은 CPU를 많이 사용하므로 별도 스레드 풀에서 실행
-                full_text = await loop.run_in_executor(
-                    _cpu_executor,
+                future = _cpu_executor.submit(
                     self._extract_text_sync,
                     target_path,
                     output_name,
                     file_path,
                 )
+                full_text = future.result()  # 동기적으로 결과 대기
                 results[output_name] = full_text
 
             finally:

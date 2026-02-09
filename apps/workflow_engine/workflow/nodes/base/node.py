@@ -28,18 +28,20 @@ class Node(ABC, Generic[NodeDataT]):
         self.status = NodeStatus.IDLE
 
     @final
-    async def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         [Template Method Pattern]
         실제 실행 흐름을 제어합니다. (로그 남기기, 상태 변경 등)
         하위 클래스는 이 메서드를 override 하지 말고, _run()만 구현하면 됩니다.
+
+        [GEVENT] 동기 메서드로 변환 - gevent pool 호환성을 위해
         """
         logger.info(f"[{self.node_type}] 노드 실행 시작: {self.data.title}")
         self.status = NodeStatus.RUNNING
 
         try:
             # 실제 비즈니스 로직 실행 (하위 클래스에 위임)
-            outputs = await self._run(inputs)
+            outputs = self._run(inputs)
 
             self.status = NodeStatus.COMPLETED
             logger.info(f"[{self.node_type}] 실행 성공!")
@@ -51,10 +53,12 @@ class Node(ABC, Generic[NodeDataT]):
             raise e
 
     @abstractmethod
-    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         [Abstract Method]
         각 노드가 실제로 수행해야 할 로직을 여기에 구현합니다.
+
+        [GEVENT] 동기 메서드로 변환 - gevent pool 호환성을 위해
 
         Args:
             inputs: 이전 노드들로부터 전달받은 데이터 모음

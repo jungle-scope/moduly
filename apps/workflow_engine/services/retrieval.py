@@ -460,6 +460,158 @@ class RetrievalService:
 
         return re.sub(encrypted_pattern, decrypt_match, content)
 
+    def search_documents_sync(
+        self,
+        query: str,
+        knowledge_base_id: str = None,
+        top_k: int = 5,
+        threshold: float = 0.15,
+        hybrid_search: bool = True,
+        use_rerank: bool = True,
+    ) -> list[ChunkPreview]:
+        """
+        [GEVENT] 동기 검색 API - gevent pool 호환성을 위해.
+
+        주의: use_rewrite, use_multi_query 옵션은 LLM 호출이 필요하므로 생략.
+        기본적인 하이브리드 검색 + 리랭킹만 지원합니다.
+        """
+        if not knowledge_base_id:
+            logger.error("Missing knowledge_base_id")
+            return []
+
+        all_candidates = {}
+
+        try:
+            kb = (
+                self.db.query(KnowledgeBase)
+                .filter(KnowledgeBase.id == knowledge_base_id)
+                .first()
+            )
+            if not kb or not kb.embedding_model:
+                return []
+
+            model_info = (
+                self.db.query(LLMModel)
+                .filter(LLMModel.model_id_for_api_call == kb.embedding_model)
+                .first()
+            )
+            if model_info and model_info.type != "embedding":
+                return []
+
+            embed_client = LLMService.get_client_for_user(
+                self.db, self.user_id, kb.embedding_model
+            )
+
+            # [GEVENT] embed_sync 사용
+            query_vector = embed_client.embed_sync(query)
+            vector_results = self._vector_search(
+                query_vector, knowledge_base_id, top_k * 10
+            )
+
+            if hybrid_search:
+                keyword_results = self._keyword_search(
+                    query, knowledge_base_id, top_k * 10
+                )
+                fused = self._rrf_fusion(vector_results, keyword_results)
+            else:
+                fused = []
+                for rank, (chunk, doc, distance) in enumerate(vector_results):
+                    fused.append(
+                        {
+                            "score": 1.0 / (60 + rank + 1),
+                            "chunk": chunk,
+                            "doc": doc,
+                        }
+                    )
+
+            for item in fused[: top_k * 10]:
+                chunk_id = str(item["chunk"].id)
+                if chunk_id not in all_candidates:
+                    all_candidates[chunk_id] = item
+                else:
+                    if item["score"] > all_candidates[chunk_id]["score"]:
+                        all_candidates[chunk_id] = item
+
+        except Exception as e:
+            logger.error(f"Search Failed: {e}")
+            raise e
+
+        final_list = []
+        merged_candidates = sorted(
+            all_candidates.values(), key=lambda x: x["score"], reverse=True
+        )
+
+        if hybrid_search:
+            if use_rerank:
+                candidates_to_rerank = merged_candidates[:100]
+                reranked = self._rerank(query, candidates_to_rerank, top_k)
+
+                for item in reranked:
+                    chunk = item["chunk"]
+                    doc = item["doc"]
+                    rerank_score = item.get("rerank_score", 0.0)
+                    rrf_score = item.get("score", 0.0)
+
+                    meta = chunk.metadata_.copy() if chunk.metadata_ else {}
+                    meta["search_method"] = "hybrid+rerank"
+                    meta["rerank_score"] = float(rerank_score)
+                    meta["rrf_score"] = float(rrf_score)
+
+                    content = self._decrypt_content(chunk.content)
+
+                    final_list.append(
+                        ChunkPreview(
+                            content=content,
+                            document_id=doc.id,
+                            filename=doc.filename,
+                            page_number=meta.get("page"),
+                            similarity_score=float(rerank_score),
+                            metadata=meta,
+                        )
+                    )
+            else:
+                for item in merged_candidates[:top_k]:
+                    chunk = item["chunk"]
+                    doc = item["doc"]
+                    score = item["score"]
+
+                    meta = chunk.metadata_.copy() if chunk.metadata_ else {}
+                    meta["search_method"] = "hybrid"
+                    meta["rrf_score"] = float(score)
+
+                    content = self._decrypt_content(chunk.content)
+
+                    final_list.append(
+                        ChunkPreview(
+                            content=content,
+                            document_id=doc.id,
+                            filename=doc.filename,
+                            page_number=meta.get("page"),
+                            similarity_score=float(score),
+                            metadata=meta,
+                        )
+                    )
+        else:
+            for chunk, doc, distance in vector_results[:top_k]:
+                similarity = 1 - distance
+                if similarity < threshold:
+                    continue
+
+                content = self._decrypt_content(chunk.content)
+
+                final_list.append(
+                    ChunkPreview(
+                        content=content,
+                        document_id=doc.id,
+                        filename=doc.filename,
+                        page_number=chunk.metadata_.get("page"),
+                        similarity_score=float(similarity),
+                        metadata={},
+                    )
+                )
+
+        return final_list
+
     async def retrieve_context(
         self, query: str, knowledge_base_id: str, top_k: int = 5
     ) -> str:
