@@ -1,4 +1,3 @@
-import pytest
 from apps.workflow_engine.workflow.nodes.base.entities import NodeStatus
 from apps.workflow_engine.workflow.nodes.start import StartNode, StartNodeData
 from apps.workflow_engine.workflow.nodes.start.start_node import WorkflowVariable
@@ -20,8 +19,7 @@ def test_start_node_initialization():
     assert node.node_type == "startNode"
 
 
-@pytest.mark.asyncio
-async def test_start_node_execution():
+def test_start_node_execution():
     """StartNode가 입력을 그대로 반환하고 상태가 완료로 변경되는지 테스트합니다."""
     # Given
     node_data = StartNodeData(
@@ -38,12 +36,11 @@ async def test_start_node_execution():
     test_inputs = {"query": "Hello World", "user_id": 123}
 
     # When
-    # execute() 메서드는 내부적으로 _run()을 호출하고 상태를 관리합니다.
-    outputs = await node.execute(test_inputs)
+    # [GEVENT] execute() 메서드는 이제 동기 메서드입니다.
+    outputs = node.execute(test_inputs)
 
     # Then
     # 1. 입력값이 그대로 출력되었는지 확인 (StartNode의 역할)
-    # assert outputs == test_inputs (ID 매핑으로 인해 strict equality는 성립하지 않음)
     assert outputs["query"] == "Hello World"
     assert outputs["var-q"] == "Hello World"
     assert outputs["user_id"] == 123
@@ -61,4 +58,3 @@ def test_start_node_default_values():
 
     # Then
     assert node_data.trigger_type == "manual"  # 기본값 확인
-

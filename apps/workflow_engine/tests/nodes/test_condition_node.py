@@ -1,10 +1,15 @@
-"""ConditionNode 테스트 - Multi-Branch 지원"""
-
-import pytest
+"""ConditionNode 테스트 - Multi-Branch 지원 [GEVENT] Sync 버전"""
 
 from apps.workflow_engine.workflow.nodes.base.entities import NodeStatus
-from apps.workflow_engine.workflow.nodes.condition import ConditionNode, ConditionNodeData, ConditionCase
-from apps.workflow_engine.workflow.nodes.condition.entities import Condition, ConditionOperator
+from apps.workflow_engine.workflow.nodes.condition import (
+    ConditionCase,
+    ConditionNode,
+    ConditionNodeData,
+)
+from apps.workflow_engine.workflow.nodes.condition.entities import (
+    Condition,
+    ConditionOperator,
+)
 
 
 class TestConditionNodeInitialization:
@@ -40,8 +45,7 @@ class TestConditionNodeInitialization:
         assert node.status == NodeStatus.IDLE
         assert node.node_type == "conditionNode"
 
-    @pytest.mark.asyncio
-    async def test_legacy_conditions_backward_compatibility(self):
+    def test_legacy_conditions_backward_compatibility(self):
         """레거시 conditions 필드 하위 호환성 테스트"""
         node_data = ConditionNodeData(
             title="레거시 테스트",
@@ -58,7 +62,7 @@ class TestConditionNodeInitialization:
 
         node = ConditionNode(id="test", data=node_data)
         inputs = {"node-1": {"value": "test"}}
-        result = await node.execute(inputs)
+        result = node.execute(inputs)
 
         # 레거시 모드에서는 "true" 핸들 반환
         assert result["selected_handle"] == "true"
@@ -67,8 +71,7 @@ class TestConditionNodeInitialization:
 class TestConditionNodeMultiBranch:
     """Multi-Branch 조건 평가 테스트"""
 
-    @pytest.mark.asyncio
-    async def test_first_matching_case_selected(self):
+    def test_first_matching_case_selected(self):
         """첫 번째 매칭 케이스가 선택되는지 테스트"""
         node_data = ConditionNodeData(
             title="Multi-Branch 테스트",
@@ -114,20 +117,19 @@ class TestConditionNodeMultiBranch:
         node = ConditionNode(id="test", data=node_data)
 
         # 90점 -> case-high 선택
-        result = await node.execute({"node-1": {"score": 90}})
+        result = node.execute({"node-1": {"score": 90}})
         assert result["selected_handle"] == "case-high"
         assert result["matched_case_id"] == "case-high"
 
         # 60점 -> case-medium 선택 (첫 번째 매칭)
-        result = await node.execute({"node-1": {"score": 60}})
+        result = node.execute({"node-1": {"score": 60}})
         assert result["selected_handle"] == "case-medium"
 
         # 30점 -> case-low 선택
-        result = await node.execute({"node-1": {"score": 30}})
+        result = node.execute({"node-1": {"score": 30}})
         assert result["selected_handle"] == "case-low"
 
-    @pytest.mark.asyncio
-    async def test_else_when_no_match(self):
+    def test_else_when_no_match(self):
         """매칭되는 케이스가 없으면 else 선택"""
         node_data = ConditionNodeData(
             title="Else 테스트",
@@ -149,12 +151,11 @@ class TestConditionNodeMultiBranch:
         node = ConditionNode(id="test", data=node_data)
 
         # 50점 -> 매칭 없음 -> else
-        result = await node.execute({"node-1": {"score": 50}})
+        result = node.execute({"node-1": {"score": 50}})
         assert result["selected_handle"] == "default"
         assert result["matched_case_id"] is None
 
-    @pytest.mark.asyncio
-    async def test_empty_conditions_always_true(self):
+    def test_empty_conditions_always_true(self):
         """조건이 없는 케이스는 항상 참 (catch-all)"""
         node_data = ConditionNodeData(
             title="Catch-all 테스트",
@@ -181,15 +182,14 @@ class TestConditionNodeMultiBranch:
         node = ConditionNode(id="test", data=node_data)
 
         # "special"이 아닌 경우 -> case-default (catch-all)
-        result = await node.execute({"node-1": {"type": "normal"}})
+        result = node.execute({"node-1": {"type": "normal"}})
         assert result["selected_handle"] == "case-default"
 
 
 class TestConditionNodeOperators:
     """연산자별 조건 평가 테스트"""
 
-    @pytest.mark.asyncio
-    async def test_equals_operator_true(self):
+    def test_equals_operator_true(self):
         """equals 연산자가 참으로 평가되는 경우"""
         node_data = ConditionNodeData(
             title="equals 테스트",
@@ -210,12 +210,11 @@ class TestConditionNodeOperators:
         node = ConditionNode(id="test", data=node_data)
 
         inputs = {"node-1": {"status": "success"}}
-        result = await node.execute(inputs)
+        result = node.execute(inputs)
 
         assert result["selected_handle"] == "case-true"
 
-    @pytest.mark.asyncio
-    async def test_equals_operator_false(self):
+    def test_equals_operator_false(self):
         """equals 연산자가 거짓으로 평가되는 경우"""
         node_data = ConditionNodeData(
             title="equals 테스트",
@@ -236,12 +235,11 @@ class TestConditionNodeOperators:
         node = ConditionNode(id="test", data=node_data)
 
         inputs = {"node-1": {"status": "failure"}}
-        result = await node.execute(inputs)
+        result = node.execute(inputs)
 
         assert result["selected_handle"] == "default"
 
-    @pytest.mark.asyncio
-    async def test_contains_operator(self):
+    def test_contains_operator(self):
         """contains 연산자 테스트"""
         node_data = ConditionNodeData(
             title="contains 테스트",
@@ -262,12 +260,11 @@ class TestConditionNodeOperators:
         node = ConditionNode(id="test", data=node_data)
 
         inputs = {"node-1": {"message": "say hello world"}}
-        result = await node.execute(inputs)
+        result = node.execute(inputs)
 
         assert result["selected_handle"] == "case-match"
 
-    @pytest.mark.asyncio
-    async def test_is_empty_operator(self):
+    def test_is_empty_operator(self):
         """is_empty 연산자 테스트"""
         node_data = ConditionNodeData(
             title="is_empty 테스트",
@@ -287,15 +284,18 @@ class TestConditionNodeOperators:
         node = ConditionNode(id="test", data=node_data)
 
         # 빈 값 테스트
-        assert (await node.execute({"node-1": {"data": ""}}))["selected_handle"] == "case-empty"
-        assert (await node.execute({"node-1": {"data": None}}))["selected_handle"] == "case-empty"
-        assert (await node.execute({"node-1": {"data": []}}))["selected_handle"] == "case-empty"
+        assert node.execute({"node-1": {"data": ""}})["selected_handle"] == "case-empty"
+        assert (
+            node.execute({"node-1": {"data": None}})["selected_handle"] == "case-empty"
+        )
+        assert node.execute({"node-1": {"data": []}})["selected_handle"] == "case-empty"
 
         # 비어있지 않은 값 테스트
-        assert (await node.execute({"node-1": {"data": "value"}}))["selected_handle"] == "default"
+        assert (
+            node.execute({"node-1": {"data": "value"}})["selected_handle"] == "default"
+        )
 
-    @pytest.mark.asyncio
-    async def test_greater_than_operator(self):
+    def test_greater_than_operator(self):
         """greater_than 연산자 테스트"""
         node_data = ConditionNodeData(
             title="greater_than 테스트",
@@ -315,16 +315,15 @@ class TestConditionNodeOperators:
         )
         node = ConditionNode(id="test", data=node_data)
 
-        assert (await node.execute({"node-1": {"score": 70}}))["selected_handle"] == "case-high"
-        assert (await node.execute({"node-1": {"score": 30}}))["selected_handle"] == "default"
-        assert (await node.execute({"node-1": {"score": 50}}))["selected_handle"] == "default"
+        assert node.execute({"node-1": {"score": 70}})["selected_handle"] == "case-high"
+        assert node.execute({"node-1": {"score": 30}})["selected_handle"] == "default"
+        assert node.execute({"node-1": {"score": 50}})["selected_handle"] == "default"
 
 
 class TestConditionNodeLogicalOperators:
     """논리 연산자 결합 테스트"""
 
-    @pytest.mark.asyncio
-    async def test_and_operator_all_true(self):
+    def test_and_operator_all_true(self):
         """AND 연산자 - 모두 참인 경우"""
         node_data = ConditionNodeData(
             title="AND 테스트",
@@ -352,12 +351,11 @@ class TestConditionNodeLogicalOperators:
         node = ConditionNode(id="test", data=node_data)
 
         inputs = {"node-1": {"a": 1, "b": 2}}
-        result = await node.execute(inputs)
+        result = node.execute(inputs)
 
         assert result["selected_handle"] == "case-all-match"
 
-    @pytest.mark.asyncio
-    async def test_and_operator_one_false(self):
+    def test_and_operator_one_false(self):
         """AND 연산자 - 하나가 거짓인 경우"""
         node_data = ConditionNodeData(
             title="AND 테스트",
@@ -385,12 +383,11 @@ class TestConditionNodeLogicalOperators:
         node = ConditionNode(id="test", data=node_data)
 
         inputs = {"node-1": {"a": 1, "b": 2}}
-        result = await node.execute(inputs)
+        result = node.execute(inputs)
 
         assert result["selected_handle"] == "default"
 
-    @pytest.mark.asyncio
-    async def test_or_operator_one_true(self):
+    def test_or_operator_one_true(self):
         """OR 연산자 - 하나가 참인 경우"""
         node_data = ConditionNodeData(
             title="OR 테스트",
@@ -418,7 +415,7 @@ class TestConditionNodeLogicalOperators:
         node = ConditionNode(id="test", data=node_data)
 
         inputs = {"node-1": {"a": 1, "b": 2}}
-        result = await node.execute(inputs)
+        result = node.execute(inputs)
 
         assert result["selected_handle"] == "case-any-match"
 
@@ -426,8 +423,7 @@ class TestConditionNodeLogicalOperators:
 class TestConditionNodeNestedSelector:
     """중첩된 variable_selector 테스트"""
 
-    @pytest.mark.asyncio
-    async def test_nested_selector(self):
+    def test_nested_selector(self):
         """중첩된 경로에서 값 추출 테스트"""
         node_data = ConditionNodeData(
             title="중첩 selector 테스트",
@@ -448,7 +444,6 @@ class TestConditionNodeNestedSelector:
         node = ConditionNode(id="test", data=node_data)
 
         inputs = {"node-1": {"response": {"data": {"status": "ok"}}}}
-        result = await node.execute(inputs)
+        result = node.execute(inputs)
 
         assert result["selected_handle"] == "case-nested"
-

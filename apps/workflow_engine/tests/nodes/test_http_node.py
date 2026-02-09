@@ -1,5 +1,5 @@
 """
-HTTP Request Node 최소 테스트 (pytest async 버전)
+HTTP Request Node 최소 테스트 [GEVENT] Sync 버전
 
 [이 테스트 파일이 검증하는 것들]
 1. 데이터 포장 검증: 노드가 URL, 헤더, 바디를 올바르게 조립하는지 확인합니다.
@@ -14,9 +14,7 @@ HTTP Request Node 최소 테스트 (pytest async 버전)
 
 import os
 import sys
-from unittest.mock import Mock, patch, AsyncMock
-
-import pytest
+from unittest.mock import Mock, patch
 
 # Add project root to sys.path
 sys.path.append(
@@ -24,11 +22,14 @@ sys.path.append(
 )
 
 from apps.workflow_engine.workflow.nodes.base.entities import NodeStatus
-from apps.workflow_engine.workflow.nodes.http import HttpRequestNode, HttpRequestNodeData
+from apps.workflow_engine.workflow.nodes.http import (
+    HttpRequestNode,
+    HttpRequestNodeData,
+)
 from apps.workflow_engine.workflow.nodes.http.entities import HttpMethod, HttpVariable
 
 
-# Mock AsyncClient
+# Mock Response for sync httpx.Client
 class MockResponse:
     def __init__(self, status_code=200, json_data=None, headers=None):
         self.status_code = status_code
@@ -40,8 +41,7 @@ class MockResponse:
         return self._json_data
 
 
-@pytest.mark.asyncio
-async def test_http_node_basic_get():
+def test_http_node_basic_get():
     """기본 GET 요청 테스트"""
     # Given
     node_data = HttpRequestNodeData(
@@ -54,17 +54,18 @@ async def test_http_node_basic_get():
     node = HttpRequestNode(id="http-1", data=node_data)
 
     # When
-    mock_response = MockResponse(200, {"id": 1, "name": "John"}, {"content-type": "application/json"})
-    
-    with patch("httpx.AsyncClient") as MockClient:
-        # AsyncClient 인스턴스 모킹
-        client_instance = MockClient.return_value
-        client_instance.__aenter__.return_value = client_instance
-        
-        # request 메서드를 AsyncMock으로 설정
-        client_instance.request = AsyncMock(return_value=mock_response)
+    mock_response = MockResponse(
+        200, {"id": 1, "name": "John"}, {"content-type": "application/json"}
+    )
 
-        outputs = await node.execute({})
+    with patch("httpx.Client") as MockClient:
+        # [GEVENT] sync Client mock
+        client_instance = MockClient.return_value
+        client_instance.__enter__ = Mock(return_value=client_instance)
+        client_instance.__exit__ = Mock(return_value=False)
+        client_instance.request = Mock(return_value=mock_response)
+
+        outputs = node.execute({})
 
         # Call check
         client_instance.request.assert_called_with(
@@ -80,8 +81,7 @@ async def test_http_node_basic_get():
     assert node.status == NodeStatus.COMPLETED
 
 
-@pytest.mark.asyncio
-async def test_http_node_post_with_body():
+def test_http_node_post_with_body():
     """POST 요청 with Body 테스트"""
     # Given
     node_data = HttpRequestNodeData(
@@ -97,12 +97,13 @@ async def test_http_node_post_with_body():
     # When
     mock_response = MockResponse(201, {"id": 101}, {})
 
-    with patch("httpx.AsyncClient") as MockClient:
+    with patch("httpx.Client") as MockClient:
         client_instance = MockClient.return_value
-        client_instance.__aenter__.return_value = client_instance
-        client_instance.request = AsyncMock(return_value=mock_response)
+        client_instance.__enter__ = Mock(return_value=client_instance)
+        client_instance.__exit__ = Mock(return_value=False)
+        client_instance.request = Mock(return_value=mock_response)
 
-        outputs = await node.execute({})
+        outputs = node.execute({})
 
         # Call check
         call_args = client_instance.request.call_args
@@ -113,8 +114,7 @@ async def test_http_node_post_with_body():
     assert outputs["status"] == 201
 
 
-@pytest.mark.asyncio
-async def test_http_node_bearer_auth():
+def test_http_node_bearer_auth():
     """Bearer Token 인증 테스트"""
     # Given
     node_data = HttpRequestNodeData(
@@ -131,12 +131,13 @@ async def test_http_node_bearer_auth():
     # When
     mock_response = MockResponse(200, {"data": "protected"}, {})
 
-    with patch("httpx.AsyncClient") as MockClient:
+    with patch("httpx.Client") as MockClient:
         client_instance = MockClient.return_value
-        client_instance.__aenter__.return_value = client_instance
-        client_instance.request = AsyncMock(return_value=mock_response)
+        client_instance.__enter__ = Mock(return_value=client_instance)
+        client_instance.__exit__ = Mock(return_value=False)
+        client_instance.request = Mock(return_value=mock_response)
 
-        outputs = await node.execute({})
+        outputs = node.execute({})
 
         # Call check
         call_args = client_instance.request.call_args
@@ -147,8 +148,7 @@ async def test_http_node_bearer_auth():
     assert outputs["status"] == 200
 
 
-@pytest.mark.asyncio
-async def test_http_node_variable_substitution():
+def test_http_node_variable_substitution():
     """변수 치환 테스트"""
     # Given
     node_data = HttpRequestNodeData(
@@ -165,14 +165,15 @@ async def test_http_node_variable_substitution():
     # When
     mock_response = MockResponse(200, {"id": 123}, {})
 
-    with patch("httpx.AsyncClient") as MockClient:
+    with patch("httpx.Client") as MockClient:
         client_instance = MockClient.return_value
-        client_instance.__aenter__.return_value = client_instance
-        client_instance.request = AsyncMock(return_value=mock_response)
+        client_instance.__enter__ = Mock(return_value=client_instance)
+        client_instance.__exit__ = Mock(return_value=False)
+        client_instance.request = Mock(return_value=mock_response)
 
         # Start 노드의 출력을 inputs로 전달
         inputs = {"Start": {"userId": "123"}}
-        outputs = await node.execute(inputs)
+        outputs = node.execute(inputs)
 
         # Call check
         call_args = client_instance.request.call_args
@@ -180,5 +181,3 @@ async def test_http_node_variable_substitution():
 
     # Then
     assert outputs["status"] == 200
-
-

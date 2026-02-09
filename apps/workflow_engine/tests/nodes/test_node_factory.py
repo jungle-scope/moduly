@@ -1,5 +1,5 @@
 """
-NodeFactory 테스트: 노드가 올바르게 생성되는지 검증
+NodeFactory 테스트: 노드가 올바르게 생성되는지 검증 [GEVENT] Sync 버전
 """
 
 import pytest
@@ -84,9 +84,8 @@ def test_factory_uses_default_values():
     assert node.data.trigger_type == "manual"  # 기본값 확인
 
 
-@pytest.mark.asyncio
-async def test_factory_node_is_executable():
-    """Factory로 생성된 노드가 실행 가능한지 테스트"""
+def test_factory_node_is_executable():
+    """Factory로 생성된 노드가 실행 가능한지 테스트 [GEVENT] sync"""
     # Given
     schema = NodeSchema(
         id="node-5",
@@ -105,14 +104,13 @@ async def test_factory_node_is_executable():
 
     test_inputs = {"user_query": "Hello"}
 
-    # When
-    outputs = await node.execute(test_inputs)
+    # When [GEVENT] sync 호출
+    outputs = node.execute(test_inputs)
 
     # Then
     assert outputs["user_query"] == test_inputs["user_query"]
     assert outputs["var-1"] == test_inputs["user_query"]
     assert node.status == NodeStatus.COMPLETED
-
 
 
 def test_factory_registry_contains_start_node():

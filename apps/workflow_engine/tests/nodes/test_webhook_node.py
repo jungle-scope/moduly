@@ -1,6 +1,7 @@
-import pytest
-
-from apps.workflow_engine.workflow.nodes.webhook.entities import VariableMapping, WebhookTriggerNodeData
+from apps.workflow_engine.workflow.nodes.webhook.entities import (
+    VariableMapping,
+    WebhookTriggerNodeData,
+)
 from apps.workflow_engine.workflow.nodes.webhook.webhook_node import WebhookTriggerNode
 
 
@@ -34,17 +35,14 @@ def test_extract_value_nested():
     assert node._extract_value(payload, "issue.missing.key") is None
 
 
-@pytest.mark.asyncio
-async def test_run_variable_mapping():
-    """Variable Mapping 적용 테스트 (비동기)"""
+def test_run_variable_mapping():
+    """Variable Mapping 적용 테스트 [GEVENT] sync 버전"""
     # 설정: summary와 project_key를 추출하도록 매핑
     data = WebhookTriggerNodeData(
         title="Test Mapped",
         provider="jira",
         variable_mappings=[
-            VariableMapping(
-                variable_name="summary", json_path="issue.fields.summary"
-            ),
+            VariableMapping(variable_name="summary", json_path="issue.fields.summary"),
             VariableMapping(
                 variable_name="project_key", json_path="issue.fields.project.key"
             ),
@@ -58,10 +56,9 @@ async def test_run_variable_mapping():
         "issue": {"fields": {"summary": "Bug Report", "project": {"key": "JUNGLE"}}}
     }
 
-    # 실행
-    result = await node.execute(payload)
+    # 실행 [GEVENT] sync
+    result = node.execute(payload)
 
     # 검증
     assert result["summary"] == "Bug Report"
     assert result["project_key"] == "JUNGLE"
-
