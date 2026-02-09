@@ -1,5 +1,5 @@
 """
-LLM 노드 런타임 최소 동작 테스트.
+LLM 노드 런타임 최소 동작 테스트 [GEVENT] Sync 버전.
 - 메시지 렌더링 → 클라이언트 호출 → 응답 파싱 경로를 검증한다.
 - DB 세션 없이도 _client_override로 클라이언트를 주입해 실행 가능하도록 구성.
 """
@@ -7,8 +7,6 @@ LLM 노드 런타임 최소 동작 테스트.
 import pathlib
 import sys
 import uuid
-
-import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PARENT_OF_ROOT = ROOT.parent
@@ -19,18 +17,19 @@ for p in [ROOT, PARENT_OF_ROOT]:
 from apps.workflow_engine.services.llm_service import LLMService
 from apps.workflow_engine.workflow.nodes.llm.entities import LLMNodeData, LLMVariable
 from apps.workflow_engine.workflow.nodes.llm.llm_node import (
-    LLMNode,
     SAFETY_SYSTEM_PROMPT,
+    LLMNode,
 )
 
 
 class DummyClient:
-    """비동기 더미 클라이언트"""
+    """동기 더미 클라이언트 [GEVENT]"""
+
     def __init__(self):
         self.calls = []
 
-    async def invoke(self, messages, **kwargs):
-        # 호출된 메시지를 저장하고 OpenAI와 유사한 응답 형태 반환
+    def invoke_sync(self, messages, **kwargs):
+        """동기 호출 메서드"""
         self.calls.append({"messages": messages, "kwargs": kwargs})
         return {
             "choices": [{"message": {"content": "hello world"}}],
@@ -39,21 +38,25 @@ class DummyClient:
 
 
 class FailingClient:
-    """비동기 실패 클라이언트"""
+    """동기 실패 클라이언트 [GEVENT]"""
+
     def __init__(self):
         self.calls = []
 
-    async def invoke(self, messages, **kwargs):
+    def invoke_sync(self, messages, **kwargs):
+        """동기 호출 - 실패"""
         self.calls.append({"messages": messages, "kwargs": kwargs})
         raise RuntimeError("primary model failed")
 
 
 class SuccessClient:
-    """비동기 성공 클라이언트"""
+    """동기 성공 클라이언트 [GEVENT]"""
+
     def __init__(self):
         self.calls = []
 
-    async def invoke(self, messages, **kwargs):
+    def invoke_sync(self, messages, **kwargs):
+        """동기 호출 - 성공"""
         self.calls.append({"messages": messages, "kwargs": kwargs})
         return {
             "choices": [{"message": {"content": "fallback ok"}}],
@@ -61,9 +64,8 @@ class SuccessClient:
         }
 
 
-@pytest.mark.asyncio
-async def test_llm_node_runs_with_override_client():
-    """클라이언트 오버라이드로 LLM 노드 실행 테스트"""
+def test_llm_node_runs_with_override_client():
+    """클라이언트 오버라이드로 LLM 노드 실행 테스트 [GEVENT] sync"""
     dummy_client = DummyClient()
 
     data = LLMNodeData(
@@ -85,7 +87,8 @@ async def test_llm_node_runs_with_override_client():
     node._client_override = dummy_client  # noqa: SLF001 - 테스트용
 
     # value_selector가 ["some_node", "var"]이므로 some_node의 var 값을 전달
-    result = await node.execute({"some_node": {"var": "X"}})
+    # [GEVENT] sync 호출
+    result = node.execute({"some_node": {"var": "X"}})
 
     # 클라이언트 호출 검증
     assert dummy_client.calls
@@ -102,9 +105,8 @@ async def test_llm_node_runs_with_override_client():
     assert result["usage"] == {"prompt_tokens": 1, "completion_tokens": 1}
 
 
-@pytest.mark.asyncio
-async def test_llm_node_uses_fallback_model_on_failure(monkeypatch):
-    """폴백 모델 사용 테스트"""
+def test_llm_node_uses_fallback_model_on_failure(monkeypatch):
+    """폴백 모델 사용 테스트 [GEVENT] sync"""
     primary_client = FailingClient()
     fallback_client = SuccessClient()
 
@@ -133,7 +135,8 @@ async def test_llm_node_uses_fallback_model_on_failure(monkeypatch):
     node = LLMNode("llm-1", data, execution_context={"user_id": str(uuid.uuid4())})
     node.db = object()  # DB 세션 생성 방지
 
-    result = await node.execute({})
+    # [GEVENT] sync 호출
+    result = node.execute({})
 
     assert primary_client.calls
     assert fallback_client.calls

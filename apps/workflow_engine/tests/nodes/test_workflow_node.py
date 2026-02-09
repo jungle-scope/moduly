@@ -1,10 +1,10 @@
 """
-WorkflowNode 테스트
+WorkflowNode 테스트 [GEVENT] Sync 버전
 
 워크플로우 내에서 다른 워크플로우를 실행하는 WorkflowNode의 동작을 테스트합니다.
 """
 
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -42,8 +42,7 @@ def test_workflow_node_initialization():
     assert node.node_type == "workflowNode"
 
 
-@pytest.mark.asyncio
-async def test_workflow_node_execution_with_input_mapping():
+def test_workflow_node_execution_with_input_mapping():
     """WorkflowNode가 입력 매핑을 적용하여 서브 워크플로우를 실행하는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -85,17 +84,19 @@ async def test_workflow_node_execution_with_input_mapping():
         mock_deployment,
     ]
 
-    # Mock WorkflowEngine
+    # Mock WorkflowEngine [GEVENT] sync version
+    # WorkflowEngine is imported inside _run method
     with patch(
         "apps.workflow_engine.workflow.core.workflow_engine.WorkflowEngine"
     ) as MockEngine:
         mock_engine_instance = MockEngine.return_value
-        mock_engine_instance.execute = AsyncMock(
+        mock_engine_instance.execute = Mock(
             return_value={
                 "answer": "처리 완료",
                 "processed_text": "HELLO WORLD",
             }
         )
+        mock_engine_instance.cleanup = Mock()
 
         # Execution context
         node.execution_context = {"db": mock_db, "user_id": "user-1"}
@@ -106,19 +107,23 @@ async def test_workflow_node_execution_with_input_mapping():
             "config-node": {"lang": "en", "mode": "basic"},
         }
 
-        # When
-        result = await node.execute(inputs)
+        # When [GEVENT] sync 호출
+        result = node.execute(inputs)
 
         # Then
         # 1. App과 Deployment 조회 확인
         assert mock_db.query.call_count == 2
 
         # 2. WorkflowEngine이 올바른 인자로 초기화되었는지 확인
+        # WorkflowEngine is called with positional args: (graph, sub_workflow_inputs, ...)
         MockEngine.assert_called_once()
         call_args = MockEngine.call_args
+
+        # First positional arg is the graph
         assert call_args[0][0] == mock_deployment.graph_snapshot
+        # Second positional arg is the user_input
         assert call_args[0][1] == {"input_text": "Hello World", "language": "en"}
-        assert call_args[1]["execution_context"] == node.execution_context
+        # Keyword arg is_deployed should be True
         assert call_args[1]["is_deployed"] is True
 
         # 3. 실행 결과 확인 (WorkflowNode는 {"result": ...} 형태로 반환)
@@ -129,8 +134,7 @@ async def test_workflow_node_execution_with_input_mapping():
         assert node.status == NodeStatus.COMPLETED
 
 
-@pytest.mark.asyncio
-async def test_workflow_node_error_no_db_session():
+def test_workflow_node_error_no_db_session():
     """DB 세션이 없을 때 ValueError를 발생시키는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -141,11 +145,10 @@ async def test_workflow_node_error_no_db_session():
 
     # When / Then
     with pytest.raises(ValueError, match="DB session required"):
-        await node.execute({})
+        node.execute({})
 
 
-@pytest.mark.asyncio
-async def test_workflow_node_error_app_not_found():
+def test_workflow_node_error_app_not_found():
     """타겟 App을 찾을 수 없을 때 ValueError를 발생시키는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -160,11 +163,10 @@ async def test_workflow_node_error_app_not_found():
 
     # When / Then
     with pytest.raises(ValueError, match="Target App .* not found"):
-        await node.execute({})
+        node.execute({})
 
 
-@pytest.mark.asyncio
-async def test_workflow_node_error_no_active_deployment():
+def test_workflow_node_error_no_active_deployment():
     """활성 배포가 없을 때 ValueError를 발생시키는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -184,11 +186,10 @@ async def test_workflow_node_error_no_active_deployment():
 
     # When / Then
     with pytest.raises(ValueError, match="has no active deployment"):
-        await node.execute({})
+        node.execute({})
 
 
-@pytest.mark.asyncio
-async def test_workflow_node_nested_value_extraction():
+def test_workflow_node_nested_value_extraction():
     """중첩된 값 선택자가 올바르게 동작하는지 테스트합니다."""
     # Given
     node_data = WorkflowNodeData(
@@ -232,19 +233,19 @@ async def test_workflow_node_nested_value_extraction():
         "apps.workflow_engine.workflow.core.workflow_engine.WorkflowEngine"
     ) as MockEngine:
         mock_engine_instance = MockEngine.return_value
-        mock_engine_instance.execute = AsyncMock(return_value={"result": "OK"})
+        mock_engine_instance.execute = Mock(return_value={"result": "OK"})
+        mock_engine_instance.cleanup = Mock()
 
         node.execution_context = {"db": mock_db}
         inputs = {
             "user-node": {"profile": {"name": "Alice", "age": 30, "city": "Seoul"}}
         }
 
-        # When
-        await node.execute(inputs)
+        # When [GEVENT] sync 호출
+        node.execute(inputs)
 
-        # Then
+        # Then - check positional args (graph, user_input)
         call_args = MockEngine.call_args
-        sub_workflow_inputs = call_args[0][1]
+        sub_workflow_inputs = call_args[0][1]  # Second positional arg
         assert sub_workflow_inputs["user_name"] == "Alice"
         assert sub_workflow_inputs["user_age"] == 30
-

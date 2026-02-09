@@ -1,12 +1,12 @@
 """
-Parallel Node Execution Optimization Tests
+Parallel Node Execution Optimization Tests [GEVENT] Sync 버전
 
 Tests for data dependency analysis and parallel execution optimization.
 Verifies that nodes execute in parallel when they don't have true data dependencies.
 
 Run:
     cd /Users/antinori/LEE/Engineer/nmm/nmm/code/moduly
-    python -m pytest apps/workflow_engine/tests/nodes/test_parallel_execution_optimization.py -vs --asyncio-mode=auto
+    python -m pytest apps/workflow_engine/tests/nodes/test_parallel_execution_optimization.py -vs
 """
 
 import time
@@ -221,10 +221,9 @@ class TestDataDependencyAnalysis:
 
 
 class TestParallelExecution:
-    """Test parallel execution based on data dependencies"""
+    """Test parallel execution based on data dependencies [GEVENT] sync"""
 
-    @pytest.mark.asyncio
-    async def test_independent_nodes_execute_in_parallel(self, independent_nodes_graph):
+    def test_independent_nodes_execute_in_parallel(self, independent_nodes_graph):
         """
         Independent nodes should execute in parallel.
 
@@ -238,13 +237,14 @@ class TestParallelExecution:
         execution_times = {}
         original_submit = engine._submit_node
 
-        async def track_submit(node_id, *args, **kwargs):
+        def track_submit(node_id, *args, **kwargs):
             execution_times[node_id] = time.time()
-            return await original_submit(node_id, *args, **kwargs)
+            return original_submit(node_id, *args, **kwargs)
 
         engine._submit_node = track_submit
 
-        result = await engine.execute()
+        # [GEVENT] sync 호출
+        result = engine.execute()
 
         # Both template-a and template-b should start at roughly the same time
         # (within a small tolerance for async scheduling)
@@ -260,22 +260,19 @@ class TestParallelExecution:
         assert "template-a" in result
         assert "template-b" in result
 
-    @pytest.mark.asyncio
-    async def test_dependent_nodes_wait_correctly(self, dependent_nodes_graph):
+    def test_dependent_nodes_wait_correctly(self, dependent_nodes_graph):
         """Nodes with data dependencies should wait for their dependencies"""
         user_input = {"query": "test"}
         engine = WorkflowEngine(graph=dependent_nodes_graph, user_input=user_input)
 
-        result = await engine.execute()
+        # [GEVENT] sync 호출
+        result = engine.execute()
 
         # answer-1 should have executed and received template-a's output
         assert "answer-1" in result
         assert "result" in result["answer-1"]
 
-    @pytest.mark.asyncio
-    async def test_mixed_dependencies_optimize_execution(
-        self, mixed_dependencies_graph
-    ):
+    def test_mixed_dependencies_optimize_execution(self, mixed_dependencies_graph):
         """
         Node C should start as soon as Node B completes,
         without waiting for Node A.
@@ -295,7 +292,8 @@ class TestParallelExecution:
 
         engine._is_ready = track_is_ready
 
-        result = await engine.execute()
+        # [GEVENT] sync 호출
+        result = engine.execute()
 
         # answer-1 should become ready as soon as template-b completes
         # (not waiting for template-a)
@@ -350,10 +348,9 @@ class TestBackwardCompatibility:
 
 
 class TestComplexWorkflows:
-    """Test complex workflow scenarios"""
+    """Test complex workflow scenarios [GEVENT] sync"""
 
-    @pytest.mark.asyncio
-    async def test_multi_level_dependencies(self):
+    def test_multi_level_dependencies(self):
         """
         Test workflow with multiple levels:
         Start → A → B → C (each depends on previous)
@@ -407,7 +404,8 @@ class TestComplexWorkflows:
         }
 
         engine = WorkflowEngine(graph=graph, user_input={"query": "test"})
-        result = await engine.execute()
+        # [GEVENT] sync 호출
+        result = engine.execute()
 
         # All nodes should execute in correct order
         assert "template-a" in result
@@ -421,10 +419,9 @@ class TestComplexWorkflows:
 
 
 class TestPerformanceImprovement:
-    """Test that parallel execution actually improves performance"""
+    """Test that parallel execution actually improves performance [GEVENT] sync"""
 
-    @pytest.mark.asyncio
-    async def test_parallel_execution_is_faster(self):
+    def test_parallel_execution_is_faster(self):
         """
         Verify that parallel execution of independent nodes is faster
         than sequential execution would be.
@@ -469,7 +466,8 @@ class TestPerformanceImprovement:
         engine = WorkflowEngine(graph=graph, user_input={})
 
         start_time = time.time()
-        result = await engine.execute()
+        # [GEVENT] sync 호출
+        result = engine.execute()
         execution_time = time.time() - start_time
 
         # All three templates should execute

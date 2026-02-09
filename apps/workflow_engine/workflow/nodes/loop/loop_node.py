@@ -102,9 +102,11 @@ class LoopNode(Node[LoopNodeData]):
 
         return context
 
-    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Loop Node 실행 로직 (하이브리드 방식, 비동기)
+        Loop Node 실행 로직 (하이브리드 방식)
+
+        [GEVENT] 동기 메서드로 변환 - gevent pool 호환성을 위해.
         """
         # 1. 서브그래프 검증
         if not self.data.subGraph or not self.data.subGraph.get("nodes"):
@@ -134,8 +136,8 @@ class LoopNode(Node[LoopNodeData]):
                     inputs, item=item, index=iteration_count
                 )
 
-                # 서브그래프 실행 (스코프 기반, 비동기)
-                result = await self._execute_subgraph_scoped(context)
+                # 서브그래프 실행 (스코프 기반, 동기)
+                result = self._execute_subgraph_scoped(context)
                 results.append(result)
 
             except Exception as e:
@@ -173,9 +175,12 @@ class LoopNode(Node[LoopNodeData]):
             # 암시적: 모든 외부 변수 전달
             return inputs.copy()
 
-    async def _execute_subgraph_scoped(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_subgraph_scoped(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        스코프 기반 서브그래프 실행
+        스코프 기반 서브그래프 실행.
+
+        [GEVENT] 동기 메서드로 변환.
+
         매번 새 엔진을 생성하지 않고 변수 컨텍스트만 변경
         """
         from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
@@ -198,7 +203,7 @@ class LoopNode(Node[LoopNodeData]):
         self._subgraph_engine.user_input = context
 
         # 실행
-        result = await self._subgraph_engine.execute()
+        result = self._subgraph_engine.execute()
         return result
 
     def _resolve_variable(

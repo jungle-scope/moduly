@@ -1,4 +1,4 @@
-import asyncio
+# asyncio import removed - [GEVENT] migration
 from typing import Any, Dict, List
 
 from apps.shared.db.models.app import App
@@ -29,7 +29,7 @@ class WorkflowNode(Node[WorkflowNodeData]):
 
     node_type = "workflowNode"
 
-    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 
         workflow_id = self.data.workflowId
@@ -108,9 +108,9 @@ class WorkflowNode(Node[WorkflowNodeData]):
             is_subworkflow=True,  # [FIX] 서브 워크플로우 표시 - Redis 이벤트 발행 스킵
         )
 
-        # [비동기 전환] 직접 await로 서브 워크플로우 실행
+        # [동기 전환] 직접 동기적으로 서브 워크플로우 실행
         try:
-            result = await engine.execute()
+            result = engine.execute()
         finally:
             engine.cleanup()
 

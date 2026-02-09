@@ -2,10 +2,9 @@
 
 from typing import Any, Dict
 
+from apps.workflow_engine.services.sandbox_service import SandboxService
 from apps.workflow_engine.workflow.nodes.base.node import Node
 from apps.workflow_engine.workflow.nodes.code.entities import CodeNodeData
-
-from apps.workflow_engine.services.sandbox_service import SandboxService
 
 
 class CodeNode(Node[CodeNodeData]):
@@ -28,7 +27,7 @@ class CodeNode(Node[CodeNodeData]):
         super().__init__(id, data, execution_context)
         self.sandbox_service = SandboxService()
 
-    async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         샌드박스에서 Python 코드 실행
 
@@ -55,9 +54,15 @@ class CodeNode(Node[CodeNodeData]):
                 return {"error": f"Invalid variable source format: {inp.source}"}
 
         # 2. 샌드박스에서 코드 실행
-        tenant_id = self.execution_context.get("user_id") if self.execution_context else None
-        trigger_mode = self.execution_context.get("trigger_mode") if self.execution_context else None
-        
+        tenant_id = (
+            self.execution_context.get("user_id") if self.execution_context else None
+        )
+        trigger_mode = (
+            self.execution_context.get("trigger_mode")
+            if self.execution_context
+            else None
+        )
+
         result = self.sandbox_service.execute_python_code(
             code=self.data.code,
             inputs=code_inputs,

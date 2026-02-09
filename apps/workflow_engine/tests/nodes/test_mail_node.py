@@ -1,17 +1,23 @@
-"""Mail 노드 테스트"""
+"""Mail 노드 테스트 [GEVENT] Sync 버전"""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.workflow_engine.workflow.nodes.mail.entities import EmailProvider, MailNodeData, MailVariable
+from apps.workflow_engine.workflow.nodes.mail.entities import (
+    EmailProvider,
+    MailNodeData,
+    MailVariable,
+)
 from apps.workflow_engine.workflow.nodes.mail.mail_node import MailNode
 
 
 @pytest.fixture
 def mock_imap():
     """IMAP 클라이언트 Mock"""
-    with patch("apps.workflow_engine.workflow.nodes.mail.mail_node.imaplib.IMAP4_SSL") as mock:
+    with patch(
+        "apps.workflow_engine.workflow.nodes.mail.mail_node.imaplib.IMAP4_SSL"
+    ) as mock:
         yield mock
 
 
@@ -20,8 +26,7 @@ def mock_imap():
 # ============================================================================
 
 
-@pytest.mark.asyncio
-async def test_mail_search_success(mock_imap):
+def test_mail_search_success(mock_imap):
     """메일 검색이 정상적으로 동작한다"""
     # Mock IMAP 설정
     mock_mail = MagicMock()
@@ -55,7 +60,8 @@ This is a test email body.
     )
 
     node = MailNode(id="mail-test", data=node_data)
-    result = await node._run(inputs={})
+    # [GEVENT] sync 호출
+    result = node._run(inputs={})
 
     # 검증
     assert result["total_count"] == 3
@@ -70,8 +76,7 @@ This is a test email body.
 # ============================================================================
 
 
-@pytest.mark.asyncio
-async def test_mail_variable_substitution(mock_imap):
+def test_mail_variable_substitution(mock_imap):
     """referenced_variables를 사용한 변수 치환이 정상 동작한다"""
     # Mock IMAP 설정
     mock_mail = MagicMock()
@@ -110,7 +115,8 @@ Pull request merged.
     # 입력 데이터 (upstream 노드 결과)
     inputs = {"start-123": {"pr_id": "PR #123"}}
 
-    result = await node._run(inputs=inputs)
+    # [GEVENT] sync 호출
+    result = node._run(inputs=inputs)
 
     # 검증: keyword가 "PR #123"로 치환되어 검색됨
     assert result["total_count"] == 1
@@ -122,8 +128,7 @@ Pull request merged.
 # ============================================================================
 
 
-@pytest.mark.asyncio
-async def test_mail_authentication_failure(mock_imap):
+def test_mail_authentication_failure(mock_imap):
     """잘못된 인증 정보로 에러가 발생한다"""
     # Mock IMAP 인증 실패
     mock_imap.return_value.login.side_effect = Exception("Authentication failed")
@@ -146,7 +151,8 @@ async def test_mail_authentication_failure(mock_imap):
 
     # 에러 발생 확인
     with pytest.raises(RuntimeError, match="IMAP 연결 실패"):
-        await node._run(inputs={})
+        # [GEVENT] sync 호출
+        node._run(inputs={})
 
 
 # ============================================================================
@@ -154,8 +160,7 @@ async def test_mail_authentication_failure(mock_imap):
 # ============================================================================
 
 
-@pytest.mark.asyncio
-async def test_mail_empty_results(mock_imap):
+def test_mail_empty_results(mock_imap):
     """검색 조건에 맞는 메일이 없을 때 빈 배열을 반환한다"""
     # Mock IMAP 설정 - 검색 결과 없음
     mock_mail = MagicMock()
@@ -178,10 +183,10 @@ async def test_mail_empty_results(mock_imap):
     )
 
     node = MailNode(id="mail-test", data=node_data)
-    result = await node._run(inputs={})
+    # [GEVENT] sync 호출
+    result = node._run(inputs={})
 
     # 검증
     assert result["total_count"] == 0
     assert result["emails"] == []
     assert result["folder"] == "INBOX"
-
