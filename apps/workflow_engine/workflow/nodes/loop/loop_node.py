@@ -193,7 +193,7 @@ class LoopNode(Node[LoopNodeData]):
                     "edges": self.data.subGraph.get("edges", []),
                 },
                 user_input=context,
-                execution_context=self.execution_context.copy(),
+                execution_context=dict(self.execution_context),
                 is_deployed=False,
                 db=self.execution_context.get("db"),
                 workflow_timeout=300,

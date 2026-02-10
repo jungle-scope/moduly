@@ -5,6 +5,7 @@ WorkflowEngine - Gevent-based Workflow Execution Engine
 """
 
 import time
+import types
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
@@ -107,7 +108,7 @@ class WorkflowEngine:
         self.reverse_graph.clear()
         self.edge_handles.clear()
         self.nodes_by_type.clear()
-        self.execution_context.clear()
+        self.execution_context = None
         self.user_input = None
         self.logger = None
         self.edges = None
@@ -209,6 +210,9 @@ class WorkflowEngine:
             if workflow_run_id:
                 self.execution_context["workflow_run_id"] = str(workflow_run_id)
         # ============================================================
+
+        # [FIX] execution_context를 읽기 전용으로 동결 (greenlet 간 동시 변경 방지)
+        self.execution_context = types.MappingProxyType(dict(self.execution_context))
 
         start_node = self._find_start_node()
         results = {}
