@@ -7,6 +7,7 @@ Gateway와 Workflow-Engine 간 실시간 통신에 사용됩니다.
 
 import json
 import os
+import threading
 from typing import Any, Dict, Generator, Optional
 
 import redis
@@ -27,21 +28,27 @@ else:
 # Redis 클라이언트 (지연 초기화)
 _redis_client: Optional[redis.Redis] = None
 _async_redis_client: Optional[aioredis.Redis] = None  # [NEW] 비동기 클라이언트
+_redis_lock = threading.Lock()
+_async_redis_lock = threading.Lock()
 
 
 def get_redis_client() -> redis.Redis:
-    """Redis 클라이언트 싱글톤 반환 (동기)"""
+    """Redis 클라이언트 싱글톤 반환 (동기, thread-safe)"""
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis.from_url(REDIS_URL)
+        with _redis_lock:
+            if _redis_client is None:
+                _redis_client = redis.from_url(REDIS_URL)
     return _redis_client
 
 
 def get_async_redis_client() -> aioredis.Redis:
-    """Redis 클라이언트 싱글톤 반환 (비동기)"""
+    """Redis 클라이언트 싱글톤 반환 (비동기, thread-safe)"""
     global _async_redis_client
     if _async_redis_client is None:
-        _async_redis_client = aioredis.from_url(REDIS_URL)
+        with _async_redis_lock:
+            if _async_redis_client is None:
+                _async_redis_client = aioredis.from_url(REDIS_URL)
     return _async_redis_client
 
 
