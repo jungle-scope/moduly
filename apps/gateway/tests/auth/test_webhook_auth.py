@@ -1,4 +1,6 @@
 
+import hmac
+import hashlib
 from unittest.mock import Mock
 
 import pytest
@@ -6,6 +8,7 @@ from fastapi import Request
 
 from apps.gateway.auth.webhook_auth import DefaultWebhookStrategy
 from apps.shared.db.models.app import App
+
 
 
 class TestDefaultWebhookStrategy:
