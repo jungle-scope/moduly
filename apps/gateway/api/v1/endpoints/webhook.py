@@ -10,6 +10,7 @@ from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App
 from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 from apps.shared.db.session import get_db
+from apps.gateway.auth.webhook_auth import webhook_auth_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -18,40 +19,6 @@ router = APIRouter()
 CAPTURE_SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 
-def verify_webhook_auth(request: Request, app: App) -> bool:
-    """
-    다양한 Webhook 인증 방식을 순차적으로 검증
-
-    지원 방식:
-    1. Query Parameter: ?token=xxx
-    2. Authorization Header: Bearer xxx
-    3. Custom Header: X-Webhook-Secret: xxx
-
-    Args:
-        request: FastAPI Request 객체
-        app: App 모델 객체 (auth_secret 포함)
-
-    Returns:
-        True if authenticated, False otherwise
-    """
-    # 1. Query Parameter
-    token = request.query_params.get("token")
-    if token and token == app.auth_secret:
-        return True
-
-    # 2. Authorization Header (Bearer)
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header[7:]  # "Bearer " 제거
-        if token == app.auth_secret:
-            return True
-
-    # 3. Custom Header (X-Webhook-Secret)
-    webhook_secret = request.headers.get("X-Webhook-Secret")
-    if webhook_secret and webhook_secret == app.auth_secret:
-        return True
-
-    return False
 
 
 def run_webhook_workflow(
@@ -111,7 +78,8 @@ async def receive_webhook(
         raise HTTPException(status_code=404, detail="App not found")
 
     # 2. 인증 검증
-    if not verify_webhook_auth(request, app):
+    # Strategy Pattern을 사용한 유연한 인증 (App별 전략 선택 가능)
+    if not webhook_auth_manager.verify(request, app):
         raise HTTPException(
             status_code=403,
             detail="Authentication failed. Provide token via query param (?token=xxx), Bearer header, or X-Webhook-Secret header.",
