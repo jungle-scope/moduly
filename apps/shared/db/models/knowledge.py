@@ -189,6 +189,9 @@ class ParsingRegistry(Base):
     # 파싱된 총 페이지 수. 과금 및 사용량 추적에 필수적입니다.
     page_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    # 원본 파일 크기 (해시 충돌 방지용 2차 검증)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     # 추가 메타데이터 (예: 파싱 옵션, 모델 버전 등).
     meta_info: Mapped[dict] = mapped_column(JSONB, default={}, nullable=False)
 

@@ -3,7 +3,7 @@ import logging
 import re
 import unicodedata
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import requests
@@ -46,38 +46,41 @@ class IngestionOrchestrator:
             keep_separator=True,
         )
 
-    def _compute_file_hash(self, file_path: str) -> Optional[str]:
+    def _compute_file_hash(self, file_path: str) -> Tuple[Optional[str], int]:
         """
-        파일의 SHA-256 해시를 계산합니다.
+        파일의 SHA-256 해시와 크기(byte)를 계산합니다.
         로컬 파일과 URL 모두 지원합니다.
 
         Args:
             file_path: 로컬 파일 경로 또는 URL
 
         Returns:
-            SHA-256 해시 문자열 또는 실패 시 None
+            (SHA-256 해시 문자열, 파일 크기) 튜플. 실패 시 (None, 0)
         """
         try:
             sha256 = hashlib.sha256()
+            total_size = 0
             if file_path.startswith("http://") or file_path.startswith("https://"):
                 with requests.get(file_path, stream=True) as r:
                     r.raise_for_status()
                     for chunk in r.iter_content(chunk_size=8192):
                         sha256.update(chunk)
+                        total_size += len(chunk)
             else:
                 with open(file_path, "rb") as f:
                     for chunk in iter(lambda: f.read(4096), b""):
                         sha256.update(chunk)
-            return sha256.hexdigest()
+                        total_size += len(chunk)
+            return sha256.hexdigest(), total_size
         except FileNotFoundError as e:
             logger.warning(f"[_compute_file_hash] File not found: {e}")
-            return None
+            return None, 0
         except requests.RequestException as e:
             logger.warning(f"[_compute_file_hash] Network error: {e}")
-            return None
+            return None, 0
         except Exception as e:
             logger.warning(f"[_compute_file_hash] Unexpected error: {e}")
-            return None
+            return None, 0
 
     def _resolve_parsing_workflow(
         self,
@@ -103,27 +106,30 @@ class IngestionOrchestrator:
             - pages: 페이지 수 (가능한 경우)
             - content_digest: SHA-256 해시
         """
-        # 1. SHA-256 다이제스트 계산
+        # 1. SHA-256 다이제스트 계산 및 파일 크기 확인
         logger.info(f"[_resolve_parsing_workflow] Start. Path: {file_path}")
         start_time = datetime.now()
 
-        content_digest = self._compute_file_hash(file_path)
+        content_digest, file_size = self._compute_file_hash(file_path)
         if not content_digest:
             raise ValueError(f"Failed to compute hash for file: {file_path}")
-        logger.debug(f"[_resolve_parsing_workflow] File Hash: {content_digest}")
+        logger.debug(
+            f"[_resolve_parsing_workflow] File Hash: {content_digest}, Size: {file_size}"
+        )
 
-        # 2. 레지스트리 조회 (Cache Hit 확인)
+        # 2. 레지스트리 조회 (Cache Hit 확인 - 해시 + 파일크기 이중 체크)
         cached_registry = (
             self.db.query(ParsingRegistry)
             .filter(
                 ParsingRegistry.content_digest == content_digest,
-                ParsingRegistry.provider == strategy,  # 엔진 종류도 일치해야 함
+                ParsingRegistry.file_size == file_size,  # [NEW] 파일 크기 검증
+                ParsingRegistry.provider == strategy,
             )
             .first()
         )
 
         if cached_registry:
-            logger.info(f"[Cache Hit] Digest: {content_digest}")
+            logger.info(f"[Cache Hit] Digest: {content_digest}, Size: {file_size}")
             storage = get_storage_service()
             try:
                 markdown_content = storage.retrieve_content(cached_registry.storage_key)
@@ -191,6 +197,7 @@ class IngestionOrchestrator:
             storage_key=storage_key,
             provider=strategy,
             page_count=page_count,
+            file_size=file_size,  # [NEW] 파일 크기 저장
             meta_info=meta_info or {},
         )
         self.db.add(new_registry)
@@ -513,8 +520,8 @@ class IngestionOrchestrator:
             raise ValueError("Document not found")
 
         # 1. 파일 해시 계산 (캐시 조회용)
-        content_digest = (
-            self._compute_file_hash(doc.file_path) if doc.file_path else None
+        content_digest, file_size = (
+            self._compute_file_hash(doc.file_path) if doc.file_path else (None, 0)
         )
         if not content_digest:
             logger.warning(
@@ -528,13 +535,14 @@ class IngestionOrchestrator:
                 self.db.query(ParsingRegistry)
                 .filter(
                     ParsingRegistry.content_digest == content_digest,
+                    ParsingRegistry.file_size == file_size,  # [NEW] 파일 크기 검증
                     ParsingRegistry.provider == strategy,
                 )
                 .first()
             )
             if cached_registry:
                 logger.info(
-                    f"[analyze_document] Cache hit for digest: {content_digest}"
+                    f"[analyze_document] Cache hit for digest: {content_digest}, size: {file_size}"
                 )
                 return {
                     "cost_estimate": {
