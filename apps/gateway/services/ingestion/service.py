@@ -668,7 +668,7 @@ class IngestionOrchestrator:
                     import json
 
                     api_config = json.loads(api_config)
-                except:
+                except Exception:
                     api_config = {}
             source_config = api_config
         elif source_type == SourceType.DB:
@@ -679,7 +679,7 @@ class IngestionOrchestrator:
                     import json
 
                     db_config = json.loads(db_config)
-                except:
+                except Exception:
                     db_config = {}
             source_config = {**base_config, **(db_config or {})}
 
