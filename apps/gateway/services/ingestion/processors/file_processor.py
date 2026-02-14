@@ -69,6 +69,10 @@ class FileProcessor(BaseProcessor):
                 if "target_pages" in source_config:
                     parse_kwargs["target_pages"] = source_config["target_pages"]
 
+            # [Progress Callback 전달]
+            if self.progress_callback:
+                parse_kwargs["progress_callback"] = self.progress_callback
+
             try:
                 parsed_blocks = parser.parse(target_path, **parse_kwargs)
             except Exception as e:

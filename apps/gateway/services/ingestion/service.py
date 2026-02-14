@@ -84,6 +84,7 @@ class IngestionOrchestrator:
         file_path: str,
         strategy: str = "llamaparse",
         meta_info: Optional[Dict[str, Any]] = None,
+        progress_callback: callable = None,
     ) -> Dict[str, Any]:
         """
         1. 파일 해시 계산 (SHA-256).
@@ -157,8 +158,9 @@ class IngestionOrchestrator:
 
         # IngestionFactory를 통해 프로세서 획득
         # (주의: user_id가 필요하지만, Orchestrator는 self.user_id를 가짐)
+
         processor = IngestionFactory.get_processor(
-            SourceType.FILE, self.db, self.user_id
+            SourceType.FILE, self.db, self.user_id, progress_callback
         )
 
         # 파싱 설정 (전체 파싱)
@@ -323,11 +325,18 @@ class IngestionOrchestrator:
                 self._update_status(document_id, "indexing")
 
                 if doc.source_type == SourceType.FILE:
+                    # [Progress Callback 정의] 0% ~ 50% 구간 매핑
+                    def parsing_progress_callback(p: int):
+                        # p: 0-100 -> scaled: 0-50
+                        scaled_progress = int(p * 0.5)
+                        self._update_progress_redis(document_id, scaled_progress)
+
                     # FILE 타입만 캐싱 워크플로우 적용
                     parsing_result = self._resolve_parsing_workflow(
                         doc.file_path,
                         doc.meta_info.get("strategy", "llamaparse"),
                         doc.meta_info,
+                        progress_callback=parsing_progress_callback,
                     )
                     full_text = parsing_result["content"]
 
@@ -865,9 +874,12 @@ class IngestionOrchestrator:
             batch_texts = [chunk["content"] for _, chunk in batch]
             batch_indices = [idx for idx, _ in batch]
 
-            # 진행률 업데이트 (임베딩 80% 비중)
+            # 진행률 업데이트 (임베딩 80% 비중 -> 전체의 50% 비중, 즉 50~90%)
             current_processed = sum(len(b) for b in batches[: batch_idx + 1])
-            progress = int((current_processed / len(chunks)) * 80)
+            # 내부 진행률 (0~1.0)
+            internal_progress = current_processed / len(chunks)
+            # 전체 진행률: 50 + (내부 진행률 * 40) -> 90%까지
+            progress = 50 + int(internal_progress * 40)
 
             # Redis에 진행률 저장
             self._update_progress_redis(doc.id, progress)
@@ -896,9 +908,10 @@ class IngestionOrchestrator:
         # ========================================
         keyword_error_logged = False
         for i, chunk in enumerate(chunks):
-            # 10개마다 진행률 업데이트 (나머지 20% 비중)
+            # 10개마다 진행률 업데이트 (나머지 10% 비중 -> 90~99%)
             if (i + 1) % 10 == 0 or (i + 1) == len(chunks):
-                progress = 80 + int(((i + 1) / len(chunks)) * 20)
+                # 90 + (0~9)
+                progress = 90 + int(((i + 1) / len(chunks)) * 9)
                 # Redis에 진행률 저장
                 self._update_progress_redis(doc.id, progress)
 
