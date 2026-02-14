@@ -244,6 +244,75 @@ class SlackWebhookStrategy(WebhookAuthStrategy):
         return self._verify_signature(payload_body, app.auth_secret, timestamp, signature)
 
 
+class JiraWebhookStrategy(WebhookAuthStrategy):
+    """
+    Jira Webhook 인증 전략
+
+    Jira webhook signature 검증:
+    - X-Hub-Signature 헤더 사용 (GitHub와 동일한 헤더명)
+    - HMAC SHA-256 서명 검증
+    - 형식: sha256=<hex_digest>
+
+    참고: https://developer.atlassian.com/cloud/jira/platform/webhooks/
+    """
+
+    def _verify_signature(self, payload_body: bytes, secret: str, signature: str) -> bool:
+        """
+        Jira HMAC 서명을 검증합니다.
+
+        Args:
+            payload_body: 원본 요청 body (bytes)
+            secret: Jira Webhook Secret
+            signature: X-Hub-Signature 헤더 값 (sha256=... 형식)
+
+        Returns:
+            bool: 서명 검증 성공 여부
+        """
+        if not signature:
+            return False
+
+        # 서명 형식: "sha256=<hex_digest>"
+        if not signature.startswith("sha256="):
+            return False
+
+        try:
+            hex_digest = signature.split("=", 1)[1]
+        except (ValueError, IndexError):
+            return False
+
+        # HMAC SHA-256 계산
+        mac = hmac.new(secret.encode(), msg=payload_body, digestmod=hashlib.sha256)
+        expected_signature = mac.hexdigest()
+
+        # Timing attack 방지를 위한 constant-time 비교
+        return hmac.compare_digest(expected_signature, hex_digest)
+
+    def verify(self, request: Request, app: App) -> bool:
+        """
+        Jira webhook 서명을 검증합니다.
+
+        검증 단계:
+        1. X-Hub-Signature 헤더 확인
+        2. Raw Body 추출
+        3. HMAC SHA-256 서명 검증
+        """
+        # Jira webhook 헤더 확인
+        signature = request.headers.get("X-Hub-Signature")
+
+        if not signature:
+            # Jira 서명 헤더가 없으면 Jira webhook이 아님
+            return False
+
+        # FastAPI Request._body는 이미 캐싱되어 있음 (middleware에서 처리됨)
+        payload_body = getattr(request, '_body', b'')
+
+        if not payload_body:
+            return False
+
+        # HMAC SHA-256 서명 검증
+        return self._verify_signature(payload_body, app.auth_secret, signature)
+
+
 class AppWebhookAuthManager:
     """
     App별 적절한 인증 전략을 결정하고 실행하는 관리자
@@ -254,11 +323,13 @@ class AppWebhookAuthManager:
         self.default_strategy = DefaultWebhookStrategy()
         self.github_strategy = GitHubWebhookStrategy()
         self.slack_strategy = SlackWebhookStrategy()
+        self.jira_strategy = JiraWebhookStrategy()
         # 추후 App 설정(DB)에 따라 전략을 매핑하는 로직 추가 가능
         self.strategies = {
             "default": self.default_strategy,
             "github": self.github_strategy,
             "slack": self.slack_strategy,
+            "jira": self.jira_strategy,
         }
 
     def verify(self, request: Request, app: App) -> bool:
