@@ -104,6 +104,7 @@ services:
       context: ..
       dockerfile: docker/workflow_engine/Dockerfile
     container_name: moduly-workflow-engine
+    init: true
     environment:
       # Database
       DB_HOST: postgres
@@ -157,6 +158,7 @@ services:
       context: ..
       dockerfile: docker/log_system/Dockerfile
     container_name: moduly-log-system
+    init: true
     environment:
       # Database
       DB_HOST: postgres
@@ -222,10 +224,11 @@ services:
       context: ..
       dockerfile: docker/sandbox/Dockerfile
     container_name: moduly-sandbox
+    init: true
     privileged: true # NSJail에 필요 (Namespace 사용)
     environment:
       TZ: Asia/Seoul
-      
+
       # 네트워크 허용 여부
       SANDBOX_ENABLE_NETWORK: "${SANDBOX_ENABLE_NETWORK:-false}"
 
