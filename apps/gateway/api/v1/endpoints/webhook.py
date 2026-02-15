@@ -78,10 +78,7 @@ async def receive_webhook(
         raise HTTPException(status_code=404, detail="App not found")
 
     # 2. 인증 검증
-    # Request Body를 미리 읽어서 캐싱해둠 (verify 메서드 내부에서 getattr(request, '_body')로 접근 가능하도록)
-    await request.body()
-    
-    if not webhook_auth_manager.verify(request, app):
+    if not await webhook_auth_manager.verify(request, app):
         raise HTTPException(
             status_code=403,
             detail="Authentication failed.",

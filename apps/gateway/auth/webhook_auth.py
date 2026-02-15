@@ -20,7 +20,7 @@ class WebhookAuthStrategy(abc.ABC):
     """Webhook 인증 전략 인터페이스"""
 
     @abc.abstractmethod
-    def verify(self, request: Request, app: App) -> bool:
+    async def verify(self, request: Request, app: App) -> bool:
         """
         요청의 인증 정보를 검증합니다.
 
@@ -44,7 +44,7 @@ class DefaultWebhookStrategy(WebhookAuthStrategy):
     3. Custom Header: X-Webhook-Secret: xxx
     """
 
-    def verify(self, request: Request, app: App) -> bool:
+    async def verify(self, request: Request, app: App) -> bool:
         # 1. Query Parameter
         token = request.query_params.get("token")
         if token and token == app.auth_secret:
@@ -105,7 +105,7 @@ class GitHubWebhookStrategy(WebhookAuthStrategy):
         # Timing attack 방지를 위한 constant-time 비교
         return hmac.compare_digest(expected_signature, hex_digest)
 
-    def verify(self, request: Request, app: App) -> bool:
+    async def verify(self, request: Request, app: App) -> bool:
         """
         GitHub webhook 서명을 검증합니다.
 
@@ -121,9 +121,8 @@ class GitHubWebhookStrategy(WebhookAuthStrategy):
             # GitHub 서명 헤더가 없으면 GitHub webhook이 아님
             return False
 
-        # FastAPI Request._body는 이미 캐싱되어 있음 (middleware에서 처리됨)
-        payload_body = getattr(request, '_body', b'')
-        
+        payload_body = await request.body()
+
         if not payload_body:
             return False
 
@@ -213,7 +212,7 @@ class SlackWebhookStrategy(WebhookAuthStrategy):
         # Timing attack 방지를 위한 constant-time 비교
         return hmac.compare_digest(expected_signature, hex_digest)
 
-    def verify(self, request: Request, app: App) -> bool:
+    async def verify(self, request: Request, app: App) -> bool:
         """
         Slack webhook 서명을 검증합니다.
 
@@ -234,9 +233,8 @@ class SlackWebhookStrategy(WebhookAuthStrategy):
         if not self._is_timestamp_valid(timestamp):
             return False
 
-        # FastAPI Request._body는 이미 캐싱되어 있음 (middleware에서 처리됨)
-        payload_body = getattr(request, '_body', b'')
-        
+        payload_body = await request.body()
+
         if not payload_body:
             return False
 
@@ -287,7 +285,7 @@ class JiraWebhookStrategy(WebhookAuthStrategy):
         # Timing attack 방지를 위한 constant-time 비교
         return hmac.compare_digest(expected_signature, hex_digest)
 
-    def verify(self, request: Request, app: App) -> bool:
+    async def verify(self, request: Request, app: App) -> bool:
         """
         Jira webhook 서명을 검증합니다.
 
@@ -303,8 +301,7 @@ class JiraWebhookStrategy(WebhookAuthStrategy):
             # Jira 서명 헤더가 없으면 Jira webhook이 아님
             return False
 
-        # FastAPI Request._body는 이미 캐싱되어 있음 (middleware에서 처리됨)
-        payload_body = getattr(request, '_body', b'')
+        payload_body = await request.body()
 
         if not payload_body:
             return False
@@ -332,14 +329,14 @@ class AppWebhookAuthManager:
             "jira": self.jira_strategy,
         }
 
-    def verify(self, request: Request, app: App) -> bool:
+    async def verify(self, request: Request, app: App) -> bool:
         """
         등록된 모든 인증 전략을 순차적으로 시도하여 검증합니다.
         하나라도 성공하면 True를 반환합니다.
         """
         # 등록된 모든 전략 순회
         for strategy in self.strategies.values():
-            if strategy.verify(request, app):
+            if await strategy.verify(request, app):
                 return True
         
         return False

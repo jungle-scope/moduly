@@ -11,6 +11,7 @@ from apps.shared.db.models.app import App
 
 
 
+@pytest.mark.asyncio
 class TestDefaultWebhookStrategy:
     @pytest.fixture
     def strategy(self):
@@ -22,7 +23,7 @@ class TestDefaultWebhookStrategy:
         mock_app.auth_secret = "test-secret"
         return mock_app
 
-    def test_verify_query_param(self, strategy, app):
+    async def test_verify_query_param(self, strategy, app):
         """Query Parameter 인증 테스트"""
         scope = {
             "type": "http",
@@ -30,9 +31,9 @@ class TestDefaultWebhookStrategy:
             "headers": [],
         }
         request = Request(scope)
-        assert strategy.verify(request, app) is True
+        assert await strategy.verify(request, app) is True
 
-    def test_verify_bearer_token(self, strategy, app):
+    async def test_verify_bearer_token(self, strategy, app):
         """Bearer Token 인증 테스트"""
         scope = {
             "type": "http",
@@ -40,9 +41,9 @@ class TestDefaultWebhookStrategy:
             "headers": [(b"authorization", b"Bearer test-secret")],
         }
         request = Request(scope)
-        assert strategy.verify(request, app) is True
+        assert await strategy.verify(request, app) is True
 
-    def test_verify_custom_header(self, strategy, app):
+    async def test_verify_custom_header(self, strategy, app):
         """Custom Header 인증 테스트"""
         scope = {
             "type": "http",
@@ -50,9 +51,9 @@ class TestDefaultWebhookStrategy:
             "headers": [(b"x-webhook-secret", b"test-secret")],
         }
         request = Request(scope)
-        assert strategy.verify(request, app) is True
+        assert await strategy.verify(request, app) is True
 
-    def test_verify_fail(self, strategy, app):
+    async def test_verify_fail(self, strategy, app):
         """인증 실패 테스트"""
         # 1. 토큰 없음
         scope_no_token = {
@@ -60,7 +61,7 @@ class TestDefaultWebhookStrategy:
             "query_string": b"",
             "headers": [],
         }
-        assert strategy.verify(Request(scope_no_token), app) is False
+        assert await strategy.verify(Request(scope_no_token), app) is False
 
         # 2. 잘못된 토큰 (Query)
         scope_wrong_query = {
@@ -68,7 +69,7 @@ class TestDefaultWebhookStrategy:
             "query_string": b"token=wrong-secret",
             "headers": [],
         }
-        assert strategy.verify(Request(scope_wrong_query), app) is False
+        assert await strategy.verify(Request(scope_wrong_query), app) is False
 
         # 3. 잘못된 토큰 (Bearer)
         scope_wrong_bearer = {
@@ -76,4 +77,4 @@ class TestDefaultWebhookStrategy:
             "query_string": b"",
             "headers": [(b"authorization", b"Bearer wrong-secret")],
         }
-        assert strategy.verify(Request(scope_wrong_bearer), app) is False
+        assert await strategy.verify(Request(scope_wrong_bearer), app) is False
