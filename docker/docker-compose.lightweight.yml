@@ -4,7 +4,7 @@ version: "3.8"
 # Moduly - Lightweight Docker Compose (2GB RAM Optimized)
 # =============================================================================
 # 목표: 2GB 메모리 환경에서도 안정적으로 실행
-# 
+#
 # 메모리 할당 계획:
 # - PostgreSQL: 300MB
 # - Redis: 100MB
@@ -29,13 +29,13 @@ services:
       POSTGRES_DB: moduly_local
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
-      
+
       # [경량화] PostgreSQL 메모리 최적화
-      POSTGRES_SHARED_BUFFERS: 64MB      # 기본 128MB -> 64MB
-      POSTGRES_EFFECTIVE_CACHE_SIZE: 128MB  # 기본 4GB -> 128MB
-      POSTGRES_WORK_MEM: 4MB             # 기본 4MB 유지
-      POSTGRES_MAINTENANCE_WORK_MEM: 32MB   # 기본 64MB -> 32MB
-      POSTGRES_MAX_CONNECTIONS: 50       # 기본 100 -> 50
+      POSTGRES_SHARED_BUFFERS: 64MB # 기본 128MB -> 64MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 128MB # 기본 4GB -> 128MB
+      POSTGRES_WORK_MEM: 4MB # 기본 4MB 유지
+      POSTGRES_MAINTENANCE_WORK_MEM: 32MB # 기본 64MB -> 32MB
+      POSTGRES_MAX_CONNECTIONS: 50 # 기본 100 -> 50
     ports:
       - "5432:5432"
     volumes:
@@ -107,7 +107,7 @@ services:
       # Python
       PYTHONUNBUFFERED: 1
       PYTHONPATH: /app
-            
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,7 +124,7 @@ services:
     cpus: 0.5
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
-      interval: 120s  # 2분
+      interval: 120s # 2분
       timeout: 15s
       start_period: 60s
       retries: 3
@@ -135,6 +135,7 @@ services:
   workflow_engine:
     image: ghcr.io/jungle-scope/moduly-workflow-engine:latest
     container_name: moduly-workflow-engine
+    init: true
     environment:
       # Database
       DB_HOST: postgres
@@ -182,6 +183,7 @@ services:
   log_system:
     image: ghcr.io/jungle-scope/moduly-logger:latest
     container_name: moduly-log-system
+    init: true
     environment:
       # Database
       DB_HOST: postgres
@@ -222,7 +224,7 @@ services:
       API_URL: http://gateway:8000
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
-      
+
       # [경량화] Node.js 메모리 제한
       NODE_OPTIONS: "--max-old-space-size=256"
     depends_on:
@@ -242,7 +244,7 @@ services:
           "--spider",
           "http://localhost:3000",
         ]
-      interval: 120s  # 2분
+      interval: 120s # 2분
       timeout: 15s
       start_period: 60s
       retries: 3
@@ -253,10 +255,11 @@ services:
   sandbox:
     image: ghcr.io/jungle-scope/moduly-sandbox:latest
     container_name: moduly-sandbox
+    init: true
     privileged: true
     environment:
       TZ: Asia/Seoul
-      
+
       # 네트워크 비활성화 (보안 + 메모리 절약)
       SANDBOX_ENABLE_NETWORK: "false"
 
@@ -275,7 +278,7 @@ services:
       # [경량화] 실행 제한 강화
       SANDBOX_DEFAULT_TIMEOUT: 5
       SANDBOX_MAX_TIMEOUT: 30
-      SANDBOX_MAX_MEMORY_MB: 128     # 256MB -> 128MB
+      SANDBOX_MAX_MEMORY_MB: 128 # 256MB -> 128MB
 
       # 큐 설정
       SANDBOX_MAX_QUEUE_SIZE: 20
