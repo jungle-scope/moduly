@@ -312,35 +312,48 @@ class JiraWebhookStrategy(WebhookAuthStrategy):
 
 class AppWebhookAuthManager:
     """
-    App별 적절한 인증 전략을 결정하고 실행하는 관리자
+    등록된 Webhook 인증 전략 목록을 순회하며 검증을 수행하는 관리자.
+
+    DIP 적용: 구체적인 전략 클래스를 직접 생성하지 않고,
+    외부에서 List[WebhookAuthStrategy] 형태로 주입받습니다.
+    새로운 Webhook 전략을 추가할 때 이 클래스는 수정할 필요가 없습니다 (OCP 준수).
     """
 
-    def __init__(self):
-        # 기본 전략 등록
-        self.default_strategy = DefaultWebhookStrategy()
-        self.github_strategy = GitHubWebhookStrategy()
-        self.slack_strategy = SlackWebhookStrategy()
-        self.jira_strategy = JiraWebhookStrategy()
-        # 추후 App 설정(DB)에 따라 전략을 매핑하는 로직 추가 가능
-        self.strategies = {
-            "default": self.default_strategy,
-            "github": self.github_strategy,
-            "slack": self.slack_strategy,
-            "jira": self.jira_strategy,
-        }
+    def __init__(self, strategies: list[WebhookAuthStrategy]):
+        """
+        Args:
+            strategies: 순차적으로 시도할 WebhookAuthStrategy 인스턴스 리스트.
+                        get_webhook_auth_manager() 팩토리 함수를 통해 주입됩니다.
+        """
+        self.strategies = strategies
 
     async def verify(self, request: Request, app: App) -> bool:
         """
         등록된 모든 인증 전략을 순차적으로 시도하여 검증합니다.
         하나라도 성공하면 True를 반환합니다.
         """
-        # 등록된 모든 전략 순회
-        for strategy in self.strategies.values():
+        for strategy in self.strategies:
             if await strategy.verify(request, app):
                 return True
-        
+
         return False
 
 
-# 싱글톤 인스턴스 (필요시 의존성 주입으로 사용)
-webhook_auth_manager = AppWebhookAuthManager()
+def get_webhook_auth_manager() -> AppWebhookAuthManager:
+    """
+    Webhook 인증 관리자를 생성하는 팩토리 함수.
+
+    DIP의 조립(Composition) 책임을 이 함수가 전담합니다.
+    FastAPI의 Depends()를 통해 엔드포인트에 주입됩니다.
+
+    새로운 Webhook 서비스(예: Discord)를 지원하려면
+    이 함수의 리스트에 전략을 추가하기만 하면 됩니다.
+    """
+    return AppWebhookAuthManager(
+        strategies=[
+            DefaultWebhookStrategy(),
+            GitHubWebhookStrategy(),
+            SlackWebhookStrategy(),
+            JiraWebhookStrategy(),
+        ]
+    )

@@ -10,7 +10,7 @@ from apps.shared.celery_app import celery_app
 from apps.shared.db.models.app import App
 from apps.shared.db.models.workflow_deployment import WorkflowDeployment
 from apps.shared.db.session import get_db
-from apps.gateway.auth.webhook_auth import webhook_auth_manager
+from apps.gateway.auth.webhook_auth import AppWebhookAuthManager, get_webhook_auth_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -60,6 +60,7 @@ async def receive_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    auth_manager: AppWebhookAuthManager = Depends(get_webhook_auth_manager),
 ):
     """
     Webhook 수신 엔드포인트
@@ -78,7 +79,7 @@ async def receive_webhook(
         raise HTTPException(status_code=404, detail="App not found")
 
     # 2. 인증 검증
-    if not await webhook_auth_manager.verify(request, app):
+    if not await auth_manager.verify(request, app):
         raise HTTPException(
             status_code=403,
             detail="Authentication failed.",
