@@ -23,16 +23,23 @@ class BaseProcessor(ABC):
     Strategy Pattern의 Context 역할을 하는 Factory에 의해 호출됩니다.
     """
 
-    def __init__(self, db_session=None, user_id=None):
+    def __init__(
+        self,
+        db_session=None,
+        user_id=None,
+        progress_callback: callable = None,
+    ):
         """
         공통적으로 필요한 DB 세션과 사용자 ID를 초기화합니다.
 
         Args:
             db_session: Database Session (SQLAlchemy)
             user_id: 요청한 사용자의 UUID (권한 확인 및 로깅용)
+            progress_callback: 진행률 업데이트 콜백 함수 (0-100 int)
         """
         self.db = db_session
         self.user_id = user_id
+        self.progress_callback = progress_callback
 
     @abstractmethod
     def process(self, source_config: Dict[str, Any]) -> ProcessingResult:

@@ -16,7 +16,10 @@ class IngestionFactory:
 
     @staticmethod
     def get_processor(
-        source_type: SourceType, db_session: Session, user_id: Optional[UUID] = None
+        source_type: SourceType,
+        db_session: Session,
+        user_id: Optional[UUID] = None,
+        progress_callback: callable = None,
     ) -> BaseProcessor:
         """
         요청된 소스 타입에 맞는 프로세서를 생성합니다.
@@ -25,24 +28,31 @@ class IngestionFactory:
             source_type: 데이터 소스 유형 (FILE, API, DB)
             db_session: DB 세션 (프로세서 내부에서 DB 접근 시 필요)
             user_id: 요청 사용자 ID
+            progress_callback: 진행률 업데이트 콜백 함수
 
         Returns:
             BaseProcessor: 소스별 프로세서 인스턴스 (FileProcessor, ApiProcessor, DbProcessor)
         """
         if source_type == SourceType.FILE:
-            from services.ingestion.processors.file_processor import FileProcessor
+            from apps.gateway.services.ingestion.processors.file_processor import (
+                FileProcessor,
+            )
 
-            return FileProcessor(db_session, user_id)
+            return FileProcessor(db_session, user_id, progress_callback)
 
         elif source_type == SourceType.API:
-            from services.ingestion.processors.api_processor import ApiProcessor
+            from apps.gateway.services.ingestion.processors.api_processor import (
+                ApiProcessor,
+            )
 
-            return ApiProcessor(db_session, user_id)
+            return ApiProcessor(db_session, user_id, progress_callback)
 
         elif source_type == SourceType.DB:
-            from apps.shared.services.ingestion.processors.db_processor import DbProcessor
+            from apps.shared.services.ingestion.processors.db_processor import (
+                DbProcessor,
+            )
 
-            return DbProcessor(db_session, user_id)
+            return DbProcessor(db_session, user_id, progress_callback)
 
         # 알 수 없는 타입이나 Enum 값과 일치하는 문자열 입력에 대한 대비책(Fallback)
         # (타입 힌트는 SourceType으로 되어 있지만, 실제 실행 시(runtime) 문자열이 전달될 가능성 고려)

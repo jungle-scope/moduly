@@ -167,14 +167,12 @@ class DbProcessor(BaseProcessor):
 
             # JOIN 모드 체크(2개까지만 허용)
             join_config = source_config.get("join_config", {})
-            
+
             # 2개 테이블 선택 시 FK 관계 필수
             if len(selections) == 2:
                 if not join_config.get("enabled", False):
-                    raise ValueError(
-                        "선택한 테이블 간 FK 관계가 없습니다."
-                    )
-                
+                    raise ValueError("선택한 테이블 간 FK 관계가 없습니다.")
+
                 logger.info(
                     f"[DB처리] JOIN 모드: {selections[0]['table_name']} + {selections[1]['table_name']}"
                 )
@@ -353,10 +351,50 @@ class DbProcessor(BaseProcessor):
         row_count = 0
         logger.info("[DB처리] 쿼리 실행 중...")
 
+        # [Progress Update Preparation]
+        total_count = 0
+        if self.progress_callback:
+            try:
+                # COUNT(*) 쿼리 생성 및 실행
+                # fetch_data에 count 쿼리를 날려 전체 개수를 파악
+                count_query = f"SELECT COUNT(*) FROM ({query}) AS subquery"
+
+                # fetch_data는 generator이므로 next()로 첫 번째 결과 획득
+                count_result_gen = connector.fetch_data(config_dict, count_query)
+                first_row = next(count_result_gen, None)
+
+                if first_row:
+                    # {"count": 123} or {"COUNT(*)": 123} -> values() 첫번째 값 사용
+                    total_count = list(first_row.values())[0]
+                    logger.info(f"[DB처리] 예상 총 행 수: {total_count}")
+            except Exception as e:
+                logger.warning(
+                    f"[DB처리] Count 쿼리 실패 (진행률 부정확할 수 있음): {e}"
+                )
+
         for row_dict in connector.fetch_data(config_dict, query):
             row_count += 1
             if row_count % 100 == 0:
                 logger.info(f"[DB처리] 처리 중: {row_count}개 행")
+
+                if self.progress_callback and total_count > 0:
+                    try:
+                        p = int((row_count / total_count) * 100)
+                        if p > 100:
+                            p = 100
+                        self.progress_callback(p)
+                    except Exception:
+                        pass
+                elif self.progress_callback:
+                    # Total count 모를 때 Fallback (기존 로직 유지)
+                    limit = source_config.get("limit", 1000)
+                    p = int((row_count / limit) * 100)
+                    if p > 100:
+                        p = 100
+                    try:
+                        self.progress_callback(p)
+                    except Exception:
+                        pass
 
             # 1. 텍스트 변환 (Strategy)
             nl_text = transform_strategy(row_dict)

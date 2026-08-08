@@ -43,14 +43,17 @@ class PdfParser(BaseParser):
         """
         strategy = kwargs.get("strategy", "general")
         target_pages = kwargs.get("target_pages")
+        progress_callback = kwargs.get("progress_callback")  # callable[[int], None]
 
         if strategy == "llamaparse":
             api_key = kwargs.get("api_key")
             if not api_key:
                 raise ValueError("LlamaParse strategy requires 'api_key'")
-            return self._parse_with_llamaparse(source_path, api_key, target_pages)
+            return self._parse_with_llamaparse(
+                source_path, api_key, target_pages, progress_callback
+            )
         else:
-            return self._parse_with_pymupdf(source_path)
+            return self._parse_with_pymupdf(source_path, progress_callback)
 
     def analyze(self, file_path: str) -> Dict[str, Any]:
         """
@@ -65,14 +68,21 @@ class PdfParser(BaseParser):
             "pages": total_pages,
         }
 
-    def _parse_with_pymupdf(self, file_path: str) -> List[Dict[str, Any]]:
+    def _parse_with_pymupdf(
+        self, file_path: str, progress_callback: callable = None
+    ) -> List[Dict[str, Any]]:
         """PyMuPDF4LLM을 사용하여 빠르게 마크다운 텍스트 추출"""
         try:
             md_text_chunks = pymupdf4llm.to_markdown(file_path, page_chunks=True)
 
             # 구분선(-----)만 있고 실제 텍스트가 없는 경우 감지
             total_content_len = 0
-            for chunk in md_text_chunks:
+            for i, chunk in enumerate(md_text_chunks):
+                if progress_callback:
+                    # 간단한 진행률: (현재 페이지 / 전체 페이지) * 100
+                    p = int(((i + 1) / len(md_text_chunks)) * 100)
+                    progress_callback(p)
+
                 clean_text = chunk["text"].replace("-", "").strip()
                 total_content_len += len(clean_text)
 
@@ -106,7 +116,11 @@ class PdfParser(BaseParser):
             return []
 
     def _parse_with_llamaparse(
-        self, file_path: str, api_key: str, target_pages: str = None
+        self,
+        file_path: str,
+        api_key: str,
+        target_pages: str = None,
+        progress_callback: callable = None,
     ) -> List[Dict[str, Any]]:
         """LlamaParse API를 사용하여 고품질 파싱 (OCR 수행)"""
         try:
@@ -135,10 +149,14 @@ class PdfParser(BaseParser):
             )
 
             # load_data returns List[Document]
+            # 비동기 진행률 (API 호출 중에는 알 수 없음, 10% 정도만 미리 알림)
+            if progress_callback:
+                progress_callback(10)
+
             documents = parser.load_data(file_path)
 
             results = []
-            for doc in documents:
+            for i, doc in enumerate(documents):
                 # LlamaParse Document has 'text' field (markdown) and metadata
                 page_num = 1
                 if "page_label" in doc.metadata:
@@ -148,6 +166,11 @@ class PdfParser(BaseParser):
                         pass
 
                 results.append({"text": doc.text, "page": page_num})
+
+                if progress_callback:
+                    # 10% ~ 100% 구간 매핑
+                    p = 10 + int(((i + 1) / len(documents)) * 90)
+                    progress_callback(p)
 
             return results
 
