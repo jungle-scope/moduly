@@ -18,6 +18,10 @@ from apps.workflow_engine.workflow.core.workflow_logger import WorkflowLogger
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
 from apps.workflow_engine.workflow.core.workflow_run import WorkflowRun
 
+# 서브 워크플로우 엔진이 execution_context에 남기는 표시.
+# 그 안에서 만들어지는 엔진(루프 서브그래프 등)이 컨텍스트를 물려받아 함께 조용히 실행됨
+SUBWORKFLOW_CONTEXT_KEY = "is_subworkflow"
+
 
 class WorkflowEngine:
     """노드와 엣지를 받아서 전체 워크플로우 실행을 담당하는 엔진 (Gevent 기반)"""
@@ -47,7 +51,8 @@ class WorkflowEngine:
             parent_run_id: 부모 워크플로우의 run_id. 지정하면 부모 run의 일부로 실행되어
                 run 자체의 생성/종료는 보고하지 않음 (서브 워크플로우, 루프 서브그래프)
             workflow_timeout: 워크플로우 전체 실행 제한 시간 (초)
-            is_subworkflow: 서브 워크플로우 여부. True면 노드 로그/이벤트도 내보내지 않음
+            is_subworkflow: 서브 워크플로우 여부. True면 노드 로그/이벤트도 내보내지 않음.
+                서브 워크플로우의 execution_context를 물려받은 엔진에도 적용됨
         """
         if isinstance(graph, dict):
             nodes = [NodeSchema(**node) for node in graph.get("nodes", [])]
@@ -65,12 +70,18 @@ class WorkflowEngine:
         if db is not None:
             self.execution_context["db"] = db
 
+        # 서브 워크플로우 여부는 컨텍스트를 통해 하위 엔진으로 전파
+        self.is_subworkflow = is_subworkflow or bool(
+            self.execution_context.get(SUBWORKFLOW_CONTEXT_KEY)
+        )
+        if self.is_subworkflow:
+            self.execution_context[SUBWORKFLOW_CONTEXT_KEY] = True
+
         self._build_node_instances()
 
         # 로깅 관련 초기화
         self.logger = WorkflowLogger(db)
         self.parent_run_id = parent_run_id
-        self.is_subworkflow = is_subworkflow
 
         # 그래프 구조 검증
         self.validate_graph()

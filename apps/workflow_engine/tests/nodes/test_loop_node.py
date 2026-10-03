@@ -190,6 +190,75 @@ class TestLoopRunReporting:
         assert recorder.log_task_names.count("log.create_run") == 1
 
 
+class TestLoopNesting:
+    def test_loop_inside_subworkflow_is_silent(self, recorder):
+        """서브 워크플로우(WorkflowNode가 만드는 엔진) 안의 루프는 내부 노드도 보고하지 않는다"""
+        engine = WorkflowEngine(
+            graph=loop_graph(template_node()),
+            user_input={"items": [1, 2]},
+            execution_context={"workflow_id": "wf-1", "user_id": "user-1"},
+            is_deployed=True,
+            parent_run_id=str(uuid.uuid4()),
+            is_subworkflow=True,
+        )
+
+        engine.execute()
+
+        assert recorder.log_task_names == []
+        assert recorder.published == []
+
+    def test_subworkflow_flag_does_not_leak_into_caller_context(self, recorder):
+        """서브 워크플로우 표시는 엔진이 복사한 컨텍스트에만 남는다"""
+        caller_context = {"workflow_id": "wf-1", "user_id": "user-1"}
+
+        WorkflowEngine(
+            graph=loop_graph(template_node()),
+            execution_context=caller_context,
+            parent_run_id=str(uuid.uuid4()),
+            is_subworkflow=True,
+        )
+
+        assert caller_context == {"workflow_id": "wf-1", "user_id": "user-1"}
+
+    def test_nested_loops_report_run_once(self, recorder):
+        """루프 안의 루프도 부모 run에 붙어 run 종료는 1번만 보고된다"""
+        loop_var = {"id": "l", "name": "loop", "label": "loop", "type": "text"}
+        inner_sub = {
+            "nodes": [node("inner-start", "startNode"), template_node()],
+            "edges": [edge("inner-start", "sub-tpl")],
+        }
+        outer_sub_nodes = [
+            node("sub-start", "startNode", variables=[loop_var]),
+            node(
+                "inner-loop",
+                "loopNode",
+                loop_key="sub-start.loop.item",
+                subGraph=inner_sub,
+            ),
+        ]
+        graph = loop_graph(outer_sub_nodes[1])
+        graph["nodes"][1]["data"]["subGraph"]["nodes"][0] = outer_sub_nodes[0]
+        run_id = str(uuid.uuid4())
+
+        _, result = run_engine(graph, items=[[1, 2], [3]], run_id=run_id)
+
+        inner_results = [
+            len(iteration["inner-loop"]["results"])
+            for iteration in result["loop"]["results"]
+        ]
+        assert inner_results == [2, 1]
+        assert recorder.published_types.count("workflow_finish") == 1
+        assert recorder.log_task_names.count("log.create_run") == 1
+        assert recorder.log_task_names.count("log.update_run_finish") == 1
+        inner_logs = [
+            p
+            for name, p in recorder.log_tasks
+            if name == "log.create_node" and p["node_id"] == "sub-tpl"
+        ]
+        assert len(inner_logs) == 3
+        assert {p["workflow_run_id"] for p in inner_logs} == {run_id}
+
+
 class TestLoopFailures:
     def failing_graph(self, fail_on_calls, **loop_data):
         inner = node("sub-fail", "failingNode", fail_on_calls=fail_on_calls)
