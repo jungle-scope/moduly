@@ -609,8 +609,11 @@ class TestRunLogging:
             f"workflow:{run_id}"
         }
 
-    def test_parent_run_id_skips_run_creation(self, harness):
-        """parent_run_id만 있으면 run log를 새로 만들지 않고 부모 run에 노드 로그를 붙인다"""
+    def test_parent_run_id_attaches_to_parent_run(self, harness):
+        """
+        parent_run_id가 있으면 부모 run에 붙는다 (LoopNode 서브그래프):
+        노드 로그/이벤트는 부모 run으로 나가고, run 자체의 생성/종료는 보고하지 않는다
+        """
         parent_run_id = str(uuid.uuid4())
         engine = WorkflowEngine(
             graph=linear_graph(),
@@ -618,12 +621,67 @@ class TestRunLogging:
             parent_run_id=parent_run_id,
         )
 
+        result = engine.execute()
+
+        assert set(result) == {"start-1", "answer-1"}
+        assert harness.log_task_names == [
+            "log.create_node",
+            "log.update_node_finish",
+            "log.create_node",
+            "log.update_node_finish",
+        ]
+        assert {p["workflow_run_id"] for _, p in harness.log_tasks} == {parent_run_id}
+        assert harness.published_types == [
+            "node_start",
+            "node_finish",
+            "node_start",
+            "node_finish",
+        ]
+        assert {channel for channel, _, _ in harness.published} == {
+            f"workflow:{parent_run_id}"
+        }
+        assert engine.execution_context["workflow_run_id"] == parent_run_id
+
+    def test_parent_run_id_takes_precedence_over_context_run_id(self, harness):
+        """부모 컨텍스트를 복사해 workflow_run_id가 들어 있어도 run log를 새로 만들지 않는다"""
+        parent_run_id = str(uuid.uuid4())
+        engine = WorkflowEngine(
+            graph=linear_graph(),
+            execution_context={**LOGGED_CONTEXT, "workflow_run_id": parent_run_id},
+            parent_run_id=parent_run_id,
+        )
+
         engine.execute()
 
         assert "log.create_run" not in harness.log_task_names
-        node_logs = [p for name, p in harness.log_tasks if name == "log.create_node"]
-        assert {p["workflow_run_id"] for p in node_logs} == {parent_run_id}
-        assert engine.execution_context["workflow_run_id"] == parent_run_id
+        assert "log.update_run_finish" not in harness.log_task_names
+        assert "workflow_finish" not in harness.published_types
+
+    def test_attached_run_failure_only_raises(self, harness):
+        """부모 run에 붙은 실행이 실패하면 노드 에러 로그만 남기고 예외를 던진다"""
+        engine = WorkflowEngine(
+            graph=linear_graph(**{"raise": "boom"}),
+            execution_context=dict(LOGGED_CONTEXT),
+            parent_run_id=str(uuid.uuid4()),
+        )
+
+        with pytest.raises(ValueError, match="boom"):
+            engine.execute()
+
+        assert "log.update_node_error" in harness.log_task_names
+        assert "log.update_run_error" not in harness.log_task_names
+        assert "error" not in harness.published_types
+
+    def test_attached_engine_can_be_executed_repeatedly(self, harness):
+        """동결된 execution_context에서도 부모 run에 붙은 엔진을 반복 실행할 수 있다"""
+        engine = WorkflowEngine(
+            graph=linear_graph(),
+            execution_context=dict(LOGGED_CONTEXT),
+            parent_run_id=str(uuid.uuid4()),
+        )
+
+        for _ in range(3):
+            assert set(engine.execute()) == {"start-1", "answer-1"}
 
     def test_subworkflow_emits_no_logs_or_events(self, harness):
         """서브 워크플로우는 성공 시 로그 태스크와 Pub/Sub 이벤트를 내지 않는다"""

@@ -6,7 +6,10 @@ RunReporter - 워크플로우 1회 실행의 진행 상황 보고
 - Redis Pub/Sub: 실시간 이벤트
 - 스트림 큐: execute_stream() 제너레이터로 전달할 이벤트
 
-서브 워크플로우는 부모 실행에 포함되므로 로그/Pub/Sub을 내보내지 않습니다.
+보고 범위는 두 가지 플래그로 정해집니다.
+- is_subworkflow: 서브 워크플로우는 부모의 노드 하나로 취급되므로 아무것도 내보내지 않음
+- owns_run=False: 부모 run의 일부(루프 서브그래프)이므로 노드 로그/이벤트만 내보내고,
+  run 자체의 종료/실패(run 로그, workflow_finish/error)는 부모 엔진에 맡김
 """
 
 from dataclasses import dataclass
@@ -40,11 +43,14 @@ class RunReporter:
         logger: WorkflowLogger,
         run_id: Optional[str],
         is_subworkflow: bool = False,
+        owns_run: bool = True,
         stream_mode: bool = False,
     ):
         self.logger = logger
         self.run_id = run_id
         self.is_subworkflow = is_subworkflow
+        # run 자체의 종료/실패를 보고할지 여부
+        self.reports_run = owns_run and not is_subworkflow
         # [GEVENT] greenlet에서 발생한 이벤트를 메인 루프로 전달하는 큐
         self.event_queue = Queue() if stream_mode else None
 
@@ -126,9 +132,9 @@ class RunReporter:
 
     def workflow_finished(self, final_data: Any) -> Dict[str, Any]:
         """워크플로우 완료: run 로그 + Pub/Sub 발행, workflow_finish 이벤트 반환"""
-        if not self.is_subworkflow:
+        if self.reports_run:
             self.logger.update_run_log_finish(final_data)
-        self._publish("workflow_finish", final_data)
+            self._publish("workflow_finish", final_data)
         return {"type": "workflow_finish", "data": final_data}
 
     def workflow_failed(
@@ -139,9 +145,9 @@ class RunReporter:
 
         노드 실패로 중단된 경우 반환하는 스트림 이벤트에 node_id를 포함합니다.
         """
-        if not self.is_subworkflow:
+        if self.reports_run:
             self.logger.update_run_log_error(error_msg)
-        self._publish("error", {"message": error_msg})
+            self._publish("error", {"message": error_msg})
 
         data = {"message": error_msg}
         if node_id is not None:

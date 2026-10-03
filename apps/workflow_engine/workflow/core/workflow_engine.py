@@ -44,9 +44,10 @@ class WorkflowEngine:
             execution_context: 실행 컨텍스트 (user_id 등 전역 환경 정보)
             is_deployed: 배포 모드 여부
             db: DB 세션 (로깅용)
-            parent_run_id: 부모 워크플로우의 run_id
+            parent_run_id: 부모 워크플로우의 run_id. 지정하면 부모 run의 일부로 실행되어
+                run 자체의 생성/종료는 보고하지 않음 (서브 워크플로우, 루프 서브그래프)
             workflow_timeout: 워크플로우 전체 실행 제한 시간 (초)
-            is_subworkflow: 서브 워크플로우 여부
+            is_subworkflow: 서브 워크플로우 여부. True면 노드 로그/이벤트도 내보내지 않음
         """
         if isinstance(graph, dict):
             nodes = [NodeSchema(**node) for node in graph.get("nodes", [])]
@@ -160,6 +161,7 @@ class WorkflowEngine:
             logger=self.logger,
             run_id=self.execution_context.get("workflow_run_id"),
             is_subworkflow=self.is_subworkflow,
+            owns_run=self.parent_run_id is None,
             stream_mode=stream_mode,
         )
         run = WorkflowRun(
@@ -178,20 +180,20 @@ class WorkflowEngine:
         """
         실행 로그를 시작하고 execution_context에 workflow_run_id를 확정합니다.
 
-        - 서브 워크플로우 / parent_run_id만 있는 경우: 부모 run에 연결 (run log 생성 안 함)
+        - parent_run_id가 있는 경우: 부모 run에 연결 (run log 생성 안 함)
+          부모 컨텍스트를 복사해 workflow_run_id가 이미 있더라도 이 분기가 우선
         - 외부에서 workflow_run_id를 받은 경우: 해당 ID로 run log 생성
         - 그 외: 새 run_id로 run log 생성
         """
         external_run_id = self.execution_context.get("workflow_run_id")
 
-        if self.is_subworkflow:
-            if self.parent_run_id:
-                self._attach_to_parent_run()
+        if self.parent_run_id:
+            self._attach_to_parent_run()
+        elif self.is_subworkflow:
+            pass
         elif external_run_id:
             self.logger.workflow_run_id = uuid.UUID(external_run_id)
             self._create_run_log(external_run_id=external_run_id)
-        elif self.parent_run_id:
-            self._attach_to_parent_run()
         else:
             workflow_run_id = self._create_run_log()
 
@@ -200,7 +202,9 @@ class WorkflowEngine:
 
     def _attach_to_parent_run(self):
         self.logger.workflow_run_id = uuid.UUID(self.parent_run_id)
-        self.execution_context["workflow_run_id"] = self.parent_run_id
+        # 재실행 시에는 execution_context가 이미 동결되어 있으므로 값이 다를 때만 기록
+        if self.execution_context.get("workflow_run_id") != self.parent_run_id:
+            self.execution_context["workflow_run_id"] = self.parent_run_id
 
     def _create_run_log(self, **kwargs):
         # [GEVENT] 직접 동기 호출 (gevent가 I/O를 처리)

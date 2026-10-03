@@ -196,6 +196,9 @@ class LoopNode(Node[LoopNodeData]):
                 execution_context=dict(self.execution_context),
                 is_deployed=False,
                 db=self.execution_context.get("db"),
+                # 부모 run의 일부로 실행: 내부 노드 로그/이벤트는 부모 run에 붙이고,
+                # run 생성/종료(workflow_finish, error)는 부모 엔진만 보고하도록 함
+                parent_run_id=self.execution_context.get("workflow_run_id"),
                 workflow_timeout=300,
             )
 
