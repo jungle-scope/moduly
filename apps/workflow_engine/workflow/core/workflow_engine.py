@@ -7,6 +7,7 @@ WorkflowEngine - Gevent-based Workflow Execution Engine
 import time
 import types
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 import gevent
@@ -18,6 +19,12 @@ from apps.shared.pubsub import publish_workflow_event  # [GEVENT] Use sync versi
 from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
 from apps.workflow_engine.workflow.core.workflow_logger import WorkflowLogger
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
+
+# 워크플로우의 진입점이 되는 노드 타입 (user_input을 입력으로 받음)
+TRIGGER_TYPES = ("startNode", "webhookTrigger", "scheduleTrigger")
+
+MAX_CONCURRENT_NODES = 10
+DEFAULT_NODE_TIMEOUT = 300  # 초
 
 
 class WorkflowEngine:
@@ -64,8 +71,6 @@ class WorkflowEngine:
 
         if db is not None:
             self.execution_context["db"] = db
-        elif "db" not in self.execution_context:
-            pass
 
         # [PERF] 그래프 구조 사전 계산
         self.adjacency_list = {}
@@ -77,9 +82,7 @@ class WorkflowEngine:
         # 타입별 노드 인덱스
         self.nodes_by_type = {}
         for node_id, schema in self.node_schemas.items():
-            if schema.type not in self.nodes_by_type:
-                self.nodes_by_type[schema.type] = []
-            self.nodes_by_type[schema.type].append(node_id)
+            self.nodes_by_type.setdefault(schema.type, []).append(node_id)
 
         self._build_node_instances()
 
@@ -143,8 +146,7 @@ class WorkflowEngine:
         - workflow_finish: 전체 워크플로우 완료
         - error: 실행 중 오류 발생
         """
-        for event in self._execute_core(stream_mode=True):
-            yield event
+        yield from self._execute_core(stream_mode=True)
 
     def execute_deployed(self):
         """
@@ -153,12 +155,9 @@ class WorkflowEngine:
         [GEVENT] 동기 메서드로 변환.
         """
         final_result = None
-        try:
-            for event in self._execute_core(stream_mode=False):
-                if event["type"] == "workflow_finish":
-                    final_result = event["data"]
-        except Exception as e:
-            raise e
+        for event in self._execute_core(stream_mode=False):
+            if event["type"] == "workflow_finish":
+                final_result = event["data"]
 
         return final_result
 
@@ -225,8 +224,7 @@ class WorkflowEngine:
         running_greenlets = {}  # {greenlet: node_id}
 
         # [GEVENT] Pool for concurrency control
-        max_concurrent_tasks = 10
-        pool = Pool(size=max_concurrent_tasks)
+        pool = Pool(size=MAX_CONCURRENT_NODES)
 
         # [GEVENT] 이벤트 큐
         event_queue = Queue() if stream_mode else None
@@ -331,37 +329,30 @@ class WorkflowEngine:
                         break
 
             # 워크플로우 종료
-            run_id = self.execution_context.get("workflow_run_id")
+            # 스트림 모드는 전체 결과를, 배포 모드는 AnswerNode 결과만 반환
             if stream_mode:
-                final_context = dict(results)
-                if not self.is_subworkflow:
-                    self.logger.update_run_log_finish(final_context)
-                if run_id and not self.is_subworkflow:
-                    publish_workflow_event(run_id, "workflow_finish", final_context)
-                yield {"type": "workflow_finish", "data": final_context}
+                final_data = dict(results)
             else:
-                final_result = self._get_answer_node_result(results)
-                if not self.is_subworkflow:
-                    self.logger.update_run_log_finish(final_result)
-                if run_id and not self.is_subworkflow:
-                    publish_workflow_event(run_id, "workflow_finish", final_result)
-                yield {"type": "workflow_finish", "data": final_result}
+                final_data = self._get_answer_node_result(results)
+
+            run_id = self.execution_context.get("workflow_run_id")
+            if not self.is_subworkflow:
+                self.logger.update_run_log_finish(final_data)
+                if run_id:
+                    publish_workflow_event(run_id, "workflow_finish", final_data)
+            yield {"type": "workflow_finish", "data": final_data}
 
         except Exception as e:
+            error_msg = str(e)
             run_id = self.execution_context.get("workflow_run_id")
-            if not stream_mode:
-                if not self.is_subworkflow:
-                    self.logger.update_run_log_error(str(e))
-                if run_id and not self.is_subworkflow:
-                    publish_workflow_event(run_id, "error", {"message": str(e)})
-                raise e
-            else:
-                error_msg = str(e)
-                if not self.is_subworkflow:
-                    self.logger.update_run_log_error(error_msg)
-                if run_id and not self.is_subworkflow:
+            if not self.is_subworkflow:
+                self.logger.update_run_log_error(error_msg)
+                if run_id:
                     publish_workflow_event(run_id, "error", {"message": error_msg})
-                yield {"type": "error", "data": {"message": error_msg}}
+
+            if not stream_mode:
+                raise
+            yield {"type": "error", "data": {"message": error_msg}}
 
     def _submit_node(
         self, node_id, results, running_greenlets, stream_mode, pool, event_queue
@@ -378,8 +369,6 @@ class WorkflowEngine:
         node_schema = self.node_schemas[node_id]
 
         inputs = self._get_context(node_id, results)
-
-        from datetime import datetime, timezone
 
         started_at = datetime.now(timezone.utc)
 
@@ -418,7 +407,9 @@ class WorkflowEngine:
         def _execute_with_event():
             """노드 실행 및 이벤트 발행 래퍼"""
             node_timeout = (
-                node_schema.timeout if node_schema.timeout is not None else 300
+                node_schema.timeout
+                if node_schema.timeout is not None
+                else DEFAULT_NODE_TIMEOUT
             )
 
             try:
@@ -556,12 +547,11 @@ class WorkflowEngine:
 
     def _check_start_nodes(self):
         """시작 노드 유효성 검사 및 ID 캐싱"""
-        start_nodes = []
-        TRIGGER_TYPES = ["startNode", "webhookTrigger", "scheduleTrigger"]
-
-        for node_id, node in self.node_schemas.items():
-            if node.type in TRIGGER_TYPES:
-                start_nodes.append(node_id)
+        start_nodes = [
+            node_id
+            for node_id, node in self.node_schemas.items()
+            if node.type in TRIGGER_TYPES
+        ]
 
         if len(start_nodes) > 1:
             raise ValueError(
@@ -588,11 +578,10 @@ class WorkflowEngine:
                     visited.add(neighbor)
                     queue.append(neighbor)
 
-        all_nodes = set(self.node_schemas.keys())
         valid_nodes = {
             node_id
-            for node_id in all_nodes
-            if self.node_schemas[node_id].type != "note"
+            for node_id, schema in self.node_schemas.items()
+            if schema.type != "note"
         }
 
         isolated_nodes = valid_nodes - visited
@@ -620,9 +609,7 @@ class WorkflowEngine:
         selected_handle = result.get("selected_handle")
 
         if selected_handle is not None:
-            key = (node_id, selected_handle)
-            next_nodes = self.edge_handles.get(key, [])
-            return next_nodes
+            return self.edge_handles.get((node_id, selected_handle), [])
 
         return self.adjacency_list.get(node_id, [])
 
@@ -638,18 +625,11 @@ class WorkflowEngine:
     def _build_optimized_graph(self):
         """엣지를 분석하여 효율적인 그래프 구조 생성"""
         for edge in self.edges:
-            if edge.source not in self.adjacency_list:
-                self.adjacency_list[edge.source] = []
-            self.adjacency_list[edge.source].append(edge.target)
-
-            if edge.target not in self.reverse_graph:
-                self.reverse_graph[edge.target] = []
-            self.reverse_graph[edge.target].append(edge.source)
-
-            key = (edge.source, edge.sourceHandle)
-            if key not in self.edge_handles:
-                self.edge_handles[key] = []
-            self.edge_handles[key].append(edge.target)
+            self.adjacency_list.setdefault(edge.source, []).append(edge.target)
+            self.reverse_graph.setdefault(edge.target, []).append(edge.source)
+            self.edge_handles.setdefault((edge.source, edge.sourceHandle), []).append(
+                edge.target
+            )
 
         self._analyze_data_dependencies()
 
@@ -671,16 +651,10 @@ class WorkflowEngine:
     def _analyze_data_dependencies(self):
         """각 노드의 value_selector를 분석하여 실제 데이터 의존성을 추출합니다."""
         for node_id, schema in self.node_schemas.items():
-            if schema.type in ["startNode", "webhookTrigger", "scheduleTrigger"]:
+            if schema.type in TRIGGER_TYPES:
                 self.data_dependencies[node_id] = set()
-                continue
-
-            referenced_nodes = self._extract_value_selectors(schema)
-
-            if referenced_nodes:
-                self.data_dependencies[node_id] = referenced_nodes
             else:
-                self.data_dependencies[node_id] = set()
+                self.data_dependencies[node_id] = self._extract_value_selectors(schema)
 
     def _extract_value_selectors(self, schema: NodeSchema) -> set:
         """NodeSchema의 data에서 모든 value_selector를 추출합니다."""
@@ -713,11 +687,7 @@ class WorkflowEngine:
     def _get_context(self, node_id: str, results: Dict) -> Dict[str, Any]:
         """현재 노드가 실행에 필요한 모든 입력 데이터를 구성"""
         node_schema = self.node_schemas.get(node_id)
-        if node_schema and node_schema.type in [
-            "startNode",
-            "webhookTrigger",
-            "scheduleTrigger",
-        ]:
+        if node_schema and node_schema.type in TRIGGER_TYPES:
             return self.user_input
 
         return dict(results)
