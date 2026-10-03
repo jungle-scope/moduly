@@ -10,10 +10,12 @@ Run:
 """
 
 import time
+from unittest.mock import patch
 
 import pytest
 
 from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
+from apps.workflow_engine.workflow.core.workflow_run import WorkflowRun
 
 # ============================================================================
 # Test Fixtures - Workflow Graphs
@@ -235,16 +237,15 @@ class TestParallelExecution:
 
         # Track execution order
         execution_times = {}
-        original_submit = engine._submit_node
+        original_submit = WorkflowRun._submit_node
 
-        def track_submit(node_id, *args, **kwargs):
+        def track_submit(run, node_id):
             execution_times[node_id] = time.time()
-            return original_submit(node_id, *args, **kwargs)
-
-        engine._submit_node = track_submit
+            return original_submit(run, node_id)
 
         # [GEVENT] sync 호출
-        result = engine.execute()
+        with patch.object(WorkflowRun, "_submit_node", track_submit):
+            result = engine.execute()
 
         # Both template-a and template-b should start at roughly the same time
         # (within a small tolerance for async scheduling)
@@ -282,7 +283,7 @@ class TestParallelExecution:
 
         # Track when nodes become ready
         ready_times = {}
-        original_is_ready = engine._is_ready
+        original_is_ready = engine.graph.is_ready
 
         def track_is_ready(node_id, results):
             is_ready = original_is_ready(node_id, results)
@@ -290,7 +291,7 @@ class TestParallelExecution:
                 ready_times[node_id] = (time.time(), set(results.keys()))
             return is_ready
 
-        engine._is_ready = track_is_ready
+        engine.graph.is_ready = track_is_ready
 
         # [GEVENT] sync 호출
         result = engine.execute()
@@ -344,7 +345,7 @@ class TestBackwardCompatibility:
         assert len(engine.data_dependencies["code-1"]) == 0
 
         # _is_ready should work correctly (no dependencies = ready immediately)
-        assert engine._is_ready("code-1", {})
+        assert engine.graph.is_ready("code-1", {})
 
 
 class TestComplexWorkflows:
