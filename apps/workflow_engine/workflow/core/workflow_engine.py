@@ -17,11 +17,9 @@ from sqlalchemy.orm import Session
 
 from apps.shared.pubsub import publish_workflow_event  # [GEVENT] Use sync version
 from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
+from apps.workflow_engine.workflow.core.workflow_graph import NOTE_TYPE, WorkflowGraph
 from apps.workflow_engine.workflow.core.workflow_logger import WorkflowLogger
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
-
-# 워크플로우의 진입점이 되는 노드 타입 (user_input을 입력으로 받음)
-TRIGGER_TYPES = ("startNode", "webhookTrigger", "scheduleTrigger")
 
 MAX_CONCURRENT_NODES = 10
 DEFAULT_NODE_TIMEOUT = 300  # 초
@@ -61,9 +59,8 @@ class WorkflowEngine:
             edges = [EdgeSchema(**edge) for edge in graph.get("edges", [])]
 
         self.is_deployed = is_deployed
-        self.node_schemas = {node.id: node for node in nodes}
+        self.graph = WorkflowGraph(nodes, edges)
         self.node_instances = {}
-        self.edges = edges
         self.user_input = user_input if user_input is not None else {}
         self.execution_context = dict(execution_context) if execution_context else {}
         self.workflow_timeout = workflow_timeout
@@ -72,28 +69,23 @@ class WorkflowEngine:
         if db is not None:
             self.execution_context["db"] = db
 
-        # [PERF] 그래프 구조 사전 계산
-        self.adjacency_list = {}
-        self.reverse_graph = {}
-        self.edge_handles = {}
-        self.data_dependencies = {}
-        self._build_optimized_graph()
-
-        # 타입별 노드 인덱스
-        self.nodes_by_type = {}
-        for node_id, schema in self.node_schemas.items():
-            self.nodes_by_type.setdefault(schema.type, []).append(node_id)
-
         self._build_node_instances()
 
         # 로깅 관련 초기화
         self.logger = WorkflowLogger(db)
         self.parent_run_id = parent_run_id
-        self.start_node_id = None
         self.is_subworkflow = is_subworkflow
 
         # 그래프 구조 검증
         self.validate_graph()
+
+    @property
+    def node_schemas(self) -> Dict[str, NodeSchema]:
+        return self.graph.node_schemas
+
+    @property
+    def data_dependencies(self) -> Dict[str, set]:
+        return self.graph.data_dependencies
 
     def cleanup(self):
         """실행 완료 후 메모리 정리"""
@@ -106,15 +98,10 @@ class WorkflowEngine:
                 node_instance._subgraph_engine = None
 
         self.node_instances.clear()
-        self.node_schemas.clear()
-        self.adjacency_list.clear()
-        self.reverse_graph.clear()
-        self.edge_handles.clear()
-        self.nodes_by_type.clear()
+        self.graph.clear()
         self.execution_context = None
         self.user_input = None
         self.logger = None
-        self.edges = None
 
     def execute(self) -> Dict[str, Any]:
         """
@@ -213,7 +200,7 @@ class WorkflowEngine:
         # [FIX] execution_context를 읽기 전용으로 동결 (greenlet 간 동시 변경 방지)
         self.execution_context = types.MappingProxyType(dict(self.execution_context))
 
-        start_node = self._find_start_node()
+        start_node = self.graph.find_start_node()
         results = {}
 
         # 병렬 실행 상태 관리
@@ -509,134 +496,29 @@ class WorkflowEngine:
             raise e
 
     # ================================================================
-    # 그래프 검증 메서드
+    # 그래프 위임 메서드
     # ================================================================
 
     def validate_graph(self):
         """워크플로우 그래프의 구조적 유효성을 검사합니다."""
-        self._check_cycles()
-        self._check_start_nodes()
-        self._check_isolation()
+        self.graph.validate()
 
-    def _check_cycles(self):
-        """DFS를 사용하여 그래프 내 순환(Cycle)을 감지합니다."""
-        visited = set()
-        recursion_stack = set()
+    def _get_next_nodes(self, node_id: str, result: Dict[str, Any]) -> List[str]:
+        """현재 노드의 다음 노드 목록을 반환합니다."""
+        return self.graph.get_next_nodes(node_id, result)
 
-        for node_id in self.node_schemas:
-            if node_id not in visited:
-                if self._detect_cycle_dfs(node_id, visited, recursion_stack):
-                    raise ValueError(
-                        f"워크플로우에 순환(Cycle)이 감지되었습니다. 노드 ID: {node_id}"
-                    )
-
-    def _detect_cycle_dfs(self, node_id, visited, recursion_stack):
-        """순환 감지를 위한 DFS 재귀 함수"""
-        visited.add(node_id)
-        recursion_stack.add(node_id)
-
-        for neighbor in self.adjacency_list.get(node_id, []):
-            if neighbor not in visited:
-                if self._detect_cycle_dfs(neighbor, visited, recursion_stack):
-                    return True
-            elif neighbor in recursion_stack:
-                return True
-
-        recursion_stack.remove(node_id)
-        return False
-
-    def _check_start_nodes(self):
-        """시작 노드 유효성 검사 및 ID 캐싱"""
-        start_nodes = [
-            node_id
-            for node_id, node in self.node_schemas.items()
-            if node.type in TRIGGER_TYPES
-        ]
-
-        if len(start_nodes) > 1:
-            raise ValueError(
-                f"워크플로우에 시작 노드가 {len(start_nodes)}개 있습니다. 시작 노드는 1개만 있어야 합니다."
-            )
-        elif len(start_nodes) == 0:
-            raise ValueError(
-                "워크플로우에 시작 노드(type='startNode' or 'webhookTrigger')가 없습니다."
-            )
-
-        self.start_node_id = start_nodes[0]
-
-    def _check_isolation(self):
-        """시작 노드에서 도달 불가능한 고립 노드가 있는지 검사합니다."""
-        start_node_id = self._find_start_node()
-        visited = {start_node_id}
-        queue = [start_node_id]
-
-        while queue:
-            current_node = queue.pop(0)
-            neighbors = self.adjacency_list.get(current_node, [])
-            for neighbor in neighbors:
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    queue.append(neighbor)
-
-        valid_nodes = {
-            node_id
-            for node_id, schema in self.node_schemas.items()
-            if schema.type != "note"
-        }
-
-        isolated_nodes = valid_nodes - visited
-
-        if isolated_nodes:
-            raise ValueError(
-                f"시작 노드에서 도달할 수 없는 고립된 노드가 발견되었습니다. "
-                f"노드 IDs: {list(isolated_nodes)}"
-            )
+    def _is_ready(self, node_id: str, results: Dict) -> bool:
+        """현재 노드에 선행되는 노드가 모두 완료되었는지 확인"""
+        return self.graph.is_ready(node_id, results)
 
     # ================================================================
     # 헬퍼 메서드들
     # ================================================================
 
-    def _find_start_node(self) -> str:
-        """시작 노드 찾기"""
-        if self.start_node_id is None:
-            raise ValueError(
-                "시작 노드가 설정되지 않았습니다. validate_graph()를 먼저 호출해주세요."
-            )
-        return self.start_node_id
-
-    def _get_next_nodes(self, node_id: str, result: Dict[str, Any]) -> List[str]:
-        """현재 노드의 다음 노드 목록을 반환합니다."""
-        selected_handle = result.get("selected_handle")
-
-        if selected_handle is not None:
-            return self.edge_handles.get((node_id, selected_handle), [])
-
-        return self.adjacency_list.get(node_id, [])
-
-    def _is_ready(self, node_id: str, results: Dict) -> bool:
-        """현재 노드에 선행되는 노드가 모두 완료되었는지 확인"""
-        if node_id in self.data_dependencies:
-            required_inputs = self.data_dependencies[node_id]
-        else:
-            required_inputs = self.reverse_graph.get(node_id, [])
-
-        return all(inp in results for inp in required_inputs)
-
-    def _build_optimized_graph(self):
-        """엣지를 분석하여 효율적인 그래프 구조 생성"""
-        for edge in self.edges:
-            self.adjacency_list.setdefault(edge.source, []).append(edge.target)
-            self.reverse_graph.setdefault(edge.target, []).append(edge.source)
-            self.edge_handles.setdefault((edge.source, edge.sourceHandle), []).append(
-                edge.target
-            )
-
-        self._analyze_data_dependencies()
-
     def _build_node_instances(self):
         """NodeSchema를 실제 Node 인스턴스로 변환"""
         for node_id, schema in self.node_schemas.items():
-            if schema.type == "note":
+            if schema.type == NOTE_TYPE:
                 continue
 
             try:
@@ -648,53 +530,16 @@ class WorkflowEngine:
                     f"Cannot create node '{node_id}': {str(e)}"
                 ) from e
 
-    def _analyze_data_dependencies(self):
-        """각 노드의 value_selector를 분석하여 실제 데이터 의존성을 추출합니다."""
-        for node_id, schema in self.node_schemas.items():
-            if schema.type in TRIGGER_TYPES:
-                self.data_dependencies[node_id] = set()
-            else:
-                self.data_dependencies[node_id] = self._extract_value_selectors(schema)
-
-    def _extract_value_selectors(self, schema: NodeSchema) -> set:
-        """NodeSchema의 data에서 모든 value_selector를 추출합니다."""
-        referenced_nodes = set()
-
-        if not schema.data:
-            return referenced_nodes
-
-        data_dict = schema.data if isinstance(schema.data, dict) else schema.data.dict()
-
-        def extract_from_value(value):
-            if isinstance(value, dict):
-                if "value_selector" in value:
-                    selector = value["value_selector"]
-                    if isinstance(selector, list) and len(selector) > 0:
-                        node_id = selector[0]
-                        if isinstance(node_id, str) and node_id in self.node_schemas:
-                            referenced_nodes.add(node_id)
-
-                for v in value.values():
-                    extract_from_value(v)
-
-            elif isinstance(value, list):
-                for item in value:
-                    extract_from_value(item)
-
-        extract_from_value(data_dict)
-        return referenced_nodes
-
     def _get_context(self, node_id: str, results: Dict) -> Dict[str, Any]:
         """현재 노드가 실행에 필요한 모든 입력 데이터를 구성"""
-        node_schema = self.node_schemas.get(node_id)
-        if node_schema and node_schema.type in TRIGGER_TYPES:
+        if self.graph.is_trigger(node_id):
             return self.user_input
 
         return dict(results)
 
     def _get_answer_node_result(self, results: Dict) -> Dict[str, Any]:
         """배포 모드에서 AnswerNode의 결과만 추출하여 반환합니다."""
-        answer_nodes = self.nodes_by_type.get("answerNode", [])
+        answer_nodes = self.graph.nodes_by_type.get("answerNode", [])
 
         for node_id in answer_nodes:
             if node_id in results:
