@@ -51,6 +51,8 @@ class WorkflowEngine:
         if isinstance(graph, dict):
             nodes = [NodeSchema(**node) for node in graph.get("nodes", [])]
             edges = [EdgeSchema(**edge) for edge in graph.get("edges", [])]
+        else:
+            nodes, edges = graph
 
         self.is_deployed = is_deployed
         self.graph = WorkflowGraph(nodes, edges)

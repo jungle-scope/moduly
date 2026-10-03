@@ -21,6 +21,7 @@ import gevent
 import pytest
 
 from apps.shared.celery_app import celery_app
+from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
 from apps.workflow_engine.workflow.core.workflow_engine import WorkflowEngine
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
 
@@ -41,10 +42,11 @@ class FakeNode:
     - raise: 지정 시 해당 메시지로 RuntimeError 발생
     """
 
-    def __init__(self, schema, calls):
+    def __init__(self, schema, calls, finished):
         self.id = schema.id
         self.data = schema.data
         self._calls = calls
+        self._finished = finished
 
     def execute(self, inputs):
         self._calls.append((self.id, dict(inputs)))
@@ -52,6 +54,7 @@ class FakeNode:
             gevent.sleep(self.data["sleep"])
         if self.data.get("raise"):
             raise RuntimeError(self.data["raise"])
+        self._finished.append(self.id)
         return dict(self.data.get("output", {}))
 
 
@@ -60,6 +63,7 @@ class Harness:
 
     def __init__(self):
         self.calls = []  # [(node_id, inputs)]
+        self.finished = []  # 예외/중단 없이 끝까지 실행된 node_id
         self.send_task = MagicMock()
         self.redis = MagicMock()
 
@@ -99,7 +103,7 @@ def harness():
     h = Harness()
 
     def create(schema, context=None):
-        return FakeNode(schema, h.calls)
+        return FakeNode(schema, h.calls, h.finished)
 
     with (
         patch.object(NodeFactory, "create", side_effect=create),
@@ -187,11 +191,20 @@ class TestExecutionModes:
         assert engine.execute() == {"result": "done"}
 
     def test_deployed_without_answer_node_returns_none(self, harness):
-        """[현재 동작] answerNode가 없으면 배포 모드는 None을 반환한다"""
+        """answerNode가 없는 워크플로우(webhook 등)는 배포 모드에서 None을 반환한다"""
         graph = {"nodes": [node("start-1", "startNode")], "edges": []}
         engine = WorkflowEngine(graph=graph, is_deployed=True)
 
         assert engine.execute() is None
+
+    def test_tuple_graph_input(self, harness):
+        """graph는 dict 대신 (nodes, edges) 스키마 튜플로도 받을 수 있다"""
+        graph = linear_graph()
+        nodes = [NodeSchema(**n) for n in graph["nodes"]]
+        edges = [EdgeSchema(**e) for e in graph["edges"]]
+        engine = WorkflowEngine(graph=(nodes, edges), is_deployed=True)
+
+        assert engine.execute() == {"result": "done"}
 
     def test_stream_event_sequence(self, harness):
         """스트림 모드는 workflow_start → node_* → workflow_finish 순으로 이벤트를 낸다"""
@@ -395,8 +408,8 @@ class TestFailures:
         with pytest.raises(RuntimeError, match="boom"):
             engine.execute()
 
-    def test_stream_emits_error_events_instead_of_raising(self, harness):
-        """[현재 동작] 스트림 모드는 예외 대신 error 이벤트를 2번(노드/워크플로우) 낸다"""
+    def test_stream_emits_single_error_event_instead_of_raising(self, harness):
+        """스트림 모드는 예외 대신 실패한 node_id가 담긴 error 이벤트를 1번 낸다"""
         engine = WorkflowEngine(graph=linear_graph(**{"raise": "boom"}))
 
         events = list(engine.execute_stream())
@@ -407,10 +420,46 @@ class TestFailures:
             ("node_finish", "start-1"),
             ("node_start", "answer-1"),
             ("error", "answer-1"),
-            ("error", None),
         ]
-        assert events[-2]["data"] == {"node_id": "answer-1", "message": "boom"}
-        assert events[-1]["data"] == {"message": "boom"}
+        assert events[-1]["data"] == {"node_id": "answer-1", "message": "boom"}
+
+    def test_stream_workflow_timeout_error_has_no_node_id(self, harness):
+        """노드 실패가 아닌 에러(전체 타임아웃)의 error 이벤트에는 node_id가 없다"""
+        graph = {
+            "nodes": [
+                node("start-1", "startNode"),
+                node("slow", "templateNode", sleep=5),
+            ],
+            "edges": [edge("start-1", "slow")],
+        }
+        engine = WorkflowEngine(graph=graph, workflow_timeout=0.2)
+
+        events = list(engine.execute_stream())
+
+        assert events[-1] == {
+            "type": "error",
+            "data": {"message": "Workflow timed out after 0.2 seconds."},
+        }
+
+    @pytest.mark.parametrize("is_deployed", [True, False])
+    def test_failure_kills_running_sibling_nodes(self, harness, is_deployed):
+        """한 노드가 실패하면 아직 실행 중인 다른 노드는 중단된다"""
+        graph = {
+            "nodes": [
+                node("start-1", "startNode"),
+                node("bad", "templateNode", sleep=0.05, **{"raise": "boom"}),
+                node("slow", "templateNode", sleep=0.3),
+            ],
+            "edges": [edge("start-1", "bad"), edge("start-1", "slow")],
+        }
+        engine = WorkflowEngine(graph=graph, is_deployed=is_deployed)
+
+        with pytest.raises(Exception, match="boom"):
+            engine.execute()
+        gevent.sleep(0.5)
+
+        assert "slow" in harness.executed
+        assert "slow" not in harness.finished
 
     def test_failure_stops_downstream_nodes(self, harness):
         """실패한 노드 이후의 노드는 실행되지 않는다"""
@@ -522,7 +571,7 @@ class TestRunLogging:
         assert harness.log_tasks[-1][1]["outputs"] == {"result": "done"}
 
     def test_failure_log_sequence(self, harness):
-        """[현재 동작] 노드 실패 시 log.update_run_error가 2번 전송된다"""
+        """노드 실패 시 노드 에러 로그와 run 에러 로그가 각각 1번 전송된다"""
         engine = WorkflowEngine(
             graph=linear_graph(**{"raise": "boom"}),
             execution_context=dict(LOGGED_CONTEXT),
@@ -538,7 +587,6 @@ class TestRunLogging:
             "log.update_node_finish",
             "log.create_node",
             "log.update_node_error",
-            "log.update_run_error",
             "log.update_run_error",
         ]
         assert harness.log_tasks[4][1]["node_id"] == "answer-1"
@@ -594,22 +642,20 @@ class TestRunLogging:
         assert harness.published == []
         assert engine.execution_context["workflow_run_id"] == parent_run_id
 
-    def test_subworkflow_failure_logs_run_error_once(self, harness):
-        """[현재 동작] 서브 워크플로우도 노드 실패 시 부모 run에 update_run_error를 1번 보낸다"""
-        parent_run_id = str(uuid.uuid4())
+    def test_subworkflow_failure_emits_no_logs_or_events(self, harness):
+        """서브 워크플로우는 실패해도 예외만 던진다 (부모 run의 에러 처리는 부모 엔진 몫)"""
         engine = WorkflowEngine(
             graph=linear_graph(**{"raise": "boom"}),
             execution_context=dict(LOGGED_CONTEXT),
             is_deployed=True,
-            parent_run_id=parent_run_id,
+            parent_run_id=str(uuid.uuid4()),
             is_subworkflow=True,
         )
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError, match="boom"):
             engine.execute()
 
-        assert harness.log_task_names == ["log.update_run_error"]
-        assert harness.log_tasks[0][1]["run_id"] == parent_run_id
+        assert harness.log_task_names == []
         assert harness.published == []
 
 
@@ -659,14 +705,16 @@ class TestPubSub:
 
         assert harness.published[-1][1:] == ("workflow_finish", {"result": "done"})
 
-    def test_deployed_failure_publishes_single_error_event(self, harness):
+    @pytest.mark.parametrize("is_deployed", [True, False])
+    def test_execute_failure_publishes_single_error_event(self, harness, is_deployed):
+        """배포/개발 모드 모두 실패 시 error 이벤트와 run 에러 로그가 1번씩 나간다"""
         engine = WorkflowEngine(
             graph=linear_graph(**{"raise": "boom"}),
             execution_context=dict(LOGGED_CONTEXT),
-            is_deployed=True,
+            is_deployed=is_deployed,
         )
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(Exception, match="boom"):
             engine.execute()
 
         assert harness.published_types == [
@@ -676,9 +724,9 @@ class TestPubSub:
             "error",
         ]
         assert harness.published[-1][2] == {"message": "boom"}
+        assert harness.log_task_names.count("log.update_run_error") == 1
 
     def test_stream_failure_publishes_single_error_event(self, harness):
-        """스트림을 끝까지 소비하면 error가 1번 발행되고 run error 로그는 2번 전송된다"""
         engine = WorkflowEngine(
             graph=linear_graph(**{"raise": "boom"}),
             execution_context=dict(LOGGED_CONTEXT),
@@ -686,24 +734,7 @@ class TestPubSub:
 
         list(engine.execute_stream())
 
-        assert harness.published_types[-1] == "error"
         assert harness.published_types.count("error") == 1
-        assert harness.log_task_names.count("log.update_run_error") == 2
-
-    def test_dev_execute_failure_publishes_no_error_event(self, harness):
-        """
-        [현재 동작] 개발 모드 execute()는 첫 error 이벤트에서 스트림 소비를 중단하므로
-        Pub/Sub error는 발행되지 않고 run error 로그만 1번 전송된다
-        """
-        engine = WorkflowEngine(
-            graph=linear_graph(**{"raise": "boom"}),
-            execution_context=dict(LOGGED_CONTEXT),
-        )
-
-        with pytest.raises(ValueError, match="boom"):
-            engine.execute()
-
-        assert "error" not in harness.published_types
         assert harness.log_task_names.count("log.update_run_error") == 1
 
 

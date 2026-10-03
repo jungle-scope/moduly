@@ -116,15 +116,6 @@ class RunReporter:
             },
         )
 
-    def node_failed(self, node_id: str, error_msg: str) -> Dict[str, Any]:
-        """
-        노드 실패로 워크플로우가 중단될 때: run 에러 로그 + 스트림용 error 이벤트 반환
-
-        NOTE: 서브 워크플로우 여부와 무관하게 run 에러 로그를 남깁니다. (기존 동작 유지)
-        """
-        self.logger.update_run_log_error(error_msg)
-        return {"type": "error", "data": {"node_id": node_id, "message": error_msg}}
-
     # ================================================================
     # 워크플로우 이벤트
     # ================================================================
@@ -140,12 +131,22 @@ class RunReporter:
         self._publish("workflow_finish", final_data)
         return {"type": "workflow_finish", "data": final_data}
 
-    def workflow_failed(self, error_msg: str) -> Dict[str, Any]:
-        """워크플로우 실패: run 에러 로그 + Pub/Sub 발행, error 이벤트 반환"""
+    def workflow_failed(
+        self, error_msg: str, node_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        워크플로우 실패: run 에러 로그 + Pub/Sub 발행, error 이벤트 반환
+
+        노드 실패로 중단된 경우 반환하는 스트림 이벤트에 node_id를 포함합니다.
+        """
         if not self.is_subworkflow:
             self.logger.update_run_log_error(error_msg)
         self._publish("error", {"message": error_msg})
-        return {"type": "error", "data": {"message": error_msg}}
+
+        data = {"message": error_msg}
+        if node_id is not None:
+            data = {"node_id": node_id, **data}
+        return {"type": "error", "data": data}
 
     # ================================================================
     # 스트림 큐

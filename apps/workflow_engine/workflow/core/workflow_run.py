@@ -11,7 +11,7 @@ WorkflowEngine.execute*() 호출마다 새로 만들어지므로, 엔진은 여�
 """
 
 import time
-from typing import Any, Dict, Iterator, Set
+from typing import Any, Dict, Iterator, Optional, Set
 
 import gevent
 from gevent.pool import Pool
@@ -62,6 +62,7 @@ class WorkflowRun:
         - 배포 모드: workflow_finish만 yield, 실패 시 예외 발생
         """
         start_node = self.graph.find_start_node()
+        failed_node_id = None
 
         try:
             if self.stream_mode:
@@ -89,13 +90,8 @@ class WorkflowRun:
 
                     try:
                         self.results[node_id] = greenlet.get()
-                    except Exception as e:
-                        error_event = self.reporter.node_failed(node_id, str(e))
-
-                        if self.stream_mode:
-                            yield error_event
-
-                        self._kill_running()
+                    except Exception:
+                        failed_node_id = node_id
                         raise
 
                     self._schedule_ready_successors(node_id)
@@ -106,7 +102,10 @@ class WorkflowRun:
             yield self.reporter.workflow_finished(self._final_data())
 
         except Exception as e:
-            error_event = self.reporter.workflow_failed(str(e))
+            # 이벤트를 내보내기 전에 정리: 소비자가 error 이벤트에서 제너레이터를
+            # 그만 읽더라도 실행 중인 노드가 남지 않도록 함
+            self._kill_running()
+            error_event = self.reporter.workflow_failed(str(e), node_id=failed_node_id)
 
             if not self.stream_mode:
                 raise
@@ -132,10 +131,10 @@ class WorkflowRun:
     def _check_timeout(self):
         """전체 타임아웃 체크"""
         if time.time() - self.started_at > self.timeout:
-            self._kill_running()
             raise TimeoutError(f"Workflow timed out after {self.timeout} seconds.")
 
     def _kill_running(self):
+        """아직 실행 중인 노드 greenlet을 모두 중단"""
         for greenlet in self.running:
             greenlet.kill()
 
@@ -145,13 +144,19 @@ class WorkflowRun:
             return dict(self.results)
         return self._get_answer_node_result()
 
-    def _get_answer_node_result(self) -> Dict[str, Any]:
-        """배포 모드에서 AnswerNode의 결과만 추출하여 반환합니다."""
+    def _get_answer_node_result(self) -> Optional[Dict[str, Any]]:
+        """
+        배포 모드에서 AnswerNode의 결과만 추출하여 반환합니다.
+
+        실행된 AnswerNode가 없으면 None (webhook/schedule 트리거 워크플로우 등)
+        """
         answer_nodes = self.graph.nodes_by_type.get("answerNode", [])
 
         for node_id in answer_nodes:
             if node_id in self.results:
                 return self.results[node_id]
+
+        return None
 
     # ================================================================
     # 노드 실행
