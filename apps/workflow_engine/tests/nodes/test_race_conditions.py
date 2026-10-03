@@ -187,7 +187,7 @@ class TestExecutionContextFreeze:
 
         # Execute (consumes the generator)
         with patch(
-            "apps.workflow_engine.workflow.core.workflow_engine.publish_workflow_event"
+            "apps.workflow_engine.workflow.core.run_reporter.publish_workflow_event"
         ):
             for event in engine._execute_core(stream_mode=False):
                 pass
@@ -224,7 +224,7 @@ class TestExecutionContextFreeze:
 
         # Execute then cleanup — should not raise
         with patch(
-            "apps.workflow_engine.workflow.core.workflow_engine.publish_workflow_event"
+            "apps.workflow_engine.workflow.core.run_reporter.publish_workflow_event"
         ):
             for event in engine._execute_core(stream_mode=False):
                 pass

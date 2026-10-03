@@ -7,16 +7,14 @@ WorkflowEngine - Gevent-based Workflow Execution Engine
 import time
 import types
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 import gevent
 from gevent.pool import Pool
-from gevent.queue import Queue
 from sqlalchemy.orm import Session
 
-from apps.shared.pubsub import publish_workflow_event  # [GEVENT] Use sync version
 from apps.shared.schemas.workflow import EdgeSchema, NodeSchema
+from apps.workflow_engine.workflow.core.run_reporter import NodeRun, RunReporter
 from apps.workflow_engine.workflow.core.workflow_graph import NOTE_TYPE, WorkflowGraph
 from apps.workflow_engine.workflow.core.workflow_logger import WorkflowLogger
 from apps.workflow_engine.workflow.core.workflow_node_factory import NodeFactory
@@ -213,23 +211,21 @@ class WorkflowEngine:
         # [GEVENT] Pool for concurrency control
         pool = Pool(size=MAX_CONCURRENT_NODES)
 
-        # [GEVENT] 이벤트 큐
-        event_queue = Queue() if stream_mode else None
+        # 로그 / Pub/Sub / 스트림 이벤트 발행
+        reporter = RunReporter(
+            logger=self.logger,
+            run_id=self.execution_context.get("workflow_run_id"),
+            is_subworkflow=self.is_subworkflow,
+            stream_mode=stream_mode,
+        )
 
         try:
             # 워크플로우 시작 이벤트
             if stream_mode:
-                yield {"type": "workflow_start", "data": {}}
+                yield reporter.workflow_started()
 
             # 초기 시작 노드 실행
-            self._submit_node(
-                start_node,
-                results,
-                running_greenlets,
-                stream_mode,
-                pool,
-                event_queue,
-            )
+            self._submit_node(start_node, results, running_greenlets, pool, reporter)
 
             while running_greenlets:
                 # 전체 타임아웃 체크
@@ -244,13 +240,7 @@ class WorkflowEngine:
                     raise TimeoutError(error_msg)
 
                 # [GEVENT] 이벤트 큐 처리
-                if stream_mode and event_queue:
-                    while not event_queue.empty():
-                        try:
-                            event = event_queue.get_nowait()
-                            yield event
-                        except Exception:
-                            break
+                yield from reporter.drain_events()
 
                 # [GEVENT] 완료된 greenlet 확인
                 completed = []
@@ -273,14 +263,10 @@ class WorkflowEngine:
                         results[node_id] = node_result
 
                     except Exception as e:
-                        error_msg = str(e)
-                        self.logger.update_run_log_error(error_msg)
+                        error_event = reporter.node_failed(node_id, str(e))
 
                         if stream_mode:
-                            yield {
-                                "type": "error",
-                                "data": {"node_id": node_id, "message": error_msg},
-                            }
+                            yield error_event
 
                         for g in running_greenlets:
                             g.kill()
@@ -301,19 +287,12 @@ class WorkflowEngine:
                                 next_node_id,
                                 results,
                                 running_greenlets,
-                                stream_mode,
                                 pool,
-                                event_queue,
+                                reporter,
                             )
 
             # 남은 이벤트 모두 전달
-            if stream_mode and event_queue:
-                while not event_queue.empty():
-                    try:
-                        event = event_queue.get_nowait()
-                        yield event
-                    except Exception:
-                        break
+            yield from reporter.drain_events()
 
             # 워크플로우 종료
             # 스트림 모드는 전체 결과를, 배포 모드는 AnswerNode 결과만 반환
@@ -322,28 +301,16 @@ class WorkflowEngine:
             else:
                 final_data = self._get_answer_node_result(results)
 
-            run_id = self.execution_context.get("workflow_run_id")
-            if not self.is_subworkflow:
-                self.logger.update_run_log_finish(final_data)
-                if run_id:
-                    publish_workflow_event(run_id, "workflow_finish", final_data)
-            yield {"type": "workflow_finish", "data": final_data}
+            yield reporter.workflow_finished(final_data)
 
         except Exception as e:
-            error_msg = str(e)
-            run_id = self.execution_context.get("workflow_run_id")
-            if not self.is_subworkflow:
-                self.logger.update_run_log_error(error_msg)
-                if run_id:
-                    publish_workflow_event(run_id, "error", {"message": error_msg})
+            error_event = reporter.workflow_failed(str(e))
 
             if not stream_mode:
                 raise
-            yield {"type": "error", "data": {"message": error_msg}}
+            yield error_event
 
-    def _submit_node(
-        self, node_id, results, running_greenlets, stream_mode, pool, event_queue
-    ):
+    def _submit_node(self, node_id, results, running_greenlets, pool, reporter):
         """
         개별 노드를 실행하기 위해 Greenlet 생성
 
@@ -357,39 +324,7 @@ class WorkflowEngine:
 
         inputs = self._get_context(node_id, results)
 
-        started_at = datetime.now(timezone.utc)
-
-        node_options_snapshot = None
-        log_id = None
-
-        if not self.is_subworkflow:
-            node_options_snapshot = self._extract_node_options(node_schema)
-            log_id = self.logger.create_node_log(
-                node_id,
-                node_schema.type,
-                inputs,
-                process_data=node_options_snapshot,
-            )
-
-        # Redis Pub/Sub 이벤트 발행
-        run_id = self.execution_context.get("workflow_run_id")
-        if run_id and not self.is_subworkflow:
-            publish_workflow_event(
-                run_id,
-                "node_start",
-                {
-                    "node_id": node_id,
-                    "node_type": node_schema.type,
-                },
-            )
-
-        if stream_mode and event_queue:
-            event_queue.put(
-                {
-                    "type": "node_start",
-                    "data": {"node_id": node_id, "node_type": node_schema.type},
-                }
-            )
+        node_run = reporter.node_started(node_id, node_schema, inputs)
 
         def _execute_with_event():
             """노드 실행 및 이벤트 발행 래퍼"""
@@ -402,45 +337,14 @@ class WorkflowEngine:
             try:
                 # [GEVENT] 타임아웃 적용
                 with gevent.Timeout(node_timeout):
-                    result = self._execute_node_task(
-                        node_id,
-                        node_schema,
-                        node_instance,
-                        inputs,
-                        log_id,
-                        node_options_snapshot,
-                        started_at,
-                    )
+                    result = self._execute_node_task(node_instance, node_run, reporter)
 
             except gevent.Timeout:
                 raise TimeoutError(
                     f"Node '{node_id}' ({node_schema.type}) timed out after {node_timeout} seconds."
                 )
 
-            # node_finish 이벤트 발행
-            run_id = self.execution_context.get("workflow_run_id")
-            if run_id and not self.is_subworkflow:
-                publish_workflow_event(
-                    run_id,
-                    "node_finish",
-                    {
-                        "node_id": node_id,
-                        "node_type": node_schema.type,
-                        "output": result,
-                    },
-                )
-
-            if stream_mode and event_queue:
-                event_queue.put(
-                    {
-                        "type": "node_finish",
-                        "data": {
-                            "node_id": node_id,
-                            "node_type": node_schema.type,
-                            "output": result,
-                        },
-                    }
-                )
+            reporter.node_finished(node_run, result)
 
             return {"result": result}
 
@@ -448,16 +352,7 @@ class WorkflowEngine:
         greenlet = pool.spawn(_execute_with_event)
         running_greenlets[greenlet] = node_id
 
-    def _execute_node_task(
-        self,
-        node_id,
-        node_schema,
-        node_instance,
-        inputs,
-        log_id=None,
-        node_options_snapshot=None,
-        started_at=None,
-    ):
+    def _execute_node_task(self, node_instance, node_run: NodeRun, reporter):
         """
         개별 노드를 실행하는 작업
 
@@ -465,35 +360,13 @@ class WorkflowEngine:
         """
         try:
             # 노드 실행 (핵심) - 동기 실행
-            result = node_instance.execute(inputs)
-
-            # 노드 완료 로깅
-            if not self.is_subworkflow:
-                self.logger.update_node_log_finish(
-                    log_id,
-                    node_id,
-                    result,
-                    node_type=node_schema.type,
-                    inputs=inputs,
-                    process_data=node_options_snapshot,
-                    started_at=started_at,
-                )
-
+            result = node_instance.execute(node_run.inputs)
+            reporter.node_log_finished(node_run, result)
             return result
 
         except Exception as e:
-            error_msg = str(e)
-            if not self.is_subworkflow:
-                self.logger.update_node_log_error(
-                    log_id,
-                    node_id,
-                    error_msg,
-                    node_type=node_schema.type,
-                    inputs=inputs,
-                    process_data=node_options_snapshot,
-                    started_at=started_at,
-                )
-            raise e
+            reporter.node_log_failed(node_run, str(e))
+            raise
 
     # ================================================================
     # 그래프 위임 메서드
@@ -544,15 +417,3 @@ class WorkflowEngine:
         for node_id in answer_nodes:
             if node_id in results:
                 return results[node_id]
-
-    def _extract_node_options(self, node_schema) -> Dict[str, Any]:
-        """노드 설정을 process_data용 스냅샷으로 추출합니다."""
-        try:
-            data = dict(node_schema.data) if node_schema.data else {}
-
-            return {
-                "node_options": data,
-                "node_title": data.get("title", ""),
-            }
-        except Exception:
-            return {}
